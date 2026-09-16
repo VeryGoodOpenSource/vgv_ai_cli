@@ -24,6 +24,18 @@ jobs:
   semantic-pull-request:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v1
 
+  # TODO: Revert to the reusable `dart_package.yml` workflow once
+  # very_good_workflows 1.21.1 is released. That release bundles
+  # very_good_cli 1.5.0, which adds pub workspace support and fixes the
+  # coverage collection error (`.dart_tool/package_config.json` not found).
+  # Until then, this inline job pins very_good_cli ^1.5.0 manually.
+  #
+  # Replacement once 1.21.1 is out:
+  #   build:
+  #     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v1.21.1
+  #     with:
+  #       dart_sdk: "3.13.0"
+  #       working_directory: packages/vgv_ai_cli
   build:
     runs-on: ubuntu-latest
     defaults:
