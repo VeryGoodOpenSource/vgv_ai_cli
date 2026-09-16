@@ -1,0 +1,9 @@
+name: vgv_ai_cli_workspace
+description: Workspace root for the Very Good AI CLI monorepo.
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - packages/vgv_ai_cli
