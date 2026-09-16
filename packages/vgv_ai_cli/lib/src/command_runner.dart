@@ -8,7 +8,8 @@ import 'package:vgv_ai_cli/src/version.dart';
 
 const executableName = 'vgv_ai';
 const packageName = 'vgv_ai_cli';
-const description = 'A CLI that configures Very Good AI coding agents and tooling';
+const description =
+    'A CLI that configures Very Good AI coding agents and tooling';
 
 /// {@template vgv_ai_cli_command_runner}
 /// A [CommandRunner] for the CLI.
