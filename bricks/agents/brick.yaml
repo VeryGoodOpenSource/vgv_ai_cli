@@ -32,11 +32,6 @@ vars:
     default: true
     description: Configure Pi.
     prompt: Configure Pi?
-  marketplace:
-    type: string
-    default: VeryGoodOpenSource/very_good_claude_marketplace
-    description: The Claude Code marketplace hosting the VGV plugins.
-    prompt: Which marketplace hosts the VGV plugins?
   skills_root:
     type: string
     default: ~/.agents/skills

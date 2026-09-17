@@ -39,7 +39,7 @@ jobs:
     with:
       includes: |
         **/*.md
-        !bricks/**/*.md
+        !bricks/**/__brick__/**
         .*/**/*.md
       modified_files_only: false
 
@@ -61,23 +61,19 @@ jobs:
           sdk: "3.13.0"
 
       - name: 🧱 Install Mason
-        run: dart pub global activate mason_cli
+        run: dart pub global activate mason_cli 0.1.3
 
       - name: 🔄 Regenerate bundle
-        run: ./tool/generate_agents_bundle.sh
+        run: dart run tool/generate_agents_bundle.dart
 
       - name: 🔎 Verify bundle is up to date
         run: |
-          bundle="packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart"
-          if ! git diff --exit-code --quiet "$bundle"; then
-            echo "::error::$bundle has uncommitted changes after regeneration."
-            echo "Run tool/generate_agents_bundle.sh and commit the result."
-            git diff "$bundle"
-            exit 1
-          fi
-          if [ -n "$(git status --porcelain packages/vgv_ai_cli/lib/src/templates)" ]; then
-            echo "::error::Untracked or deleted bundle files detected."
-            git status --porcelain packages/vgv_ai_cli/lib/src/templates
+          templates="packages/vgv_ai_cli/lib/src/templates"
+          if [ -n "$(git status --porcelain "$templates")" ]; then
+            echo "::error::$templates changed after regenerating the bundle."
+            echo "Run dart run tool/generate_agents_bundle.dart and commit the result."
+            git status --porcelain "$templates"
+            git diff -- "$templates"
             exit 1
           fi
 

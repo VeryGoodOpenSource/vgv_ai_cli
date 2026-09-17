@@ -24,9 +24,6 @@ class _TestContext implements HookContext {
 
   @override
   set vars(Map<String, dynamic> value) => _vars = value;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 const _marketplace = 'VeryGoodOpenSource/very_good_claude_marketplace';
@@ -37,7 +34,6 @@ const _baseVars = <String, dynamic>{
   'codex': false,
   'opencode': false,
   'pi': false,
-  'marketplace': _marketplace,
   'skills_root': '~/.agents/skills',
 };
 
@@ -54,6 +50,18 @@ void main() {
       expect(
         (context.logger as _TestLogger).errors.single,
         contains('No harness selected'),
+      );
+    });
+
+    test('throws and logs when a required var is missing', () async {
+      final context = _TestContext(
+        {..._baseVars}..removeWhere((key, _) => key == 'skills_root'),
+      );
+
+      await expectLater(run(context), throwsA(isA<Exception>()));
+      expect(
+        (context.logger as _TestLogger).errors.single,
+        'Missing required var: skills_root.',
       );
     });
 
@@ -95,7 +103,7 @@ void main() {
         _marketplace: {'source': 'github', 'repo': _marketplace},
       });
       expect(settings['enabledPlugins'], {
-        for (final plugin in vgvPlugins) '$plugin@$_marketplace': true,
+        for (final plugin in vgvPlugins) '${plugin.name}@$_marketplace': true,
       });
     });
 
@@ -184,6 +192,27 @@ void main() {
       expect(server.containsKey('environment'), isFalse);
     });
 
+    test('forwards a populated env to OpenCode', () async {
+      final context = _TestContext({
+        ..._baseVars,
+        'mcp_servers': {
+          'very-good-cli': {
+            'command': 'very_good',
+            'args': ['mcp'],
+            'env': {'VGV_TOKEN': 'abc123'},
+          },
+        },
+      });
+
+      await run(context);
+
+      final mcp =
+          _decode(context, 'opencode_config_json')['mcp']
+              as Map<String, dynamic>;
+      final server = mcp['very-good-cli'] as Map<String, dynamic>;
+      expect(server['environment'], {'VGV_TOKEN': 'abc123'});
+    });
+
     test('points Pi at the canonical skills root', () async {
       final context = _TestContext({..._baseVars});
 
@@ -208,13 +237,40 @@ void main() {
 
       await run(context);
 
-      expect(context.vars['codex_config_toml'], '''
-[mcp_servers.dart]
-command = "dart"
-args = ["mcp-server"]
+      expect(
+        context.vars['codex_config_toml'],
+        '[mcp_servers.dart]\n'
+        "command = 'dart'\n"
+        "args = ['mcp-server']\n"
+        '\n'
+        '[mcp_servers.context7]\n'
+        "url = 'https://mcp.context7.com/mcp'",
+      );
+    });
 
-[mcp_servers.context7]
-url = "https://mcp.context7.com/mcp"''');
+    test('emits a Codex env sub-table when a server carries one', () async {
+      final context = _TestContext({
+        ..._baseVars,
+        'mcp_servers': {
+          'very-good-cli': {
+            'command': 'very_good',
+            'args': ['mcp'],
+            'env': {'VGV_TOKEN': 'abc123'},
+          },
+        },
+      });
+
+      await run(context);
+
+      expect(
+        context.vars['codex_config_toml'],
+        '[mcp_servers.very-good-cli]\n'
+        "command = 'very_good'\n"
+        "args = ['mcp']\n"
+        '\n'
+        '[mcp_servers.very-good-cli.env]\n'
+        "VGV_TOKEN = 'abc123'",
+      );
     });
 
     test('emits a comment when Codex has no servers', () async {

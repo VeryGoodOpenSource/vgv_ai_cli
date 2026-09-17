@@ -1,107 +1,66 @@
-import 'dart:convert';
-
+import 'package:hooks/models/models.dart';
 import 'package:mason/mason.dart';
 
-/// Harness flags the brick understands, in reporting order.
-const harnesses = <String>['claude', 'gemini', 'codex', 'opencode', 'pi'];
+/// Harnesses the brick understands, in reporting order.
+const harnesses = <Harness>[
+  Harness.claude(),
+  Harness.gemini(),
+  Harness.codex(),
+  Harness.opencode(),
+  Harness.pi(),
+];
 
 /// Plugins enabled on the Claude Code side.
-const vgvPlugins = <String>['vgv-wingspan', 'vgv-ai-flutter-plugin'];
-
-const _json = JsonEncoder.withIndent('  ');
+const vgvPlugins = <VgvPlugin>[VgvPlugin.wingspan(), VgvPlugin.aiFlutter()];
 
 /// Prepares the vars the `agents` templates render against.
 ///
 /// The settings fragments are built here rather than in mustache. A template
 /// loop cannot know which iteration is last, so it cannot place separators
 /// correctly, and any JSON or TOML it produced would have to be re-indented
-/// anyway. The templates keep what they are good at: choosing which files
-/// exist per harness, and composing the markdown block from partials.
+/// anyway. The templates keep what they are good at: choosing which settings
+/// fragment exists per harness.
 Future<void> run(HookContext context) async {
   final vars = Map<String, dynamic>.from(context.vars);
 
-  final selected = harnesses.where((h) => vars[h] == true).toList();
+  final selected = harnesses.where((h) => vars[h.flag] == true).toList();
   if (selected.isEmpty) {
-    context.logger.err(
-      'No harness selected. Enable at least one of: ${harnesses.join(', ')}.',
-    );
+    final flags = harnesses.map((h) => h.flag).join(', ');
+    context.logger.err('No harness selected. Enable at least one of: $flags.');
     throw Exception('no harness selected');
   }
 
-  final skills = _listOfMaps(vars['skills']);
-  final agents = _listOfMaps(vars['agents']);
-  final mcpServers = _mapOfMaps(vars['mcp_servers']);
-  final marketplace = vars['marketplace'] as String;
-  final skillsRoot = vars['skills_root'] as String;
+  final agents = _agents(vars['agents']);
+  final skills = _skills(vars['skills']);
+  final mcpServers = _mcpServers(vars['mcp_servers']);
+  final skillsRoot = vars['skills_root'] as String?;
 
-  context.vars = {
-    ...vars,
-    'skills': skills,
-    'agents': agents,
-    'has_skills': skills.isNotEmpty,
-    'has_agents': agents.isNotEmpty,
-    'claude_settings_json': _json.convert({
-      'extraKnownMarketplaces': {
-        marketplace: {'source': 'github', 'repo': marketplace},
-      },
-      'enabledPlugins': {
-        for (final plugin in vgvPlugins) '$plugin@$marketplace': true,
-      },
-    }),
-    'gemini_settings_json': _json.convert({
-      'context': {'fileName': 'AGENTS.md'},
-      'mcpServers': mcpServers,
-    }),
-    'opencode_config_json': _json.convert({
-      r'$schema': 'https://opencode.ai/config.json',
-      'mcp': _toOpenCode(mcpServers),
-      'instructions': ['AGENTS.md'],
-    }),
-    'pi_settings_json': _json.convert({
-      'skills': [skillsRoot],
-    }),
-    'codex_config_toml': _toCodexToml(mcpServers),
-  };
-}
-
-/// OpenCode merges command and args into a single array and types each server.
-Map<String, dynamic> _toOpenCode(Map<String, Map<String, dynamic>> servers) {
-  return servers.map((name, server) {
-    final url = server['url'];
-    if (url is String) {
-      return MapEntry(name, <String, dynamic>{'type': 'remote', 'url': url});
-    }
-    return MapEntry(name, <String, dynamic>{
-      'type': 'local',
-      'command': <String>[
-        server['command'] as String? ?? '',
-        ...(server['args'] as List? ?? const []).cast<String>(),
-      ],
-      if (server['env'] case final Map<dynamic, dynamic> env
-          when env.isNotEmpty)
-        'environment': env,
-    });
-  });
-}
-
-/// Codex declares servers as `[mcp_servers.<name>]` tables in TOML.
-String _toCodexToml(Map<String, Map<String, dynamic>> servers) {
-  if (servers.isEmpty) return '# No MCP servers were resolved.';
-  final buffer = StringBuffer();
-  for (final MapEntry(key: name, value: server) in servers.entries) {
-    buffer.writeln('[mcp_servers.$name]');
-    final url = server['url'];
-    if (url is String) {
-      buffer.writeln('url = ${jsonEncode(url)}');
-    } else {
-      buffer.writeln('command = ${jsonEncode(server['command'])}');
-      final args = (server['args'] as List? ?? const []).cast<String>();
-      if (args.isNotEmpty) buffer.writeln('args = ${jsonEncode(args)}');
-    }
-    buffer.writeln();
+  if (skillsRoot == null) {
+    context.logger.err('Missing required var: skills_root.');
+    throw Exception('missing required var');
   }
-  return buffer.toString().trimRight();
+
+  final configuration = AgentsConfiguration(
+    skills: skills,
+    agents: agents,
+    claudeSettings: ClaudeSettings.forMarketplace(
+      const Marketplace.veryGood(),
+      vgvPlugins,
+    ),
+    geminiSettings: GeminiSettings.fromServers(mcpServers),
+    openCodeConfig: OpenCodeConfig.fromServers(mcpServers),
+    piSettings: PiSettings([skillsRoot]),
+    codexConfig: CodexConfig.fromServers(mcpServers),
+  );
+
+  context.vars = {...vars, ...configuration.toVars()};
 }
+
+List<Skill> _skills(Object? value) =>
+    _listOfMaps(value).map(Skill.fromJson).toList();
+
+List<Agent> _agents(Object? value) =>
+    _listOfMaps(value).map(Agent.fromJson).toList();
 
 List<Map<String, dynamic>> _listOfMaps(Object? value) {
   if (value is! List) return const [];
@@ -111,10 +70,10 @@ List<Map<String, dynamic>> _listOfMaps(Object? value) {
       .toList();
 }
 
-Map<String, Map<String, dynamic>> _mapOfMaps(Object? value) {
+Map<String, McpServer> _mcpServers(Object? value) {
   if (value is! Map) return const {};
   return {
     for (final MapEntry(:key, :value) in value.entries)
-      if (value is Map) '$key': Map<String, dynamic>.from(value),
+      if (value is Map) '$key': McpServer.fromVars(value),
   };
 }

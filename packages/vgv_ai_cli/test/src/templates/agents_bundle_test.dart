@@ -26,7 +26,6 @@ Map<String, dynamic> _vars({
     'codex': codex,
     'opencode': opencode,
     'pi': pi,
-    'marketplace': _marketplace,
     'skills_root': '~/.agents/skills',
     if (populated) ...{
       'skills': [
@@ -88,7 +87,6 @@ void main() {
       expect(_paths(dir), [
         'claude_settings.fragment.json',
         'opencode.fragment.json',
-        'vgv_block.md',
       ]);
     });
 
@@ -109,23 +107,15 @@ void main() {
         'gemini_settings.fragment.json',
         'opencode.fragment.json',
         'pi_settings.fragment.json',
-        'vgv_block.md',
       ]);
-    });
-
-    test('always generates the instruction block', () async {
-      final dir = await _render(_vars(pi: true));
-
-      expect(_paths(dir), contains('vgv_block.md'));
     });
 
     test('fails when no harness is selected', () async {
       await expectLater(_render(_vars()), throwsA(isA<Exception>()));
     });
 
-    // Partials render leniently: an unresolved `{{> name }}` becomes an empty
-    // string rather than an error. These two tests are the only thing standing
-    // between a typo in a partial name and silently truncated output.
+    // A typo in a fragment name would leave `{{ ... }}` unrendered. This is the
+    // only thing standing between such a typo and silently truncated output.
     test('leaves no unrendered mustache behind', () async {
       final dir = await _render(
         _vars(
@@ -167,41 +157,6 @@ void main() {
           reason: '$path is suspiciously short: $contents',
         );
       }
-    });
-
-    test('composes every partial into the instruction block', () async {
-      final dir = await _render(_vars(claude: true));
-      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
-
-      expect(block, startsWith('<!-- vgv:begin -->'));
-      expect(block.trimRight(), endsWith('<!-- vgv:end -->'));
-      for (final heading in ['## Workflow', '## Skills', '## Agents']) {
-        expect(block, contains(heading));
-      }
-      expect(block, contains('## Required tooling'));
-    });
-
-    test('renders the resolved skills and agents into the block', () async {
-      final dir = await _render(_vars(claude: true));
-      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
-
-      expect(
-        block,
-        contains('| `testing` | Writing or reviewing Dart tests. |'),
-      );
-      expect(block, contains('| `bloc` | Bloc state management. |'));
-      expect(
-        block,
-        contains('| `flutter-reviewer` | Read-only Dart review. |'),
-      );
-    });
-
-    test('says so when nothing was resolved', () async {
-      final dir = await _render(_vars(claude: true, populated: false));
-      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
-
-      expect(block, contains('No skills were resolved.'));
-      expect(block, contains('No agents were resolved.'));
     });
 
     test('does not html-escape paths', () async {
