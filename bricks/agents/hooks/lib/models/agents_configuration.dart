@@ -1,9 +1,6 @@
 import 'dart:convert';
 
-import 'package:hooks/models/named_entry.dart';
-import 'package:hooks/models/settings/settings.dart';
-
-const _json = JsonEncoder.withIndent('  ');
+import 'package:hooks/models/models.dart';
 
 /// {@template agents_configuration}
 /// The rendered configuration the `agents` templates render against.
@@ -22,6 +19,7 @@ class const AgentsConfiguration({
   required final OpenCodeConfig openCodeConfig,
   required final PiSettings piSettings,
   required final CodexConfig codexConfig,
+  final JsonEncoder encoder = const JsonEncoder.withIndent('  '),
 }) {
   /// Whether any skills were resolved.
   bool get hasSkills => skills.isNotEmpty;
@@ -35,10 +33,10 @@ class const AgentsConfiguration({
     'agents': [for (final agent in agents) agent.toJson()],
     'has_skills': hasSkills,
     'has_agents': hasAgents,
-    'claude_settings_json': _json.convert(claudeSettings.toJson()),
-    'gemini_settings_json': _json.convert(geminiSettings.toJson()),
-    'opencode_config_json': _json.convert(openCodeConfig.toJson()),
-    'pi_settings_json': _json.convert(piSettings.toJson()),
+    'claude_settings_json': encoder.convert(claudeSettings.toJson()),
+    'gemini_settings_json': encoder.convert(geminiSettings.toJson()),
+    'opencode_config_json': encoder.convert(openCodeConfig.toJson()),
+    'pi_settings_json': encoder.convert(piSettings.toJson()),
     'codex_config_toml': codexConfig.toToml(),
   };
 }

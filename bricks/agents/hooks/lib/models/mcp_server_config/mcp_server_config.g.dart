@@ -6,7 +6,7 @@ part of 'mcp_server_config.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Map<String, dynamic> _$McpServerConfigToJson(McpServerConfig instance) =>
+Map<String, dynamic> _$MCPServerConfigToJson(MCPServerConfig instance) =>
     <String, dynamic>{
       'command': ?instance.command,
       'args': ?instance.args,

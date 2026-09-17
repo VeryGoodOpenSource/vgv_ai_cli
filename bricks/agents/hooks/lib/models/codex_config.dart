@@ -1,5 +1,5 @@
 import 'package:hooks/models/mcp_server.dart';
-import 'package:hooks/models/settings/mcp_server_config.dart';
+import 'package:hooks/models/mcp_server_config/mcp_server_config.dart';
 import 'package:toml/toml.dart';
 
 /// {@template codex_config}
@@ -7,13 +7,13 @@ import 'package:toml/toml.dart';
 ///
 /// Codex declares servers as `[mcp_servers.<name>]` tables. The `toml` package
 /// owns serialization so the model never hand-formats tables or quoting; each
-/// server is serialized to a map by its [McpServerConfig] first.
+/// server is serialized to a map by its [MCPServerConfig] first.
 /// {@endtemplate}
-class const CodexConfig(final Map<String, McpServerConfig> servers) {
+class const CodexConfig(final Map<String, MCPServerConfig> servers) {
   /// Builds the config from the resolved [servers].
-  factory fromServers(Map<String, McpServer> servers) => CodexConfig({
+  factory fromServers(Map<String, MCPServer> servers) => CodexConfig({
     for (final MapEntry(:key, :value) in servers.entries)
-      key: McpServerConfig.fromMcpServer(value),
+      key: MCPServerConfig.fromMCPServer(value),
   });
 
   /// Serializes the config fragment to TOML.

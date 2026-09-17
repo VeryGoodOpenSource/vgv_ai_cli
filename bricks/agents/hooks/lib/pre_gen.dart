@@ -11,7 +11,7 @@ const harnesses = <Harness>[
 ];
 
 /// Plugins enabled on the Claude Code side.
-const vgvPlugins = <VgvPlugin>[VgvPlugin.wingspan(), VgvPlugin.aiFlutter()];
+const vgvPlugins = <VGVPlugin>[VGVPlugin.wingspan(), VGVPlugin.aiFlutter()];
 
 /// Prepares the vars the `agents` templates render against.
 ///
@@ -30,9 +30,9 @@ Future<void> run(HookContext context) async {
     throw Exception('no harness selected');
   }
 
-  final agents = _agents(vars['agents']);
-  final skills = _skills(vars['skills']);
-  final mcpServers = _mcpServers(vars['mcp_servers']);
+  final agents = NamedEntry.listFromVars(vars['agents']);
+  final skills = NamedEntry.listFromVars(vars['skills']);
+  final mcpServers = MCPServer.mapFromVars(vars['mcp_servers']);
   final skillsRoot = vars['skills_root'] as String?;
 
   if (skillsRoot == null) {
@@ -54,26 +54,4 @@ Future<void> run(HookContext context) async {
   );
 
   context.vars = {...vars, ...configuration.toVars()};
-}
-
-List<NamedEntry> _skills(Object? value) =>
-    _listOfMaps(value).map(NamedEntry.fromJson).toList();
-
-List<NamedEntry> _agents(Object? value) =>
-    _listOfMaps(value).map(NamedEntry.fromJson).toList();
-
-List<Map<String, dynamic>> _listOfMaps(Object? value) {
-  if (value is! List) return const [];
-  return value
-      .whereType<Map<dynamic, dynamic>>()
-      .map(Map<String, dynamic>.from)
-      .toList();
-}
-
-Map<String, McpServer> _mcpServers(Object? rawServers) {
-  if (rawServers is! Map) return const {};
-  return {
-    for (final MapEntry(:key, :value) in rawServers.entries)
-      if (value is Map) '$key': McpServer.fromVars(value),
-  };
 }

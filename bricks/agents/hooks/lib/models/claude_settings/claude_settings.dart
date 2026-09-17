@@ -1,4 +1,4 @@
-import 'package:hooks/models/settings/claude/marketplace.dart';
+import 'package:hooks/models/marketplace/marketplace.dart';
 import 'package:hooks/models/vgv_plugin.dart';
 import 'package:json_annotation/json_annotation.dart';
 
@@ -16,7 +16,7 @@ class const ClaudeSettings({
   required final Map<String, bool> enabledPlugins,
 }) {
   /// Enables every [plugins] entry against [marketplace].
-  factory forMarketplace(Marketplace marketplace, List<VgvPlugin> plugins) =>
+  factory forMarketplace(Marketplace marketplace, List<VGVPlugin> plugins) =>
       ClaudeSettings(
         extraKnownMarketplaces: {marketplace.repo: marketplace},
         enabledPlugins: {

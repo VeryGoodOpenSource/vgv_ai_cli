@@ -2,9 +2,9 @@ import 'package:hooks/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('McpServer.fromVars', () {
+  group('MCPServer.fromVars', () {
     test('coerces a local server with command, args, and env', () {
-      final server = McpServer.fromVars({
+      final server = MCPServer.fromVars({
         'command': 'dart',
         'args': ['mcp-server'],
         'env': {'TOKEN': 'abc123'},
@@ -18,7 +18,7 @@ void main() {
     });
 
     test('coerces a remote server from a url', () {
-      final server = McpServer.fromVars({'url': 'https://mcp.example.com'});
+      final server = MCPServer.fromVars({'url': 'https://mcp.example.com'});
 
       expect(server.url, 'https://mcp.example.com');
       expect(server.isRemote, isTrue);
@@ -28,7 +28,7 @@ void main() {
     });
 
     test('defaults args and env when missing or malformed', () {
-      final server = McpServer.fromVars({
+      final server = MCPServer.fromVars({
         'command': 'dart',
         'args': null,
         'env': 'not a map',
@@ -39,7 +39,7 @@ void main() {
     });
 
     test('ignores a non-string url', () {
-      final server = McpServer.fromVars({'url': 42});
+      final server = MCPServer.fromVars({'url': 42});
 
       expect(server.url, isNull);
       expect(server.isRemote, isFalse);

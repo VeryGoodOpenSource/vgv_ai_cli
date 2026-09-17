@@ -10,14 +10,14 @@ part 'mcp_server_config.g.dart';
 /// the output rather than emitted as empty values.
 /// {@endtemplate}
 @JsonSerializable(createFactory: false, includeIfNull: false)
-class const McpServerConfig({
+class const MCPServerConfig({
   final String? command,
   final List<String>? args,
   final Map<String, dynamic>? env,
   final String? url,
 }) {
   /// Builds the config that describes [server], dropping empty values.
-  factory fromMcpServer(McpServer server) => McpServerConfig(
+  factory fromMCPServer(MCPServer server) => MCPServerConfig(
     command: server.isRemote ? null : server.command,
     args: server.args.isEmpty ? null : server.args,
     env: server.env.isEmpty ? null : server.env,
@@ -25,5 +25,5 @@ class const McpServerConfig({
   );
 
   /// Serializes the server config to JSON.
-  Map<String, dynamic> toJson() => _$McpServerConfigToJson(this);
+  Map<String, dynamic> toJson() => _$MCPServerConfigToJson(this);
 }

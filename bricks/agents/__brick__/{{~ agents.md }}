@@ -1,0 +1,20 @@
+# Agent instructions
+
+These instructions are managed by the VGV AI CLI. They mirror the skills and
+agents resolved from the enabled VGV plugins so every harness shares the same
+guidance.
+
+## Skills
+
+{{#has_skills}}Use a skill when its description matches the task at hand.
+
+{{#skills}}- **{{name}}**: {{description}}
+{{/skills}}{{/has_skills}}{{^has_skills}}No skills are configured.
+{{/has_skills}}
+## Agents
+
+{{#has_agents}}Delegate to an agent when its description matches the task at hand.
+
+{{#agents}}- **{{name}}**: {{description}}
+{{/agents}}{{/has_agents}}{{^has_agents}}No agents are configured.
+{{/has_agents}}

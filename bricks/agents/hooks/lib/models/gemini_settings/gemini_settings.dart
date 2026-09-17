@@ -1,5 +1,5 @@
 import 'package:hooks/models/mcp_server.dart';
-import 'package:hooks/models/settings/mcp_server_config.dart';
+import 'package:hooks/models/mcp_server_config/mcp_server_config.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'gemini_settings.g.dart';
@@ -18,14 +18,14 @@ class const GeminiContext({final String fileName = 'AGENTS.md'}) {
 /// {@endtemplate}
 @JsonSerializable(createFactory: false, explicitToJson: true)
 class const GeminiSettings({
-  required final Map<String, McpServerConfig> mcpServers,
+  required final Map<String, MCPServerConfig> mcpServers,
   final GeminiContext context = const GeminiContext(),
 }) {
   /// Builds the settings from the resolved [servers].
-  factory fromServers(Map<String, McpServer> servers) => GeminiSettings(
+  factory fromServers(Map<String, MCPServer> servers) => GeminiSettings(
     mcpServers: {
       for (final MapEntry(:key, :value) in servers.entries)
-        key: McpServerConfig.fromMcpServer(value),
+        key: MCPServerConfig.fromMCPServer(value),
     },
   );
 
