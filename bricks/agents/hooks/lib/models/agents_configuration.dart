@@ -1,9 +1,7 @@
 import 'dart:convert';
 
-import 'package:equatable/equatable.dart';
-import 'package:hooks/models/agent.dart';
+import 'package:hooks/models/named_entry.dart';
 import 'package:hooks/models/settings/settings.dart';
-import 'package:hooks/models/skill.dart';
 
 const _json = JsonEncoder.withIndent('  ');
 
@@ -17,14 +15,14 @@ const _json = JsonEncoder.withIndent('  ');
 /// fragments consume.
 /// {@endtemplate}
 class const AgentsConfiguration({
-  required final List<Skill> skills,
-  required final List<Agent> agents,
+  required final List<NamedEntry> skills,
+  required final List<NamedEntry> agents,
   required final ClaudeSettings claudeSettings,
   required final GeminiSettings geminiSettings,
   required final OpenCodeConfig openCodeConfig,
   required final PiSettings piSettings,
   required final CodexConfig codexConfig,
-}) extends Equatable {
+}) {
   /// Whether any skills were resolved.
   bool get hasSkills => skills.isNotEmpty;
 
@@ -43,15 +41,4 @@ class const AgentsConfiguration({
     'pi_settings_json': _json.convert(piSettings.toJson()),
     'codex_config_toml': codexConfig.toToml(),
   };
-
-  @override
-  List<Object?> get props => [
-    skills,
-    agents,
-    claudeSettings,
-    geminiSettings,
-    openCodeConfig,
-    piSettings,
-    codexConfig,
-  ];
 }

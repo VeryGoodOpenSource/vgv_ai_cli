@@ -1,5 +1,3 @@
-import 'package:equatable/equatable.dart';
-
 /// {@template mcp_server}
 /// A Model Context Protocol server the harnesses can talk to.
 ///
@@ -13,7 +11,7 @@ class const McpServer({
   final List<String> args = const [],
   final Map<String, dynamic> env = const {},
   final String? url,
-}) extends Equatable {
+}) {
   /// Deserializes an [McpServer] from the raw map supplied in `HookContext`.
   ///
   /// Mason vars arrive as loosely typed maps and lists, so the fields are
@@ -35,7 +33,4 @@ class const McpServer({
   /// Whether the server is reached over the network rather than launched
   /// locally.
   bool get isRemote => url != null;
-
-  @override
-  List<Object?> get props => [command, args, env, url];
 }

@@ -56,11 +56,11 @@ Future<void> run(HookContext context) async {
   context.vars = {...vars, ...configuration.toVars()};
 }
 
-List<Skill> _skills(Object? value) =>
-    _listOfMaps(value).map(Skill.fromJson).toList();
+List<NamedEntry> _skills(Object? value) =>
+    _listOfMaps(value).map(NamedEntry.fromJson).toList();
 
-List<Agent> _agents(Object? value) =>
-    _listOfMaps(value).map(Agent.fromJson).toList();
+List<NamedEntry> _agents(Object? value) =>
+    _listOfMaps(value).map(NamedEntry.fromJson).toList();
 
 List<Map<String, dynamic>> _listOfMaps(Object? value) {
   if (value is! List) return const [];
@@ -70,10 +70,10 @@ List<Map<String, dynamic>> _listOfMaps(Object? value) {
       .toList();
 }
 
-Map<String, McpServer> _mcpServers(Object? value) {
-  if (value is! Map) return const {};
+Map<String, McpServer> _mcpServers(Object? rawServers) {
+  if (rawServers is! Map) return const {};
   return {
-    for (final MapEntry(:key, :value) in value.entries)
+    for (final MapEntry(:key, :value) in rawServers.entries)
       if (value is Map) '$key': McpServer.fromVars(value),
   };
 }

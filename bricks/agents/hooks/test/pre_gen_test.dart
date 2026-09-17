@@ -91,6 +91,12 @@ void main() {
 
       expect(context.vars['has_skills'], isTrue);
       expect(context.vars['has_agents'], isTrue);
+      expect(context.vars['skills'], [
+        {'name': 'testing', 'description': 'write tests'},
+      ]);
+      expect(context.vars['agents'], [
+        {'name': 'flutter-reviewer', 'description': 'review dart'},
+      ]);
     });
 
     test('enables every VGV plugin against the marketplace', () async {

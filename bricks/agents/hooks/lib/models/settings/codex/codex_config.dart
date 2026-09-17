@@ -1,4 +1,3 @@
-import 'package:equatable/equatable.dart';
 import 'package:hooks/models/mcp_server.dart';
 import 'package:hooks/models/settings/mcp_server_config.dart';
 import 'package:toml/toml.dart';
@@ -10,8 +9,7 @@ import 'package:toml/toml.dart';
 /// owns serialization so the model never hand-formats tables or quoting; each
 /// server is serialized to a map by its [McpServerConfig] first.
 /// {@endtemplate}
-class const CodexConfig(final Map<String, McpServerConfig> servers)
-    extends Equatable {
+class const CodexConfig(final Map<String, McpServerConfig> servers) {
   /// Builds the config from the resolved [servers].
   factory fromServers(Map<String, McpServer> servers) => CodexConfig({
     for (final MapEntry(:key, :value) in servers.entries)
@@ -26,7 +24,4 @@ class const CodexConfig(final Map<String, McpServerConfig> servers)
     };
     return TomlDocument.fromMap({'mcp_servers': tables}).toString().trimRight();
   }
-
-  @override
-  List<Object?> get props => [servers];
 }
