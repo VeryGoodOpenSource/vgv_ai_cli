@@ -1,0 +1,11 @@
+## Agents
+
+Dispatch these rather than invoking them as commands.
+{{#has_agents}}
+| agent | use it when |
+| --- | --- |
+{{#agents}}| `{{{name}}}` | {{{description}}} |
+{{/agents}}{{/has_agents}}{{^has_agents}}
+No agents were resolved. Run `vgv_ai doctor` to find out why.
+{{/has_agents}}
+

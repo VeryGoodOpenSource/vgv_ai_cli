@@ -1,0 +1,251 @@
+@Tags(['brick'])
+library;
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:mason/mason.dart';
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/templates/templates.dart';
+
+/// Vars the CLI supplies at install time, standing in for resolved plugins.
+const _marketplace = 'VeryGoodOpenSource/very_good_claude_marketplace';
+
+Map<String, dynamic> _vars({
+  bool claude = false,
+  bool gemini = false,
+  bool codex = false,
+  bool opencode = false,
+  bool pi = false,
+  bool populated = true,
+}) {
+  return <String, dynamic>{
+    'claude': claude,
+    'gemini': gemini,
+    'codex': codex,
+    'opencode': opencode,
+    'pi': pi,
+    'marketplace': _marketplace,
+    'skills_root': '~/.agents/skills',
+    if (populated) ...{
+      'skills': [
+        {'name': 'testing', 'description': 'Writing or reviewing Dart tests.'},
+        {'name': 'bloc', 'description': 'Bloc state management.'},
+      ],
+      'agents': [
+        {'name': 'flutter-reviewer', 'description': 'Read-only Dart review.'},
+      ],
+      'mcp_servers': {
+        'dart': {
+          'command': 'dart',
+          'args': ['mcp-server'],
+        },
+        'very-good-cli': {
+          'command': 'very_good',
+          'args': ['mcp'],
+          'env': <String, dynamic>{},
+        },
+        'context7': {'url': 'https://mcp.context7.com/mcp'},
+      },
+    },
+  };
+}
+
+/// Renders the bundled brick into a temp directory and returns it.
+Future<Directory> _render(Map<String, dynamic> vars) async {
+  final generator = await MasonGenerator.fromBundle(vgvAgentsBundle);
+  final target = Directory.systemTemp.createTempSync('vgv_agents_');
+  addTearDown(() => target.deleteSync(recursive: true));
+
+  var resolved = vars;
+  await generator.hooks.preGen(
+    vars: resolved,
+    onVarsChanged: (updated) => resolved = updated,
+  );
+  await generator.generate(
+    DirectoryGeneratorTarget(target),
+    vars: resolved,
+    fileConflictResolution: FileConflictResolution.overwrite,
+  );
+  return target;
+}
+
+List<String> _paths(Directory dir) {
+  return dir
+      .listSync(recursive: true)
+      .whereType<File>()
+      .map((f) => p.relative(f.path, from: dir.path))
+      .toList()
+    ..sort();
+}
+
+void main() {
+  group('vgvAgentsBundle', () {
+    test('generates only the fragments for the selected harnesses', () async {
+      final dir = await _render(_vars(claude: true, opencode: true));
+
+      expect(_paths(dir), [
+        'claude_settings.fragment.json',
+        'opencode.fragment.json',
+        'vgv_block.md',
+      ]);
+    });
+
+    test('generates every fragment when all harnesses are selected', () async {
+      final dir = await _render(
+        _vars(
+          claude: true,
+          gemini: true,
+          codex: true,
+          opencode: true,
+          pi: true,
+        ),
+      );
+
+      expect(_paths(dir), [
+        'claude_settings.fragment.json',
+        'codex_config.fragment.toml',
+        'gemini_settings.fragment.json',
+        'opencode.fragment.json',
+        'pi_settings.fragment.json',
+        'vgv_block.md',
+      ]);
+    });
+
+    test('always generates the instruction block', () async {
+      final dir = await _render(_vars(pi: true));
+
+      expect(_paths(dir), contains('vgv_block.md'));
+    });
+
+    test('fails when no harness is selected', () async {
+      await expectLater(_render(_vars()), throwsA(isA<Exception>()));
+    });
+
+    // Partials render leniently: an unresolved `{{> name }}` becomes an empty
+    // string rather than an error. These two tests are the only thing standing
+    // between a typo in a partial name and silently truncated output.
+    test('leaves no unrendered mustache behind', () async {
+      final dir = await _render(
+        _vars(
+          claude: true,
+          gemini: true,
+          codex: true,
+          opencode: true,
+          pi: true,
+        ),
+      );
+
+      for (final path in _paths(dir)) {
+        final contents = File(p.join(dir.path, path)).readAsStringSync();
+        expect(
+          contents,
+          isNot(anyOf(contains('{{'), contains('}}'))),
+          reason: '$path still contains mustache syntax',
+        );
+      }
+    });
+
+    test('generates no empty or near-empty file', () async {
+      final dir = await _render(
+        _vars(
+          claude: true,
+          gemini: true,
+          codex: true,
+          opencode: true,
+          pi: true,
+        ),
+      );
+
+      for (final path in _paths(dir)) {
+        final contents = File(p.join(dir.path, path)).readAsStringSync().trim();
+        expect(contents, isNotEmpty, reason: '$path is empty');
+        expect(
+          contents.length,
+          greaterThan(20),
+          reason: '$path is suspiciously short: $contents',
+        );
+      }
+    });
+
+    test('composes every partial into the instruction block', () async {
+      final dir = await _render(_vars(claude: true));
+      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
+
+      expect(block, startsWith('<!-- vgv:begin -->'));
+      expect(block.trimRight(), endsWith('<!-- vgv:end -->'));
+      for (final heading in ['## Workflow', '## Skills', '## Agents']) {
+        expect(block, contains(heading));
+      }
+      expect(block, contains('## Required tooling'));
+    });
+
+    test('renders the resolved skills and agents into the block', () async {
+      final dir = await _render(_vars(claude: true));
+      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
+
+      expect(
+        block,
+        contains('| `testing` | Writing or reviewing Dart tests. |'),
+      );
+      expect(block, contains('| `bloc` | Bloc state management. |'));
+      expect(
+        block,
+        contains('| `flutter-reviewer` | Read-only Dart review. |'),
+      );
+    });
+
+    test('says so when nothing was resolved', () async {
+      final dir = await _render(_vars(claude: true, populated: false));
+      final block = File(p.join(dir.path, 'vgv_block.md')).readAsStringSync();
+
+      expect(block, contains('No skills were resolved.'));
+      expect(block, contains('No agents were resolved.'));
+    });
+
+    test('does not html-escape paths', () async {
+      final dir = await _render(_vars(claude: true, pi: true));
+
+      for (final path in _paths(dir)) {
+        expect(
+          File(p.join(dir.path, path)).readAsStringSync(),
+          isNot(contains('&#')),
+          reason: '$path contains HTML-escaped output',
+        );
+      }
+    });
+
+    test('emits valid JSON for every json fragment', () async {
+      final dir = await _render(
+        _vars(claude: true, gemini: true, opencode: true, pi: true),
+      );
+
+      for (final path in _paths(dir).where((p) => p.endsWith('.json'))) {
+        final contents = File(p.join(dir.path, path)).readAsStringSync();
+        expect(
+          () => jsonDecode(contents),
+          returnsNormally,
+          reason: '$path is not valid JSON',
+        );
+      }
+    });
+
+    test('wires Claude to the marketplace rather than copying files', () async {
+      final dir = await _render(_vars(claude: true));
+      final settings = jsonDecode(
+        File(p.join(dir.path, 'claude_settings.fragment.json'))
+            .readAsStringSync(),
+      ) as Map<String, dynamic>;
+
+      expect(settings['extraKnownMarketplaces'], contains(_marketplace));
+      expect(
+        (settings['enabledPlugins'] as Map).keys,
+        containsAll(<String>[
+          'vgv-wingspan@$_marketplace',
+          'vgv-ai-flutter-plugin@$_marketplace',
+        ]),
+      );
+    });
+  });
+}

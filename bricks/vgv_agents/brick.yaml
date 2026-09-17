@@ -1,0 +1,44 @@
+name: vgv_agents
+description: Staging output that configures VGV agent tooling across coding agent harnesses.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  mason: ^0.1.0
+
+vars:
+  claude:
+    type: boolean
+    default: true
+    description: Configure Claude Code.
+    prompt: Configure Claude Code?
+  gemini:
+    type: boolean
+    default: true
+    description: Configure Gemini CLI.
+    prompt: Configure Gemini CLI?
+  codex:
+    type: boolean
+    default: true
+    description: Configure Codex.
+    prompt: Configure Codex?
+  opencode:
+    type: boolean
+    default: true
+    description: Configure OpenCode.
+    prompt: Configure OpenCode?
+  pi:
+    type: boolean
+    default: true
+    description: Configure Pi.
+    prompt: Configure Pi?
+  marketplace:
+    type: string
+    default: VeryGoodOpenSource/very_good_claude_marketplace
+    description: The Claude Code marketplace hosting the VGV plugins.
+    prompt: Which marketplace hosts the VGV plugins?
+  skills_root:
+    type: string
+    default: ~/.agents/skills
+    description: Canonical location the translated skills are written to.
+    prompt: Where should the canonical skills live?

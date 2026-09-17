@@ -1,0 +1,13 @@
+## Workflow
+
+Work moves through four phases. Each one writes to `docs/` so the next phase has
+something concrete to read.
+
+1. **Brainstorm** turns a rough idea into a written problem statement.
+2. **Plan** turns that statement into a reviewed implementation plan.
+3. **Build** executes the plan phase by phase, validating as it goes.
+4. **Review** runs the quality agents and produces one numbered report.
+
+Start at the phase that matches what you already have. A one-line bug fix does
+not need a brainstorm document.
+

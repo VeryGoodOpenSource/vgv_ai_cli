@@ -1,0 +1,12 @@
+## Skills
+
+Skills live in `{{{skills_root}}}`. Load one when its trigger matches the work
+in front of you.
+{{#has_skills}}
+| skill | use it when |
+| --- | --- |
+{{#skills}}| `{{{name}}}` | {{{description}}} |
+{{/skills}}{{/has_skills}}{{^has_skills}}
+No skills were resolved. Run `vgv_ai doctor` to find out why.
+{{/has_skills}}
+

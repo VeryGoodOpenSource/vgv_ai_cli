@@ -1,0 +1,14 @@
+name: hooks
+description: Pre-generation hook for the vgv_agents brick.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  mason: ^0.1.0
+
+dev_dependencies:
+  test: ^1.32.0
+  very_good_analysis: ^11.0.0
