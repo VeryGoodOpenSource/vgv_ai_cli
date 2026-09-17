@@ -217,6 +217,7 @@ VERIFICATION COMMAND: jq empty .claude/settings.json && jq -e '.enabledPlugins["
 
 ## Follow-ups to file
 
+- **This repo:** widen the CI path filter in `.github/workflows/vgv_ai_cli.yaml` to include `**/*.md`, `.claude/**`, and `.github/cspell.json`. Today no job runs on a docs- or config-only PR, so `.github/cspell.json` cannot trigger the spell-check job that consumes it and new markdown reaches `main` unchecked. Flagged independently by the architecture and VGV reviews.
 - **This repo:** enable branch protection on `main`, after deciding whether to require zero status checks or to split `semantic-pull-request` into its own unfiltered workflow.
 - **Marketplace repo:** pin per-plugin `ref` values in `.claude-plugin/marketplace.json`. Without this, the catalog pin in step 1 freezes which versions are *listed* but not what installs.
 - **Flutter plugin:** add a file-path or test-name filter to the `very_good_cli` MCP `test` tool. Until then `dart run test` is an undocumented workaround that risks becoming repo folklore.
