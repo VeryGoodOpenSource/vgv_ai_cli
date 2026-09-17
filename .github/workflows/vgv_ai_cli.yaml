@@ -47,7 +47,7 @@ jobs:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v1.21.1
     with:
       dart_sdk: "3.13.0"
-      working_directory: bricks/vgv_agents/hooks
+      working_directory: bricks/agents/hooks
 
   verify-bundle:
     runs-on: ubuntu-latest
@@ -64,14 +64,14 @@ jobs:
         run: dart pub global activate mason_cli
 
       - name: 🔄 Regenerate bundle
-        run: ./tool/generate_vgv_agents_bundle.sh
+        run: ./tool/generate_agents_bundle.sh
 
       - name: 🔎 Verify bundle is up to date
         run: |
-          bundle="packages/vgv_ai_cli/lib/src/templates/vgv_agents_bundle.dart"
+          bundle="packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart"
           if ! git diff --exit-code --quiet "$bundle"; then
             echo "::error::$bundle has uncommitted changes after regeneration."
-            echo "Run tool/generate_vgv_agents_bundle.sh and commit the result."
+            echo "Run tool/generate_agents_bundle.sh and commit the result."
             git diff "$bundle"
             exit 1
           fi

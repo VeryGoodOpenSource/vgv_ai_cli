@@ -1,5 +1,5 @@
 name: hooks
-description: Pre-generation hook for the vgv_agents brick.
+description: Pre-generation hook for the agents brick.
 version: 0.1.0+1
 publish_to: none
 

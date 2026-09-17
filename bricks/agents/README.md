@@ -1,4 +1,4 @@
-# vgv_agents
+# agents
 
 Staging output for `vgv_ai install`.
 
@@ -41,7 +41,7 @@ every harness at once. Three constraints are worth knowing before editing them:
   relative to `__brick__`, so `{{> shared/x.md }}` will never resolve a file in
   a subdirectory.
 - Partials render leniently. A mistyped name becomes an empty string rather
-  than an error, which is why `vgv_agents_bundle_test.dart` asserts that no
+  than an error, which is why `agents_bundle_test.dart` asserts that no
   output file is empty or still contains mustache syntax. Run it after any edit.
 - Use triple mustache for anything containing a path. `{{skills_root}}` HTML
   escapes the slashes; `{{{skills_root}}}` does not.
@@ -51,5 +51,5 @@ every harness at once. Three constraints are worth knowing before editing them:
 The bundle is committed and CI fails if it drifts:
 
 ```sh
-./tool/generate_vgv_agents_bundle.sh
+./tool/generate_agents_bundle.sh
 ```

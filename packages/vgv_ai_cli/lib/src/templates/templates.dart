@@ -1,1 +1,1 @@
-export 'vgv_agents_bundle.dart';
+export 'agents_bundle.dart';

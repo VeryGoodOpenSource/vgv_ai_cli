@@ -1,4 +1,4 @@
-name: vgv_agents
+name: agents
 description: Staging output that configures VGV agent tooling across coding agent harnesses.
 version: 0.1.0+1
 publish_to: none

@@ -10,7 +10,7 @@ const vgvPlugins = <String>['vgv-wingspan', 'vgv-ai-flutter-plugin'];
 
 const _json = JsonEncoder.withIndent('  ');
 
-/// Prepares the vars the `vgv_agents` templates render against.
+/// Prepares the vars the `agents` templates render against.
 ///
 /// The settings fragments are built here rather than in mustache. A template
 /// loop cannot know which iteration is last, so it cannot place separators

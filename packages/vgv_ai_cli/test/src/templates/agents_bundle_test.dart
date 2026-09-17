@@ -54,8 +54,8 @@ Map<String, dynamic> _vars({
 
 /// Renders the bundled brick into a temp directory and returns it.
 Future<Directory> _render(Map<String, dynamic> vars) async {
-  final generator = await MasonGenerator.fromBundle(vgvAgentsBundle);
-  final target = Directory.systemTemp.createTempSync('vgv_agents_');
+  final generator = await MasonGenerator.fromBundle(agentsBundle);
+  final target = Directory.systemTemp.createTempSync('agents_');
   addTearDown(() => target.deleteSync(recursive: true));
 
   var resolved = vars;
@@ -81,7 +81,7 @@ List<String> _paths(Directory dir) {
 }
 
 void main() {
-  group('vgvAgentsBundle', () {
+  group('agentsBundle', () {
     test('generates only the fragments for the selected harnesses', () async {
       final dir = await _render(_vars(claude: true, opencode: true));
 
