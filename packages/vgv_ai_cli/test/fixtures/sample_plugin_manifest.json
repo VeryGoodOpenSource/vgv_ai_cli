@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "plugins": [
+    {
+      "source": {
+        "repo": "https://github.com/example/sample-plugin",
+        "ref": "v0.1.0",
+        "resolvedSha": null
+      },
+      "metadata": {
+        "name": "sample-plugin",
+        "version": "0.1.0",
+        "description": "A fixture plugin that pins the manifest contract.",
+        "author": {
+          "name": "Very Good Ventures",
+          "url": "https://verygood.ventures"
+        },
+        "homepage": "https://example.com",
+        "repository": "https://github.com/example/sample-plugin",
+        "license": null,
+        "keywords": [
+          "fixture",
+          "sample"
+        ],
+        "extra": {
+          "experimental": {
+            "beta": true,
+            "channels": [
+              "nightly"
+            ]
+          }
+        }
+      },
+      "agents": [
+        {
+          "id": "flat-agent",
+          "name": "flat-agent",
+          "description": "A flat agent whose description uses a folded scalar. This second line folds into the first.\n",
+          "model": "inherit",
+          "effort": null,
+          "skills": [],
+          "tools": [
+            "Read",
+            "Glob",
+            "Bash"
+          ],
+          "body": "# Flat agent\n\nLives directly under `agents/`, the way `vgv-ai-flutter-plugin` ships its only\nagent.",
+          "extra": {
+            "hooks": {
+              "PreToolUse": [
+                {
+                  "hooks": [
+                    {
+                      "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard.sh",
+                      "type": "command"
+                    }
+                  ],
+                  "matcher": "Bash"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "nested/deep-agent",
+          "name": "deep-agent",
+          "description": "A nested agent whose description is a literal scalar carrying XML.\n\n<examples>\n  <example>\n    user: \"review this\"\n    assistant: \"I'll use the deep agent.\"\n  </example>\n</examples>\n",
+          "model": "sonnet",
+          "effort": "medium",
+          "skills": [
+            "elements-of-style",
+            "testing"
+          ],
+          "tools": [],
+          "body": "# Deep agent\n\nNested one level under `agents/`, the way `vgv-wingspan` ships its agents.\n\n---\n\nA section following a markdown rule. The rule above is a line that is exactly\nthree dashes, which is what breaks a naive frontmatter splitter.\n\n---\n\nA second section, after a second rule, so the test proves the splitter stops at\nthe first closing fence rather than the last.",
+          "extra": {
+            "category": "review"
+          }
+        }
+      ]
+    }
+  ]
+}
