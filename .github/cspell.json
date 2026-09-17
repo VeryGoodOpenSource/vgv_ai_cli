@@ -15,5 +15,5 @@
     }
   ],
   "useGitignore": true,
-  "words": ["worktree", "worktrees"]
+  "words": ["readlink", "worktree", "worktrees"]
 }

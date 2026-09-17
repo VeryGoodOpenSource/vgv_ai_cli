@@ -73,7 +73,11 @@ Notes on each block:
 - **`permissions.deny`** is listed before allow for readability only; deny wins regardless of order or specificity, including across settings scopes.
 - **MCP rules** use the plugin-qualified server names observed in-session. The `very-good-cli` server is deliberately absent: the plugin's `check-vgv-cli.sh` hook already auto-approves every call to it, so an allow rule there is dead weight.
 
-### 2. `CLAUDE.md` corrections
+### 2. `AGENTS.md` (renamed from `CLAUDE.md`, with corrections)
+
+Adopt the `AGENTS.md` convention used by [very_good_cli](https://github.com/VeryGoodOpenSource/very_good_cli/blob/main/AGENTS.md): `AGENTS.md` is the real file and `CLAUDE.md` is a symlink to it, so Claude Code and any other agent reading `AGENTS.md` share one source. Structure follows that file — VGV philosophy preamble, Project Overview, a single Common Commands block, Architecture, Code Conventions.
+
+Corrections applied in the same pass:
 
 - Replace both `dart test` invocations with `dart run test`. This is not a workaround: the guard matches on the first two tokens being `dart test`, and this repo's own CI already uses `dart run test --run-skipped -t version-verify`.
 - State that the full coverage run goes through the `very_good_cli` MCP `test` tool, and that single-test runs go through `dart run test` because the MCP tool has no path or name filter.
@@ -118,7 +122,7 @@ Add `worktree` and `worktrees` to the `words` array, which is currently empty. T
 
 ## Technical Considerations
 
-**Permission rules are not a security boundary.** A deny on `Bash(git push --force *)` does not stop `git -C . push --force`, `/usr/bin/git push --force`, or `FOO=1 git push --force`. The same class of gap exists in the plugin's own Bash guard, which any prefix token defeats (`timeout 30 dart test`). Both are guardrails against accident, not intent. The only real control is server-side branch protection, and this plan defers it — so the deny list ships as a speed bump and nothing more. That is a known, accepted gap, not an oversight.
+**Permission rules are not a security boundary.** A deny on `Bash(git push --force *)` does not stop `git -C . push --force` or `/usr/bin/git push --force`. (A leading env assignment like `FOO=1 git push --force` *is* caught — deny rules match past those.) The same class of gap exists in the plugin's own Bash guard, which any prefix token defeats (`timeout 30 dart test`). Both are guardrails against accident, not intent. The only real control is server-side branch protection, and this plan defers it — so the deny list ships as a speed bump and nothing more. That is a known, accepted gap, not an oversight.
 
 **Branch protection and the path-filtered workflow can deadlock this very PR.** All four CI jobs live inside `.github/workflows/vgv_ai_cli.yaml`, whose `pull_request.paths` covers only that workflow file, `lib/**`, `test/**`, and `pubspec.yaml`. A config-only PR triggers none of them, so zero checks report. If branch protection is enabled with any *required* status check, this PR — and every future docs or config PR — blocks forever. Enable protection with no required checks, or move `semantic-pull-request` into its own unfiltered workflow first. This must be decided before protection is turned on, not after.
 
@@ -151,9 +155,10 @@ SUCCESS CRITERIA:
 - The marketplace is declared with the canonical hyphen repo name and pinned to a 40-char commit SHA | verify: jq -e '.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.repo == "VeryGoodOpenSource/very-good-claude-code-marketplace" and (.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.ref | length) == 40' .claude/settings.json
 - The deny list covers force-push and pushes to main | verify: jq -e '(.permissions.deny | map(select(test("--force|-f "))) | length) >= 1 and (.permissions.deny | map(select(test("main"))) | length) >= 1' .claude/settings.json
 - No MCP allow rule is an unanchored glob, which Claude Code skips with a warning | verify: jq -e '[.permissions.allow[] | select(test("^mcp__")) | select(test("^mcp__[a-zA-Z0-9_-]+(__|$)") | not)] | length == 0' .claude/settings.json
-- CLAUDE.md no longer presents a hook-blocked test command as runnable | verify: ! grep -qE '^\s*(dart|flutter) test' CLAUDE.md
-- CLAUDE.md documents the single-test path that actually works | verify: grep -q 'dart run test' CLAUDE.md
+- AGENTS.md no longer presents a hook-blocked test command as runnable | verify: ! grep -qE '^\s*(dart|flutter) test' AGENTS.md
+- AGENTS.md documents the single-test path that actually works | verify: grep -q 'dart run test' AGENTS.md
 - Wingspan ephemeral output is ignored while durable artifacts stay tracked | verify: git check-ignore -q docs/reviews/ && git check-ignore -q docs/code-review/ && git check-ignore -q docs/hotfix-review/ && ! git check-ignore -q docs/plan/
+- CLAUDE.md is a symlink to AGENTS.md so both agent conventions resolve to one file | verify: test -L CLAUDE.md && [ "$(readlink CLAUDE.md)" = "AGENTS.md" ]
 - A root README documents contributor setup including marketplace resolution | verify: test -f README.md && grep -q 'very-good-claude-code-marketplace' README.md
 - Spell check passes over all markdown, which is what CI eventually runs | verify: npx -y cspell@8 --config .github/cspell.json --no-progress "**/*.md"
 - Claude Code local overrides and worktrees cannot be committed by accident | verify: git check-ignore -q .claude/settings.local.json && git check-ignore -q .claude/worktrees/
@@ -169,7 +174,7 @@ NON-GOALS:
 - Fixing the upstream plugin gaps this plan documents
 - Enabling branch protection on main (deferred to a follow-up that must first resolve the CI path-filter deadlock)
 
-VERIFICATION COMMAND: jq empty .claude/settings.json && jq -e '.enabledPlugins["vgv-wingspan@very-good-claude-code-marketplace"] == true and .enabledPlugins["vgv-ai-flutter-plugin@very-good-claude-code-marketplace"] == true' .claude/settings.json && jq -e '.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.repo == "VeryGoodOpenSource/very-good-claude-code-marketplace" and (.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.ref | length) == 40' .claude/settings.json && jq -e '(.permissions.deny | map(select(test("--force|-f "))) | length) >= 1 and (.permissions.deny | map(select(test("main"))) | length) >= 1' .claude/settings.json && ! grep -qE '^\s*(dart|flutter) test' CLAUDE.md && grep -q 'dart run test' CLAUDE.md && git check-ignore -q docs/reviews/ && git check-ignore -q docs/code-review/ && git check-ignore -q docs/hotfix-review/ && ! git check-ignore -q docs/plan/ && test -f README.md && grep -q 'very-good-claude-code-marketplace' README.md && npx -y cspell@8 --config .github/cspell.json --no-progress "**/*.md" && git check-ignore -q .claude/settings.local.json && git check-ignore -q .claude/worktrees/ && (cd packages/vgv_ai_cli && dart pub get && dart analyze --fatal-infos --fatal-warnings lib test && dart format --set-exit-if-changed .)
+VERIFICATION COMMAND: jq empty .claude/settings.json && jq -e '.enabledPlugins["vgv-wingspan@very-good-claude-code-marketplace"] == true and .enabledPlugins["vgv-ai-flutter-plugin@very-good-claude-code-marketplace"] == true' .claude/settings.json && jq -e '.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.repo == "VeryGoodOpenSource/very-good-claude-code-marketplace" and (.extraKnownMarketplaces["very-good-claude-code-marketplace"].source.ref | length) == 40' .claude/settings.json && jq -e '(.permissions.deny | map(select(test("--force|-f "))) | length) >= 1 and (.permissions.deny | map(select(test("main"))) | length) >= 1' .claude/settings.json && ! grep -qE '^\s*(dart|flutter) test' AGENTS.md && grep -q 'dart run test' AGENTS.md && test -L CLAUDE.md && [ "$(readlink CLAUDE.md)" = "AGENTS.md" ] && git check-ignore -q docs/reviews/ && git check-ignore -q docs/code-review/ && git check-ignore -q docs/hotfix-review/ && ! git check-ignore -q docs/plan/ && test -f README.md && grep -q 'very-good-claude-code-marketplace' README.md && npx -y cspell@8 --config .github/cspell.json --no-progress "**/*.md" && git check-ignore -q .claude/settings.local.json && git check-ignore -q .claude/worktrees/ && (cd packages/vgv_ai_cli && dart pub get && dart analyze --fatal-infos --fatal-warnings lib test && dart format --set-exit-if-changed .)
 ```
 
 ## Success Metrics
