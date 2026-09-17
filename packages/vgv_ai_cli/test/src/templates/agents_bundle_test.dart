@@ -81,40 +81,50 @@ List<String> _paths(Directory dir) {
 
 void main() {
   group('agentsBundle', () {
-    test('generates only the fragments for the selected harnesses', () async {
-      final dir = await _render(_vars(claude: true, opencode: true));
+    test(
+      'generates only the config files for the selected harnesses',
+      () async {
+        final dir = await _render(_vars(claude: true, opencode: true));
 
-      expect(_paths(dir), [
-        'claude_settings.fragment.json',
-        'opencode.fragment.json',
-      ]);
-    });
+        expect(_paths(dir), [
+          p.join('claude', 'settings.json'),
+          p.join('opencode', 'AGENTS.md'),
+          p.join('opencode', 'opencode.json'),
+        ]);
+      },
+    );
 
-    test('generates every fragment when all harnesses are selected', () async {
-      final dir = await _render(
-        _vars(
-          claude: true,
-          gemini: true,
-          codex: true,
-          opencode: true,
-          pi: true,
-        ),
-      );
+    test(
+      'generates every config file when all harnesses are selected',
+      () async {
+        final dir = await _render(
+          _vars(
+            claude: true,
+            gemini: true,
+            codex: true,
+            opencode: true,
+            pi: true,
+          ),
+        );
 
-      expect(_paths(dir), [
-        'claude_settings.fragment.json',
-        'codex_config.fragment.toml',
-        'gemini_settings.fragment.json',
-        'opencode.fragment.json',
-        'pi_settings.fragment.json',
-      ]);
-    });
+        expect(_paths(dir), [
+          p.join('claude', 'settings.json'),
+          p.join('codex', 'AGENTS.md'),
+          p.join('codex', 'config.toml'),
+          p.join('gemini', 'AGENTS.md'),
+          p.join('gemini', 'settings.json'),
+          p.join('opencode', 'AGENTS.md'),
+          p.join('opencode', 'opencode.json'),
+          p.join('pi', 'settings.json'),
+        ]);
+      },
+    );
 
     test('fails when no harness is selected', () async {
       await expectLater(_render(_vars()), throwsA(isA<Exception>()));
     });
 
-    // A typo in a fragment name would leave `{{ ... }}` unrendered. This is the
+    // A typo in a template name would leave `{{ ... }}` unrendered. This is the
     // only thing standing between such a typo and silently truncated output.
     test('leaves no unrendered mustache behind', () async {
       final dir = await _render(
@@ -171,7 +181,7 @@ void main() {
       }
     });
 
-    test('emits valid JSON for every json fragment', () async {
+    test('emits valid JSON for every json config file', () async {
       final dir = await _render(
         _vars(claude: true, gemini: true, opencode: true, pi: true),
       );
@@ -189,8 +199,7 @@ void main() {
     test('wires Claude to the marketplace rather than copying files', () async {
       final dir = await _render(_vars(claude: true));
       final settings = jsonDecode(
-        File(p.join(dir.path, 'claude_settings.fragment.json'))
-            .readAsStringSync(),
+        File(p.join(dir.path, 'claude', 'settings.json')).readAsStringSync(),
       ) as Map<String, dynamic>;
 
       expect(settings['extraKnownMarketplaces'], contains(_marketplace));

@@ -29,10 +29,7 @@ class const OpenCodeMCPServer({
 }) {
   /// Builds the config that describes [server].
   factory fromMCPServer(MCPServer server) => server.isRemote
-      ? OpenCodeMCPServer(
-          type: OpenCodeMCPServerType.remote,
-          url: server.url,
-        )
+      ? OpenCodeMCPServer(type: OpenCodeMCPServerType.remote, url: server.url)
       : OpenCodeMCPServer(
           type: OpenCodeMCPServerType.local,
           command: <String>[server.command ?? '', ...server.args],
