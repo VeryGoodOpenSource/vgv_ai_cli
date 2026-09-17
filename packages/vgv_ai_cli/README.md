@@ -42,13 +42,22 @@ $ vgv_ai --help
 
 ## Running Tests with coverage 🧪
 
-To run all unit tests use the following command:
+Run a single test file or a single test by name:
 
 ```sh
-$ dart pub global activate coverage 1.15.0
-$ dart test --coverage=coverage
-$ dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
+$ dart run test test/src/commands/sample_command_test.dart
+$ dart run test --plain-name 'tells a joke'
 ```
+
+The full 100%-coverage run goes through Very Good CLI:
+
+```sh
+$ very_good test -j 4 --coverage --min-coverage 100 --optimization
+```
+
+Note that `dart test` and `very_good test` are blocked when invoked through an AI coding agent's
+shell — see [AGENTS.md](../../AGENTS.md#common-commands) at the repo root for the full command
+reference and which commands must go through MCP tools instead.
 
 To view the generated coverage report you can use [lcov](https://github.com/linux-test-project/lcov)
 .

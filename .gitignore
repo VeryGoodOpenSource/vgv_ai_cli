@@ -19,3 +19,10 @@ coverage/
 
 # macOS
 .DS_Store
+
+# Claude Code: personal overrides and local worktrees
+.claude/settings.local.json
+.claude/worktrees/
+
+# Wingspan output (local working artifacts, not tracked)
+docs/

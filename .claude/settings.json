@@ -1,0 +1,48 @@
+{
+  "extraKnownMarketplaces": {
+    "very-good-claude-code-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "VeryGoodOpenSource/very-good-claude-code-marketplace",
+        "ref": "842e9458e156ac775972cf725c9570b54d7a288b"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "vgv-wingspan@very-good-claude-code-marketplace": true,
+    "vgv-ai-flutter-plugin@very-good-claude-code-marketplace": true
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git push -f *)",
+      "Bash(git push)",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * +*)",
+      "Bash(git push origin HEAD:main *)"
+    ],
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout -b *)",
+      "Bash(git push *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr view *)",
+      "Bash(gh run list *)",
+      "Bash(dart pub get *)",
+      "Bash(dart analyze *)",
+      "Bash(dart format *)",
+      "Bash(dart run test *)",
+      "Bash(dart run build_runner *)",
+      "Bash(dart run bin/vgv_ai.dart *)",
+      "mcp__plugin_vgv-ai-flutter-plugin_dart__*",
+      "mcp__plugin_vgv-wingspan_context7__*"
+    ]
+  }
+}
