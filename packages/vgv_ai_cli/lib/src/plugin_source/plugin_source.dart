@@ -3,6 +3,7 @@
 library;
 
 export 'frontmatter.dart';
+export 'hooks.dart';
 export 'plugin_assets.dart';
 export 'plugin_ref.dart';
 export 'resolution.dart';

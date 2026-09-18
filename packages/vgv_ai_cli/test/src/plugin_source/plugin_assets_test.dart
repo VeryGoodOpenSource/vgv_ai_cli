@@ -3,6 +3,7 @@ import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/hooks.dart';
 import 'package:vgv_ai_cli/src/plugin_source/plugin_assets.dart';
 
 const _fs = LocalFileSystem();
@@ -267,6 +268,93 @@ void main() {
     });
   });
 
+  group('hooks', () {
+    HookAsset hookFor(String event) =>
+        assets.hooks.firstWhere((h) => h.event == event);
+
+    test('reads an event that matches against a tool', () {
+      final post = hookFor('PostToolUse');
+
+      expect(post.matcher, 'Edit|Write');
+      expect(post.commands, hasLength(2));
+      expect(post.commands.first.command, 'bash analyze.sh');
+      expect(post.commands.first.timeout, 30);
+    });
+
+    test('reads an event with no matcher', () {
+      // SessionStart does not match against a tool.
+      expect(hookFor('SessionStart').matcher, isNull);
+    });
+
+    test('keeps the CLAUDE_PLUGIN_ROOT placeholder verbatim', () {
+      // Expanding it belongs to a translator, which knows where the scripts
+      // landed for its harness.
+      expect(
+        hookFor('SessionStart').commands.single.command,
+        r'bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/warn.sh',
+      );
+    });
+
+    test('defaults an absent timeout to null', () {
+      expect(hookFor('PostToolUse').commands.last.timeout, isNull);
+    });
+
+    test('carries the hooks directory so scripts can be copied', () {
+      final directory = hookFor('SessionStart').directory;
+
+      expect(
+        directory.childDirectory('scripts').childFile('warn.sh').existsSync(),
+        isTrue,
+      );
+    });
+
+    test('skips an event whose value is not a list', () {
+      expect(assets.hooks.map((h) => h.event), isNot(contains('Malformed')));
+    });
+
+    test('skips registrations that contribute no runnable command', () {
+      // An empty hooks array, an entry with no command string, and a
+      // non-object registration all appear under EmptyCommands.
+      expect(
+        assets.hooks.map((h) => h.event),
+        isNot(contains('EmptyCommands')),
+      );
+    });
+
+    test('is empty when the plugin ships no hooks', () {
+      expect(
+        const PluginAssetsReader().read(_fixture('plugin_no_mcp')).hooks,
+        isEmpty,
+      );
+    });
+
+    test('throws when hooks.json is valid JSON but not an object', () {
+      expect(
+        () => const PluginAssetsReader().read(_fixture('plugin_array_hooks')),
+        throwsA(
+          isA<PluginParseException>().having(
+            (e) => e.message,
+            'message',
+            contains('JSON object'),
+          ),
+        ),
+      );
+    });
+
+    test('throws a PluginParseException on invalid JSON', () {
+      expect(
+        () => const PluginAssetsReader().read(_fixture('plugin_bad_hooks')),
+        throwsA(
+          isA<PluginParseException>().having(
+            (e) => e.path,
+            'path',
+            contains('hooks.json'),
+          ),
+        ),
+      );
+    });
+  });
+
   group('empty plugin', () {
     test('reads as empty rather than throwing', () {
       // The reader stays total. Whether an empty plugin is a problem is the
@@ -340,6 +428,16 @@ void main() {
         merged.skills.firstWhere((s) => s.name == 'testing').description,
         "The later plugin's version of testing.",
       );
+    });
+
+    test('concatenates hooks instead of resolving them by name', () {
+      // Both plugins register PostToolUse and both must still run.
+      final later = const PluginAssetsReader().read(_fixture('plugin_clash'));
+
+      final merged = assets.merge(later);
+
+      expect(merged.hooks, hasLength(assets.hooks.length + later.hooks.length));
+      expect(merged.hooks.where((h) => h.event == 'PostToolUse'), hasLength(2));
     });
 
     test('keeps the merged result sorted by name', () {

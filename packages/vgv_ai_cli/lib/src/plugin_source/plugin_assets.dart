@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/hooks.dart';
 
 /// Frontmatter keys Claude Code understands that no other harness does.
 ///
@@ -74,6 +75,7 @@ class const PluginAssets({
   required final List<SkillAsset> skills,
   required final List<AgentAsset> agents,
   required final Map<String, Map<String, Object?>> mcpServers,
+  final List<HookAsset> hooks = const [],
 }) {
   /// An empty set of assets.
   static const empty = PluginAssets(
@@ -86,10 +88,14 @@ class const PluginAssets({
   ///
   /// Later plugins win on a name clash, matching the order they are listed in.
   /// There are no clashes between the two VGV plugins today.
+  /// Hooks are the exception: they concatenate rather than resolve by name.
+  /// Two plugins both registering `PreToolUse` both want to run, so dropping
+  /// one would silently disable it.
   PluginAssets merge(PluginAssets other) => PluginAssets(
     skills: _mergeByName(skills, other.skills, (skill) => skill.name),
     agents: _mergeByName(agents, other.agents, (agent) => agent.name),
     mcpServers: {...mcpServers, ...other.mcpServers},
+    hooks: [...hooks, ...other.hooks],
   );
 
   /// Later entries win a name clash, and the result stays sorted by name so
@@ -127,7 +133,78 @@ class const PluginAssetsReader() {
     skills: _readSkills(root.childDirectory('skills')),
     agents: _readAgents(root.childDirectory('agents')),
     mcpServers: _readMcpServers(root.childFile('.mcp.json')),
+    hooks: _readHooks(root.childDirectory('hooks')),
   );
+
+  /// Reads `hooks/hooks.json`, whose shape is an event map of registrations:
+  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`.
+  ///
+  /// Every level is tolerated as absent or the wrong type rather than assumed,
+  /// because a plugin may ship no hooks at all.
+  List<HookAsset> _readHooks(Directory hooksDir) {
+    final file = hooksDir.childFile('hooks.json');
+    if (!file.existsSync()) return const [];
+
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(file.readAsStringSync());
+    } on FormatException catch (error) {
+      throw PluginParseException(file.path, error.message);
+    }
+
+    if (decoded is! Map) {
+      throw PluginParseException(file.path, 'expected a JSON object');
+    }
+
+    final events = decoded['hooks'];
+    if (events is! Map) return const [];
+
+    final assets = <HookAsset>[];
+    for (final event in events.entries) {
+      final registrations = event.value;
+      if (registrations is! List) continue;
+
+      for (final registration in registrations) {
+        if (registration is! Map) continue;
+
+        final commands = _readHookCommands(registration['hooks']);
+        if (commands.isEmpty) continue;
+
+        final matcher = registration['matcher'];
+        assets.add(
+          HookAsset(
+            event: '${event.key}',
+            matcher: matcher is String ? matcher : null,
+            commands: commands,
+            directory: hooksDir,
+          ),
+        );
+      }
+    }
+    return assets;
+  }
+
+  List<HookCommand> _readHookCommands(Object? raw) {
+    if (raw is! List) return const [];
+
+    final commands = <HookCommand>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+
+      final command = entry['command'];
+      if (command is! String) continue;
+
+      final timeout = entry['timeout'];
+      commands.add(
+        HookCommand(
+          type: entry['type'] is String ? entry['type']! as String : 'command',
+          command: command,
+          timeout: timeout is int ? timeout : null,
+        ),
+      );
+    }
+    return commands;
+  }
 
   List<SkillAsset> _readSkills(Directory skillsDir) {
     if (!skillsDir.existsSync()) return const [];
