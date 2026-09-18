@@ -139,11 +139,11 @@ This plan adds an `install` command to `packages/vgv_ai_cli` that:
 ### Phase 1: Plugin resolution (fetch + parse)
 - [ ] Task 1: Resolution models + manifest parsing + deps
 - [ ] Task 2: `Git` wrapper + `PluginFetcher` (clone marketplace + plugin repos)
-- [ ] Task 3: Extractors (`.mcp.json`, `SKILL.md`/agent frontmatter → models)
+- [x] Task 3: Extractors (`.mcp.json`, `SKILL.md`/agent frontmatter → models)
 
 ### Checkpoint: Resolution
-- [ ] `dart test` green for resolution units
-- [ ] Given local fixtures, resolver yields expected MCP servers, skills, agents
+- [x] `dart test` green for resolution units
+- [x] Given local fixtures, resolver yields expected MCP servers, skills, agents
 
 ### Phase 2: Generation + reconciliation
 - [ ] Task 4: Map resolved data → brick vars and render `agentsBundle` to staging
