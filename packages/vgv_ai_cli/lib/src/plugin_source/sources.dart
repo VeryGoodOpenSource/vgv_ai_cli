@@ -48,17 +48,14 @@ abstract class PluginSource {
 /// disk, so this costs nothing and works offline. It is a fast path, not the
 /// source of truth: the cache directory is named after the *declared* version
 /// and carries no content guarantee.
+///
+/// [home] is the directory holding `.claude`. [marketplace] is the
+/// marketplace's declared name, which names the cache directory.
 /// {@endtemplate}
-class LocalCachePluginSource extends PluginSource {
-  /// {@macro local_cache_plugin_source}
-  const new({required this.home, this.marketplace = vgvMarketplaceName});
-
-  /// The home directory holding `.claude`.
-  final Directory home;
-
-  /// The marketplace's declared name, which names the cache directory.
-  final String marketplace;
-
+class const LocalCachePluginSource({
+  required final Directory home,
+  final String marketplace = vgvMarketplaceName,
+}) extends PluginSource {
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = home.fileSystem;
@@ -105,17 +102,14 @@ class LocalCachePluginSource extends PluginSource {
 
 /// {@template git_plugin_source}
 /// Resolves plugins by cloning them at their pinned tag.
+///
+/// [cacheRoot] is where clones are kept between runs. [runGit] is injected so
+/// tests never hit the network.
 /// {@endtemplate}
-class GitPluginSource extends PluginSource {
-  /// {@macro git_plugin_source}
-  const new({required this.cacheRoot, this.runGit = runGitProcess});
-
-  /// Where clones are kept between runs.
-  final Directory cacheRoot;
-
-  /// Runs git. Injected so tests never hit the network.
-  final RunGit runGit;
-
+class const GitPluginSource({
+  required final Directory cacheRoot,
+  final RunGit runGit = runGitProcess,
+}) extends PluginSource {
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = cacheRoot.fileSystem;
@@ -191,15 +185,10 @@ class GitPluginSource extends PluginSource {
 }
 
 /// {@template chained_plugin_source}
-/// Tries each source in order and returns the first that resolves.
+/// Tries each source in [sources] in order, returning the first that resolves.
 /// {@endtemplate}
-class ChainedPluginSource extends PluginSource {
-  /// {@macro chained_plugin_source}
-  const new(this.sources);
-
-  /// The sources to try, in order.
-  final List<PluginSource> sources;
-
+class const ChainedPluginSource(final List<PluginSource> sources)
+    extends PluginSource {
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
     final reasons = <String>[];

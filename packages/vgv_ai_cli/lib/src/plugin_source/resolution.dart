@@ -2,7 +2,7 @@ import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
 
 /// {@template plugin_resolution}
-/// The outcome of asking one source for a plugin.
+/// The outcome of asking a source for a plugin.
 ///
 /// A nullable [Directory] would discard *why* a source could not supply the
 /// plugin, collapsing a cache miss, a missing tag, an absent git binary and an
@@ -16,46 +16,31 @@ sealed class PluginResolution {
 /// {@template resolved_plugin}
 /// The plugin was found on disk at [directory].
 /// {@endtemplate}
-final class ResolvedPlugin extends PluginResolution {
-  /// {@macro resolved_plugin}
-  const new(this.directory);
-
-  /// Where the plugin's contents live.
-  final Directory directory;
-}
+final class const ResolvedPlugin(final Directory directory)
+    extends PluginResolution;
 
 /// {@template unavailable_plugin}
-/// No source could supply the plugin, for [reasons].
+/// No source could supply the plugin.
+///
+/// [reasons] holds one entry per source that was tried, in the order they were
+/// tried. A list rather than a joined string, so a chain of sources can
+/// concatenate without losing which source said what.
 /// {@endtemplate}
-final class UnavailablePlugin extends PluginResolution {
-  /// One reason per source that was tried, in the order they were tried.
-  const new(this.reasons);
-
+final class const UnavailablePlugin(final List<String> reasons)
+    extends PluginResolution {
   /// {@macro unavailable_plugin}
   ///
   /// Convenience for a single source, which has exactly one reason.
-  new single(String reason) : reasons = [reason];
-
-  /// Why each source could not supply the plugin, phrased for a user.
-  ///
-  /// A list rather than a joined string, so a chain of sources can concatenate
-  /// without the exception losing which source said what.
-  final List<String> reasons;
+  new single(String reason) : this([reason]);
 }
 
 /// {@template plugin_resolution_exception}
-/// Thrown when every source failed to supply a plugin.
+/// Thrown when every source failed to supply [ref].
 /// {@endtemplate}
-class PluginResolutionException implements Exception {
-  /// {@macro plugin_resolution_exception}
-  const new(this.ref, this.reasons);
-
-  /// The plugin that could not be resolved.
-  final PluginRef ref;
-
-  /// Each source's reason, in the order the sources were tried.
-  final List<String> reasons;
-
+class const PluginResolutionException(
+  final PluginRef ref,
+  final List<String> reasons,
+) implements Exception {
   @override
   String toString() {
     final detail = reasons.map((reason) => '  - $reason').join('\n');
@@ -68,19 +53,11 @@ class PluginResolutionException implements Exception {
 ///
 /// Deliberately not a [FormatException]. `YamlException` and `jsonDecode` both
 /// throw `FormatException`, which the command runner catches and renders as a
-/// CLI usage error, so a corrupt plugin file would tell the user their
-/// command-line arguments were wrong.
+/// CLI usage error, so a corrupt plugin file would otherwise tell the user
+/// their command-line arguments were wrong.
 /// {@endtemplate}
-class PluginParseException implements Exception {
-  /// {@macro plugin_parse_exception}
-  const new(this.path, this.message);
-
-  /// The file that could not be parsed.
-  final String path;
-
-  /// What the parser objected to.
-  final String message;
-
+class const PluginParseException(final String path, final String message)
+    implements Exception {
   @override
   String toString() => 'Could not parse $path: $message';
 }
@@ -88,10 +65,7 @@ class PluginParseException implements Exception {
 /// {@template missing_home_exception}
 /// Thrown when neither `HOME` nor `USERPROFILE` is set.
 /// {@endtemplate}
-class MissingHomeException implements Exception {
-  /// {@macro missing_home_exception}
-  const new();
-
+class const MissingHomeException() implements Exception {
   @override
   String toString() =>
       'Could not determine your home directory: neither HOME nor USERPROFILE '
