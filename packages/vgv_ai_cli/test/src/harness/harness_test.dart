@@ -4,8 +4,6 @@ import 'package:vgv_ai_cli/src/harness/harness.dart';
 void main() {
   group('Harness', () {
     test('lists every known harness in reporting order', () {
-      // Pinned deliberately: selection (#20) and reporting (#22) both depend
-      // on this order, so adding a harness should be a visible change.
       expect(Harness.values.map((harness) => harness.name), [
         'claude',
         'gemini',

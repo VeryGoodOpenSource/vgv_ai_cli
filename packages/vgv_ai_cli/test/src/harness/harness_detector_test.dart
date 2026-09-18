@@ -5,25 +5,21 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 
-/// A [RunProcess] that always answers with [result].
-///
-/// `RunProcess` is a function typedef, so there is nothing for mocktail to
-/// implement. Tests pass plain closures instead.
-///
-/// Never call `expect` inside one of these: `TestFailure` implements
-/// `Exception`, so [HarnessDetector.detect] would swallow it and the
-/// assertion could never fail. Capture instead, and assert after the call.
 RunProcess _responds(ProcessResult result) =>
     (executable, arguments, {runInShell = false}) async => result;
 
 ProcessResult _exits(int code, {String stdout = '', String stderr = ''}) =>
     ProcessResult(0, code, stdout, stderr);
 
+/// Exit codes that must all read as a missing harness, not just `127`.
+const missingExitCodes = [1, 2, 127];
+
+Matcher _hasVersion(String version) =>
+    isA<HarnessDetection>().having((d) => d.version, 'version', version);
+
 void main() {
   group('HarnessDetector', () {
     test('uses the real Process.run when none is injected', () {
-      // Coverage of the default argument only. Asserts no behaviour, because
-      // doing so would spawn the developer's real harness binaries.
       expect(HarnessDetector(), isNotNull);
     });
 
@@ -53,13 +49,14 @@ void main() {
       }
 
       test('reads the version from stderr when stdout is empty', () async {
-        // OpenCode and Pi were unavailable to check, so a harness that
-        // banners to stderr must not read as installed with a blank version.
         final detector = HarnessDetector(
           runProcess: _responds(_exits(0, stderr: 'opencode 1.4.2')),
         );
 
-        expect((await detector.detect(Harness.opencode)).version, '1.4.2');
+        await expectLater(
+          detector.detect(Harness.opencode),
+          completion(_hasVersion('1.4.2')),
+        );
       });
 
       test('prefers stdout over stderr when both carry a version', () async {
@@ -69,7 +66,10 @@ void main() {
           ),
         );
 
-        expect((await detector.detect(Harness.pi)).version, '1.2.3');
+        await expectLater(
+          detector.detect(Harness.pi),
+          completion(_hasVersion('1.2.3')),
+        );
       });
 
       test(
@@ -110,9 +110,8 @@ void main() {
         );
       });
 
-      for (final code in [1, 2, 127]) {
+      for (final code in missingExitCodes) {
         test('is missing when the probe exits $code', () async {
-          // Pins "any non-zero", so special-casing 127 would fail here.
           final detector = HarnessDetector(
             runProcess: _responds(_exits(code, stdout: '1.2.3')),
           );
