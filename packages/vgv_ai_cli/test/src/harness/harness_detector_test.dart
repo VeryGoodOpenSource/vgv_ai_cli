@@ -173,15 +173,12 @@ void main() {
         final detections = await detector.detectAll();
 
         // Unordered: the probes run in parallel, so arrival order is an
-        // implementation detail. The results themselves are ordered.
+        // implementation detail. The keys themselves are ordered.
         expect(
           probed,
           unorderedEquals(Harness.values.map((harness) => harness.executable)),
         );
-        expect(
-          detections.map((detection) => detection.harness),
-          Harness.values,
-        );
+        expect(detections.keys, Harness.values);
       });
 
       test('reports a mix of installed and missing harnesses', () async {
@@ -196,15 +193,13 @@ void main() {
 
         final detections = await detector.detectAll();
 
+        expect(detections[Harness.claude]!.installed, isTrue);
+        expect(detections[Harness.claude]!.version, '1.2.3');
+        expect(detections[Harness.pi]!.installed, isFalse);
+        expect(detections[Harness.pi]!.version, isNull);
         expect(
-          detections
-              .where((detection) => detection.installed)
-              .map((detection) => detection.harness.executable),
-          present,
-        );
-        expect(
-          detections.where((detection) => !detection.installed),
-          hasLength(Harness.values.length - present.length),
+          detections.values.where((detection) => detection.installed),
+          hasLength(present.length),
         );
       });
     });

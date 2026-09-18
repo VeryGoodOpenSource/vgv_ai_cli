@@ -14,23 +14,19 @@ typedef RunProcess = Future<ProcessResult> Function(
 ///
 /// Constructed through [HarnessDetection.detected] or
 /// [HarnessDetection.missing] so that an absent harness can never carry a
-/// version.
+/// version. It does not name the harness it describes: callers get one from
+/// [HarnessDetector.detect] for a harness they already named, or keyed by
+/// harness from [HarnessDetector.detectAll].
 /// {@endtemplate}
 class HarnessDetection {
   /// The harness is on the path.
   ///
   /// [version] is `null` when the binary answered but printed nothing that
   /// looks like a version.
-  const new detected({required this.harness, required this.version})
-    : installed = true;
+  const new detected({required this.version}) : installed = true;
 
   /// The harness is not usable on this machine.
-  const new missing({required this.harness})
-    : installed = false,
-      version = null;
-
-  /// The harness that was probed.
-  final Harness harness;
+  const new missing() : installed = false, version = null;
 
   /// Whether the binary is on the path.
   final bool installed;
@@ -68,10 +64,19 @@ class HarnessDetector {
 
   /// Probes every known harness, in parallel.
   ///
+  /// Keyed by harness so `install` and `doctor` can look one up directly
+  /// rather than scanning. Iteration order follows [Harness.values].
+  ///
   /// Only `Exception`s are handled per harness. An `Error` is a bug and
   /// propagates rather than being reported as five absent harnesses.
-  Future<List<HarnessDetection>> detectAll() =>
-      Future.wait(Harness.values.map(detect));
+  Future<Map<Harness, HarnessDetection>> detectAll() async {
+    final detections = await Future.wait(
+      Harness.values.map(
+        (harness) async => MapEntry(harness, await detect(harness)),
+      ),
+    );
+    return Map.fromEntries(detections);
+  }
 
   /// Probes a single [harness].
   ///
@@ -89,15 +94,14 @@ class HarnessDetector {
       ).timeout(_timeout);
 
       if (result.exitCode != 0) {
-        return HarnessDetection.missing(harness: harness);
+        return const HarnessDetection.missing();
       }
 
       return HarnessDetection.detected(
-        harness: harness,
         version: _versionPattern.firstMatch(_banner(result))?.group(0),
       );
     } on Exception {
-      return HarnessDetection.missing(harness: harness);
+      return const HarnessDetection.missing();
     }
   }
 }
