@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// {@template locked_skill}
 /// A single materialized skill's provenance in `skills-lock.json`.
 ///
@@ -53,4 +55,24 @@ class const SkillsLock({
       for (final MapEntry(:key, :value) in plugins.entries) key: value.toJson(),
     },
   };
+
+  /// The resolved commit each plugin repo is pinned to, keyed by repo slug.
+  ///
+  /// Drives reproducible re-installs: without `--update`, plugins are fetched
+  /// at these commits rather than their default branch head.
+  static Map<String, String> pinsFromJson(String content) {
+    final decoded = jsonDecode(content);
+    if (decoded is! Map || decoded['plugins'] is! Map) {
+      return const <String, String>{};
+    }
+
+    final pins = <String, String>{};
+    for (final entry in (decoded['plugins'] as Map).values) {
+      if (entry is! Map) continue;
+      final repo = entry['repo'];
+      final commit = entry['commit'];
+      if (repo is String && commit is String) pins[repo] = commit;
+    }
+    return pins;
+  }
 }

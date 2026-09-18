@@ -22,12 +22,23 @@ class FakePluginFetcher implements PluginFetcher {
   Future<FetchedRepo> fetchMarketplace() async =>
       FetchedRepo(directory: _marketplace, commit: _commit);
 
+  /// Repo slugs the most recent [fetchPlugin] pinned to a commit.
+  final pinnedCommits = <String, String>{};
+
   @override
-  Future<FetchedRepo> fetchPlugin(String repo, {String? ref}) async {
+  Future<FetchedRepo> fetchPlugin(
+    String repo, {
+    String? ref,
+    String? commit,
+  }) async {
     final directory = _plugins[repo];
     if (directory == null) {
       throw ArgumentError.value(repo, 'repo', 'No fake plugin registered');
     }
-    return FetchedRepo(directory: directory, commit: '$_commit-$repo');
+    if (commit != null) pinnedCommits[repo] = commit;
+    return FetchedRepo(
+      directory: directory,
+      commit: commit ?? '$_commit-$repo',
+    );
   }
 }

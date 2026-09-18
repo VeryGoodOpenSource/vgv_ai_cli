@@ -27,6 +27,18 @@ dart pub global activate --source=path <path to this package>
 ## Usage
 
 ```sh
+# Install VGV agent configuration into one or more harnesses
+$ vgv_ai install --claude --pi
+
+# Install into every supported harness
+$ vgv_ai install --all
+
+# Materialize skills somewhere other than the default (~/.agents/skills)
+$ vgv_ai install --all --skills-root ~/my-skills
+
+# Refresh plugins to their latest commit instead of the pinned one
+$ vgv_ai install --all --update
+
 # Sample command
 $ vgv_ai sample
 
@@ -39,6 +51,22 @@ $ vgv_ai --version
 # Show usage help
 $ vgv_ai --help
 ```
+
+### The `install` command
+
+`install` resolves the plugins enabled in the
+[Very Good Claude marketplace][marketplace_link], extracts their MCP servers,
+skills, and agents, and writes per-harness configuration into your real config
+(for example `~/.claude/settings.json`, `~/.gemini/settings.json`,
+`~/.codex/config.toml`, `~/.config/opencode/opencode.json`, and
+`~/.pi/agent/settings.json`). Existing user-owned keys are preserved; the
+per-harness `AGENTS.md` files are fully managed.
+
+Skills are copied once into the skills root (default `~/.agents/skills`) and
+pinned in `skills-lock.json`, so re-runs are reproducible. Pass `--update` to
+refresh to the latest commits.
+
+[marketplace_link]: https://github.com/VeryGoodOpenSource/very_good_claude_marketplace
 
 ## Running Tests with coverage 🧪
 

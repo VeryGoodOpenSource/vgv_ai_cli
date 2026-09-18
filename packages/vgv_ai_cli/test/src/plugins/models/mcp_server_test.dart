@@ -19,7 +19,9 @@ void main() {
       });
 
       test('parses a remote server', () {
-        final server = McpServer.fromJson({'url': 'https://mcp.context7.com/mcp'});
+        final server = McpServer.fromJson({
+          'url': 'https://mcp.context7.com/mcp',
+        });
 
         expect(server.url, 'https://mcp.context7.com/mcp');
         expect(server.isRemote, isTrue);

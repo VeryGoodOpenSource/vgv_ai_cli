@@ -66,12 +66,18 @@ class Git {
   /// Shallow-clones [remote] into [destination] and returns the checked-out
   /// commit SHA.
   ///
-  /// When [ref] is provided the matching branch or tag is checked out.
+  /// When [ref] is provided the matching branch or tag is checked out. When
+  /// [commit] is provided the exact commit is fetched and checked out instead,
+  /// which is how a locked install reproduces a previous resolution; [commit]
+  /// takes precedence over [ref].
   Future<String> clone({
     required Uri remote,
     required Directory destination,
     String? ref,
+    String? commit,
   }) async {
+    if (commit != null) return await _cloneCommit(remote, destination, commit);
+
     final result = await _run([
       'clone',
       '--depth',
@@ -84,11 +90,34 @@ class Git {
       throw GitCloneFailure(remote, '${result.stderr}'.trim());
     }
 
-    final head = await _run(
-      ['rev-parse', 'HEAD'],
-      workingDirectory: destination.path,
-    );
+    final head = await _run([
+      'rev-parse',
+      'HEAD',
+    ], workingDirectory: destination.path);
     return '${head.stdout}'.trim();
+  }
+
+  Future<String> _cloneCommit(
+    Uri remote,
+    Directory destination,
+    String commit,
+  ) async {
+    destination.createSync(recursive: true);
+    final cwd = destination.path;
+
+    for (final args in [
+      ['init'],
+      ['remote', 'add', 'origin', '$remote'],
+      ['fetch', '--depth', '1', 'origin', commit],
+      ['reset', '--hard', 'FETCH_HEAD'],
+    ]) {
+      final result = await _run(args, workingDirectory: cwd);
+      if (result.exitCode != 0) {
+        throw GitCloneFailure(remote, '${result.stderr}'.trim());
+      }
+    }
+
+    return commit;
   }
 
   Future<ProcessResult> _run(

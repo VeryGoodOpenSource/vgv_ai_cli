@@ -64,7 +64,11 @@ class PluginResolver {
   final PluginExtractor _extractor;
 
   /// Resolves every plugin listed in the marketplace manifest.
-  Future<ResolvedPlugins> resolve() async {
+  ///
+  /// When [pins] maps a plugin's repo slug to a commit, that plugin is fetched
+  /// at the pinned commit rather than its default branch, making re-installs
+  /// reproducible.
+  Future<ResolvedPlugins> resolve({Map<String, String> pins = const {}}) async {
     final marketplace = await _fetcher.fetchMarketplace();
     final manifestFile = File(
       p.join(marketplace.directory.path, '.claude-plugin', 'marketplace.json'),
@@ -77,7 +81,8 @@ class PluginResolver {
 
     final resolved = <ResolvedPlugin>[];
     for (final source in manifest.plugins) {
-      final checkout = await _fetcher.fetchPlugin(source.repo);
+      final pin = pins[source.repo];
+      final checkout = await _fetcher.fetchPlugin(source.repo, commit: pin);
       resolved.add(
         ResolvedPlugin(
           name: source.name,

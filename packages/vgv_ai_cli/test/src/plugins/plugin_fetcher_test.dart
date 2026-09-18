@@ -44,13 +44,15 @@ void main() {
       final result = await fetcher.fetchMarketplace();
 
       expect(result.commit, 'abc123');
-      final captured = verify(
-        () => git.clone(
-          remote: captureAny(named: 'remote'),
-          destination: any(named: 'destination'),
-          ref: any(named: 'ref'),
-        ),
-      ).captured.single as Uri;
+      final captured =
+          verify(
+                () => git.clone(
+                  remote: captureAny(named: 'remote'),
+                  destination: any(named: 'destination'),
+                  ref: any(named: 'ref'),
+                ),
+              ).captured.single
+              as Uri;
       expect('$captured', 'https://github.com/$vgvMarketplaceRepo.git');
     });
 

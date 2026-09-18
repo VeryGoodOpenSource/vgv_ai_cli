@@ -159,13 +159,13 @@ This plan adds an `install` command to `packages/vgv_ai_cli` that:
 - [x] `skills-lock.json` pins each skill's origin
 
 ### Phase 3: Command + polish
-- [ ] Task 9: `install` command wiring (flags incl. `--update`, orchestration, errors)
-- [ ] Task 10: End-to-end install test + README/docs update
+- [x] Task 9: `install` command wiring (flags incl. `--update`, orchestration, errors)
+- [x] Task 10: End-to-end install test + README/docs update
 
 ### Checkpoint: Complete
-- [ ] `dart test` and `dart analyze` clean in `packages/vgv_ai_cli`
-- [ ] `install --help` documents flags; happy path runs against fixtures
-- [ ] Ready for review
+- [x] `dart test` and `dart analyze` clean in `packages/vgv_ai_cli`
+- [x] `install --help` documents flags; happy path runs against fixtures
+- [x] Ready for review
 
 ## Risks and Mitigations
 | Risk | Impact | Mitigation |
