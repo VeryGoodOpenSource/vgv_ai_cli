@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/harness/harness.dart';
 
 /// Signature of [Process.run], narrowed to what detection needs.
@@ -57,6 +56,13 @@ class HarnessDetector {
   /// so the number is extracted rather than the line returned.
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
 
+  /// Claude, Gemini and Codex print their banner to stdout. OpenCode and Pi
+  /// were unavailable to check, so stderr is searched too rather than
+  /// reporting a working harness with a blank version. stdout comes first, so
+  /// it still wins when both carry a number.
+  static String _banner(ProcessResult result) =>
+      '${result.stdout}${result.stderr}';
+
   final RunProcess _runProcess;
   final Duration _timeout;
 
@@ -82,13 +88,13 @@ class HarnessDetector {
         runInShell: true,
       ).timeout(_timeout);
 
-      if (result.exitCode != ExitCode.success.code) {
+      if (result.exitCode != 0) {
         return HarnessDetection.missing(harness: harness);
       }
 
       return HarnessDetection.detected(
         harness: harness,
-        version: _versionPattern.firstMatch('${result.stdout}')?.group(0),
+        version: _versionPattern.firstMatch(_banner(result))?.group(0),
       );
     } on Exception {
       return HarnessDetection.missing(harness: harness);
