@@ -29,7 +29,7 @@ the marketplace manifest. Add the `yaml` and `toml` dependencies.
 `test/src/plugins/*_test.dart`
 **Estimated scope:** M (3-5 files)
 
-### Task 2: `Git` wrapper + `PluginFetcher` (clone marketplace + plugin repos)
+### Task 2: `Git` wrapper + `PluginFetcher` (clone marketplace + plugin repos)  ✅
 **Description:** Add a `Git` wrapper over the `git` executable, modeled on
 very_good_cli's `Git` (`lib/src/cli/git_cli.dart`): mockable, with
 `reachable(remote)` and `clone(repo, ref, dest)` (shallow, resolving/returning the
@@ -38,11 +38,13 @@ each plugin source repo into a managed cache dir, returning dir handles + pinned
 commits. Provide a fake `PluginFetcher` backed by fixtures for tests.
 
 **Acceptance criteria:**
-- [ ] `Git` exposes `reachable` and `clone` and is injectable/mockable; missing
-      `git` or an unreachable remote yields a clear, typed error.
-- [ ] `PluginFetcher` fetches the marketplace dir and a plugin source dir given its
+- [x] `Git` exposes `reachable` and `clone` and is injectable/mockable; missing
+      `git` (`GitNotFound`) or an unreachable remote (`UnreachableRemote`) /
+      clone failure (`GitCloneFailure`) yields a clear, typed error.
+- [x] `PluginFetcher` fetches the marketplace dir and a plugin source dir given its
       `owner/name` slug, returning the resolved commit SHA for each.
-- [ ] A fake fetcher backed by local fixture dirs is available to tests (no network).
+- [x] A fake fetcher (`FakePluginFetcher`) backed by local dirs is available to
+      tests (no network).
 
 **Verification:**
 - [ ] Tests pass: `dart test test/src/plugins/`
