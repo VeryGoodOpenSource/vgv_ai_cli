@@ -8,7 +8,8 @@ guidance.
 
 {{#has_skills}}Use a skill when its description matches the task at hand.
 
-{{#skills}}- **{{name}}**: {{description}}
+{{#skills}}- **{{name}}**: {{description}}{{#path}}
+  - Skill file: `{{{.}}}`{{/path}}
 {{/skills}}{{/has_skills}}{{^has_skills}}No skills are configured.
 {{/has_skills}}
 ## Agents

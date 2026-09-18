@@ -12,8 +12,8 @@ import 'package:hooks/models/models.dart';
 /// fragments consume.
 /// {@endtemplate}
 class const AgentsConfiguration({
-  required final List<NamedEntry> skills,
-  required final List<NamedEntry> agents,
+  required final List<Skill> skills,
+  required final List<Agent> agents,
   required final ClaudeSettings claudeSettings,
   required final GeminiSettings geminiSettings,
   required final OpenCodeConfig openCodeConfig,

@@ -29,7 +29,11 @@ Map<String, dynamic> _vars({
     'skills_root': '~/.agents/skills',
     if (populated) ...{
       'skills': [
-        {'name': 'testing', 'description': 'Writing or reviewing Dart tests.'},
+        {
+          'name': 'testing',
+          'description': 'Writing or reviewing Dart tests.',
+          'path': '~/.agents/skills/vgv-wingspan/testing',
+        },
         {'name': 'bloc', 'description': 'Bloc state management.'},
       ],
       'agents': [
@@ -194,6 +198,20 @@ void main() {
           reason: '$path is not valid JSON',
         );
       }
+    });
+
+    test('lists each skill with its canonical path in AGENTS.md', () async {
+      final dir = await _render(_vars(gemini: true));
+      final agents = File(p.join(dir.path, 'gemini', 'AGENTS.md'))
+          .readAsStringSync();
+
+      expect(
+        agents,
+        contains('Skill file: `~/.agents/skills/vgv-wingspan/testing`'),
+      );
+      // A skill without a path renders its name and description only.
+      expect(agents, contains('**bloc**: Bloc state management.'));
+      expect(agents, isNot(contains('Skill file: `bloc`')));
     });
 
     test('wires Claude to the marketplace rather than copying files', () async {

@@ -149,7 +149,7 @@ This plan adds an `install` command to `packages/vgv_ai_cli` that:
 - [ ] Task 4: Map resolved data → brick vars and render `agentsBundle` to staging
 - [ ] Task 5: JSON deep-merge reconciler (claude, gemini, opencode, pi)
 - [ ] Task 6: Codex TOML merge + `AGENTS.md` overwrite reconcilers
-- [ ] Task 7: Brick change — `Skill`/`Agent` models (replace `NamedEntry`) + bundle regen
+- [x] Task 7: Brick change — `Skill`/`Agent` models (replace `NamedEntry`) + bundle regen
 - [ ] Task 8: Skill materialization into `skills_root` + `skills-lock.json`
 
 ### Checkpoint: Generation

@@ -30,8 +30,8 @@ Future<void> run(HookContext context) async {
     throw Exception('no harness selected');
   }
 
-  final agents = NamedEntry.listFromVars(vars['agents']);
-  final skills = NamedEntry.listFromVars(vars['skills']);
+  final agents = Agent.listFromVars(vars['agents']);
+  final skills = Skill.listFromVars(vars['skills']);
   final mcpServers = MCPServer.mapFromVars(vars['mcp_servers']);
   final skillsRoot = vars['skills_root'] as String?;
 

@@ -1,3 +1,4 @@
+export 'agent/agent.dart';
 export 'agents_configuration.dart';
 export 'claude_settings/claude_settings.dart';
 export 'codex_config.dart';
@@ -6,8 +7,8 @@ export 'harness.dart';
 export 'marketplace/marketplace.dart';
 export 'mcp_server.dart';
 export 'mcp_server_config/mcp_server_config.dart';
-export 'named_entry/named_entry.dart';
 export 'opencode_config/opencode_config.dart';
 export 'opencode_mcp_server/opencode_mcp_server.dart';
 export 'pi_settings/pi_settings.dart';
+export 'skill/skill.dart';
 export 'vgv_plugin.dart';
