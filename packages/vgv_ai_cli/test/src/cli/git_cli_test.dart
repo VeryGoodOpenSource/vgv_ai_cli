@@ -33,15 +33,18 @@ void main() {
 
     const git = Git();
 
-    test('reachable succeeds for an existing remote', () async {
-      await expectLater(git.reachable(remote), completes);
+    test('GitNotFound describes the missing executable', () {
+      expect(
+        const GitNotFound().toString(),
+        'git is not installed or not on your PATH. Install git and try again.',
+      );
     });
 
-    test('reachable throws UnreachableRemote for a missing remote', () async {
-      final missing = Uri.file(p.join(temp.path, 'nope'));
-      await expectLater(
-        git.reachable(missing),
-        throwsA(isA<UnreachableRemote>()),
+    test('GitCloneFailure describes the remote and the git output', () {
+      final failedRemote = Uri.parse('https://example.com/repo.git');
+      expect(
+        GitCloneFailure(failedRemote, 'fatal: boom').toString(),
+        'Failed to clone $failedRemote: fatal: boom',
       );
     });
 
@@ -83,6 +86,43 @@ void main() {
       await expectLater(
         git.clone(remote: missing, destination: dest),
         throwsA(isA<GitCloneFailure>()),
+      );
+    });
+
+    test('clone checks out the given ref', () async {
+      await _git(['checkout', '-b', 'feature'], cwd: origin.path);
+      File(p.join(origin.path, 'FEATURE.md')).writeAsStringSync('feature');
+      await _git(['add', '.'], cwd: origin.path);
+      await _git(['commit', '-m', 'feature'], cwd: origin.path);
+      await _git(['checkout', 'main'], cwd: origin.path);
+
+      final dest = Directory(p.join(temp.path, 'ref-clone'));
+      await git.clone(remote: remote, destination: dest, ref: 'feature');
+
+      expect(File(p.join(dest.path, 'FEATURE.md')).existsSync(), isTrue);
+    });
+
+    test(
+      'clone throws GitCloneFailure when pinning an unknown commit',
+      () async {
+        final dest = Directory(p.join(temp.path, 'bad-commit'));
+        await expectLater(
+          git.clone(remote: remote, destination: dest, commit: '0' * 40),
+          throwsA(isA<GitCloneFailure>()),
+        );
+      },
+    );
+
+    test('throws GitNotFound when the git executable is missing', () async {
+      final missingGit = Git(
+        processRunner: (executable, arguments, {workingDirectory}) async =>
+            throw const ProcessException('git', []),
+      );
+      final dest = Directory(p.join(temp.path, 'no-git'));
+
+      await expectLater(
+        missingGit.clone(remote: remote, destination: dest),
+        throwsA(isA<GitNotFound>()),
       );
     });
   });

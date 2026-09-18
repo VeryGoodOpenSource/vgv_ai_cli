@@ -12,21 +12,6 @@ class GitNotFound implements Exception {
       'git is not installed or not on your PATH. Install git and try again.';
 }
 
-/// {@template unreachable_remote}
-/// Thrown when a git [remote] cannot be reached.
-/// {@endtemplate}
-class UnreachableRemote implements Exception {
-  /// {@macro unreachable_remote}
-  const new(this.remote);
-
-  /// The remote that could not be reached.
-  final Uri remote;
-
-  @override
-  String toString() =>
-      '$remote is unreachable. Check the URL and your access rights.';
-}
-
 /// {@template git_clone_failure}
 /// Thrown when a `git clone` fails.
 /// {@endtemplate}
@@ -44,6 +29,14 @@ class GitCloneFailure implements Exception {
   String toString() => 'Failed to clone $remote: $message';
 }
 
+/// Signature matching [Process.run], injected into [Git] so tests can
+/// simulate a missing `git` executable without touching the real `PATH`.
+typedef GitProcessRunner = Future<ProcessResult> Function(
+  String executable,
+  List<String> arguments, {
+  String? workingDirectory,
+});
+
 /// {@template git}
 /// A thin, mockable wrapper over the `git` executable.
 ///
@@ -52,16 +45,9 @@ class GitCloneFailure implements Exception {
 /// {@endtemplate}
 class Git {
   /// {@macro git}
-  const new();
+  const new({this._processRunner = Process.run});
 
-  /// Whether [remote] is reachable.
-  ///
-  /// Throws [UnreachableRemote] when it is not and [GitNotFound] when `git` is
-  /// unavailable.
-  Future<void> reachable(Uri remote) async {
-    final result = await _run(['ls-remote', '$remote', '--exit-code']);
-    if (result.exitCode != 0) throw UnreachableRemote(remote);
-  }
+  final GitProcessRunner _processRunner;
 
   /// Shallow-clones [remote] into [destination] and returns the checked-out
   /// commit SHA.
@@ -125,7 +111,11 @@ class Git {
     String? workingDirectory,
   }) async {
     try {
-      return await Process.run('git', args, workingDirectory: workingDirectory);
+      return await _processRunner(
+        'git',
+        args,
+        workingDirectory: workingDirectory,
+      );
     } on ProcessException {
       throw const GitNotFound();
     }

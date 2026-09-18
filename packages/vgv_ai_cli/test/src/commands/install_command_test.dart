@@ -6,9 +6,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
+import 'package:vgv_ai_cli/src/install/installer.dart';
 import 'package:vgv_ai_cli/src/plugins/plugin_fetcher.dart';
+import 'package:vgv_ai_cli/src/plugins/plugin_resolver.dart';
 
-import '../plugins/fake_plugin_fetcher.dart';
+import '../../helpers/fake_plugin_fetcher.dart';
 
 class _MockLogger extends Mock implements Logger;
 
@@ -83,6 +85,7 @@ description: Plan work.
       PluginFetcher? withFetcher,
       Directory? withHome,
       Map<String, String>? environment,
+      Installer? withInstaller,
     }) {
       final runner = CommandRunner<int>('vgv_ai', 'test')
         ..addCommand(
@@ -91,6 +94,7 @@ description: Plan work.
             fetcher: withFetcher,
             home: withHome,
             environment: environment,
+            installer: withInstaller,
           ),
         );
       return runner.run(['install', ...args]);
@@ -189,6 +193,40 @@ description: Plan work.
       expect(exitCode, ExitCode.software.code);
       verify(() => progress.fail()).called(1);
       verify(() => logger.err(any(that: contains('boom')))).called(1);
+    });
+
+    test(
+      'constructs the production GitPluginFetcher when none is injected',
+      () async {
+        final cacheDir = Directory(
+          p.join(home.path, '.cache', 'vgv_ai', 'plugins'),
+        );
+
+        // No fetcher is injected here, so this exercises the production
+        // GitPluginFetcher construction branch end-to-end, including a real
+        // shallow clone of the public marketplace repo.
+        final exitCode = await runInstall(['--pi'], withHome: home);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(cacheDir.existsSync(), isTrue);
+      },
+      timeout: const Timeout(Duration(seconds: 60)),
+    );
+
+    test('uses the injected installer directly', () async {
+      final exitCode = await runInstall(
+        ['--pi'],
+        withInstaller: Installer(
+          resolver: PluginResolver(fetcher: fetcher()),
+          home: home,
+        ),
+      );
+
+      expect(exitCode, ExitCode.success.code);
+      expect(
+        File(p.join(home.path, '.pi', 'agent', 'settings.json')).existsSync(),
+        isTrue,
+      );
     });
   });
 }

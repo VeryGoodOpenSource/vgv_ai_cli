@@ -80,7 +80,6 @@ void main() {
       expect(lock['plugins'], {
         'vgv-wingspan': {
           'repo': 'VeryGoodOpenSource/vgv-wingspan',
-          'ref': 'HEAD',
           'commit': 'abc123',
           'skills': [
             {
@@ -107,6 +106,26 @@ void main() {
       );
 
       expect(stale.existsSync(), isFalse);
+    });
+
+    test('copies nested subdirectories within a skill', () async {
+      writeSkill('plan');
+      File(p.join(checkout.path, 'skills', 'plan', 'templates', 'a.md'))
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync('template');
+
+      await materializer.materialize(
+        plugins: plugins(),
+        destination: destination,
+        skillsRoot: '~/.agents/skills',
+      );
+
+      final nestedDir = Directory(
+        p.join(destination.path, 'vgv-wingspan', 'plan', 'templates'),
+      );
+      final nestedFile = File(p.join(nestedDir.path, 'a.md'));
+      expect(nestedDir.existsSync(), isTrue);
+      expect(nestedFile.readAsStringSync(), 'template');
     });
 
     test('skips skills whose source directory is missing', () async {

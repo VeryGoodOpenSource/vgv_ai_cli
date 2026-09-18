@@ -23,7 +23,7 @@ class const SkillMaterializer({
   ///
   /// [destination] is the resolved skills-root directory on disk; [skillsRoot]
   /// is the display path (typically `~`-prefixed) recorded in the lockfile.
-  Future<SkillsLock> materialize({
+  Future<void> materialize({
     required ResolvedPlugins plugins,
     required Directory destination,
     required String skillsRoot,
@@ -54,7 +54,6 @@ class const SkillMaterializer({
       if (lockedSkills.isNotEmpty) {
         locked[plugin.name] = LockedPlugin(
           repo: plugin.repo,
-          ref: plugin.ref,
           commit: plugin.commit,
           skills: lockedSkills,
         );
@@ -65,8 +64,6 @@ class const SkillMaterializer({
     final lockFile = File(p.join(destination.path, 'skills-lock.json'));
     await lockFile.create(recursive: true);
     await lockFile.writeAsString('${encoder.convert(lock.toJson())}\n');
-
-    return lock;
   }
 
   /// Replaces [target] with a fresh recursive copy of [source].

@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/cli/git_cli.dart';
 import 'package:vgv_ai_cli/src/plugins/plugin_fetcher.dart';
 
-import 'fake_plugin_fetcher.dart';
+import '../../helpers/fake_plugin_fetcher.dart';
 
 class _MockGit extends Mock implements Git;
 
@@ -15,12 +15,12 @@ class _FakeDirectory extends Fake implements Directory;
 String _slug(String repo) => repo.replaceAll('/', '__');
 
 void main() {
-  setUpAll(() {
-    registerFallbackValue(_FakeDirectory());
-    registerFallbackValue(Uri.parse('https://github.com/x/y.git'));
-  });
-
   group('GitPluginFetcher', () {
+    setUpAll(() {
+      registerFallbackValue(_FakeDirectory());
+      registerFallbackValue(Uri.parse('https://github.com/x/y.git'));
+    });
+
     late Directory temp;
     late Git git;
 
@@ -31,7 +31,6 @@ void main() {
         () => git.clone(
           remote: any(named: 'remote'),
           destination: any(named: 'destination'),
-          ref: any(named: 'ref'),
         ),
       ).thenAnswer((_) async => 'abc123');
     });
@@ -49,7 +48,6 @@ void main() {
                 () => git.clone(
                   remote: captureAny(named: 'remote'),
                   destination: any(named: 'destination'),
-                  ref: any(named: 'ref'),
                 ),
               ).captured.single
               as Uri;
@@ -71,7 +69,6 @@ void main() {
         () => git.clone(
           remote: any(named: 'remote'),
           destination: any(named: 'destination'),
-          ref: any(named: 'ref'),
         ),
       ).thenThrow(const GitNotFound());
       final fetcher = GitPluginFetcher(workingDirectory: temp, git: git);

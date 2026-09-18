@@ -2,9 +2,31 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/plugins/plugin_fetcher.dart';
 import 'package:vgv_ai_cli/src/plugins/plugin_resolver.dart';
 
-import 'fake_plugin_fetcher.dart';
+import '../../helpers/fake_plugin_fetcher.dart';
+
+class _PartiallyFailingFetcher implements PluginFetcher {
+  new(this._marketplace);
+
+  final Directory _marketplace;
+  var _calls = 0;
+
+  @override
+  Future<FetchedRepo> fetchMarketplace() async =>
+      FetchedRepo(directory: _marketplace, commit: 'market');
+
+  @override
+  Future<FetchedRepo> fetchPlugin(String repo, {String? commit}) async {
+    _calls++;
+    if (_calls == 2) throw Exception('boom');
+    return FetchedRepo(
+      directory: Directory.systemTemp.createTempSync('resolver_partial_'),
+      commit: 'ok',
+    );
+  }
+}
 
 void main() {
   group('PluginResolver', () {
@@ -92,5 +114,31 @@ description: Plans things.
       expect(result.skills, isEmpty);
       expect(result.agents, isEmpty);
     });
+
+    test(
+      'propagates a mid-resolution failure without returning partial results',
+      () async {
+        writeFile(marketplace, '.claude-plugin/marketplace.json', '''
+{
+  "plugins": [
+    {
+      "name": "first",
+      "source": {"source": "github", "repo": "owner/first"}
+    },
+    {
+      "name": "second",
+      "source": {"source": "github", "repo": "owner/second"}
+    }
+  ]
+}
+''');
+
+        final resolver = PluginResolver(
+          fetcher: _PartiallyFailingFetcher(marketplace),
+        );
+
+        await expectLater(resolver.resolve(), throwsA(isA<Exception>()));
+      },
+    );
   });
 }

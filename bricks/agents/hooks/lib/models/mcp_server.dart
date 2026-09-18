@@ -20,7 +20,7 @@ class const MCPServer({
     final url = vars['url'];
     final rawEnv = vars['env'];
     return MCPServer(
-      command: vars['command'] as String?,
+      command: vars['command'] is String ? vars['command'] as String : null,
       args: (vars['args'] as List? ?? const []).cast<String>(),
       env: <String, dynamic>{
         if (rawEnv is Map)

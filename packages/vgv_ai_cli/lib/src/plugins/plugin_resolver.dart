@@ -17,7 +17,6 @@ class const ResolvedPlugin({
   required final Map<String, McpServer> mcpServers,
   required final List<ExtractedSkill> skills,
   required final List<Agent> agents,
-  final String ref = 'HEAD',
 });
 
 /// {@template resolved_plugins}

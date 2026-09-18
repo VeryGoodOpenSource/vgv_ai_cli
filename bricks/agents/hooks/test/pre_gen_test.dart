@@ -2,22 +2,18 @@ import 'dart:convert';
 
 import 'package:hooks/pre_gen.dart';
 import 'package:mason/mason.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
-class _TestLogger extends Logger {
-  final errors = <String>[];
-
-  @override
-  void err(String? message, {LogStyle? style}) => errors.add(message ?? '');
-}
+class _MockLogger extends Mock implements Logger;
 
 class _TestContext implements HookContext {
-  new(this._vars);
+  new(this._vars, this.logger);
 
   Map<String, dynamic> _vars;
 
   @override
-  final Logger logger = _TestLogger();
+  final Logger logger;
 
   @override
   Map<String, dynamic> get vars => _vars;
@@ -43,30 +39,34 @@ Map<String, dynamic> _decode(HookContext context, String key) {
 
 void main() {
   group('pre_gen', () {
-    test('throws and logs when no harness is selected', () async {
-      final context = _TestContext({..._baseVars, 'claude': false});
+    late Logger logger;
 
-      await expectLater(run(context), throwsA(isA<Exception>()));
-      expect(
-        (context.logger as _TestLogger).errors.single,
-        contains('No harness selected'),
-      );
+    setUp(() {
+      logger = _MockLogger();
+    });
+
+    _TestContext buildContext(Map<String, dynamic> vars) =>
+        _TestContext(vars, logger);
+
+    test('throws and logs when no harness is selected', () async {
+      final ctx = buildContext({..._baseVars, 'claude': false});
+
+      await expectLater(run(ctx), throwsA(isA<Exception>()));
+      verify(() => logger.err(any(that: contains('No harness selected'))))
+          .called(1);
     });
 
     test('throws and logs when a required var is missing', () async {
-      final context = _TestContext(
+      final ctx = buildContext(
         {..._baseVars}..removeWhere((key, _) => key == 'skills_root'),
       );
 
-      await expectLater(run(context), throwsA(isA<Exception>()));
-      expect(
-        (context.logger as _TestLogger).errors.single,
-        'Missing required var: skills_root.',
-      );
+      await expectLater(run(ctx), throwsA(isA<Exception>()));
+      verify(() => logger.err('Missing required var: skills_root.')).called(1);
     });
 
     test('defaults missing skills and agents to empty', () async {
-      final context = _TestContext({..._baseVars});
+      final context = buildContext({..._baseVars});
 
       await run(context);
 
@@ -77,7 +77,7 @@ void main() {
     });
 
     test('flags presence when skills and agents are supplied', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'skills': [
           {'name': 'testing', 'description': 'write tests'},
@@ -100,7 +100,7 @@ void main() {
     });
 
     test('enables every VGV plugin against the marketplace', () async {
-      final context = _TestContext({..._baseVars});
+      final context = buildContext({..._baseVars});
 
       await run(context);
 
@@ -116,7 +116,7 @@ void main() {
     test(
       'points Gemini at AGENTS.md and keeps command and args apart',
       () async {
-        final context = _TestContext({
+        final context = buildContext({
           ..._baseVars,
           'mcp_servers': {
             'dart': {
@@ -139,8 +139,21 @@ void main() {
       },
     );
 
+    test('throws when a local MCP server has no command', () async {
+      final context = buildContext({
+        ..._baseVars,
+        'mcp_servers': {
+          'broken': <String, dynamic>{
+            'args': ['x'],
+          },
+        },
+      });
+
+      await expectLater(run(context), throwsA(isA<StateError>()));
+    });
+
     test('merges command and args into one array for OpenCode', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'dart': {
@@ -163,7 +176,7 @@ void main() {
     });
 
     test('types remote servers by url for OpenCode', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'context7': {'url': 'https://mcp.context7.com/mcp'},
@@ -178,7 +191,7 @@ void main() {
     });
 
     test('drops an empty env rather than emitting it', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'very-good-cli': {
@@ -199,7 +212,7 @@ void main() {
     });
 
     test('forwards a populated env to OpenCode', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'very-good-cli': {
@@ -220,7 +233,7 @@ void main() {
     });
 
     test('points Pi at the canonical skills root', () async {
-      final context = _TestContext({..._baseVars});
+      final context = buildContext({..._baseVars});
 
       await run(context);
 
@@ -230,7 +243,7 @@ void main() {
     });
 
     test('emits a Codex table per server', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'dart': {
@@ -255,7 +268,7 @@ void main() {
     });
 
     test('emits a Codex env sub-table when a server carries one', () async {
-      final context = _TestContext({
+      final context = buildContext({
         ..._baseVars,
         'mcp_servers': {
           'very-good-cli': {
@@ -280,7 +293,7 @@ void main() {
     });
 
     test('emits a comment when Codex has no servers', () async {
-      final context = _TestContext({..._baseVars});
+      final context = buildContext({..._baseVars});
 
       await run(context);
 

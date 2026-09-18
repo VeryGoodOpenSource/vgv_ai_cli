@@ -22,8 +22,16 @@ class InstallCommand extends Command<int> {
   ///
   /// The fetcher, home, and environment are injectable so tests exercise the
   /// full pipeline against local fixtures and a temporary home; production runs
-  /// leave them null and resolve the real values.
-  new({required this._logger, this._fetcher, this._home, this._environment}) {
+  /// leave them null and resolve the real values. [installer] injects a fully
+  /// assembled [Installer] directly, bypassing fetcher/home resolution
+  /// entirely — production leaves it null and assembles one per run.
+  new({
+    required this._logger,
+    this._fetcher,
+    this._home,
+    this._environment,
+    Installer? installer,
+  }) : _injectedInstaller = installer {
     argParser
       ..addFlag('claude', negatable: false, help: 'Configure Claude Code.')
       ..addFlag('gemini', negatable: false, help: 'Configure Gemini CLI.')
@@ -60,6 +68,7 @@ class InstallCommand extends Command<int> {
   final PluginFetcher? _fetcher;
   final Directory? _home;
   final Map<String, String>? _environment;
+  final Installer? _injectedInstaller;
 
   @override
   Future<int> run() async {
@@ -83,7 +92,7 @@ class InstallCommand extends Command<int> {
 
     final progress = _logger.progress('Resolving VGV plugins');
     try {
-      await _installer().install(
+      await _resolveInstaller().install(
         harnesses: harnesses,
         skillsRoot: results['skills-root'] as String,
         update: results['update'] == true,
@@ -97,7 +106,9 @@ class InstallCommand extends Command<int> {
     }
   }
 
-  Installer _installer() {
+  Installer _resolveInstaller() => _injectedInstaller ?? _buildInstaller();
+
+  Installer _buildInstaller() {
     final home = _home ?? _resolveHome();
     final fetcher =
         _fetcher ??

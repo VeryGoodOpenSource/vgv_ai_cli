@@ -28,13 +28,27 @@ class const OpenCodeMCPServer({
   final Map<String, dynamic>? environment,
 }) {
   /// Builds the config that describes [server].
-  factory fromMCPServer(MCPServer server) => server.isRemote
-      ? OpenCodeMCPServer(type: OpenCodeMCPServerType.remote, url: server.url)
-      : OpenCodeMCPServer(
-          type: OpenCodeMCPServerType.local,
-          command: <String>[server.command ?? '', ...server.args],
-          environment: server.env.isEmpty ? null : server.env,
-        );
+  ///
+  /// Throws a [StateError] when a local (non-remote) server has no command:
+  /// silently defaulting to an empty command would write a broken config that
+  /// only fails once OpenCode tries to launch it.
+  factory fromMCPServer(MCPServer server) {
+    if (server.isRemote) {
+      return OpenCodeMCPServer(
+        type: OpenCodeMCPServerType.remote,
+        url: server.url,
+      );
+    }
+    final command = server.command;
+    if (command == null) {
+      throw StateError('A local MCP server must define a command.');
+    }
+    return OpenCodeMCPServer(
+      type: OpenCodeMCPServerType.local,
+      command: <String>[command, ...server.args],
+      environment: server.env.isEmpty ? null : server.env,
+    );
+  }
 
   /// Serializes the server config to JSON.
   Map<String, dynamic> toJson() => _$OpenCodeMCPServerToJson(this);

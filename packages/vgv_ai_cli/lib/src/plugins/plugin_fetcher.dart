@@ -28,7 +28,7 @@ abstract interface class PluginFetcher {
   ///
   /// When [commit] is provided the repository is checked out at that exact
   /// commit, reproducing a locked install.
-  Future<FetchedRepo> fetchPlugin(String repo, {String? ref, String? commit});
+  Future<FetchedRepo> fetchPlugin(String repo, {String? commit});
 }
 
 /// {@template git_plugin_fetcher}
@@ -48,11 +48,7 @@ class GitPluginFetcher implements PluginFetcher {
   Future<FetchedRepo> fetchMarketplace() => fetchPlugin(vgvMarketplaceRepo);
 
   @override
-  Future<FetchedRepo> fetchPlugin(
-    String repo, {
-    String? ref,
-    String? commit,
-  }) async {
+  Future<FetchedRepo> fetchPlugin(String repo, {String? commit}) async {
     final destination = Directory(
       p.join(_workingDirectory.path, repo.replaceAll('/', '__')),
     );
@@ -63,7 +59,6 @@ class GitPluginFetcher implements PluginFetcher {
     final resolved = await _git.clone(
       remote: remote,
       destination: destination,
-      ref: ref,
       commit: commit,
     );
 

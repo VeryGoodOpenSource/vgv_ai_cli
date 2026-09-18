@@ -26,11 +26,7 @@ class FakePluginFetcher implements PluginFetcher {
   final pinnedCommits = <String, String>{};
 
   @override
-  Future<FetchedRepo> fetchPlugin(
-    String repo, {
-    String? ref,
-    String? commit,
-  }) async {
+  Future<FetchedRepo> fetchPlugin(String repo, {String? commit}) async {
     final directory = _plugins[repo];
     if (directory == null) {
       throw ArgumentError.value(repo, 'repo', 'No fake plugin registered');

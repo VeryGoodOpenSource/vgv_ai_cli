@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/generation/generation.dart';
 import 'package:vgv_ai_cli/src/install/installer.dart';
 import 'package:vgv_ai_cli/src/plugins/plugin_resolver.dart';
 
-import '../plugins/fake_plugin_fetcher.dart';
+import '../../helpers/fake_plugin_fetcher.dart';
 
 void main() {
   group('Installer', () {

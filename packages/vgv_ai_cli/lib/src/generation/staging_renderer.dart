@@ -12,11 +12,11 @@ import 'package:vgv_ai_cli/src/templates/templates.dart';
 /// make` would.
 /// {@endtemplate}
 class const StagingRenderer() {
-  /// Renders the brick with [vars] into [target] and returns it.
+  /// Renders the brick with [vars] into [target].
   ///
   /// Existing files in [target] are overwritten; reconciliation against the
   /// real config happens later.
-  Future<Directory> render({
+  Future<void> render({
     required Map<String, dynamic> vars,
     required Directory target,
   }) async {
@@ -32,7 +32,5 @@ class const StagingRenderer() {
       vars: resolved,
       fileConflictResolution: FileConflictResolution.overwrite,
     );
-
-    return target;
   }
 }

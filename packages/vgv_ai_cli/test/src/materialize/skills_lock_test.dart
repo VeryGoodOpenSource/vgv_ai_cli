@@ -9,7 +9,6 @@ void main() {
         plugins: {
           'vgv-wingspan': LockedPlugin(
             repo: 'VeryGoodOpenSource/vgv-wingspan',
-            ref: 'HEAD',
             commit: 'abc123',
             skills: [
               LockedSkill(
@@ -28,7 +27,6 @@ void main() {
         'plugins': {
           'vgv-wingspan': {
             'repo': 'VeryGoodOpenSource/vgv-wingspan',
-            'ref': 'HEAD',
             'commit': 'abc123',
             'skills': [
               {
@@ -39,6 +37,55 @@ void main() {
             ],
           },
         },
+      });
+    });
+
+    group('pinsFromJson', () {
+      test('maps each plugin repo to its pinned commit', () {
+        final pins = SkillsLock.pinsFromJson('''
+{
+  "version": 1,
+  "skillsRoot": "~/.agents/skills",
+  "plugins": {
+    "vgv-wingspan": {
+      "repo": "VeryGoodOpenSource/vgv-wingspan",
+      "commit": "abc123",
+      "skills": []
+    }
+  }
+}
+''');
+
+        expect(pins, {'VeryGoodOpenSource/vgv-wingspan': 'abc123'});
+      });
+
+      test('returns empty for non-map JSON content', () {
+        expect(SkillsLock.pinsFromJson('[]'), isEmpty);
+      });
+
+      test('returns empty when the plugins block is absent', () {
+        expect(SkillsLock.pinsFromJson('{"version": 1}'), isEmpty);
+      });
+
+      test('skips a non-map plugin entry', () {
+        final pins = SkillsLock.pinsFromJson('''
+{"plugins": {"vgv-wingspan": "not-a-map"}}
+''');
+
+        expect(pins, isEmpty);
+      });
+
+      test('skips an entry missing repo or commit', () {
+        final pins = SkillsLock.pinsFromJson('''
+{
+  "plugins": {
+    "missing-commit": {"repo": "owner/repo"},
+    "missing-repo": {"commit": "abc123"}
+  }
+}
+''');
+
+        expect(pins, isEmpty);
       });
     });
   });

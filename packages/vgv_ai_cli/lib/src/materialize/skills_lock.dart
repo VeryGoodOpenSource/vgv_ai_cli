@@ -25,14 +25,12 @@ class const LockedSkill({
 /// {@endtemplate}
 class const LockedPlugin({
   required final String repo,
-  required final String ref,
   required final String commit,
   required final List<LockedSkill> skills,
 }) {
   /// The lockfile JSON shape for a plugin.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'repo': repo,
-    'ref': ref,
     'commit': commit,
     'skills': [for (final skill in skills) skill.toJson()],
   };
