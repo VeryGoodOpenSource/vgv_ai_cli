@@ -146,7 +146,7 @@ This plan adds an `install` command to `packages/vgv_ai_cli` that:
 - [x] Given local fixtures, resolver yields expected MCP servers, skills, agents
 
 ### Phase 2: Generation + reconciliation
-- [ ] Task 4: Map resolved data → brick vars and render `agentsBundle` to staging
+- [x] Task 4: Map resolved data → brick vars and render `agentsBundle` to staging
 - [ ] Task 5: JSON deep-merge reconciler (claude, gemini, opencode, pi)
 - [ ] Task 6: Codex TOML merge + `AGENTS.md` overwrite reconcilers
 - [x] Task 7: Brick change — `Skill`/`Agent` models (replace `NamedEntry`) + bundle regen
