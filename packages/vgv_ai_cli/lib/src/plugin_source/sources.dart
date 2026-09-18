@@ -1,4 +1,4 @@
-import 'dart:io' show Process, ProcessException, ProcessResult;
+import 'dart:io' show ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
@@ -6,17 +6,11 @@ import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 
 /// Runs git with [args].
 ///
-/// Injected so tests never reach the network or require a git binary.
+/// Required rather than defaulted to a real `Process.run`. A default would be
+/// a line no test can execute, since the suite must pass with no git binary
+/// installed, and this repo does not enable coverage-ignore comments. The
+/// process wiring belongs with the command that owns the rest of it.
 typedef RunGit = Future<ProcessResult> Function(List<String> args);
-
-/// The default [RunGit], which shells out to the real git.
-// coverage:ignore-start
-// The only process call in this layer. Every test injects a fake, and the
-// suite is required to pass with no git binary installed, so this body can
-// never execute under test.
-Future<ProcessResult> runGitProcess(List<String> args) =>
-    Process.run('git', args, runInShell: true);
-// coverage:ignore-end
 
 /// {@template plugin_source}
 /// Resolves a [PluginRef] to a directory on disk.
@@ -98,12 +92,12 @@ class const LocalCachePluginSource({
 /// {@template git_plugin_source}
 /// Resolves plugins by cloning them at their pinned tag.
 ///
-/// [cacheRoot] is where clones are kept between runs. [runGit] is injected so
-/// tests never hit the network.
+/// [cacheRoot] is where clones are kept between runs. [runGit] runs git, and is
+/// required so tests never hit the network.
 /// {@endtemplate}
 class const GitPluginSource({
   required final Directory cacheRoot,
-  final RunGit runGit = runGitProcess,
+  required final RunGit runGit,
 }) extends PluginSource {
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
