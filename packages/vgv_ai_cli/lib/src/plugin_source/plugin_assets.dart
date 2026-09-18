@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 
 /// Frontmatter keys Claude Code understands that no other harness does.
 ///
@@ -74,13 +73,13 @@ class const AgentAsset({
 class const PluginAssets({
   required final List<SkillAsset> skills,
   required final List<AgentAsset> agents,
-  required final Map<String, Map<String, dynamic>> mcpServers,
+  required final Map<String, Map<String, Object?>> mcpServers,
 }) {
   /// An empty set of assets.
   static const empty = PluginAssets(
     skills: [],
     agents: [],
-    mcpServers: <String, Map<String, dynamic>>{},
+    mcpServers: <String, Map<String, Object?>>{},
   );
 
   /// Combines [other] into these assets.
@@ -93,6 +92,8 @@ class const PluginAssets({
     mcpServers: {...mcpServers, ...other.mcpServers},
   );
 
+  /// Later entries win a name clash, and the result stays sorted by name so
+  /// merging cannot lose the ordering [PluginAssetsReader.read] establishes.
   static List<T> _mergeByName<T>(
     List<T> a,
     List<T> b,
@@ -102,7 +103,9 @@ class const PluginAssets({
     for (final item in b) {
       byName[name(item)] = item;
     }
-    return byName.values.toList();
+    final merged = byName.values.toList()
+      ..sort((x, y) => name(x).compareTo(name(y)));
+    return merged;
   }
 }
 
@@ -180,7 +183,7 @@ class const PluginAssetsReader() {
     return agents;
   }
 
-  Map<String, Map<String, dynamic>> _readMcpServers(File mcpFile) {
+  Map<String, Map<String, Object?>> _readMcpServers(File mcpFile) {
     if (!mcpFile.existsSync()) return const {};
 
     final Object? decoded;
@@ -202,7 +205,7 @@ class const PluginAssetsReader() {
     return {
       for (final entry in servers.entries)
         if (entry.value case final Map<Object?, Object?> value)
-          '${entry.key}': Map<String, dynamic>.from(value),
+          '${entry.key}': Map<String, Object?>.from(value),
     };
   }
 }

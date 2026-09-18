@@ -1,33 +1,21 @@
 import 'dart:io' show Process, ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
-import 'package:mason_logger/mason_logger.dart';
-import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
 import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 
-/// Runs git with [args], optionally from [workingDirectory].
+/// Runs git with [args].
 ///
 /// Injected so tests never reach the network or require a git binary.
-typedef RunGit = Future<ProcessResult> Function(
-  List<String> args, {
-  String? workingDirectory,
-});
+typedef RunGit = Future<ProcessResult> Function(List<String> args);
 
 /// The default [RunGit], which shells out to the real git.
 // coverage:ignore-start
 // The only process call in this layer. Every test injects a fake, and the
 // suite is required to pass with no git binary installed, so this body can
 // never execute under test.
-Future<ProcessResult> runGitProcess(
-  List<String> args, {
-  String? workingDirectory,
-}) => Process.run(
-  'git',
-  args,
-  workingDirectory: workingDirectory,
-  runInShell: true,
-);
+Future<ProcessResult> runGitProcess(List<String> args) =>
+    Process.run('git', args, runInShell: true);
 // coverage:ignore-end
 
 /// {@template plugin_source}
@@ -60,7 +48,14 @@ class const LocalCachePluginSource({
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = home.fileSystem;
     final pluginRoot = fileSystem.directory(
-      p.join(home.path, '.claude', 'plugins', 'cache', marketplace, ref.name),
+      fileSystem.path.join(
+        home.path,
+        '.claude',
+        'plugins',
+        'cache',
+        marketplace,
+        ref.name,
+      ),
     );
 
     if (!pluginRoot.existsSync()) {
@@ -70,7 +65,7 @@ class const LocalCachePluginSource({
     }
 
     final directory = fileSystem.directory(
-      p.join(pluginRoot.path, ref.version),
+      fileSystem.path.join(pluginRoot.path, ref.version),
     );
     if (!directory.existsSync()) {
       return UnavailablePlugin.single(
@@ -87,7 +82,7 @@ class const LocalCachePluginSource({
     // inspected, because it is Claude Code's own state and a populated cache
     // carries it.
     final manifest = fileSystem.file(
-      p.join(directory.path, '.claude-plugin', 'plugin.json'),
+      fileSystem.path.join(directory.path, '.claude-plugin', 'plugin.json'),
     );
     if (!manifest.existsSync()) {
       return UnavailablePlugin.single(
@@ -114,7 +109,7 @@ class const GitPluginSource({
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = cacheRoot.fileSystem;
     final target = fileSystem.directory(
-      p.join(cacheRoot.path, ref.name, ref.version),
+      fileSystem.path.join(cacheRoot.path, ref.name, ref.version),
     );
     if (target.existsSync()) return ResolvedPlugin(target);
 
@@ -156,7 +151,7 @@ class const GitPluginSource({
       );
     }
 
-    if (result.exitCode != ExitCode.success.code) {
+    if (result.exitCode != 0) {
       _deleteTemp(temp);
       return UnavailablePlugin.single(
         'Could not clone ${ref.repo} at ${ref.gitRef}: ${result.stderr}',
@@ -201,14 +196,18 @@ class const ChainedPluginSource(final List<PluginSource> sources)
           reasons.addAll(sourceReasons);
       }
     }
+    if (reasons.isEmpty) {
+      return UnavailablePlugin.single('no plugin sources were configured');
+    }
     return UnavailablePlugin(reasons);
   }
 }
 
-/// Resolves [ref] through [source], or throws.
+/// Resolves one [ref] through [source], or throws naming every source's reason.
 ///
-/// Resolution is all-or-nothing across the pinned plugins: a half-configured
-/// harness is worse than an unconfigured one.
+/// Callers resolving several plugins are expected to let the first failure
+/// propagate rather than install a subset: a half-configured harness is worse
+/// than an unconfigured one.
 Future<Directory> resolvePluginOrThrow(
   PluginRef ref, {
   required PluginSource source,

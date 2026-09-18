@@ -132,7 +132,7 @@ void main() {
 
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           args = a;
           fileSystem.directory(a.last).createSync(recursive: true);
           return _ok();
@@ -151,7 +151,7 @@ void main() {
 
       await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           // Mid-clone the temp path exists and the target must not.
           fileSystem.directory(a.last).createSync(recursive: true);
           expect(target.existsSync(), isFalse);
@@ -170,7 +170,7 @@ void main() {
 
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           ran = true;
           return _ok();
         },
@@ -183,7 +183,7 @@ void main() {
     test('reports a clone failure and leaves no temp directory', () async {
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           fileSystem.directory(a.last).createSync(recursive: true);
           return ProcessResult(0, 128, '', 'Remote branch v0.0.5 not found');
         },
@@ -204,8 +204,7 @@ void main() {
       // executable is absent.
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async =>
-            throw const ProcessException('git', []),
+        runGit: (a) async => throw const ProcessException('git', []),
       ).resolve(_ref);
 
       final reason = (resolution as UnavailablePlugin).reasons.single;
@@ -221,7 +220,7 @@ void main() {
 
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           ran = true;
           return _ok();
         },
@@ -239,7 +238,7 @@ void main() {
       // the concurrent-install case there is no good tree to fall back to.
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           fileSystem.directory(a.last).createSync(recursive: true);
           fileSystem.file(p.join(cacheRoot.path, _ref.name, '0.0.5'))
             ..createSync(recursive: true)
@@ -261,7 +260,7 @@ void main() {
 
       final resolution = await GitPluginSource(
         cacheRoot: cacheRoot,
-        runGit: (a, {workingDirectory}) async {
+        runGit: (a) async {
           fileSystem.directory(a.last).createSync(recursive: true);
           // A concurrent install publishes first, so the rename will collide.
           target.createSync(recursive: true);
@@ -289,7 +288,7 @@ void main() {
         GitPluginSource(
           cacheRoot: fileSystem.directory('/cache')
             ..createSync(recursive: true),
-          runGit: (a, {workingDirectory}) async {
+          runGit: (a) async {
             clonedGit = true;
             return _ok();
           },
@@ -306,7 +305,7 @@ void main() {
         GitPluginSource(
           cacheRoot: fileSystem.directory('/cache')
             ..createSync(recursive: true),
-          runGit: (a, {workingDirectory}) async {
+          runGit: (a) async {
             fileSystem.directory(a.last).createSync(recursive: true);
             return _ok();
           },
@@ -322,8 +321,7 @@ void main() {
         GitPluginSource(
           cacheRoot: fileSystem.directory('/cache')
             ..createSync(recursive: true),
-          runGit: (a, {workingDirectory}) async =>
-              throw const ProcessException('git', []),
+          runGit: (a) async => throw const ProcessException('git', []),
         ),
       ]).resolve(_ref);
 
@@ -333,10 +331,13 @@ void main() {
       expect(reasons.last, contains('git is not installed'));
     });
 
-    test('is unavailable with no reasons when it has no sources', () async {
+    test('explains itself when it has no sources at all', () async {
+      // Otherwise the exception renders "Could not resolve x:" and stops.
       final resolution = await const ChainedPluginSource([]).resolve(_ref);
 
-      expect((resolution as UnavailablePlugin).reasons, isEmpty);
+      expect((resolution as UnavailablePlugin).reasons, [
+        'no plugin sources were configured',
+      ]);
     });
   });
 

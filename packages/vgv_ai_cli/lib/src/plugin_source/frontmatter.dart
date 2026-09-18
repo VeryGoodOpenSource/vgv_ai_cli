@@ -1,5 +1,18 @@
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 import 'package:yaml/yaml.dart';
+
+/// {@template plugin_parse_exception}
+/// Thrown when a plugin file exists but cannot be understood.
+///
+/// Deliberately not a [FormatException]. `YamlException` and `jsonDecode` both
+/// throw `FormatException`, which the command runner catches and renders as a
+/// CLI usage error, so a corrupt plugin file would otherwise tell the user
+/// their command-line arguments were wrong.
+/// {@endtemplate}
+class const PluginParseException(final String path, final String message)
+    implements Exception {
+  @override
+  String toString() => 'Could not parse $path: $message';
+}
 
 /// {@template frontmatter}
 /// A markdown file's YAML frontmatter, parsed, plus the body beneath it.
@@ -49,7 +62,8 @@ class const Frontmatter({
     return Frontmatter(
       // YAML admits non-string keys, such as an unquoted `2:`.
       values: {
-        for (final entry in document.entries) '${entry.key}': entry.value,
+        for (final entry in document.entries)
+          '${entry.key}': _plain(entry.value),
       },
       body: lines.skip(end + 1).join('\n').trimLeft(),
     );
@@ -72,15 +86,17 @@ class const Frontmatter({
 
   /// Tools the asset is allowed to use.
   ///
-  /// Space-separated in every skill except `animations`, which uses commas.
-  /// Splitting on either avoids branching per plugin.
+  /// Matched rather than split, because a tool may carry a parenthesized scope
+  /// that contains the very separators a split would break on. Five wingspan
+  /// skills ship entries like `Bash(git push *)` and `Bash(rm -rf docs/x/)`,
+  /// which splitting on whitespace turns into `Bash(git`, `push` and `*)`.
+  ///
+  /// Separators are either spaces or commas: every skill uses spaces except
+  /// `animations`, which uses commas.
   List<String> get allowedTools {
     final raw = _string('allowed-tools') ?? _string('tools');
     if (raw == null) return const [];
-    return raw
-        .split(RegExp(r'[,\s]+'))
-        .where((tool) => tool.isNotEmpty)
-        .toList();
+    return _toolPattern.allMatches(raw).map((match) => match[0]!).toList();
   }
 
   /// Whether the asset is meant to be invoked as a command.
@@ -111,4 +127,22 @@ class const Frontmatter({
 
   static String _oneLine(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// One tool name, plus an optional parenthesized scope that may itself
+  /// contain spaces, commas and slashes.
+  static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
+
+  /// Converts parsed YAML into plain Dart collections.
+  ///
+  /// `loadYaml` returns `YamlMap` and `YamlList` for nested values, and agents
+  /// nest `hooks:` several levels deep. Leaving those in place hands every
+  /// downstream writer a type it may not serialize the same way, so the
+  /// boundary is normalized here rather than in each translator.
+  static Object? _plain(Object? value) => switch (value) {
+    final YamlMap map => {
+      for (final entry in map.entries) '${entry.key}': _plain(entry.value),
+    },
+    final YamlList list => [for (final item in list) _plain(item)],
+    _ => value,
+  };
 }

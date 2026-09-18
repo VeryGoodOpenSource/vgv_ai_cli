@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
+import 'package:yaml/yaml.dart';
 
 Frontmatter _parse(String source) => Frontmatter.parse(source, path: 'a.md');
 
@@ -105,13 +105,21 @@ void main() {
       expect(_parse('---\n2: x\n---\n').values.keys, contains('2'));
     });
 
-    test('passes nested structures through untouched', () {
-      // Agents nest `hooks:` that no other harness reads back.
+    test('converts nested structures to plain Dart collections', () {
+      // Agents nest `hooks:` that no other harness reads back. loadYaml
+      // returns YamlMap/YamlList, which downstream writers serialize
+      // inconsistently, so the boundary normalizes them here.
       final frontmatter = _parse(
         '---\nname: a\nhooks:\n  PreToolUse:\n    - matcher: "Bash"\n---\n',
       );
 
-      expect(frontmatter.values['hooks'], isNotNull);
+      final hooks = frontmatter.values['hooks']! as Map<String, Object?>;
+      final entries = hooks['PreToolUse']! as List<Object?>;
+      final first = entries.single! as Map<String, Object?>;
+
+      expect(hooks, isNot(isA<YamlMap>()));
+      expect(entries, isNot(isA<YamlList>()));
+      expect(first['matcher'], 'Bash');
     });
   });
 
@@ -178,6 +186,41 @@ void main() {
       );
     });
 
+    test('keeps a parenthesized scope intact', () {
+      // Five wingspan skills ship these. Splitting on whitespace turns
+      // `Bash(git push *)` into `Bash(git`, `push` and `*)`.
+      expect(
+        _parse('---\nallowed-tools: Bash(git push *) Bash(gh *) Read\n---\n')
+            .allowedTools,
+        ['Bash(git push *)', 'Bash(gh *)', 'Read'],
+      );
+    });
+
+    test('keeps a scope containing commas and slashes', () {
+      expect(
+        _parse('---\nallowed-tools: Bash(rm -rf docs/reviews/) Read\n---\n')
+            .allowedTools,
+        ['Bash(rm -rf docs/reviews/)', 'Read'],
+      );
+    });
+
+    test('keeps a glob scope', () {
+      expect(
+        _parse(
+          '---\nallowed-tools: Bash(*/scripts/detect-base-branch.sh)\n---\n',
+        ).allowedTools,
+        ['Bash(*/scripts/detect-base-branch.sh)'],
+      );
+    });
+
+    test('keeps mcp tool names whole', () {
+      expect(
+        _parse('---\nallowed-tools: Read mcp__dart__analyze_files\n---\n')
+            .allowedTools,
+        ['Read', 'mcp__dart__analyze_files'],
+      );
+    });
+
     test('falls back to tools', () {
       expect(_parse('---\ntools: Read, Glob\n---\n').allowedTools, [
         'Read',
@@ -211,6 +254,25 @@ void main() {
   group('name', () {
     test('is null when absent', () {
       expect(_parse('---\ndescription: a\n---\n').name, isNull);
+    });
+  });
+
+  group('PluginParseException', () {
+    test('is not a FormatException', () {
+      // The command runner catches FormatException and renders it as a CLI
+      // usage error. YamlException and jsonDecode both throw FormatException,
+      // so a corrupt plugin file must not be one.
+      expect(
+        const PluginParseException('a.md', 'bad'),
+        isNot(isA<FormatException>()),
+      );
+    });
+
+    test('names the file and the parser message', () {
+      expect(
+        const PluginParseException('skills/a/SKILL.md', 'no fence').toString(),
+        allOf(contains('skills/a/SKILL.md'), contains('no fence')),
+      );
     });
   });
 }

@@ -48,20 +48,6 @@ class const PluginResolutionException(
   }
 }
 
-/// {@template plugin_parse_exception}
-/// Thrown when a plugin file exists but cannot be understood.
-///
-/// Deliberately not a [FormatException]. `YamlException` and `jsonDecode` both
-/// throw `FormatException`, which the command runner catches and renders as a
-/// CLI usage error, so a corrupt plugin file would otherwise tell the user
-/// their command-line arguments were wrong.
-/// {@endtemplate}
-class const PluginParseException(final String path, final String message)
-    implements Exception {
-  @override
-  String toString() => 'Could not parse $path: $message';
-}
-
 /// {@template missing_home_exception}
 /// Thrown when neither `HOME` nor `USERPROFILE` is set.
 /// {@endtemplate}

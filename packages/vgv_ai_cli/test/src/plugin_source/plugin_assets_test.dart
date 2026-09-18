@@ -2,8 +2,8 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
 import 'package:vgv_ai_cli/src/plugin_source/plugin_assets.dart';
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 
 const _fs = LocalFileSystem();
 
@@ -35,8 +35,10 @@ void main() {
       expect(assets.skills.map((s) => s.name), [
         'animations',
         'elements-of-style',
+        'rebase',
         'testing',
         'ui-package',
+        'unnamed-skill',
       ]);
     });
 
@@ -81,19 +83,23 @@ void main() {
       expect(animations.frontmatter.allowedTools, ['Read', 'Glob', 'Grep']);
     });
 
-    test('keeps a skill that uses a flat reference.md', () {
-      final ui = assets.skills.firstWhere((s) => s.name == 'ui-package');
+    test('keeps parenthesized Bash scopes whole', () {
+      final rebase = assets.skills.firstWhere((s) => s.name == 'rebase');
 
-      expect(
-        ui.directory.listSync().map((e) => p.basename(e.path)),
-        contains('reference.md'),
-      );
+      expect(rebase.frontmatter.allowedTools, [
+        'Bash(*/scripts/detect-base-branch.sh)',
+        'Bash(git fetch *)',
+        'Bash(git rebase *)',
+        'Bash(git stash *)',
+      ]);
     });
 
     test('falls back to the directory name when frontmatter has none', () {
-      for (final skill in assets.skills) {
-        expect(skill.name, isNotEmpty);
-      }
+      final unnamed = assets.skills.firstWhere(
+        (s) => s.frontmatter.name == null,
+      );
+
+      expect(unnamed.name, 'unnamed-skill');
     });
   });
 
@@ -125,6 +131,18 @@ void main() {
       expect(testing.portableFrontmatter, contains('compatibility'));
     });
 
+    test('drops disable-model-invocation', () {
+      final unnamed = assets.skills.firstWhere(
+        (s) => s.name == 'unnamed-skill',
+      );
+
+      expect(unnamed.frontmatter.values, contains('disable-model-invocation'));
+      expect(
+        unnamed.portableFrontmatter,
+        isNot(contains('disable-model-invocation')),
+      );
+    });
+
     test('drops user-invocable', () {
       final style = assets.skills.firstWhere(
         (s) => s.name == 'elements-of-style',
@@ -139,7 +157,20 @@ void main() {
       expect(assets.agents.map((a) => a.name), [
         'flutter-reviewer',
         'test-quality-review-agent',
+        'unnamed-agent',
       ]);
+    });
+
+    test('falls back to the filename when frontmatter has no name', () {
+      final unnamed = assets.agents.firstWhere(
+        (a) => a.frontmatter.name == null,
+      );
+
+      expect(unnamed.name, 'unnamed-agent');
+    });
+
+    test('skips a non-markdown file under agents', () {
+      expect(assets.agents.map((a) => a.name), isNot(contains('notes')));
     });
 
     test('parses an inline skills list', () {
@@ -266,9 +297,12 @@ void main() {
 
     tearDownAll(() => temp.deleteSync(recursive: true));
 
-    test('resolve to real content through the reader', () {
-      // 21 reference files across 8 wingspan skills link into skills/shared,
-      // so anything copying a skill directory must keep them resolvable.
+    test('stay resolvable through the directory the reader returns', () {
+      // A tripwire for #19 rather than a test of reader logic: the reader does
+      // not read references/, so this guards against it ever canonicalizing or
+      // rewriting the directory it hands on. 21 reference files across 8
+      // wingspan skills link into skills/shared, and a copy that does not
+      // follow them produces dangling links in ~/.agents/skills.
       final linked = const PluginAssetsReader()
           .read(_fs.directory(p.join(temp.path, 'plugin')))
           .skills
@@ -297,10 +331,24 @@ void main() {
     });
 
     test('lets the later plugin win a name clash', () {
-      final merged = PluginAssets.empty.merge(assets).merge(assets);
+      final later = const PluginAssetsReader().read(_fixture('plugin_clash'));
+
+      final merged = assets.merge(later);
 
       expect(merged.skills, hasLength(assets.skills.length));
-      expect(merged.agents, hasLength(assets.agents.length));
+      expect(
+        merged.skills.firstWhere((s) => s.name == 'testing').description,
+        "The later plugin's version of testing.",
+      );
+    });
+
+    test('keeps the merged result sorted by name', () {
+      final merged = assets.merge(
+        const PluginAssetsReader().read(_fixture('plugin_no_mcp')),
+      );
+
+      final names = merged.skills.map((s) => s.name).toList();
+      expect(names, orderedEquals(List<String>.from(names)..sort()));
     });
 
     test('empty is a neutral starting point', () {
