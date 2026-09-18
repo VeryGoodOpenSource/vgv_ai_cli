@@ -13,9 +13,11 @@ class const ResolvedPlugin({
   required final String name,
   required final String repo,
   required final String commit,
+  required final Directory directory,
   required final Map<String, McpServer> mcpServers,
   required final List<ExtractedSkill> skills,
   required final List<Agent> agents,
+  final String ref = 'HEAD',
 });
 
 /// {@template resolved_plugins}
@@ -81,6 +83,7 @@ class PluginResolver {
           name: source.name,
           repo: source.repo,
           commit: checkout.commit,
+          directory: checkout.directory,
           mcpServers: _extractor.extractMcpServers(checkout.directory),
           skills: _extractor.extractSkills(checkout.directory),
           agents: _extractor.extractAgents(checkout.directory),

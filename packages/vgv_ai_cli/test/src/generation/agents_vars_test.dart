@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/generation/agents_vars.dart';
@@ -12,6 +14,7 @@ void main() {
         name: 'vgv-wingspan',
         repo: 'VeryGoodOpenSource/vgv-wingspan',
         commit: 'abc123',
+        directory: Directory.systemTemp,
         mcpServers: {
           'wingspan': const McpServer(command: 'dart', args: ['run']),
         },

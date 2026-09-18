@@ -150,13 +150,13 @@ This plan adds an `install` command to `packages/vgv_ai_cli` that:
 - [x] Task 5: JSON deep-merge reconciler (claude, gemini, opencode, pi)
 - [x] Task 6: Codex TOML merge + `AGENTS.md` overwrite reconcilers
 - [x] Task 7: Brick change — `Skill`/`Agent` models (replace `NamedEntry`) + bundle regen
-- [ ] Task 8: Skill materialization into `skills_root` + `skills-lock.json`
+- [x] Task 8: Skill materialization into `skills_root` + `skills-lock.json`
 
 ### Checkpoint: Generation
-- [ ] Staging dir contains only selected harness files
-- [ ] Merging into a fixture "real config" preserves user keys and adds VGV keys
-- [ ] Skills copy once under `skills_root`; `AGENTS.md` references their paths
-- [ ] `skills-lock.json` pins each skill's origin
+- [x] Staging dir contains only selected harness files
+- [x] Merging into a fixture "real config" preserves user keys and adds VGV keys
+- [x] Skills copy once under `skills_root`; `AGENTS.md` references their paths
+- [x] `skills-lock.json` pins each skill's origin
 
 ### Phase 3: Command + polish
 - [ ] Task 9: `install` command wiring (flags incl. `--update`, orchestration, errors)

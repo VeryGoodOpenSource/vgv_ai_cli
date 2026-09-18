@@ -70,6 +70,7 @@ description: Plans things.
         expect(plugin.name, 'vgv-wingspan');
         expect(plugin.repo, 'VeryGoodOpenSource/vgv-wingspan');
         expect(plugin.commit, 'fixturecommit-VeryGoodOpenSource/vgv-wingspan');
+        expect(plugin.directory.path, wingspan.path);
 
         expect(result.mcpServers.keys, ['wingspan']);
         expect(result.mcpServers['wingspan']!.command, 'dart');
