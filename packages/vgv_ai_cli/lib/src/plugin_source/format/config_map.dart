@@ -1,28 +1,18 @@
 /// {@template config_map}
-/// A tolerant, read-only view over a decoded configuration map.
+/// A tolerant view over a decoded configuration map.
 ///
-/// Plugin files arrive as YAML frontmatter, hooks JSON and MCP JSON. Each was
-/// previously walked in its own way, with `is! Map`/`is! List` checks and
-/// bespoke string coercion scattered across the readers. [ConfigMap] is the
-/// one place that behavior lives now: every accessor is tolerant of a missing
-/// or a wrong-typed value, returning null or an empty collection rather than
-/// throwing, so a plugin that omits or misshapes a field degrades instead of
-/// crashing.
-///
-/// It carries no harness-, YAML- or JSON-specific knowledge, so the same view
-/// serves all three sources.
+/// Plugin files arrive as YAML frontmatter, hooks JSON and MCP JSON. Every
+/// accessor tolerates a missing or wrong-typed value, returning null or empty
+/// rather than throwing, and holds no harness- or format-specific knowledge.
 /// {@endtemplate}
-class const ConfigMap(final Map<String, Object?> values) {
-  /// Wraps [source] after normalizing it into plain Dart collections.
+class const ConfigMap._(final Map<String, Object?> values) {
+  /// Wraps [source] after normalizing YAML/JSON into plain Dart collections, so
+  /// consumers only ever see `Map<String, Object?>` and `List<Object?>`. A
+  /// [source] that is not a map yields an empty view.
   ///
-  /// `loadYaml` returns `YamlMap`/`YamlList`, which downstream writers
-  /// serialize inconsistently; `jsonDecode` returns plain but loosely typed
-  /// maps. Both are coerced here so consumers only ever see
-  /// `Map<String, Object?>` and `List<Object?>`. A [source] that is not a map
-  /// yields an empty view, leaving
-  /// the "this must be a map" judgement to the caller that has an error message
-  /// for it.
-  factory of(Object? source) => ConfigMap(_normalizeMap(source));
+  /// This is the only way to build a [ConfigMap]: the accessors match on the
+  /// normalized types, so a view over an un-normalized map returns nothing.
+  factory of(Object? source) => ConfigMap._(_normalizeMap(source));
 
   /// The raw value under [key], or `null` when absent.
   Object? operator [](String key) => values[key];
@@ -66,16 +56,10 @@ class const ConfigMap(final Map<String, Object?> values) {
     ],
   };
 
-  /// The value under [key] when it is a list, else an empty list.
-  List<Object?> list(String key) => switch (values[key]) {
-    final List<Object?> items => items,
-    _ => const [],
-  };
-
   /// The value under [key] wrapped as a nested [ConfigMap], or `null` when it
   /// is absent or not a map.
   ConfigMap? child(String key) => switch (values[key]) {
-    final Map<String, Object?> map => ConfigMap(map),
+    final Map<String, Object?> map => ConfigMap._(map),
     _ => null,
   };
 
@@ -86,7 +70,7 @@ class const ConfigMap(final Map<String, Object?> values) {
   static List<ConfigMap> maps(Object? value) => switch (value) {
     final List<Object?> items => [
       for (final item in items)
-        if (item is Map<String, Object?>) ConfigMap(item),
+        if (item is Map<String, Object?>) ConfigMap._(item),
     ],
     _ => const [],
   };
@@ -102,8 +86,7 @@ class const ConfigMap(final Map<String, Object?> values) {
     final Map<Object?, Object?> map => {
       for (final entry in map.entries) '${entry.key}': _normalize(entry.value),
     },
-    // A String is not an Iterable in Dart, but match it explicitly so the
-    // intent survives a future refactor: scalars pass through untouched.
+    // Match String explicitly so scalars pass through untouched.
     final String value => value,
     final Iterable<Object?> items => [
       for (final item in items) _normalize(item),

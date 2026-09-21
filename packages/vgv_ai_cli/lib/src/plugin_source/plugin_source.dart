@@ -2,8 +2,7 @@
 /// parses them into a harness-neutral asset model.
 library;
 
-export 'config_map.dart';
-export 'frontmatter.dart';
+export 'format/format.dart';
 export 'model/model.dart';
 export 'parser/claude_plugin_parser.dart';
 export 'parser/plugin_parser.dart';

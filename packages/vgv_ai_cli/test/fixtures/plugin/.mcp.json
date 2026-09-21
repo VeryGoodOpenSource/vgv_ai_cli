@@ -6,6 +6,10 @@
       "env": { "MCP_TOKEN": "secret" }
     },
     "context7": { "url": "https://mcp.context7.com/mcp" },
+    "authed": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer token" }
+    },
     "ignored": "not an object",
     "broken": {}
   }

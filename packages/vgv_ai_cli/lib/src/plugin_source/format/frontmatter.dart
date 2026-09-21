@@ -1,19 +1,6 @@
-import 'package:vgv_ai_cli/src/plugin_source/config_map.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/config_map.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
-
-/// {@template plugin_parse_exception}
-/// Thrown when a plugin file exists but cannot be understood.
-///
-/// Deliberately not a [FormatException]. `YamlException` and `jsonDecode` both
-/// throw `FormatException`, which the command runner catches and renders as a
-/// CLI usage error, so a corrupt plugin file would otherwise tell the user
-/// their command-line arguments were wrong.
-/// {@endtemplate}
-class const PluginParseException(final String path, final String message)
-    implements Exception {
-  @override
-  String toString() => 'Could not parse $path: $message';
-}
 
 /// {@template frontmatter}
 /// A markdown file's YAML frontmatter, parsed, plus the body beneath it.
@@ -68,9 +55,6 @@ class const Frontmatter({
       body: lines.skip(end + 1).join('\n').trimLeft(),
     );
   }
-
-  /// Every frontmatter key with its normalized value.
-  Map<String, Object?> get values => config.values;
 
   /// The declared `name`, or `null` when absent.
   String? get name => config.string('name');

@@ -2,7 +2,7 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/format.dart';
 import 'package:vgv_ai_cli/src/plugin_source/model/model.dart';
 import 'package:vgv_ai_cli/src/plugin_source/parser/claude_plugin_parser.dart';
 
@@ -112,20 +112,22 @@ void main() {
       expect(testing.portableFrontmatter, isNot(contains('when_to_use')));
     });
 
-    test('keeps portable keys', () {
+    test('drops keys outside the Agent Skills spec, such as model', () {
+      // `model: sonnet` is a Claude Code routing hint. A denylist would have
+      // let it through into every other harness's skill file.
+      expect(testing.portableFrontmatter, isNot(contains('model')));
+    });
+
+    test('keeps spec keys', () {
       expect(
         testing.portableFrontmatter,
         allOf(
           contains('name'),
           contains('description'),
           contains('allowed-tools'),
-          contains('model'),
+          contains('compatibility'),
         ),
       );
-    });
-
-    test('keeps compatibility, which is prose rather than a Claude flag', () {
-      expect(testing.portableFrontmatter, contains('compatibility'));
     });
 
     test('drops disable-model-invocation', () {
@@ -231,6 +233,13 @@ void main() {
       expect(remote.headers, isEmpty);
     });
 
+    test('reads the headers of a remote server', () {
+      final authed = assets.mcpServers['authed']! as RemoteMcpServer;
+
+      expect(authed.url, 'https://mcp.example.com/mcp');
+      expect(authed.headers, {'Authorization': 'Bearer token'});
+    });
+
     test('skips an entry that is not an object', () {
       expect(assets.mcpServers.keys, isNot(contains('ignored')));
     });
@@ -295,13 +304,26 @@ void main() {
       expect(hookFor('SessionStart').matcher, isNull);
     });
 
-    test('keeps the CLAUDE_PLUGIN_ROOT placeholder verbatim', () {
-      // Expanding it belongs to a translator, which knows where the scripts
-      // landed for its harness.
+    test('rewrites CLAUDE_PLUGIN_ROOT to the neutral placeholder', () {
+      // Expanding the placeholder belongs to a translator, which knows where
+      // the scripts landed for its harness. It must never have to know
+      // Claude's spelling of it.
       expect(
         hookFor('SessionStart').commands.single.command,
-        r'bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/warn.sh',
+        'bash ${HookCommand.pluginRoot}/hooks/scripts/warn.sh',
       );
+    });
+
+    test('defaults an absent type to command', () {
+      expect(hookFor('Stop').commands.first.type, 'command');
+    });
+
+    test('keeps an explicit non-command type', () {
+      expect(hookFor('Stop').commands.last.type, 'prompt');
+    });
+
+    test('drops a matcher that is not a string', () {
+      expect(hookFor('Stop').matcher, isNull);
     });
 
     test('defaults an absent timeout to null', () {
@@ -414,84 +436,29 @@ void main() {
     });
   });
 
-  group('merge', () {
-    test('combines two plugins', () {
-      final other = const ClaudePluginParser().parse(_fixture('plugin_no_mcp'));
-
-      final merged = assets.merge(other);
-
-      expect(
-        merged.skills.map((s) => s.name),
-        containsAll(['testing', 'only']),
-      );
-      expect(merged.mcpServers.keys, containsAll(['dart', 'context7']));
-    });
-
-    test('lets the later plugin win a name clash', () {
-      final later = const ClaudePluginParser().parse(_fixture('plugin_clash'));
-
-      final merged = assets.merge(later);
-
-      expect(merged.skills, hasLength(assets.skills.length));
-      expect(
-        merged.skills.firstWhere((s) => s.name == 'testing').description,
-        "The later plugin's version of testing.",
-      );
-    });
-
-    test('concatenates hooks instead of resolving them by name', () {
-      // Both plugins register PostToolUse and both must still run.
-      final later = const ClaudePluginParser().parse(_fixture('plugin_clash'));
-
-      final merged = assets.merge(later);
-
-      expect(merged.hooks, hasLength(assets.hooks.length + later.hooks.length));
-      expect(merged.hooks.where((h) => h.event == 'PostToolUse'), hasLength(2));
-    });
-
-    test('keeps the merged result sorted by name', () {
-      final merged = assets.merge(
-        const ClaudePluginParser().parse(_fixture('plugin_no_mcp')),
-      );
-
-      final names = merged.skills.map((s) => s.name).toList();
-      expect(names, orderedEquals(List<String>.from(names)..sort()));
-    });
-
-    test('empty is a neutral starting point', () {
-      final merged = PluginAssets.empty.merge(assets);
-
-      expect(merged.skills, hasLength(assets.skills.length));
-    });
-  });
-
   group('Claude-specific interpretation', () {
     Frontmatter fm(String body) =>
         Frontmatter.parse('---\n$body\n---\n', path: 'a.md');
 
-    test('claudeOnlyKeys is exactly the keys no other harness understands', () {
-      expect(ClaudePluginParser.claudeOnlyKeys, {
-        'user-invocable',
-        'disable-model-invocation',
-        'effort',
-        'when_to_use',
-      });
-    });
-
-    test('portableFrontmatterOf drops Claude-only keys and keeps the rest', () {
+    test('portableFrontmatterOf keeps exactly the spec keys', () {
       final portable = ClaudePluginParser.portableFrontmatterOf(
         fm(
           'name: a\n'
+          'description: b\n'
+          'license: MIT\n'
+          'compatibility: anywhere\n'
+          'metadata: {author: vgv}\n'
+          'allowed-tools: Read\n'
           'effort: high\n'
           'when_to_use: later\n'
           'user-invocable: false\n'
           'disable-model-invocation: true\n'
-          'allowed-tools: Read',
+          'model: sonnet\n'
+          'argument-hint: <path>',
         ),
       );
 
-      // allowed-tools survives: it is carried opaquely, not a Claude-only key.
-      expect(portable.keys, unorderedEquals(['name', 'allowed-tools']));
+      expect(portable.keys, unorderedEquals(SkillAsset.portableKeys));
     });
 
     group('userInvocableOf', () {
@@ -509,6 +476,13 @@ void main() {
       test('is true when explicitly true', () {
         expect(
           ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
+          isTrue,
+        );
+      });
+
+      test('treats a non-boolean value as absent', () {
+        expect(
+          ClaudePluginParser.userInvocableOf(fm('user-invocable: nope')),
           isTrue,
         );
       });

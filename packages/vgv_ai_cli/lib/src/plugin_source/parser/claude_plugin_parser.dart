@@ -1,45 +1,18 @@
-import 'dart:convert';
-
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/plugin_source/config_map.dart';
-import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/format.dart';
 import 'package:vgv_ai_cli/src/plugin_source/model/model.dart';
 import 'package:vgv_ai_cli/src/plugin_source/parser/plugin_parser.dart';
 
 /// {@template claude_plugin_parser}
 /// Reads a Claude Code plugin directory into the harness-neutral model.
 ///
-/// This is the single place that knows what "Claude-specific" means: the set of
-/// frontmatter keys no other harness understands ([claudeOnlyKeys]), the
-/// `user-invocable` default rule, and how Claude writes `allowed-tools`. Every
-/// other harness consumes the neutral [PluginAssets] this produces and never
-/// learns any of it.
-///
-/// The two plugins are not internally consistent, so this tolerates the real
-/// shapes rather than the documented ones: agents nested in category
-/// directories, skills using either `references/` or a flat `reference.md`,
-/// and `allowed-tools` separated by spaces in every skill except one.
+/// The single place that knows what "Claude-specific" means: the
+/// `user-invocable` default, how `allowed-tools` is written, and the
+/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. It tolerates the real, mutually
+/// inconsistent shapes the two plugins ship, not the documented ones.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
-  /// Frontmatter keys Claude Code understands that no other harness does.
-  ///
-  /// Packaging a skill with these breaks it elsewhere, so they are dropped from
-  /// [SkillAsset.portableFrontmatter].
-  ///
-  /// Every entry is observed in the real plugins. `allowed-tools` is
-  /// deliberately absent: it is carried through opaquely (and interpreted into
-  /// [SkillAsset.allowedTools]) rather than dropped. `compatibility` is absent
-  /// too: it is prose such as "Designed for Claude Code (or similar products)",
-  /// harmless to carry, and dropping it would lose information no other key
-  /// holds.
-  static const claudeOnlyKeys = <String>{
-    'user-invocable',
-    'disable-model-invocation',
-    'effort',
-    'when_to_use',
-  };
-
   @override
   PluginAssets parse(Directory root) => PluginAssets(
     skills: _readSkills(root.childDirectory('skills')),
@@ -53,17 +26,16 @@ class const ClaudePluginParser() implements PluginParser {
   /// The Flutter plugin omits `user-invocable` entirely yet its skills are
   /// invocable, so an absent key means `true`.
   static bool userInvocableOf(Frontmatter frontmatter) =>
-      frontmatter.values['user-invocable'] != false;
+      frontmatter.config.boolean('user-invocable') ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
   /// Read from `allowed-tools`, falling back to `tools`, then tokenized by
   /// [tokenizeTools].
-  static List<String> allowedToolsOf(Frontmatter frontmatter) {
-    final raw =
-        frontmatter.values['allowed-tools'] ?? frontmatter.values['tools'];
-    return tokenizeTools(raw == null ? null : '$raw');
-  }
+  static List<String> allowedToolsOf(Frontmatter frontmatter) => tokenizeTools(
+    frontmatter.config.string('allowed-tools') ??
+        frontmatter.config.string('tools'),
+  );
 
   /// Splits Claude's `allowed-tools` value into individual tool names.
   ///
@@ -79,16 +51,25 @@ class const ClaudePluginParser() implements PluginParser {
     return _toolPattern.allMatches(raw).map((match) => match[0]!).toList();
   }
 
-  /// The [frontmatter] values safe to write for a non-Claude harness.
-  static Map<String, Object?> portableFrontmatterOf(Frontmatter frontmatter) =>
-      {
-        for (final entry in frontmatter.values.entries)
-          if (!claudeOnlyKeys.contains(entry.key)) entry.key: entry.value,
-      };
+  /// The [frontmatter] values safe to write for any harness.
+  ///
+  /// Keeps exactly [SkillAsset.portableKeys]. Claude adds keys such as
+  /// `effort`, `model`, `when_to_use` and `user-invocable` that no other
+  /// harness reads; they are interpreted where they matter and dropped here.
+  static Map<String, Object?> portableFrontmatterOf(
+    Frontmatter frontmatter,
+  ) => {
+    for (final entry in frontmatter.config.entries)
+      if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
+  };
 
   /// One tool name, plus an optional parenthesized scope that may itself
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
+
+  /// Claude's own name for the plugin root inside a hook command. Rewritten to
+  /// the neutral [HookCommand.pluginRoot] so translators never see it.
+  static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
   List<SkillAsset> _readSkills(Directory skillsDir) {
     if (!skillsDir.existsSync()) return const [];
@@ -96,10 +77,9 @@ class const ClaudePluginParser() implements PluginParser {
     final skills = <SkillAsset>[];
     for (final entity in skillsDir.listSync().whereType<Directory>()) {
       final file = entity.childFile('SKILL.md');
-      // `skills/shared/` holds references pooled by the other skills and has
-      // no SKILL.md of its own. It is not a skill, but it is a link target:
-      // 21 reference files across 8 wingspan skills symlink into it, so it
-      // must survive any copy that follows.
+      // `skills/shared/` pools references for the other skills and has no
+      // SKILL.md, so it is not a skill. It is a symlink target though, so it
+      // must survive any later copy.
       if (!file.existsSync()) continue;
 
       final frontmatter = Frontmatter.parse(
@@ -190,11 +170,13 @@ class const ClaudePluginParser() implements PluginParser {
       final command = entry['command'];
       if (command is! String) continue;
 
-      final type = entry['type'];
       commands.add(
         HookCommand(
-          type: type is String ? type : 'command',
-          command: command,
+          type: entry.string('type') ?? 'command',
+          command: command.replaceAll(
+            _claudePluginRoot,
+            HookCommand.pluginRoot,
+          ),
           timeout: entry.integer('timeout'),
         ),
       );
@@ -210,13 +192,13 @@ class const ClaudePluginParser() implements PluginParser {
 
     final result = <String, McpServer>{};
     for (final entry in servers.entries) {
-      // ConfigMap has already normalized each server into a
-      // Map<String, Object?>; anything else (e.g. a bare string) is not a
-      // server declaration and is skipped.
-      if (entry.value case final Map<String, Object?> value) {
-        final server = _mcpServer(ConfigMap(value));
-        if (server != null) result[entry.key] = server;
-      }
+      // Anything that is not an object (e.g. a bare string) is not a server
+      // declaration and is skipped.
+      final config = servers.child(entry.key);
+      if (config == null) continue;
+
+      final server = _mcpServer(config);
+      if (server != null) result[entry.key] = server;
     }
     return result;
   }
@@ -252,24 +234,6 @@ class const ClaudePluginParser() implements PluginParser {
       for (final entry in config.entries) entry.key: '${entry.value}',
   };
 
-  /// Decodes [file] as a JSON object, wrapped in a [ConfigMap].
-  ///
-  /// `jsonDecode` throws `FormatException`, which the command runner renders as
-  /// a CLI usage error, so it is converted to a [PluginParseException] here. A
-  /// well-formed JSON value that is not an object is the same kind of corrupt
-  /// file, so it throws too.
-  ConfigMap _readJsonObject(File file) {
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(file.readAsStringSync());
-    } on FormatException catch (error) {
-      throw PluginParseException(file.path, error.message);
-    }
-
-    if (decoded is! Map) {
-      throw PluginParseException(file.path, 'expected a JSON object');
-    }
-
-    return ConfigMap.of(decoded);
-  }
+  ConfigMap _readJsonObject(File file) =>
+      parseJsonObject(file.readAsStringSync(), path: file.path);
 }

@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/frontmatter.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
 
 Frontmatter _parse(String source) => Frontmatter.parse(source, path: 'a.md');
@@ -102,7 +103,7 @@ void main() {
     });
 
     test('keeps a non-string key as a string', () {
-      expect(_parse('---\n2: x\n---\n').values.keys, contains('2'));
+      expect(_parse('---\n2: x\n---\n').config.values.keys, contains('2'));
     });
 
     test('converts nested structures to plain Dart collections', () {
@@ -113,7 +114,7 @@ void main() {
         '---\nname: a\nhooks:\n  PreToolUse:\n    - matcher: "Bash"\n---\n',
       );
 
-      final hooks = frontmatter.values['hooks']! as Map<String, Object?>;
+      final hooks = frontmatter.config['hooks']! as Map<String, Object?>;
       final entries = hooks['PreToolUse']! as List<Object?>;
       final first = entries.single! as Map<String, Object?>;
 
@@ -164,31 +165,12 @@ void main() {
   });
 
   // allowed-tools and user-invocable are Claude-specific interpretations and
-  // now live in ClaudePluginParser; their tests moved to
+  // live in ClaudePluginParser; their tests are in
   // parser/claude_plugin_parser_test.dart.
 
   group('name', () {
     test('is null when absent', () {
       expect(_parse('---\ndescription: a\n---\n').name, isNull);
-    });
-  });
-
-  group('PluginParseException', () {
-    test('is not a FormatException', () {
-      // The command runner catches FormatException and renders it as a CLI
-      // usage error. YamlException and jsonDecode both throw FormatException,
-      // so a corrupt plugin file must not be one.
-      expect(
-        const PluginParseException('a.md', 'bad'),
-        isNot(isA<FormatException>()),
-      );
-    });
-
-    test('names the file and the parser message', () {
-      expect(
-        const PluginParseException('skills/a/SKILL.md', 'no fence').toString(),
-        allOf(contains('skills/a/SKILL.md'), contains('no fence')),
-      );
     });
   });
 }

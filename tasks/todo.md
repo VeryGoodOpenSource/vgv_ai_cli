@@ -19,13 +19,13 @@ Verification commands (run from `packages/vgv_ai_cli`, per AGENTS.md):
 `Map<String, Object?>.from` coercions in `PluginAssetsReader`. It normalizes
 parsed YAML/JSON (`YamlMap`/`YamlList` → plain collections) and offers
 missing/wrong-type-tolerant reads: `string`, `stringList`, `child` (nested
-map), `list`. No existing file consumes it yet — this task only lands the
+map). No existing file consumes it yet — this task only lands the
 foundation and its tests.
 
 **Acceptance criteria:**
-- [x] `ConfigMap` exposes tolerant `string(key)`, `stringList(key)`,
-      nested-map (`child`), and `list` accessors (plus `integer`, `boolean`,
-      `entries`, `operator []`, and static `maps`) that return null/empty on
+- [x] `ConfigMap` exposes tolerant `string(key)`, `stringList(key)` and
+      nested-map (`child`) accessors (plus `integer`, `boolean`, `entries`,
+      `operator []`, and static `maps`) that return null/empty on
       missing or wrong-typed values rather than throwing.
 - [x] YAML `YamlMap`/`YamlList` and JSON `Map`/`List` inputs both normalize to
       plain Dart collections through one code path (absorbs `_plain`).

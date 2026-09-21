@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/config_map.dart';
+import 'package:vgv_ai_cli/src/plugin_source/format/config_map.dart';
 import 'package:yaml/yaml.dart';
 
 void main() {
@@ -15,7 +15,7 @@ void main() {
 
       final config = ConfigMap.of(document);
       final hooks = config.child('hooks')!;
-      final registrations = hooks.list('PreToolUse');
+      final registrations = hooks['PreToolUse']! as List<Object?>;
 
       expect(config.values, isNot(isA<YamlMap>()));
       expect(registrations, isNot(isA<YamlList>()));
@@ -122,30 +122,19 @@ void main() {
     });
   });
 
-  group('list', () {
-    test('returns a list value', () {
-      expect(
-        ConfigMap.of({
-          'k': [1, 2],
-        }).list('k'),
-        [1, 2],
-      );
-    });
-
-    test('is empty when the value is not a list', () {
-      expect(ConfigMap.of({'k': 'x'}).list('k'), isEmpty);
-    });
-
-    test('is empty when absent', () {
-      expect(ConfigMap.of({}).list('k'), isEmpty);
-    });
-  });
-
   group('child', () {
     test('wraps a nested map', () {
       final config = ConfigMap.of({
         'k': {'inner': 'v'},
       });
+
+      expect(config.child('k')!.string('inner'), 'v');
+    });
+
+    test('wraps a nested YamlMap once the parent has been normalized', () {
+      // The accessors match on the normalized types, so this only holds
+      // because `of` is the sole way to build a ConfigMap.
+      final config = ConfigMap.of(loadYaml('k:\n  inner: v\n'));
 
       expect(config.child('k')!.string('inner'), 'v');
     });
