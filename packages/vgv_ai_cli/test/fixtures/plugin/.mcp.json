@@ -1,7 +1,12 @@
 {
   "mcpServers": {
-    "dart": { "command": "dart", "args": ["mcp-server"] },
+    "dart": {
+      "command": "dart",
+      "args": ["mcp-server"],
+      "env": { "MCP_TOKEN": "secret" }
+    },
     "context7": { "url": "https://mcp.context7.com/mcp" },
-    "ignored": "not an object"
+    "ignored": "not an object",
+    "broken": {}
   }
 }

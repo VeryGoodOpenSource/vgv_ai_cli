@@ -163,93 +163,9 @@ void main() {
     });
   });
 
-  group('allowedTools', () {
-    test('splits on spaces', () {
-      expect(_parse('---\nallowed-tools: Read Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('splits on commas', () {
-      // Only `animations` writes it this way.
-      expect(_parse('---\nallowed-tools: Read,Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('splits on a mix of both', () {
-      expect(
-        _parse('---\nallowed-tools: Read, Glob  Grep\n---\n').allowedTools,
-        ['Read', 'Glob', 'Grep'],
-      );
-    });
-
-    test('keeps a parenthesized scope intact', () {
-      // Five wingspan skills ship these. Splitting on whitespace turns
-      // `Bash(git push *)` into `Bash(git`, `push` and `*)`.
-      expect(
-        _parse('---\nallowed-tools: Bash(git push *) Bash(gh *) Read\n---\n')
-            .allowedTools,
-        ['Bash(git push *)', 'Bash(gh *)', 'Read'],
-      );
-    });
-
-    test('keeps a scope containing commas and slashes', () {
-      expect(
-        _parse('---\nallowed-tools: Bash(rm -rf docs/reviews/) Read\n---\n')
-            .allowedTools,
-        ['Bash(rm -rf docs/reviews/)', 'Read'],
-      );
-    });
-
-    test('keeps a glob scope', () {
-      expect(
-        _parse(
-          '---\nallowed-tools: Bash(*/scripts/detect-base-branch.sh)\n---\n',
-        ).allowedTools,
-        ['Bash(*/scripts/detect-base-branch.sh)'],
-      );
-    });
-
-    test('keeps mcp tool names whole', () {
-      expect(
-        _parse('---\nallowed-tools: Read mcp__dart__analyze_files\n---\n')
-            .allowedTools,
-        ['Read', 'mcp__dart__analyze_files'],
-      );
-    });
-
-    test('falls back to tools', () {
-      expect(_parse('---\ntools: Read, Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('is empty when absent', () {
-      expect(_parse('---\nname: a\n---\n').allowedTools, isEmpty);
-    });
-  });
-
-  group('userInvocable', () {
-    test('is true when absent', () {
-      // The Flutter plugin omits the key on all 16 of its skills.
-      expect(_parse('---\nname: a\n---\n').userInvocable, isTrue);
-    });
-
-    test('is true when explicitly true', () {
-      expect(_parse('---\nuser-invocable: true\n---\n').userInvocable, isTrue);
-    });
-
-    test('is false when explicitly false', () {
-      expect(
-        _parse('---\nuser-invocable: false\n---\n').userInvocable,
-        isFalse,
-      );
-    });
-  });
+  // allowed-tools and user-invocable are Claude-specific interpretations and
+  // now live in ClaudePluginParser; their tests moved to
+  // parser/claude_plugin_parser_test.dart.
 
   group('name', () {
     test('is null when absent', () {

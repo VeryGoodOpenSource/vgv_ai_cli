@@ -3,8 +3,8 @@ import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
-import 'package:vgv_ai_cli/src/plugin_source/hooks.dart';
-import 'package:vgv_ai_cli/src/plugin_source/plugin_assets.dart';
+import 'package:vgv_ai_cli/src/plugin_source/model/model.dart';
+import 'package:vgv_ai_cli/src/plugin_source/parser/claude_plugin_parser.dart';
 
 const _fs = LocalFileSystem();
 
@@ -29,7 +29,7 @@ void _copyInto(Directory from, Directory to) {
 void main() {
   late PluginAssets assets;
 
-  setUp(() => assets = const PluginAssetsReader().read(_fixture('plugin')));
+  setUp(() => assets = const ClaudePluginParser().parse(_fixture('plugin')));
 
   group('skills', () {
     test('reads every directory holding a SKILL.md, sorted by name', () {
@@ -81,13 +81,13 @@ void main() {
         (s) => s.name == 'animations',
       );
 
-      expect(animations.frontmatter.allowedTools, ['Read', 'Glob', 'Grep']);
+      expect(animations.allowedTools, ['Read', 'Glob', 'Grep']);
     });
 
     test('keeps parenthesized Bash scopes whole', () {
       final rebase = assets.skills.firstWhere((s) => s.name == 'rebase');
 
-      expect(rebase.frontmatter.allowedTools, [
+      expect(rebase.allowedTools, [
         'Bash(*/scripts/detect-base-branch.sh)',
         'Bash(git fetch *)',
         'Bash(git rebase *)',
@@ -96,11 +96,9 @@ void main() {
     });
 
     test('falls back to the directory name when frontmatter has none', () {
-      final unnamed = assets.skills.firstWhere(
-        (s) => s.frontmatter.name == null,
-      );
-
-      expect(unnamed.name, 'unnamed-skill');
+      // The fixture skill's SKILL.md declares no name, so the only way it can
+      // be called 'unnamed-skill' is the directory-name fallback.
+      expect(assets.skills.map((s) => s.name), contains('unnamed-skill'));
     });
   });
 
@@ -110,8 +108,6 @@ void main() {
     setUp(() => testing = assets.skills.firstWhere((s) => s.name == 'testing'));
 
     test('drops Claude-only keys', () {
-      expect(testing.frontmatter.values, contains('effort'));
-      expect(testing.frontmatter.values, contains('when_to_use'));
       expect(testing.portableFrontmatter, isNot(contains('effort')));
       expect(testing.portableFrontmatter, isNot(contains('when_to_use')));
     });
@@ -137,7 +133,6 @@ void main() {
         (s) => s.name == 'unnamed-skill',
       );
 
-      expect(unnamed.frontmatter.values, contains('disable-model-invocation'));
       expect(
         unnamed.portableFrontmatter,
         isNot(contains('disable-model-invocation')),
@@ -163,11 +158,9 @@ void main() {
     });
 
     test('falls back to the filename when frontmatter has no name', () {
-      final unnamed = assets.agents.firstWhere(
-        (a) => a.frontmatter.name == null,
-      );
-
-      expect(unnamed.name, 'unnamed-agent');
+      // The fixture agent declares no name, so being called 'unnamed-agent'
+      // proves the filename fallback fired.
+      expect(assets.agents.map((a) => a.name), contains('unnamed-agent'));
     });
 
     test('skips a non-markdown file under agents', () {
@@ -219,21 +212,37 @@ void main() {
   });
 
   group('mcpServers', () {
-    test('reads both local and remote declarations', () {
-      expect(assets.mcpServers.keys, containsAll(['dart', 'context7']));
-      expect(assets.mcpServers['dart']!['command'], 'dart');
-      expect(
-        assets.mcpServers['context7']!['url'],
-        'https://mcp.context7.com/mcp',
-      );
+    test('reads a local (stdio) server with args and env', () {
+      final dart = assets.mcpServers['dart'];
+
+      expect(dart, isA<LocalMcpServer>());
+      final local = dart! as LocalMcpServer;
+      expect(local.command, 'dart');
+      expect(local.args, ['mcp-server']);
+      expect(local.env, {'MCP_TOKEN': 'secret'});
+    });
+
+    test('reads a remote (url) server, defaulting headers to empty', () {
+      final context7 = assets.mcpServers['context7'];
+
+      expect(context7, isA<RemoteMcpServer>());
+      final remote = context7! as RemoteMcpServer;
+      expect(remote.url, 'https://mcp.context7.com/mcp');
+      expect(remote.headers, isEmpty);
     });
 
     test('skips an entry that is not an object', () {
       expect(assets.mcpServers.keys, isNot(contains('ignored')));
     });
 
+    test('skips a declaration that is neither local nor remote', () {
+      // No `url` and no `command`: not a valid MCP server, and the union has
+      // no unknown fallback, so it is dropped.
+      expect(assets.mcpServers.keys, isNot(contains('broken')));
+    });
+
     test('is empty when the plugin has no .mcp.json', () {
-      final noMcp = const PluginAssetsReader().read(_fixture('plugin_no_mcp'));
+      final noMcp = const ClaudePluginParser().parse(_fixture('plugin_no_mcp'));
 
       expect(noMcp.mcpServers, isEmpty);
       expect(noMcp.skills, hasLength(1));
@@ -241,7 +250,7 @@ void main() {
 
     test('throws when .mcp.json is valid JSON but not an object', () {
       expect(
-        () => const PluginAssetsReader().read(_fixture('plugin_array_mcp')),
+        () => const ClaudePluginParser().parse(_fixture('plugin_array_mcp')),
         throwsA(
           isA<PluginParseException>().having(
             (e) => e.message,
@@ -256,7 +265,7 @@ void main() {
       // jsonDecode throws FormatException, which the runner would render as a
       // CLI usage error.
       expect(
-        () => const PluginAssetsReader().read(_fixture('plugin_bad_mcp')),
+        () => const ClaudePluginParser().parse(_fixture('plugin_bad_mcp')),
         throwsA(
           isA<PluginParseException>().having(
             (e) => e.path,
@@ -323,14 +332,14 @@ void main() {
 
     test('is empty when the plugin ships no hooks', () {
       expect(
-        const PluginAssetsReader().read(_fixture('plugin_no_mcp')).hooks,
+        const ClaudePluginParser().parse(_fixture('plugin_no_mcp')).hooks,
         isEmpty,
       );
     });
 
     test('throws when hooks.json is valid JSON but not an object', () {
       expect(
-        () => const PluginAssetsReader().read(_fixture('plugin_array_hooks')),
+        () => const ClaudePluginParser().parse(_fixture('plugin_array_hooks')),
         throwsA(
           isA<PluginParseException>().having(
             (e) => e.message,
@@ -343,7 +352,7 @@ void main() {
 
     test('throws a PluginParseException on invalid JSON', () {
       expect(
-        () => const PluginAssetsReader().read(_fixture('plugin_bad_hooks')),
+        () => const ClaudePluginParser().parse(_fixture('plugin_bad_hooks')),
         throwsA(
           isA<PluginParseException>().having(
             (e) => e.path,
@@ -359,7 +368,7 @@ void main() {
     test('reads as empty rather than throwing', () {
       // The reader stays total. Whether an empty plugin is a problem is the
       // caller's judgement, because only it knows which plugin it asked for.
-      final empty = const PluginAssetsReader().read(_fixture('plugin_empty'));
+      final empty = const ClaudePluginParser().parse(_fixture('plugin_empty'));
 
       expect(empty.skills, isEmpty);
       expect(empty.agents, isEmpty);
@@ -391,8 +400,8 @@ void main() {
       // rewriting the directory it hands on. 21 reference files across 8
       // wingspan skills link into skills/shared, and a copy that does not
       // follow them produces dangling links in ~/.agents/skills.
-      final linked = const PluginAssetsReader()
-          .read(_fs.directory(p.join(temp.path, 'plugin')))
+      final linked = const ClaudePluginParser()
+          .parse(_fs.directory(p.join(temp.path, 'plugin')))
           .skills
           .firstWhere((s) => s.name == 'testing');
 
@@ -407,7 +416,7 @@ void main() {
 
   group('merge', () {
     test('combines two plugins', () {
-      final other = const PluginAssetsReader().read(_fixture('plugin_no_mcp'));
+      final other = const ClaudePluginParser().parse(_fixture('plugin_no_mcp'));
 
       final merged = assets.merge(other);
 
@@ -419,7 +428,7 @@ void main() {
     });
 
     test('lets the later plugin win a name clash', () {
-      final later = const PluginAssetsReader().read(_fixture('plugin_clash'));
+      final later = const ClaudePluginParser().parse(_fixture('plugin_clash'));
 
       final merged = assets.merge(later);
 
@@ -432,7 +441,7 @@ void main() {
 
     test('concatenates hooks instead of resolving them by name', () {
       // Both plugins register PostToolUse and both must still run.
-      final later = const PluginAssetsReader().read(_fixture('plugin_clash'));
+      final later = const ClaudePluginParser().parse(_fixture('plugin_clash'));
 
       final merged = assets.merge(later);
 
@@ -442,7 +451,7 @@ void main() {
 
     test('keeps the merged result sorted by name', () {
       final merged = assets.merge(
-        const PluginAssetsReader().read(_fixture('plugin_no_mcp')),
+        const ClaudePluginParser().parse(_fixture('plugin_no_mcp')),
       );
 
       final names = merged.skills.map((s) => s.name).toList();
@@ -453,6 +462,124 @@ void main() {
       final merged = PluginAssets.empty.merge(assets);
 
       expect(merged.skills, hasLength(assets.skills.length));
+    });
+  });
+
+  group('Claude-specific interpretation', () {
+    Frontmatter fm(String body) =>
+        Frontmatter.parse('---\n$body\n---\n', path: 'a.md');
+
+    test('claudeOnlyKeys is exactly the keys no other harness understands', () {
+      expect(ClaudePluginParser.claudeOnlyKeys, {
+        'user-invocable',
+        'disable-model-invocation',
+        'effort',
+        'when_to_use',
+      });
+    });
+
+    test('portableFrontmatterOf drops Claude-only keys and keeps the rest', () {
+      final portable = ClaudePluginParser.portableFrontmatterOf(
+        fm(
+          'name: a\n'
+          'effort: high\n'
+          'when_to_use: later\n'
+          'user-invocable: false\n'
+          'disable-model-invocation: true\n'
+          'allowed-tools: Read',
+        ),
+      );
+
+      // allowed-tools survives: it is carried opaquely, not a Claude-only key.
+      expect(portable.keys, unorderedEquals(['name', 'allowed-tools']));
+    });
+
+    group('userInvocableOf', () {
+      test('defaults to true when absent', () {
+        expect(ClaudePluginParser.userInvocableOf(fm('name: a')), isTrue);
+      });
+
+      test('is false only when explicitly false', () {
+        expect(
+          ClaudePluginParser.userInvocableOf(fm('user-invocable: false')),
+          isFalse,
+        );
+      });
+
+      test('is true when explicitly true', () {
+        expect(
+          ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
+          isTrue,
+        );
+      });
+    });
+
+    group('tokenizeTools', () {
+      test('splits on spaces', () {
+        expect(ClaudePluginParser.tokenizeTools('Read Glob'), ['Read', 'Glob']);
+      });
+
+      test('splits on commas', () {
+        expect(ClaudePluginParser.tokenizeTools('Read,Glob'), ['Read', 'Glob']);
+      });
+
+      test('splits on a mix of both', () {
+        expect(ClaudePluginParser.tokenizeTools('Read, Glob  Grep'), [
+          'Read',
+          'Glob',
+          'Grep',
+        ]);
+      });
+
+      test('keeps a parenthesized scope intact', () {
+        expect(ClaudePluginParser.tokenizeTools('Bash(git push *) Read'), [
+          'Bash(git push *)',
+          'Read',
+        ]);
+      });
+
+      test('keeps a scope containing commas and slashes', () {
+        expect(
+          ClaudePluginParser.tokenizeTools('Bash(rm -rf docs/reviews/) Read'),
+          ['Bash(rm -rf docs/reviews/)', 'Read'],
+        );
+      });
+
+      test('keeps a glob scope', () {
+        expect(ClaudePluginParser.tokenizeTools('Bash(*/scripts/detect.sh)'), [
+          'Bash(*/scripts/detect.sh)',
+        ]);
+      });
+
+      test('keeps mcp tool names whole', () {
+        expect(ClaudePluginParser.tokenizeTools('Read mcp__dart__analyze'), [
+          'Read',
+          'mcp__dart__analyze',
+        ]);
+      });
+
+      test('is empty for null', () {
+        expect(ClaudePluginParser.tokenizeTools(null), isEmpty);
+      });
+    });
+
+    group('allowedToolsOf', () {
+      test('reads allowed-tools', () {
+        expect(ClaudePluginParser.allowedToolsOf(fm('allowed-tools: Read')), [
+          'Read',
+        ]);
+      });
+
+      test('falls back to tools', () {
+        expect(ClaudePluginParser.allowedToolsOf(fm('tools: Read, Glob')), [
+          'Read',
+          'Glob',
+        ]);
+      });
+
+      test('is empty when absent', () {
+        expect(ClaudePluginParser.allowedToolsOf(fm('name: a')), isEmpty);
+      });
     });
   });
 }
