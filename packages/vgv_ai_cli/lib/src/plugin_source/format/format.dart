@@ -6,5 +6,4 @@ library;
 
 export 'config_map.dart';
 export 'frontmatter.dart';
-export 'json_object.dart';
 export 'plugin_parse_exception.dart';

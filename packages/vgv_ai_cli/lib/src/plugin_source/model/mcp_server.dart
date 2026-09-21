@@ -2,13 +2,13 @@
 /// A Model Context Protocol server a plugin declares, in a harness-neutral
 /// shape.
 ///
-/// The transport is a closed set: a server is either a [RemoteMcpServer]
-/// (reached over a URL) or a [LocalMcpServer] (launched as a subprocess over
+/// The transport is a closed set: a server is either a [RemoteMCPServer]
+/// (reached over a URL) or a [LocalMCPServer] (launched as a subprocess over
 /// stdio). MCP defines no third transport, so the union has no unknown
 /// fallback — a declaration that is neither is dropped at parse time rather
 /// than modeled.
 /// {@endtemplate}
-sealed class McpServer {
+sealed class MCPServer {
   /// {@macro mcp_server}
   const new();
 }
@@ -16,7 +16,7 @@ sealed class McpServer {
 /// {@template local_mcp_server}
 /// A local MCP server launched as a subprocess and spoken to over stdio.
 /// {@endtemplate}
-final class LocalMcpServer extends McpServer {
+final class LocalMCPServer extends MCPServer {
   /// {@macro local_mcp_server}
   const new({required this.command, this.args = const [], this.env = const {}});
 
@@ -33,7 +33,7 @@ final class LocalMcpServer extends McpServer {
 /// {@template remote_mcp_server}
 /// A remote MCP server reached over a URL.
 /// {@endtemplate}
-final class RemoteMcpServer extends McpServer {
+final class RemoteMCPServer extends MCPServer {
   /// {@macro remote_mcp_server}
   const new({required this.url, this.headers = const {}});
 

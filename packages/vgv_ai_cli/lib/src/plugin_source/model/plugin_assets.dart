@@ -9,14 +9,14 @@ import 'package:vgv_ai_cli/src/plugin_source/model/skill_asset.dart';
 class const PluginAssets({
   required final List<SkillAsset> skills,
   required final List<AgentAsset> agents,
-  required final Map<String, McpServer> mcpServers,
+  required final Map<String, MCPServer> mcpServers,
   final List<HookAsset> hooks = const [],
 }) {
   /// An empty set of assets.
   static const empty = PluginAssets(
     skills: [],
     agents: [],
-    mcpServers: <String, McpServer>{},
+    mcpServers: <String, MCPServer>{},
   );
 
   /// Combines [other] into these assets.

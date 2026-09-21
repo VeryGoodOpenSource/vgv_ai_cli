@@ -217,8 +217,8 @@ void main() {
     test('reads a local (stdio) server with args and env', () {
       final dart = assets.mcpServers['dart'];
 
-      expect(dart, isA<LocalMcpServer>());
-      final local = dart! as LocalMcpServer;
+      expect(dart, isA<LocalMCPServer>());
+      final local = dart! as LocalMCPServer;
       expect(local.command, 'dart');
       expect(local.args, ['mcp-server']);
       expect(local.env, {'MCP_TOKEN': 'secret'});
@@ -227,14 +227,14 @@ void main() {
     test('reads a remote (url) server, defaulting headers to empty', () {
       final context7 = assets.mcpServers['context7'];
 
-      expect(context7, isA<RemoteMcpServer>());
-      final remote = context7! as RemoteMcpServer;
+      expect(context7, isA<RemoteMCPServer>());
+      final remote = context7! as RemoteMCPServer;
       expect(remote.url, 'https://mcp.context7.com/mcp');
       expect(remote.headers, isEmpty);
     });
 
     test('reads the headers of a remote server', () {
-      final authed = assets.mcpServers['authed']! as RemoteMcpServer;
+      final authed = assets.mcpServers['authed']! as RemoteMCPServer;
 
       expect(authed.url, 'https://mcp.example.com/mcp');
       expect(authed.headers, {'Authorization': 'Bearer token'});

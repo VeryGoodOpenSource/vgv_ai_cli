@@ -4,8 +4,7 @@ library;
 
 export 'format/format.dart';
 export 'model/model.dart';
-export 'parser/claude_plugin_parser.dart';
-export 'parser/plugin_parser.dart';
+export 'parser/parser.dart';
 export 'plugin_ref.dart';
 export 'resolution.dart';
 export 'sources.dart';

@@ -34,14 +34,14 @@ void main() {
           PluginAssets(
             skills: [skill('a')],
             agents: [agent('x')],
-            mcpServers: const {'dart': LocalMcpServer(command: 'dart')},
+            mcpServers: const {'dart': LocalMCPServer(command: 'dart')},
             hooks: [hook('PostToolUse', 'a.sh')],
           ).merge(
             PluginAssets(
               skills: [skill('b')],
               agents: [agent('y')],
               mcpServers: const {
-                'context7': RemoteMcpServer(url: 'https://c7'),
+                'context7': RemoteMCPServer(url: 'https://c7'),
               },
               hooks: [hook('SessionStart', 'b.sh')],
             ),
@@ -94,17 +94,17 @@ void main() {
           const PluginAssets(
             skills: [],
             agents: [],
-            mcpServers: {'dart': LocalMcpServer(command: 'earlier')},
+            mcpServers: {'dart': LocalMCPServer(command: 'earlier')},
           ).merge(
             const PluginAssets(
               skills: [],
               agents: [],
-              mcpServers: {'dart': LocalMcpServer(command: 'later')},
+              mcpServers: {'dart': LocalMCPServer(command: 'later')},
             ),
           );
 
       expect(merged.mcpServers, hasLength(1));
-      expect((merged.mcpServers['dart']! as LocalMcpServer).command, 'later');
+      expect((merged.mcpServers['dart']! as LocalMCPServer).command, 'later');
     });
 
     test('concatenates hooks instead of resolving them by event', () {
@@ -152,7 +152,7 @@ void main() {
       final assets = PluginAssets(
         skills: [skill('a')],
         agents: [agent('x')],
-        mcpServers: const {'dart': LocalMcpServer(command: 'dart')},
+        mcpServers: const {'dart': LocalMCPServer(command: 'dart')},
         hooks: [hook('PostToolUse', 'a.sh')],
       );
 

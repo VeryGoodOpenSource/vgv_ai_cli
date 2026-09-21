@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
+
 /// {@template config_map}
 /// A tolerant view over a decoded configuration map.
 ///
@@ -13,6 +17,26 @@ class const ConfigMap._(final Map<String, Object?> values) {
   /// This is the only way to build a [ConfigMap]: the accessors match on the
   /// normalized types, so a view over an un-normalized map returns nothing.
   factory of(Object? source) => ConfigMap._(_normalizeMap(source));
+
+  /// Decodes [source] as a JSON object, wrapped in a [ConfigMap].
+  ///
+  /// [path] names the file in any [PluginParseException]. `jsonDecode` throws
+  /// `FormatException`, which the command runner would render as a CLI usage
+  /// error, so it is converted here. A non-object value throws the same way.
+  factory parseJson(String source, {required String path}) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(source);
+    } on FormatException catch (error) {
+      throw PluginParseException(path, error.message);
+    }
+
+    if (decoded is! Map) {
+      throw PluginParseException(path, 'expected a JSON object');
+    }
+
+    return ConfigMap.of(decoded);
+  }
 
   /// The raw value under [key], or `null` when absent.
   Object? operator [](String key) => values[key];
