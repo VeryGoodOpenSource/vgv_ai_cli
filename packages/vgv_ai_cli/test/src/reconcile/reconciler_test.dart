@@ -293,85 +293,6 @@ void main() {
       });
     });
 
-    group('block', () {
-      const block = '$blockBegin\ngenerated\n$blockEnd';
-
-      test('writes the block into an empty file', () {
-        final target = seed('.claude/CLAUDE.md', '');
-
-        Reconciler(logger: logger)
-            .apply([change(target, block, ChangeMode.block)]);
-
-        expect(target.readAsStringSync(), '$block\n');
-      });
-
-      test('appends the block to a file ending in a newline', () {
-        final target = seed('.claude/CLAUDE.md', '# My notes\n\nKeep me.\n');
-
-        Reconciler(logger: logger)
-            .apply([change(target, block, ChangeMode.block)]);
-
-        final result = target.readAsStringSync();
-        expect(result, startsWith('# My notes\n\nKeep me.\n'));
-        expect(result, contains('generated'));
-      });
-
-      test('appends the block to a file with no trailing newline', () {
-        final target = seed('.claude/CLAUDE.md', 'no newline');
-
-        Reconciler(logger: logger)
-            .apply([change(target, block, ChangeMode.block)]);
-
-        final result = target.readAsStringSync();
-        expect(result, startsWith('no newline\n\n'));
-        expect(result, contains('generated'));
-      });
-
-      test('appends when the end marker comes before the begin marker', () {
-        final target = seed(
-          '.claude/CLAUDE.md',
-          '$blockEnd malformed $blockBegin\n',
-        );
-
-        Reconciler(logger: logger)
-            .apply([change(target, block, ChangeMode.block)]);
-
-        final result = target.readAsStringSync();
-        expect(result, startsWith('$blockEnd malformed $blockBegin\n'));
-        expect(result, contains('generated'));
-      });
-
-      test('replaces only the block and preserves prose around it', () {
-        final target = seed(
-          '.claude/CLAUDE.md',
-          'BEFORE\n\n$blockBegin\nold\n$blockEnd\n\nAFTER\n',
-        );
-
-        Reconciler(logger: logger)
-            .apply([change(target, block, ChangeMode.block)]);
-
-        final result = target.readAsStringSync();
-        expect(result, startsWith('BEFORE\n\n'));
-        expect(result, endsWith('\n\nAFTER\n'));
-        expect(result, contains('generated'));
-        expect(result, isNot(contains('old')));
-      });
-
-      test('is idempotent across repeated installs', () {
-        final target = seed('.claude/CLAUDE.md', 'BEFORE\n');
-        final reconciler = Reconciler(logger: logger)
-          ..apply([change(target, block, ChangeMode.block)]);
-        final first = target.readAsStringSync();
-
-        final second = reconciler.apply([
-          change(target, block, ChangeMode.block),
-        ]);
-
-        expect(target.readAsStringSync(), first);
-        expect(second.single.outcome, ChangeOutcome.unchanged);
-      });
-    });
-
     group('mergeToml', () {
       test('writes incoming content into an empty target', () {
         final target = seed('.codex/config.toml', '');
@@ -610,10 +531,8 @@ void main() {
       test('a second apply of the same changes is all unchanged', () {
         final json = seed('.claude/settings.json', jsonEncode({'model': 'x'}));
         final toml = seed('.codex/config.toml', 'model = "gpt"\n');
-        final md = seed('.claude/CLAUDE.md', 'BEFORE\n');
         final skill = file('.agents/skills/a/SKILL.md');
 
-        const block = '$blockBegin\ngenerated\n$blockEnd';
         final changes = [
           change(
             json,
@@ -630,7 +549,6 @@ void main() {
             '[mcp.dart]\ncommand = "dart"\n[mcp.gh]\ncommand = "gh"',
             ChangeMode.mergeToml,
           ),
-          change(md, block, ChangeMode.block),
           change(skill, 'body', ChangeMode.own),
         ];
 

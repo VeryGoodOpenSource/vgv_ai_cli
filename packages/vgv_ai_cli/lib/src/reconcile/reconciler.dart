@@ -5,12 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
-/// Opening marker for the generated instruction block.
-const blockBegin = '<!-- vgv:begin -->';
-
-/// Closing marker for the generated instruction block.
-const blockEnd = '<!-- vgv:end -->';
-
 const _jsonEncoder = JsonEncoder.withIndent('  ');
 const _jsonEquality = DeepCollectionEquality();
 final _tableHeader = RegExp(r'^\s*\[([^\]]+)\]', multiLine: true);
@@ -27,8 +21,8 @@ typedef _Table = ({String name, String body});
 ///
 /// `install` writes into a home directory full of config the user owns, so
 /// every mode here is designed to be non-destructive: JSON and TOML are merged
-/// rather than replaced, and markdown is edited only between the markers. The
-/// only wholesale overwrite is [ChangeMode.own], whose files VGV generates.
+/// rather than replaced. The only wholesale overwrite is [ChangeMode.own],
+/// whose files VGV generates.
 /// {@endtemplate}
 class Reconciler {
   /// {@macro reconciler}
@@ -55,10 +49,6 @@ class Reconciler {
 
     final (:contents, :declined) = switch (change.mode) {
       ChangeMode.own => (contents: change.contents, declined: false),
-      ChangeMode.block => (
-        contents: _mergeBlock(original, change.contents),
-        declined: false,
-      ),
       ChangeMode.mergeJson => _mergeJson(original, change.contents),
       ChangeMode.mergeToml => _mergeToml(original, change.contents),
     };
@@ -87,32 +77,14 @@ class Reconciler {
     );
   }
 
-  /// Writes through a sibling temporary file.
+  /// Writes through a sibling temporary file to keep the swap atomic.
   ///
-  /// A crash, a full disk or a Ctrl-C partway through an in-place write would
-  /// leave the user with a truncated config and no way back. Renaming a fully
-  /// written file over the target makes the swap atomic instead.
+  /// A crash or interrupted in-place write would leave a truncated config.
+  /// Renaming a fully written file over the target avoids that.
   void _write(File file, String contents) {
     File('${file.path}.vgv-tmp')
       ..writeAsStringSync(contents, flush: true)
       ..renameSync(file.path);
-  }
-
-  /// Replaces the region between the markers, appending the block when the
-  /// file has none. Content outside the markers is untouched.
-  String _mergeBlock(String original, String block) {
-    if (original.isEmpty) return '$block\n';
-
-    final start = original.indexOf(blockBegin);
-    final end = original.indexOf(blockEnd);
-    if (start == -1 || end == -1 || end < start) {
-      final separator = original.endsWith('\n') ? '\n' : '\n\n';
-      return '$original$separator$block\n';
-    }
-
-    final before = original.substring(0, start);
-    final after = original.substring(end + blockEnd.length);
-    return '$before${block.trim()}$after';
   }
 
   _Merge _mergeJson(String original, String incoming) {
@@ -120,7 +92,7 @@ class Reconciler {
     try {
       addition = jsonDecode(incoming);
     } on FormatException catch (_) {
-      // Ours to fix, but the user's file is not ours to break over it.
+      // A malformed payload is our bug; don't damage the user's file over it.
       logger.warn('Could not parse the JSON to install; leaving it alone.');
       return (contents: original, declined: true);
     }
@@ -133,7 +105,7 @@ class Reconciler {
     try {
       existing = jsonDecode(original);
     } on FormatException catch (_) {
-      // Refuse to silently discard a file we cannot parse.
+      // Don't silently discard a file that can't be parsed.
       logger.warn('Could not parse JSON; leaving it alone.');
       return (contents: original, declined: true);
     }
@@ -156,8 +128,7 @@ class Reconciler {
   ///
   /// Maps recurse, lists union while keeping order, and scalars keep the
   /// existing value unless [force] is set. Keeping the user's scalar is the
-  /// safe default: their model choice or approval mode should survive an
-  /// install.
+  /// safe default so their settings survive an install.
   ({Map<String, dynamic> value, bool declined}) _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,

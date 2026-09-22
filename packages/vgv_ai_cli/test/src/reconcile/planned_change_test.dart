@@ -22,20 +22,19 @@ void main() {
       final change = PlannedChange(
         file: File('/home/user/.claude/CLAUDE.md'),
         contents: 'body',
-        mode: ChangeMode.block,
+        mode: ChangeMode.mergeToml,
       );
 
-      expect(change.toString(), '[block] /home/user/.claude/CLAUDE.md');
+      expect(change.toString(), '[mergeToml] /home/user/.claude/CLAUDE.md');
     });
   });
 
   group('ChangeMode', () {
-    test('has exactly the four supported modes', () {
+    test('has exactly the three supported modes', () {
       expect(ChangeMode.values, [
         ChangeMode.own,
         ChangeMode.mergeJson,
         ChangeMode.mergeToml,
-        ChangeMode.block,
       ]);
     });
   });
