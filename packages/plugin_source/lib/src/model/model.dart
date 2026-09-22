@@ -4,7 +4,7 @@
 library;
 
 export 'agent_asset.dart';
-export 'hook.dart';
+export 'hook_asset.dart';
 export 'mcp_server.dart';
 export 'plugin_assets.dart';
 export 'skill_asset.dart';

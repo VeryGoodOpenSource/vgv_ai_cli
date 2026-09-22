@@ -1,10 +1,10 @@
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
+import 'package:plugin_source/src/format/format.dart';
+import 'package:plugin_source/src/model/model.dart';
+import 'package:plugin_source/src/parser/claude_plugin_parser.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/format/format.dart';
-import 'package:vgv_ai_cli/src/plugin_source/model/model.dart';
-import 'package:vgv_ai_cli/src/plugin_source/parser/claude_plugin_parser.dart';
 
 const _fs = LocalFileSystem();
 

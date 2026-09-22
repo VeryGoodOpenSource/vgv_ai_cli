@@ -1,5 +1,5 @@
+import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
 
 void main() {
   group('PluginParseException', () {

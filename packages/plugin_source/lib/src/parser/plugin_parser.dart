@@ -1,5 +1,5 @@
 import 'package:file/file.dart';
-import 'package:vgv_ai_cli/src/plugin_source/model/plugin_assets.dart';
+import 'package:plugin_source/src/model/plugin_assets.dart';
 
 /// {@template plugin_parser}
 /// Reads one harness's plugin files and produces the harness-neutral model.

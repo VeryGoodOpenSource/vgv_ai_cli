@@ -1,8 +1,8 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/plugin_source/format/format.dart';
-import 'package:vgv_ai_cli/src/plugin_source/model/model.dart';
-import 'package:vgv_ai_cli/src/plugin_source/parser/plugin_parser.dart';
+import 'package:plugin_source/src/format/format.dart';
+import 'package:plugin_source/src/model/model.dart';
+import 'package:plugin_source/src/parser/plugin_parser.dart';
 
 /// {@template claude_plugin_parser}
 /// Reads a Claude Code plugin directory into the harness-neutral model.

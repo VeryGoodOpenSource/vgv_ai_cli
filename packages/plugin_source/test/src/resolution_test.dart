@@ -1,7 +1,7 @@
 import 'package:file/memory.dart';
+import 'package:plugin_source/src/plugin_ref.dart';
+import 'package:plugin_source/src/resolution.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
 
 void main() {
   group('resolveHome', () {

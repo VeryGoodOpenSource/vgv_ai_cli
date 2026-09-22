@@ -1,6 +1,6 @@
+import 'package:plugin_source/src/format/frontmatter.dart';
+import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/format/frontmatter.dart';
-import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
 
 Frontmatter _parse(String source) => Frontmatter.parse(source, path: 'a.md');

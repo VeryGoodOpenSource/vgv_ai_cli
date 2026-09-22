@@ -1,5 +1,5 @@
-import 'package:vgv_ai_cli/src/plugin_source/format/config_map.dart';
-import 'package:vgv_ai_cli/src/plugin_source/format/plugin_parse_exception.dart';
+import 'package:plugin_source/src/format/config_map.dart';
+import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
 
 /// {@template frontmatter}

@@ -4,10 +4,10 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
+import 'package:plugin_source/src/plugin_ref.dart';
+import 'package:plugin_source/src/resolution.dart';
+import 'package:plugin_source/src/sources.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
-import 'package:vgv_ai_cli/src/plugin_source/resolution.dart';
-import 'package:vgv_ai_cli/src/plugin_source/sources.dart';
 
 const _ref = PluginRef(
   name: 'vgv-wingspan',
