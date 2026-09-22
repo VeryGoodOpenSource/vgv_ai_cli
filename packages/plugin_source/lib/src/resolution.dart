@@ -1,5 +1,5 @@
 import 'package:file/file.dart';
-import 'package:vgv_ai_cli/src/plugin_source/plugin_ref.dart';
+import 'package:plugin_source/src/plugin_ref.dart';
 
 /// {@template plugin_resolution}
 /// The outcome of asking a source for a plugin.

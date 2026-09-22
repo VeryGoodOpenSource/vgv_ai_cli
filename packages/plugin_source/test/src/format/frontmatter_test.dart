@@ -1,5 +1,6 @@
+import 'package:plugin_source/src/format/frontmatter.dart';
+import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/plugin_source/frontmatter.dart';
 import 'package:yaml/yaml.dart';
 
 Frontmatter _parse(String source) => Frontmatter.parse(source, path: 'a.md');
@@ -102,7 +103,7 @@ void main() {
     });
 
     test('keeps a non-string key as a string', () {
-      expect(_parse('---\n2: x\n---\n').values.keys, contains('2'));
+      expect(_parse('---\n2: x\n---\n').config.values.keys, contains('2'));
     });
 
     test('converts nested structures to plain Dart collections', () {
@@ -113,7 +114,7 @@ void main() {
         '---\nname: a\nhooks:\n  PreToolUse:\n    - matcher: "Bash"\n---\n',
       );
 
-      final hooks = frontmatter.values['hooks']! as Map<String, Object?>;
+      final hooks = frontmatter.config['hooks']! as Map<String, Object?>;
       final entries = hooks['PreToolUse']! as List<Object?>;
       final first = entries.single! as Map<String, Object?>;
 
@@ -163,116 +164,13 @@ void main() {
     });
   });
 
-  group('allowedTools', () {
-    test('splits on spaces', () {
-      expect(_parse('---\nallowed-tools: Read Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('splits on commas', () {
-      // Only `animations` writes it this way.
-      expect(_parse('---\nallowed-tools: Read,Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('splits on a mix of both', () {
-      expect(
-        _parse('---\nallowed-tools: Read, Glob  Grep\n---\n').allowedTools,
-        ['Read', 'Glob', 'Grep'],
-      );
-    });
-
-    test('keeps a parenthesized scope intact', () {
-      // Five wingspan skills ship these. Splitting on whitespace turns
-      // `Bash(git push *)` into `Bash(git`, `push` and `*)`.
-      expect(
-        _parse('---\nallowed-tools: Bash(git push *) Bash(gh *) Read\n---\n')
-            .allowedTools,
-        ['Bash(git push *)', 'Bash(gh *)', 'Read'],
-      );
-    });
-
-    test('keeps a scope containing commas and slashes', () {
-      expect(
-        _parse('---\nallowed-tools: Bash(rm -rf docs/reviews/) Read\n---\n')
-            .allowedTools,
-        ['Bash(rm -rf docs/reviews/)', 'Read'],
-      );
-    });
-
-    test('keeps a glob scope', () {
-      expect(
-        _parse(
-          '---\nallowed-tools: Bash(*/scripts/detect-base-branch.sh)\n---\n',
-        ).allowedTools,
-        ['Bash(*/scripts/detect-base-branch.sh)'],
-      );
-    });
-
-    test('keeps mcp tool names whole', () {
-      expect(
-        _parse('---\nallowed-tools: Read mcp__dart__analyze_files\n---\n')
-            .allowedTools,
-        ['Read', 'mcp__dart__analyze_files'],
-      );
-    });
-
-    test('falls back to tools', () {
-      expect(_parse('---\ntools: Read, Glob\n---\n').allowedTools, [
-        'Read',
-        'Glob',
-      ]);
-    });
-
-    test('is empty when absent', () {
-      expect(_parse('---\nname: a\n---\n').allowedTools, isEmpty);
-    });
-  });
-
-  group('userInvocable', () {
-    test('is true when absent', () {
-      // The Flutter plugin omits the key on all 16 of its skills.
-      expect(_parse('---\nname: a\n---\n').userInvocable, isTrue);
-    });
-
-    test('is true when explicitly true', () {
-      expect(_parse('---\nuser-invocable: true\n---\n').userInvocable, isTrue);
-    });
-
-    test('is false when explicitly false', () {
-      expect(
-        _parse('---\nuser-invocable: false\n---\n').userInvocable,
-        isFalse,
-      );
-    });
-  });
+  // allowed-tools and user-invocable are Claude-specific interpretations and
+  // live in ClaudePluginParser; their tests are in
+  // parser/claude_plugin_parser_test.dart.
 
   group('name', () {
     test('is null when absent', () {
       expect(_parse('---\ndescription: a\n---\n').name, isNull);
-    });
-  });
-
-  group('PluginParseException', () {
-    test('is not a FormatException', () {
-      // The command runner catches FormatException and renders it as a CLI
-      // usage error. YamlException and jsonDecode both throw FormatException,
-      // so a corrupt plugin file must not be one.
-      expect(
-        const PluginParseException('a.md', 'bad'),
-        isNot(isA<FormatException>()),
-      );
-    });
-
-    test('names the file and the parser message', () {
-      expect(
-        const PluginParseException('skills/a/SKILL.md', 'no fence').toString(),
-        allOf(contains('skills/a/SKILL.md'), contains('no fence')),
-      );
     });
   });
 }

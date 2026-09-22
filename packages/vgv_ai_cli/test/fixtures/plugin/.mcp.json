@@ -1,7 +1,0 @@
-{
-  "mcpServers": {
-    "dart": { "command": "dart", "args": ["mcp-server"] },
-    "context7": { "url": "https://mcp.context7.com/mcp" },
-    "ignored": "not an object"
-  }
-}

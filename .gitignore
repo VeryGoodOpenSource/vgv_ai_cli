@@ -26,3 +26,5 @@ coverage/
 
 # Wingspan output (local working artifacts, not tracked)
 docs/
+
+tasks/
