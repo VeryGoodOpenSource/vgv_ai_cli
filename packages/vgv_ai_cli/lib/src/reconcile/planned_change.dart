@@ -65,7 +65,10 @@ enum ChangeOutcome {
   /// The file already had the intended content.
   unchanged,
 
-  /// The change was skipped because the user's value won a conflict.
+  /// Nothing was written because what the user already had won.
+  ///
+  /// A conflicting scalar they set, a TOML table they wrote, or a file we
+  /// could not parse. We had something to contribute and declined to.
   skipped,
 }
 

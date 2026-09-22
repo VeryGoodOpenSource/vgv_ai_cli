@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
@@ -10,6 +12,15 @@ const blockBegin = '<!-- vgv:begin -->';
 const blockEnd = '<!-- vgv:end -->';
 
 const _jsonEncoder = JsonEncoder.withIndent('  ');
+const _jsonEquality = DeepCollectionEquality();
+final _tableHeader = RegExp(r'^\s*\[([^\]]+)\]', multiLine: true);
+
+/// What a merge produced: the content to write, and whether anything we wanted
+/// to contribute was declined in favour of what the user already had.
+typedef _Merge = ({String contents, bool declined});
+
+/// A whole TOML table: its header name and the lines that belong to it.
+typedef _Table = ({String name, String body});
 
 /// {@template reconciler}
 /// Applies [PlannedChange]s to disk.
@@ -42,15 +53,21 @@ class Reconciler {
     final existed = file.existsSync();
     final original = existed ? file.readAsStringSync() : '';
 
-    final updated = switch (change.mode) {
-      ChangeMode.own => change.contents,
-      ChangeMode.block => _mergeBlock(original, change.contents),
+    final (:contents, :declined) = switch (change.mode) {
+      ChangeMode.own => (contents: change.contents, declined: false),
+      ChangeMode.block => (
+        contents: _mergeBlock(original, change.contents),
+        declined: false,
+      ),
       ChangeMode.mergeJson => _mergeJson(original, change.contents),
       ChangeMode.mergeToml => _mergeToml(original, change.contents),
     };
 
-    if (existed && updated == original) {
-      return AppliedChange(change: change, outcome: ChangeOutcome.unchanged);
+    if (contents == original) {
+      return AppliedChange(
+        change: change,
+        outcome: declined ? ChangeOutcome.skipped : ChangeOutcome.unchanged,
+      );
     }
 
     if (dryRun) {
@@ -62,12 +79,23 @@ class Reconciler {
     }
 
     file.parent.createSync(recursive: true);
-    file.writeAsStringSync(updated);
+    _write(file, contents);
 
     return AppliedChange(
       change: change,
       outcome: existed ? ChangeOutcome.updated : ChangeOutcome.created,
     );
+  }
+
+  /// Writes through a sibling temporary file.
+  ///
+  /// A crash, a full disk or a Ctrl-C partway through an in-place write would
+  /// leave the user with a truncated config and no way back. Renaming a fully
+  /// written file over the target makes the swap atomic instead.
+  void _write(File file, String contents) {
+    File('${file.path}.vgv-tmp')
+      ..writeAsStringSync(contents, flush: true)
+      ..renameSync(file.path);
   }
 
   /// Replaces the region between the markers, appending the block when the
@@ -87,9 +115,19 @@ class Reconciler {
     return '$before${block.trim()}$after';
   }
 
-  String _mergeJson(String original, String incoming) {
-    final addition = jsonDecode(incoming);
-    if (original.trim().isEmpty) return '${_jsonEncoder.convert(addition)}\n';
+  _Merge _mergeJson(String original, String incoming) {
+    final Object? addition;
+    try {
+      addition = jsonDecode(incoming);
+    } on FormatException catch (_) {
+      // Ours to fix, but the user's file is not ours to break over it.
+      logger.warn('Could not parse the JSON to install; leaving it alone.');
+      return (contents: original, declined: true);
+    }
+
+    if (original.trim().isEmpty) {
+      return (contents: '${_jsonEncoder.convert(addition)}\n', declined: false);
+    }
 
     final Object? existing;
     try {
@@ -97,15 +135,21 @@ class Reconciler {
     } on FormatException catch (_) {
       // Refuse to silently discard a file we cannot parse.
       logger.warn('Could not parse JSON; leaving it alone.');
-      return original;
+      return (contents: original, declined: true);
     }
 
-    if (existing is! Map || addition is! Map) return original;
+    if (existing is! Map || addition is! Map) {
+      return (contents: original, declined: true);
+    }
+
     final merged = _deepMerge(
       Map<String, dynamic>.from(existing),
       Map<String, dynamic>.from(addition),
     );
-    return '${_jsonEncoder.convert(merged)}\n';
+    return (
+      contents: '${_jsonEncoder.convert(merged.value)}\n',
+      declined: merged.declined,
+    );
   }
 
   /// Merges [addition] into [base].
@@ -114,30 +158,48 @@ class Reconciler {
   /// existing value unless [force] is set. Keeping the user's scalar is the
   /// safe default: their model choice or approval mode should survive an
   /// install.
-  Map<String, dynamic> _deepMerge(
+  ({Map<String, dynamic> value, bool declined}) _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
   ) {
     final result = Map<String, dynamic>.from(base);
+    var declined = false;
     for (final MapEntry(:key, :value) in addition.entries) {
       final existing = result[key];
-      if (existing == null) {
+      // An explicit null the user wrote is a choice, not an absent key.
+      if (!result.containsKey(key)) {
         result[key] = value;
       } else if (existing is Map && value is Map) {
-        result[key] = _deepMerge(
+        final merged = _deepMerge(
           Map<String, dynamic>.from(existing),
           Map<String, dynamic>.from(value),
         );
+        result[key] = merged.value;
+        declined = declined || merged.declined;
       } else if (existing is List && value is List) {
-        result[key] = <dynamic>[
-          ...existing,
-          ...value.where((v) => !existing.contains(v)),
-        ];
+        result[key] = <dynamic>[...existing, ..._missingFrom(existing, value)];
       } else if (force) {
         result[key] = value;
+      } else {
+        // A value that already matches ours is not a conflict.
+        declined = declined || existing != value;
       }
     }
-    return result;
+    return (value: result, declined: declined);
+  }
+
+  /// The entries of [addition] that [existing] does not already hold.
+  ///
+  /// JSON objects and arrays are compared by structure. `==` on a `Map` or a
+  /// `List` is identity, so leaning on it would append a fresh copy of every
+  /// hook and MCP server on each install.
+  Iterable<dynamic> _missingFrom(
+    List<dynamic> existing,
+    List<dynamic> addition,
+  ) {
+    return addition.where(
+      (value) => !existing.any((e) => _jsonEquality.equals(e, value)),
+    );
   }
 
   /// Appends whole TOML tables that are not already present.
@@ -145,30 +207,84 @@ class Reconciler {
   /// Only table-level granularity is supported. Editing inside an existing
   /// table would need a real TOML parser, and declining to touch a table the
   /// user already wrote is the safer behaviour anyway.
-  String _mergeToml(String original, String incoming) {
-    if (incoming.trim().isEmpty || incoming.trimLeft().startsWith('#')) {
-      return original;
-    }
-    if (original.trim().isEmpty) return '${incoming.trim()}\n';
+  _Merge _mergeToml(String original, String incoming) {
+    final tables = _tomlTables(incoming);
+    if (tables.isEmpty) return (contents: original, declined: false);
 
-    final existingTables = RegExp(
-      r'^\s*\[([^\]]+)\]',
-      multiLine: true,
-    ).allMatches(original).map((m) => m.group(1)!.trim()).toSet();
+    final existing = {
+      for (final table in _tomlTables(original)) table.name: table.body,
+    };
 
     final additions = <String>[];
-    for (final table in incoming.trim().split(RegExp(r'\n\s*\n'))) {
-      final name = RegExp(r'^\s*\[([^\]]+)\]').firstMatch(table)?.group(1);
-      if (name == null) continue;
-      if (existingTables.contains(name.trim())) {
-        logger.detail('Leaving existing TOML table [$name] alone');
+    var declined = false;
+    for (final table in tables) {
+      if (existing.containsKey(table.name)) {
+        logger.detail('Leaving existing TOML table [${table.name}] alone');
+        // A table we wrote on an earlier install is not a conflict.
+        declined = declined || existing[table.name] != table.body;
         continue;
       }
-      additions.add(table.trim());
+      additions.add(table.body);
     }
 
-    if (additions.isEmpty) return original;
+    if (additions.isEmpty) return (contents: original, declined: declined);
+
+    final appended = '${additions.join('\n\n')}\n';
+    if (original.trim().isEmpty) {
+      return (contents: appended, declined: declined);
+    }
+
     final separator = original.endsWith('\n') ? '\n' : '\n\n';
-    return '$original$separator${additions.join('\n\n')}\n';
+    return (contents: '$original$separator$appended', declined: declined);
+  }
+
+  /// Splits a TOML fragment into whole tables.
+  ///
+  /// A table runs from its header to the line before the next header, so
+  /// tables written back to back are still seen as separate. Splitting on
+  /// blank lines instead would name a run of tables after the first of them
+  /// and either drop the rest or write a duplicate header.
+  List<_Table> _tomlTables(String toml) {
+    final lines = toml.trim().split('\n');
+    final headers = [
+      for (var i = 0; i < lines.length; i++)
+        if (_tableHeader.hasMatch(lines[i])) i,
+    ];
+
+    final begins = [
+      for (var i = 0; i < headers.length; i++)
+        _startOf(lines, headers[i], i == 0 ? 0 : headers[i - 1] + 1),
+    ];
+
+    return [
+      for (var i = 0; i < headers.length; i++)
+        (
+          name: _tableHeader.firstMatch(lines[headers[i]])!.group(1)!.trim(),
+          body: lines
+              .sublist(
+                begins[i],
+                i + 1 < begins.length ? begins[i + 1] : lines.length,
+              )
+              .join('\n')
+              .trim(),
+        ),
+    ];
+  }
+
+  /// Where the table headed at [header] begins.
+  ///
+  /// Comment and blank lines written directly above a header belong to it, so
+  /// a fragment that opens with a provenance comment still carries a table.
+  int _startOf(List<String> lines, int header, int floor) {
+    var start = header;
+    while (start > floor && _isPrelude(lines[start - 1])) {
+      start--;
+    }
+    return start;
+  }
+
+  bool _isPrelude(String line) {
+    final trimmed = line.trim();
+    return trimmed.isEmpty || trimmed.startsWith('#');
   }
 }
