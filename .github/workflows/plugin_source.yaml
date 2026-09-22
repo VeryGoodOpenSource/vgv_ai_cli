@@ -8,17 +8,13 @@ on:
   pull_request:
     paths:
       - ".github/workflows/plugin_source.yaml"
-      - "packages/plugin_source/lib/**"
-      - "packages/plugin_source/test/**"
-      - "packages/plugin_source/pubspec.yaml"
+      - "packages/plugin_source/**"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/plugin_source.yaml"
-      - "packages/plugin_source/lib/**"
-      - "packages/plugin_source/test/**"
-      - "packages/plugin_source/pubspec.yaml"
+      - "packages/plugin_source/**"
 
 jobs:
   semantic-pull-request:
