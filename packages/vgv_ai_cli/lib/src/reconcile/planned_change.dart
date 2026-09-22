@@ -1,81 +1,36 @@
 import 'dart:io';
 
-/// {@template change_mode}
-/// How a [PlannedChange] reaches the file it targets.
-///
-/// Every mode preserves content the user authored. Only [own] overwrites
-/// wholesale, and VGV generates those files.
-/// {@endtemplate}
-enum ChangeMode {
-  /// The file belongs to us. Write it wholesale.
-  ///
-  /// Used for skills, agents, commands and prompts, which are generated from
-  /// the plugins and carry nothing the user authored.
-  own,
+enum ChangeMode { own, mergeJson, mergeToml }
 
-  /// Deep merge a JSON document into the existing file.
-  ///
-  /// Unknown keys survive, and on a conflict the existing value wins unless the
-  /// change is forced.
-  mergeJson,
-
-  /// Append whole TOML tables that are not already present.
-  ///
-  /// Tables the user already wrote are left byte-for-byte intact.
-  mergeToml,
-}
-
-/// {@template planned_change}
-/// One file `vgv_ai install` intends to write.
-///
-/// Changes are planned before anything is applied so `--check` can print them
-/// and the merge rules can live in one place rather than in each harness.
-/// {@endtemplate}
 class PlannedChange {
-  /// {@macro planned_change}
-  const new({required this.file, required this.contents, required this.mode});
+  new own({required this.file, required this.contents}) : mode = ChangeMode.own;
 
-  /// The file to write.
+  new mergeJson({required this.file, required this.contents})
+    : mode = ChangeMode.mergeJson;
+
+  new mergeToml({required this.file, required this.contents})
+    : mode = ChangeMode.mergeToml;
+
   final File file;
-
-  /// The content to write, merge or insert, depending on [mode].
   final String contents;
-
-  /// How [contents] reaches [file].
   final ChangeMode mode;
 
   @override
   String toString() => '[${mode.name}] ${file.path}';
 }
 
-/// The result of applying a [PlannedChange].
-enum ChangeOutcome {
-  /// The file did not exist and was created.
-  created,
+enum ChangeOutcome { created, updated, skipped, unchanged }
 
-  /// The file existed and its content changed.
-  updated,
-
-  /// The file already had the intended content.
-  unchanged,
-
-  /// Nothing was written because the user's existing content won.
-  ///
-  /// For example, a conflicting scalar, a TOML table they already wrote, or a
-  /// file that could not be parsed.
-  skipped,
-}
-
-/// {@template applied_change}
-/// What actually happened to a file.
-/// {@endtemplate}
 class AppliedChange {
-  /// {@macro applied_change}
-  const new({required this.change, required this.outcome});
+  new created({required this.change}) : outcome = ChangeOutcome.created;
 
-  /// The change that was applied.
+  new updated({required this.change}) : outcome = ChangeOutcome.updated;
+
+  new skipped({required this.change}) : outcome = ChangeOutcome.skipped;
+
+  new unchanged({required this.change}) : outcome = ChangeOutcome.unchanged;
+
   final PlannedChange change;
 
-  /// What happened.
   final ChangeOutcome outcome;
 }
