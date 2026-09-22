@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/vgv_ai_cli.yaml"
+      - ".github/cspell.json"
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
@@ -18,6 +19,7 @@ on:
       - main
     paths:
       - ".github/workflows/vgv_ai_cli.yaml"
+      - ".github/cspell.json"
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
