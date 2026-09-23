@@ -73,4 +73,68 @@ class const Frontmatter({
 
   static String _oneLine(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Renders [values] as a fenced YAML frontmatter block, closing newline
+  /// included. An empty [values] renders an empty string rather than an empty
+  /// fence, which no harness reads as valid.
+  ///
+  /// Lives beside `Frontmatter.parse` so the two round-trip against each
+  /// other in one test file. Strings are always quoted rather than emitted
+  /// plain: deciding
+  /// when a scalar is safe unquoted is a pile of branches over YAML's
+  /// indicator characters, reserved words and number forms, and quoting is
+  /// correct in every one of those cases.
+  ///
+  static String render(Map<String, Object?> values) {
+    if (values.isEmpty) return '';
+    final buffer = StringBuffer('---\n');
+    for (final MapEntry(:key, :value) in values.entries) {
+      buffer.write(_renderEntry(key, value, indent: ''));
+    }
+    buffer.write('---\n');
+    return buffer.toString();
+  }
+
+  static String _renderEntry(
+    String key,
+    Object? value, {
+    required String indent,
+  }) => switch (value) {
+    final Map<String, Object?> map when map.isNotEmpty => [
+      '$indent$key:\n',
+      for (final entry in map.entries)
+        _renderEntry(entry.key, entry.value, indent: '$indent  '),
+    ].join(),
+    final List<Object?> items when items.isNotEmpty => [
+      '$indent$key:\n',
+      for (final item in items) '$indent  - ${_scalar(item, indent: indent)}\n',
+    ].join(),
+    _ => '$indent$key: ${_scalar(value, indent: indent)}\n',
+  };
+
+  /// Renders one scalar. A string carrying newlines becomes a literal block
+  /// scalar, because the plugins write descriptions as folded and literal
+  /// blocks and a quoted `\n` would be unreadable in a file people open.
+  static String _scalar(Object? value, {required String indent}) =>
+      switch (value) {
+        null => '',
+        final String text when text.contains('\n') => [
+          '|-\n',
+          for (final line in text.trimRight().split('\n')) '$indent  $line\n',
+        ].join().trimRight(),
+        final String text => _quote(text),
+        final bool flag => '$flag',
+        final num number => '$number',
+        // An empty map or list, or anything else, has no useful YAML form as a
+        // scalar; stringify and quote it rather than emit a broken document.
+        _ => _quote('$value'),
+      };
+
+  static String _quote(String value) {
+    final escaped = value
+        .replaceAll(r'\', r'\\')
+        .replaceAll('"', r'\"')
+        .replaceAll('\t', r'\t');
+    return '"$escaped"';
+  }
 }
