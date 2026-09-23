@@ -68,6 +68,22 @@ class const SkillsTranslator() {
     Directory target,
     List<TranslationNote> notes,
   ) sync* {
+    // The parser only builds a skill from a directory holding a SKILL.md, so
+    // this is not the normal case. A plugin cache cleared between resolution
+    // and translation is, and it should report rather than throw a raw
+    // FileSystemException out of `install`.
+    if (!skill.directory.existsSync()) {
+      notes.add(
+        TranslationNote(
+          subject: skill.name,
+          reason:
+              'its directory ${skill.directory.path} has gone away, so '
+              'only the SKILL.md was written',
+        ),
+      );
+      return;
+    }
+
     // followLinks is off so a symlinked directory is reported rather than
     // walked, which a cycle would otherwise turn into a hang.
     final entities = skill.directory.listSync(
