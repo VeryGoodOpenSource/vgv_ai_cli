@@ -32,14 +32,20 @@ void main() {
 
   PlannedChange change(File target, String contents, ChangeMode mode) {
     return switch (mode) {
-      ChangeMode.own => PlannedChange.own(file: target, contents: contents),
+      ChangeMode.own => PlannedChange.own(
+        file: target,
+        contents: contents,
+        harness: null,
+      ),
       ChangeMode.mergeJson => PlannedChange.mergeJson(
         file: target,
         contents: contents,
+        harness: null,
       ),
       ChangeMode.mergeToml => PlannedChange.mergeToml(
         file: target,
         contents: contents,
+        harness: null,
       ),
     };
   }

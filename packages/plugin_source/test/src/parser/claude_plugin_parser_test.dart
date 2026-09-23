@@ -593,6 +593,16 @@ void main() {
       expect(ClaudePluginParser.pluginNameOf(pluginAt('')), '0.0.5');
     });
 
+    test('falls back when the manifest will not parse', () {
+      // A label, not content. Refusing to read a plugin's skills because its
+      // manifest has a stray comma would be the worse outcome.
+      expect(ClaudePluginParser.pluginNameOf(pluginAt('{oops')), '0.0.5');
+    });
+
+    test('falls back when the manifest is not an object', () {
+      expect(ClaudePluginParser.pluginNameOf(pluginAt('[1,2]')), '0.0.5');
+    });
+
     test('falls back when the manifest declares no name', () {
       expect(
         ClaudePluginParser.pluginNameOf(pluginAt('{"version":"1"}')),

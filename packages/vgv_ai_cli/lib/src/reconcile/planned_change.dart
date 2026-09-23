@@ -1,5 +1,5 @@
 import 'package:file/file.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// How a [PlannedChange] reaches the file it targets.
 enum ChangeMode { own, mergeJson, mergeToml }
@@ -16,16 +16,22 @@ enum ChangeMode { own, mergeJson, mergeToml }
 /// {@endtemplate}
 class PlannedChange {
   /// The file belongs to us. Write it wholesale.
-  new own({required this.file, required this.contents, this.harness})
+  new own({required this.file, required this.contents, required this.harness})
     : mode = ChangeMode.own;
 
   /// Deep merge a JSON document into whatever is already there.
-  new mergeJson({required this.file, required this.contents, this.harness})
-    : mode = ChangeMode.mergeJson;
+  new mergeJson({
+    required this.file,
+    required this.contents,
+    required this.harness,
+  }) : mode = ChangeMode.mergeJson;
 
   /// Deep merge a TOML document into whatever is already there.
-  new mergeToml({required this.file, required this.contents, this.harness})
-    : mode = ChangeMode.mergeToml;
+  new mergeToml({
+    required this.file,
+    required this.contents,
+    required this.harness,
+  }) : mode = ChangeMode.mergeToml;
 
   /// The file to write.
   final File file;
@@ -42,6 +48,10 @@ class PlannedChange {
   /// changes that write it belong to no single harness. Nullable rather than
   /// a `shared` enum entry, because [Harness] is the set of harnesses
   /// `vgv_ai` configures and a shared directory is not one of them.
+  ///
+  /// Required rather than defaulted to null: a translator that forgets to tag
+  /// a change would otherwise be indistinguishable from one deliberately
+  /// writing a shared file, and #21's `uninstall` acts on that distinction.
   ///
   /// `uninstall` and `doctor` read this to answer what VGV wrote and for whom.
   final Harness? harness;

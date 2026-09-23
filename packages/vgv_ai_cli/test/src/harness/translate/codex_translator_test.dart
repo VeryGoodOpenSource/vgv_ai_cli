@@ -3,10 +3,10 @@ import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/codex_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';

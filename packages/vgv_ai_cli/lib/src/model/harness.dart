@@ -1,6 +1,11 @@
 /// {@template harness}
 /// A coding agent harness `vgv_ai` knows how to configure.
 ///
+/// Lives in `model/` rather than under `harness/` because it is shared
+/// vocabulary with no dependencies of its own. Detection, translation and the
+/// reconcile layer all name harnesses, so none of them can own the naming
+/// without the others importing it across a layer boundary.
+///
 /// [Harness.values] is the single source of truth for harness selection and
 /// reporting. Adding a harness means adding an entry here and nothing else.
 /// {@endtemplate}

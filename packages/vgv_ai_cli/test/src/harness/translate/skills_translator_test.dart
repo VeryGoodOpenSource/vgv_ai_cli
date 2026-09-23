@@ -168,6 +168,23 @@ void main() {
         expect(result.notes, isEmpty);
       });
 
+      test('materializes a link with a relative target', () {
+        final asset = skill('build');
+        fs.file('/plugins/wingspan/skills/shared/references/rel.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('# Relative\n');
+        fs.link(p.join(asset.directory.path, 'references', 'rel.md'))
+          ..parent.createSync(recursive: true)
+          ..createSync('../../shared/references/rel.md');
+
+        final result = translate([asset]);
+
+        expect(
+          changeAt(result, 'build/references/rel.md').contents,
+          '# Relative\n',
+        );
+      });
+
       test('reports a link whose target does not exist', () {
         final asset = skill('build');
         fs.link(p.join(asset.directory.path, 'references', 'gone.md'))

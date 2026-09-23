@@ -1,10 +1,12 @@
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/hook_staging.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
+import 'package:vgv_ai_cli/src/harness/translate/hook_scripts_translator.dart';
 
-import '../_assets.dart';
+import '_assets.dart';
 
 /// Where the wingspan hook scripts land once VGV owns them.
 const _hooks = '/home/dev/.agents/vgv/plugins/vgv-wingspan/hooks';
@@ -96,6 +98,29 @@ void main() {
       expect(result.notes.single.reason, contains('will not run'));
     });
 
+    test('reports a symlink in the hooks tree rather than skipping it', () {
+      // The shared skills copy materializes links; this one cannot, so it says
+      // so instead of leaving a hook that silently fails.
+      final hook = hookAsset(fs);
+      fs.file('/elsewhere/helper.sh')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('#!/bin/bash\n');
+      fs
+          .link(p.join(hook.directory.path, 'scripts', 'linked.sh'))
+          .createSync('/elsewhere/helper.sh');
+
+      final result = const HookScriptsTranslator().translate(
+        assets: pluginAssets(hooks: [hook]),
+        home: home,
+      );
+
+      expect(result.notes.single.subject, contains('linked.sh'));
+      expect(
+        result.changes.map((c) => c.file.path),
+        isNot(contains(endsWith('linked.sh'))),
+      );
+    });
+
     test('plans nothing when no plugin ships hooks', () {
       final result = const HookScriptsTranslator().translate(
         assets: pluginAssets(),
@@ -127,12 +152,29 @@ void main() {
       // #!/bin/bash, so this is equivalent and needs no permission change.
       expect(
         resolve(r'${PLUGIN_ROOT}/hooks/recommend-plugins.sh'),
-        'bash $_hooks/recommend-plugins.sh',
+        "bash '$_hooks/recommend-plugins.sh'",
       );
     });
 
     test('leaves a command that already names its interpreter alone', () {
       expect(resolve('bash run.sh'), 'bash run.sh');
+    });
+
+    test('quotes a path whose home directory contains a space', () {
+      final spaced = fs.directory('/Users/Jane Doe')
+        ..createSync(recursive: true);
+
+      expect(
+        resolveHookCommand(
+          const HookCommand(
+            type: 'command',
+            command: r'${PLUGIN_ROOT}/hooks/run.sh',
+          ),
+          home: spaced,
+          plugin: 'vgv-wingspan',
+        ),
+        "bash '/Users/Jane Doe/.agents/vgv/plugins/vgv-wingspan/hooks/run.sh'",
+      );
     });
 
     test('leaves a command that is not a script alone', () {

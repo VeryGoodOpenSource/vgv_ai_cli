@@ -138,6 +138,20 @@ void main() {
       expect(registration['matcher'], 'Read|Bash');
     });
 
+    test('passes a regex matcher through without a false rename note', () {
+      // Codex uses Claude's tool names, so mapping through an identity table
+      // would report every matcher the table forgot, this one included.
+      final result = translate(const CodexTranslator(), [
+        hookAsset(fs, matcher: 'mcp__.*very-good-cli__.*'),
+      ]);
+
+      final hooks = jsonAt(result, 'hooks.json')['hooks'] as Map;
+      final registration = (hooks['PostToolUse'] as List).single as Map;
+
+      expect(registration['matcher'], 'mcp__.*very-good-cli__.*');
+      expect(result.notes, isEmpty);
+    });
+
     test('writes them to hooks.json, leaving config.toml a single change', () {
       final result = translate(const CodexTranslator(), [hookAsset(fs)]);
 
@@ -247,5 +261,36 @@ void main() {
       );
       expect(result.notes, isEmpty);
     });
+  });
+
+  group('MCP rewriting reaches every copy, not just the shared skills', () {
+    // Pi has no MCP at all, so a per-harness copy still naming mcp__* would
+    // hand it a tool it cannot invoke.
+    PluginAssets withMcp() => pluginAssets(
+      skills: [
+        skillAsset(fs, 'green-gate', body: 'Run mcp__dart__analyze_files.\n'),
+      ],
+      agents: [
+        agentAsset('reviewer', body: 'Call mcp__dart__analyze_files first.\n'),
+      ],
+    );
+
+    for (final translator in translators) {
+      test('${translator.harness.name} writes no raw mcp__ reference', () {
+        final result = translator.translate(
+          assets: withMcp(),
+          home: home,
+          staged: _staged,
+        );
+
+        for (final change in result.changes) {
+          expect(
+            change.contents,
+            isNot(contains('mcp__')),
+            reason: '${change.file.path} still names an MCP tool',
+          );
+        }
+      });
+    }
   });
 }

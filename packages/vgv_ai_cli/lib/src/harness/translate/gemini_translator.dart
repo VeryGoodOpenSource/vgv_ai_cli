@@ -4,13 +4,14 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/agent_markdown.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/hook_event_map.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/mcp_tool_map.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 /// {@template gemini_translator}
@@ -43,19 +44,20 @@ class const GeminiTranslator() extends HarnessTranslator {
     final root = p.join(home.path, '.gemini');
     final fs = home.fileSystem;
     final skillsRoot = agentsSkillsRoot(home).path;
+    final settingsFile = fs.file(p.join(root, 'settings.json'));
     final changes = <PlannedChange>[];
     final notes = <TranslationNote>[];
 
     final settings = stagedContents(
       staged: staged,
       path: StagedPaths.geminiSettings,
-      target: fs.file(p.join(root, 'settings.json')),
+      target: settingsFile,
       notes: notes,
     );
     if (settings != null) {
       changes.add(
         PlannedChange.mergeJson(
-          file: fs.file(p.join(root, 'settings.json')),
+          file: settingsFile,
           contents: settings,
           harness: harness,
         ),
@@ -89,7 +91,7 @@ class const GeminiTranslator() extends HarnessTranslator {
       );
     }
 
-    for (final skill in assets.skills.where((s) => s.userInvocable)) {
+    for (final skill in assets.invocableSkills) {
       changes.add(
         PlannedChange.own(
           file: fs.file(p.join(root, 'commands', '${skill.name}.toml')),
@@ -105,15 +107,15 @@ class const GeminiTranslator() extends HarnessTranslator {
       assets.hooks,
       home: home,
       events: geminiEvents,
-      tools: geminiTools,
       timeoutScale: 1000,
+      tools: geminiTools,
       harnessName: 'Gemini',
       notes: notes,
     );
     if (hooks.isNotEmpty) {
       changes.add(
         PlannedChange.mergeJson(
-          file: fs.file(p.join(root, 'settings.json')),
+          file: settingsFile,
           contents: jsonEncode({'hooks': hooks}),
           harness: harness,
         ),
@@ -127,6 +129,6 @@ class const GeminiTranslator() extends HarnessTranslator {
   /// `description` optional, and nothing else is accepted.
   String _command(SkillAsset skill) => TomlDocument.fromMap({
     'description': skill.description,
-    'prompt': skill.body.replaceAll(_arguments, '{{args}}'),
+    'prompt': McpToolMap.rewrite(skill.body).replaceAll(_arguments, '{{args}}'),
   }).toString();
 }

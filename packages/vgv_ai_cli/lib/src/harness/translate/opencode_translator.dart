@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/agent_markdown.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/hook_staging.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/mcp_tool_map.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 /// {@template opencode_translator}
@@ -65,19 +65,19 @@ class const OpenCodeTranslator() extends HarnessTranslator {
       );
     }
 
-    for (final skill in assets.skills.where((s) => s.userInvocable)) {
+    for (final skill in assets.invocableSkills) {
       changes.add(
         PlannedChange.own(
           file: fs.file(p.join(root, 'command', '${skill.name}.md')),
           contents:
               '${Frontmatter.render({'description': skill.description})}\n'
-              '${skill.body}',
+              '${McpToolMap.rewrite(skill.body)}',
           harness: harness,
         ),
       );
     }
 
-    changes.addAll(_hooks(assets, home, fs, root, notes));
+    changes.addAll(_hooks(assets, home: home, root: root, notes: notes));
 
     return TranslationResult(changes: changes, notes: notes);
   }
@@ -89,12 +89,11 @@ class const OpenCodeTranslator() extends HarnessTranslator {
   /// has no equivalent at all. OpenCode keys on a file glob rather than a tool
   /// name, so the matcher is not translated so much as replaced.
   Iterable<PlannedChange> _hooks(
-    PluginAssets assets,
-    Directory home,
-    FileSystem fs,
-    String root,
-    List<TranslationNote> notes,
-  ) sync* {
+    PluginAssets assets, {
+    required Directory home,
+    required String root,
+    required List<TranslationNote> notes,
+  }) sync* {
     final commands = <Map<String, Object?>>[];
 
     for (final hook in assets.hooks) {
@@ -144,7 +143,7 @@ class const OpenCodeTranslator() extends HarnessTranslator {
     if (commands.isEmpty) return;
 
     yield PlannedChange.mergeJson(
-      file: fs.file(p.join(root, 'opencode.json')),
+      file: home.fileSystem.file(p.join(root, 'opencode.json')),
       contents: jsonEncode({
         'experimental': {
           'hook': {
