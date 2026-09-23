@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:mason_logger/mason_logger.dart';
@@ -53,7 +52,9 @@ class const Reconciler({
       logger.detail('Would write ${file.path}');
     } else {
       file.parent.createSync(recursive: true);
-      File('${file.path}.vgv-tmp')
+      // Write beside the target and publish by rename, so an interrupted run
+      // cannot leave a half-written config behind.
+      file.fileSystem.file('${file.path}.vgv-tmp')
         ..writeAsStringSync(merge.contents, flush: true)
         ..renameSync(file.path);
     }
