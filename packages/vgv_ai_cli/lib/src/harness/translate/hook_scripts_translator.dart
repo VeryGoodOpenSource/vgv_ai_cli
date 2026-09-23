@@ -1,23 +1,16 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
-
-/// Where VGV keeps its copy of a plugin's files.
-///
-/// The hook scripts are copied here rather than referenced where the plugin
-/// resolved to. A plugin cache is Claude Code's to clear, and a hook pointing
-/// into a cleared cache fails on every tool call; a copy VGV owns is also one
-/// `uninstall` can reverse.
-Directory vgvPluginRoot(Directory home, String plugin) => home.fileSystem
-    .directory(p.join(home.path, '.agents', 'vgv', 'plugins', plugin));
 
 /// {@template hook_scripts_translator}
 /// Copies each plugin's `hooks/` tree to a directory VGV owns.
 ///
 /// Planned once rather than per harness, like the shared skills: three
 /// harnesses reference the same scripts, so the copies belong to none of them.
+/// Not a `HarnessTranslator` for exactly that reason.
 /// {@endtemplate}
 class const HookScriptsTranslator() {
   /// Plans a copy of every hook script the resolved plugins ship.
@@ -51,14 +44,33 @@ class const HookScriptsTranslator() {
         home,
         plugin,
       ).childDirectory(p.basename(source.path));
-      for (final entity in source.listSync(recursive: true)) {
-        if (entity is! File) continue;
+
+      // followLinks is off so a link is reported rather than followed, which
+      // matches how the shared skills are copied.
+      for (final entity in source.listSync(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is Directory) continue;
+
+        final relative = p.relative(entity.path, from: source.path);
+        if (entity is! File) {
+          notes.add(
+            TranslationNote(
+              subject: '$plugin hooks/$relative',
+              reason:
+                  'it is a symlink, which is not copied, so any hook that '
+                  'runs it will fail',
+            ),
+          );
+          continue;
+        }
+
         changes.add(
           PlannedChange.own(
-            file: home.fileSystem.file(
-              p.join(target.path, p.relative(entity.path, from: source.path)),
-            ),
+            file: home.fileSystem.file(p.join(target.path, relative)),
             contents: entity.readAsStringSync(),
+            harness: null,
           ),
         );
       }
@@ -66,24 +78,4 @@ class const HookScriptsTranslator() {
 
     return TranslationResult(changes: changes, notes: notes);
   }
-}
-
-/// Resolves one hook command against the copied scripts.
-///
-/// Substitutes the neutral [HookCommand.pluginRoot] placeholder, then runs a
-/// bare `.sh` path through `bash`. Every hook script both plugins ship starts
-/// `#!/bin/bash`, so this is exactly equivalent to executing it directly and
-/// avoids depending on a permission bit that a Dart file write cannot set.
-String resolveHookCommand(
-  HookCommand command, {
-  required Directory home,
-  required String plugin,
-}) {
-  final resolved = command.command.replaceAll(
-    HookCommand.pluginRoot,
-    vgvPluginRoot(home, plugin).path,
-  );
-
-  final bare = !resolved.contains(' ') && resolved.endsWith('.sh');
-  return bare ? 'bash $resolved' : resolved;
 }

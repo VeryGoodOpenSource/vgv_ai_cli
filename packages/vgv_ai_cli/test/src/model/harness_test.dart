@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 
 void main() {
   group('Harness', () {

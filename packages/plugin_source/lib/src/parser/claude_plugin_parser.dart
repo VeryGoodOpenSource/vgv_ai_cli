@@ -28,17 +28,25 @@ class const ClaudePluginParser() implements PluginParser {
   /// complete checkout. The directory name is only a fallback, because both
   /// sources lay their caches out as `<name>/<version>`, which makes the
   /// basename a version number rather than a name.
+  ///
+  /// A manifest that will not parse falls back rather than throwing. It is a
+  /// label, not content: refusing to read a plugin's skills because its
+  /// manifest has a stray comma would be the worse outcome.
   static String pluginNameOf(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')
         .childFile('plugin.json');
     if (!manifest.existsSync()) return p.basename(root.path);
 
-    final name = ConfigMap.parseJson(
-      manifest.readAsStringSync(),
-      path: manifest.path,
-    ).string('name');
-    return name ?? p.basename(root.path);
+    try {
+      final name = ConfigMap.parseJson(
+        manifest.readAsStringSync(),
+        path: manifest.path,
+      ).string('name');
+      return name ?? p.basename(root.path);
+    } on PluginParseException {
+      return p.basename(root.path);
+    }
   }
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.

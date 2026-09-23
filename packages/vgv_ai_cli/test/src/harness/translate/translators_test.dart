@@ -2,8 +2,8 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';

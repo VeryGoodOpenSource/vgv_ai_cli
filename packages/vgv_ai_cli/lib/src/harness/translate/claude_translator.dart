@@ -1,10 +1,10 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 /// {@template claude_translator}

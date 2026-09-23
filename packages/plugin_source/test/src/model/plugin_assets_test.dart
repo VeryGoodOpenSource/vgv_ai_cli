@@ -37,6 +37,31 @@ PluginAssets _assets({
 );
 
 void main() {
+  group('PluginAssets.invocableSkills', () {
+    test('keeps only the skills a user can invoke as a command', () {
+      final assets = _assets(
+        skills: [
+          _skill('green-gate'),
+          SkillAsset(
+            name: 'elements-of-style',
+            description: 'd',
+            body: 'b',
+            userInvocable: false,
+            allowedTools: const [],
+            portableFrontmatter: const {},
+            directory: _fs.directory('/plugins/elements-of-style'),
+          ),
+        ],
+      );
+
+      expect(assets.invocableSkills.map((s) => s.name), ['green-gate']);
+    });
+
+    test('is empty when no skill is invocable', () {
+      expect(_assets().invocableSkills, isEmpty);
+    });
+  });
+
   group('PluginAssets.merge', () {
     test('sorts skills by name across plugins', () {
       // Each plugin sorts its own, so the merged order must not depend on

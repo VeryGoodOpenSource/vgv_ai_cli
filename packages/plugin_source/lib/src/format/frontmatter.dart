@@ -78,13 +78,11 @@ class const Frontmatter({
   /// included. An empty [values] renders an empty string rather than an empty
   /// fence, which no harness reads as valid.
   ///
-  /// Lives beside `Frontmatter.parse` so the two round-trip against each
-  /// other in one test file. Strings are always quoted rather than emitted
-  /// plain: deciding
-  /// when a scalar is safe unquoted is a pile of branches over YAML's
+  /// Lives beside `Frontmatter.parse` so the two round-trip against each other
+  /// in one test file. Strings are always quoted rather than emitted plain:
+  /// deciding when a scalar is safe unquoted is a pile of branches over YAML's
   /// indicator characters, reserved words and number forms, and quoting is
   /// correct in every one of those cases.
-  ///
   static String render(Map<String, Object?> values) {
     if (values.isEmpty) return '';
     final buffer = StringBuffer('---\n');

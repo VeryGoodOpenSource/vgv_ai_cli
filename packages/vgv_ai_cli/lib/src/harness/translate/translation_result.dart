@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
@@ -35,24 +34,15 @@ class const TranslationNote({
 /// [notes] is the reason this is a result rather than a bare list: a harness
 /// that cannot express something reports it, so `install` can print it. Nothing
 /// is dropped silently.
+///
+/// Deliberately no value equality: [PlannedChange] has none, so comparing two
+/// results would compare changes by identity and read as a value comparison
+/// that is not one. Tests assert on [changes] and [notes] directly.
 /// {@endtemplate}
-@immutable
 class const TranslationResult({
   /// The files this harness needs written.
   required final List<PlannedChange> changes,
 
   /// Everything this harness could not express.
   final List<TranslationNote> notes = const [],
-}) {
-  @override
-  bool operator ==(Object other) =>
-      other is TranslationResult &&
-      const ListEquality<PlannedChange>().equals(other.changes, changes) &&
-      const ListEquality<TranslationNote>().equals(other.notes, notes);
-
-  @override
-  int get hashCode => Object.hash(
-    const ListEquality<PlannedChange>().hash(changes),
-    const ListEquality<TranslationNote>().hash(notes),
-  );
-}
+});

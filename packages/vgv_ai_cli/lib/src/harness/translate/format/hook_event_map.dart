@@ -1,6 +1,6 @@
 import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/hook_staging.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 
 /// One hook rendered into the nested shape Claude, Codex and Gemini share.
@@ -15,10 +15,10 @@ HookRegistrations buildHookDocument(
   List<HookAsset> hooks, {
   required Directory home,
   required Map<String, String> events,
-  required Map<String, String> tools,
   required int timeoutScale,
   required String harnessName,
   required List<TranslationNote> notes,
+  Map<String, String>? tools,
 }) {
   final document = <String, List<Map<String, Object?>>>{};
 
@@ -60,13 +60,19 @@ HookRegistrations buildHookDocument(
 
     document.putIfAbsent(event, () => []).add({
       if (hook.matcher != null)
-        'matcher': rewriteMatcher(
-          hook.matcher!,
-          tools: tools,
-          harnessName: harnessName,
-          plugin: hook.plugin,
-          notes: notes,
-        ),
+        // A null vocabulary means the harness uses Claude's tool names, so the
+        // matcher is already correct. Mapping it through an identity table
+        // instead would report every name the table forgot, including the
+        // regex matchers the plugins actually ship.
+        'matcher': tools == null
+            ? hook.matcher!
+            : rewriteMatcher(
+                hook.matcher!,
+                tools: tools,
+                harnessName: harnessName,
+                plugin: hook.plugin,
+                notes: notes,
+              ),
       'hooks': commands,
     });
   }
@@ -108,7 +114,6 @@ const geminiEvents = <String, String>{
   'PreToolUse': 'BeforeTool',
   'PostToolUse': 'AfterTool',
   'SessionStart': 'SessionStart',
-  'SessionEnd': 'SessionEnd',
 };
 
 /// Gemini's tool names, keyed by Claude's.
@@ -122,21 +127,12 @@ const geminiTools = <String, String>{
 };
 
 /// Codex's lifecycle events, which carry Claude's names unchanged.
+///
+/// Only the three the pinned plugins actually ship. Listing the rest would be
+/// an untested claim about another project's API, and an event with no entry
+/// already produces a note rather than being dropped.
 const codexEvents = <String, String>{
   'PreToolUse': 'PreToolUse',
   'PostToolUse': 'PostToolUse',
   'SessionStart': 'SessionStart',
-  'SessionEnd': 'SessionEnd',
-  'UserPromptSubmit': 'UserPromptSubmit',
-  'Stop': 'Stop',
-};
-
-/// Codex's tool names, which are Claude's.
-const codexTools = <String, String>{
-  'Read': 'Read',
-  'Glob': 'Glob',
-  'Grep': 'Grep',
-  'Edit': 'Edit',
-  'Write': 'Write',
-  'Bash': 'Bash',
 };

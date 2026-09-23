@@ -2,9 +2,9 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 const _settings = '{"enabledPlugins":{"vgv-wingspan@vgv":true}}';

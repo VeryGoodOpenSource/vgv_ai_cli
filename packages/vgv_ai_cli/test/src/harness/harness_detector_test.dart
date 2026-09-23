@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 
 RunProcess _responds(ProcessResult result) =>
     (executable, arguments, {runInShell = false}) async => result;

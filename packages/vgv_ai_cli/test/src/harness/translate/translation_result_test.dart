@@ -7,7 +7,7 @@ void main() {
   final fs = MemoryFileSystem.test();
 
   PlannedChange change(String path) =>
-      PlannedChange.own(file: fs.file(path), contents: 'body');
+      PlannedChange.own(file: fs.file(path), contents: 'body', harness: null);
 
   const note = TranslationNote(subject: 'a', reason: 'b');
 
@@ -42,50 +42,12 @@ void main() {
       expect(TranslationResult(changes: [change('/a')]).notes, isEmpty);
     });
 
-    test('compares by value', () {
-      final one = TranslationResult(
-        changes: [change('/a')],
-        notes: const [note],
-      );
-      final two = TranslationResult(
-        changes: [change('/a')],
-        notes: const [note],
-      );
-
-      // PlannedChange has no value equality, so identical instances are used.
-      expect(
-        TranslationResult(changes: one.changes, notes: one.notes),
-        TranslationResult(changes: one.changes, notes: two.notes),
-      );
-    });
-
-    test('differs when the notes differ', () {
+    test('carries the changes and notes it was given', () {
       final changes = [change('/a')];
+      final result = TranslationResult(changes: changes, notes: const [note]);
 
-      expect(
-        TranslationResult(changes: changes, notes: const [note]),
-        isNot(TranslationResult(changes: changes)),
-      );
-    });
-
-    test('differs when the changes differ', () {
-      expect(
-        TranslationResult(changes: [change('/a')]),
-        isNot(TranslationResult(changes: [change('/b')])),
-      );
-    });
-
-    test('is not equal to another type', () {
-      expect(const TranslationResult(changes: []), isNot('empty'));
-    });
-
-    test('hashes equal results the same way', () {
-      final changes = [change('/a')];
-
-      expect(
-        TranslationResult(changes: changes, notes: const [note]).hashCode,
-        TranslationResult(changes: changes, notes: const [note]).hashCode,
-      );
+      expect(result.changes, changes);
+      expect(result.notes, const [note]);
     });
   });
 }

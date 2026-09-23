@@ -1,6 +1,6 @@
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/harness/harness.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 void main() {
@@ -26,6 +26,7 @@ void main() {
       final change = PlannedChange.own(
         file: fileSystem.file('/home/user/.agents/skills/testing/SKILL.md'),
         contents: 'body',
+        harness: null,
       );
 
       expect(
@@ -34,10 +35,14 @@ void main() {
       );
     });
 
-    test('defaults harness to null', () {
+    test('requires an explicit null for a shared change', () {
+      // Required rather than defaulted: a forgotten tag would otherwise be
+      // indistinguishable from a deliberate shared write, which uninstall
+      // treats differently.
       final change = PlannedChange.mergeJson(
         file: fileSystem.file('/home/user/.gemini/settings.json'),
         contents: '{}',
+        harness: null,
       );
 
       expect(change.harness, isNull);
@@ -59,6 +64,7 @@ void main() {
     final change = PlannedChange.own(
       file: fileSystem.file('/home/user/.claude/settings.json'),
       contents: '{}',
+      harness: null,
     );
 
     test('created', () {

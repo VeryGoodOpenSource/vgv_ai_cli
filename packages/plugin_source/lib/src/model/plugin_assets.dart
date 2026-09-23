@@ -41,4 +41,14 @@ class const PluginAssets({
       hooks: [for (final a in assets) ...a.hooks],
     );
   }
+
+  /// The skills a user can invoke as a command.
+  ///
+  /// Which skills become commands is a property of the skill, not of any
+  /// harness, so it is answered once here rather than filtered identically in
+  /// every translator.
+  List<SkillAsset> get invocableSkills => [
+    for (final skill in skills)
+      if (skill.userInvocable) skill,
+  ];
 }

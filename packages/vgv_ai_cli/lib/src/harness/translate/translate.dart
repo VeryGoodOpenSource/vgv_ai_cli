@@ -6,16 +6,32 @@
 /// translator.
 library;
 
+import 'package:vgv_ai_cli/src/harness/translate/claude_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/codex_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/gemini_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/opencode_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/pi_translator.dart';
+
 export 'claude_translator.dart';
 export 'codex_translator.dart';
-export 'format/agent_markdown.dart';
-export 'format/hook_event_map.dart';
-export 'format/hook_staging.dart';
-export 'format/mcp_tool_map.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';
+export 'hook_scripts_translator.dart';
 export 'opencode_translator.dart';
 export 'pi_translator.dart';
 export 'skills_translator.dart';
 export 'staged_output.dart';
 export 'translation_result.dart';
+
+/// Every harness translator, in reporting order.
+///
+/// Declared here rather than in a test, so the command wiring and the tests
+/// read the same list and a new harness is registered exactly once.
+const translators = <HarnessTranslator>[
+  ClaudeTranslator(),
+  GeminiTranslator(),
+  CodexTranslator(),
+  OpenCodeTranslator(),
+  PiTranslator(),
+];

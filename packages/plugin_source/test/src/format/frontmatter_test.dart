@@ -226,6 +226,10 @@ void main() {
       );
     });
 
+    test('round-trips a string containing a tab', () {
+      expect(roundTrip({'name': 'a\tb'}).config.string('name'), 'a\tb');
+    });
+
     test('round-trips a list', () {
       expect(
         roundTrip({
