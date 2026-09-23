@@ -132,6 +132,20 @@ void main() {
       );
     });
 
+    test('reports a skill whose directory has gone away', () {
+      // The parser only builds a skill from a directory holding a SKILL.md, so
+      // this means the plugin cache was cleared between resolution and
+      // translation. It should report, not throw out of install.
+      final asset = skill('testing');
+      asset.directory.deleteSync(recursive: true);
+
+      final result = translate([asset]);
+
+      expect(result.notes.single.subject, 'testing');
+      expect(result.notes.single.reason, contains('has gone away'));
+      expect(changeAt(result, 'testing/SKILL.md').contents, isNotEmpty);
+    });
+
     group('symlinks', () {
       test('materializes a link into the pooled shared directory', () {
         // Wingspan pools references under skills/shared and symlinks them in.
