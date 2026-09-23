@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:file/file.dart';
+import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
@@ -12,17 +13,17 @@ import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
 class _MockLogger extends Mock implements Logger;
 
 void main() {
+  late FileSystem fileSystem;
   late Directory home;
   late Logger logger;
 
   setUp(() {
-    home = Directory.systemTemp.createTempSync('vgv_home_');
+    fileSystem = MemoryFileSystem.test();
+    home = fileSystem.directory('/home/dev')..createSync(recursive: true);
     logger = _MockLogger();
   });
 
-  tearDown(() => home.deleteSync(recursive: true));
-
-  File file(String relative) => File(p.join(home.path, relative));
+  File file(String relative) => fileSystem.file(p.join(home.path, relative));
 
   File seed(String relative, String contents) {
     final f = file(relative)..parent.createSync(recursive: true);
