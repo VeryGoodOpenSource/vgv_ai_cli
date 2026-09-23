@@ -86,6 +86,17 @@ class const PiTranslator() extends HarnessTranslator {
       );
     }
 
+    for (final hook in assets.hooks) {
+      notes.add(
+        TranslationNote(
+          subject: '${hook.event} hook from ${hook.plugin}',
+          reason:
+              'Pi has no declarative hooks; its extensions are TypeScript '
+              'modules, so this was not translated',
+        ),
+      );
+    }
+
     return TranslationResult(changes: changes, notes: notes);
   }
 }

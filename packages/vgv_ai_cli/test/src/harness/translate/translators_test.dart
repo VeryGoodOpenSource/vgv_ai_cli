@@ -4,6 +4,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
+import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
@@ -48,16 +49,24 @@ void main() {
           skillAsset(fs, 'quiet', userInvocable: false),
         ],
         agents: [agentAsset('flutter-reviewer')],
+        hooks: [
+          hookAsset(fs, event: 'PreToolUse', matcher: 'Bash'),
+          hookAsset(fs, plugin: 'vgv-ai-flutter-plugin'),
+        ],
       ),
     ]);
   });
 
   for (final translator in _translators) {
     group(translator.harness.name, () {
-      test('claims a unique path for every asset', () {
+      test('claims a unique path for every file it owns', () {
+        // Two `own` changes to one path means one silently overwrites the
+        // other. Two merge changes to one path both apply, which is how a
+        // harness gets its settings fragment and its hooks in one document.
         final paths = translator
             .translate(assets: assets, home: home, staged: _staged)
             .changes
+            .where((c) => c.mode == ChangeMode.own)
             .map((c) => c.file.path)
             .toList();
 
@@ -89,6 +98,19 @@ void main() {
 
   test('every translator covers a distinct harness', () {
     expect(_translators.map((t) => t.harness).toSet(), Harness.values.toSet());
+  });
+
+  test('the hook scripts are copied once for all of them', () {
+    final scripts = const HookScriptsTranslator().translate(
+      assets: assets,
+      home: home,
+    );
+
+    final paths = scripts.changes.map((c) => c.file.path).toList();
+
+    expect(paths, isNotEmpty);
+    expect(paths.toSet(), hasLength(paths.length));
+    expect(scripts.changes.every((c) => c.harness == null), isTrue);
   });
 
   test('the shared skills are planned once for all of them', () {

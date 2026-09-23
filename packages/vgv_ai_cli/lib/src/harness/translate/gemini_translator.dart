@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/harness.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/agent_markdown.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/hook_event_map.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
@@ -91,6 +94,27 @@ class const GeminiTranslator() extends HarnessTranslator {
         PlannedChange.own(
           file: fs.file(p.join(root, 'commands', '${skill.name}.toml')),
           contents: _command(skill),
+          harness: harness,
+        ),
+      );
+    }
+
+    // Gemini states its hook timeouts in milliseconds; Claude states them in
+    // seconds.
+    final hooks = buildHookDocument(
+      assets.hooks,
+      home: home,
+      events: geminiEvents,
+      tools: geminiTools,
+      timeoutScale: 1000,
+      harnessName: 'Gemini',
+      notes: notes,
+    );
+    if (hooks.isNotEmpty) {
+      changes.add(
+        PlannedChange.mergeJson(
+          file: fs.file(p.join(root, 'settings.json')),
+          contents: jsonEncode({'hooks': hooks}),
           harness: harness,
         ),
       );
