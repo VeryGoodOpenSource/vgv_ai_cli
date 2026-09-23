@@ -9,6 +9,8 @@ library;
 export 'claude_translator.dart';
 export 'codex_translator.dart';
 export 'format/agent_markdown.dart';
+export 'format/hook_event_map.dart';
+export 'format/hook_staging.dart';
 export 'format/mcp_tool_map.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';

@@ -32,7 +32,40 @@ AgentAsset agentAsset(
   skills: skills,
 );
 
+HookAsset hookAsset(
+  FileSystem fs, {
+  String event = 'PostToolUse',
+  String plugin = 'vgv-wingspan',
+  String? matcher = 'Edit|Write',
+  List<HookCommand> commands = const [
+    HookCommand(
+      type: 'command',
+      command: r'bash ${PLUGIN_ROOT}/hooks/scripts/analyze.sh',
+      timeout: 30,
+    ),
+  ],
+}) {
+  final directory = fs.directory('/plugins/$plugin/hooks')
+    ..createSync(recursive: true);
+  directory.childDirectory('scripts').childFile('analyze.sh')
+    ..createSync(recursive: true)
+    ..writeAsStringSync('#!/bin/bash\necho hi\n');
+  return HookAsset(
+    event: event,
+    plugin: plugin,
+    matcher: matcher,
+    commands: commands,
+    directory: directory,
+  );
+}
+
 PluginAssets pluginAssets({
   List<SkillAsset> skills = const [],
   List<AgentAsset> agents = const [],
-}) => PluginAssets(skills: skills, agents: agents, mcpServers: const {});
+  List<HookAsset> hooks = const [],
+}) => PluginAssets(
+  skills: skills,
+  agents: agents,
+  mcpServers: const {},
+  hooks: hooks,
+);
