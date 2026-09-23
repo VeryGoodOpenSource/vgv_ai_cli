@@ -18,8 +18,28 @@ class const ClaudePluginParser() implements PluginParser {
     skills: _readSkills(root.childDirectory('skills')),
     agents: _readAgents(root.childDirectory('agents')),
     mcpServers: _readMcpServers(root.childFile('.mcp.json')),
-    hooks: _readHooks(root.childDirectory('hooks')),
+    hooks: _readHooks(root.childDirectory('hooks'), plugin: pluginNameOf(root)),
   );
+
+  /// The plugin's declared name, for labelling the assets it contributes.
+  ///
+  /// Read from the `.claude-plugin/plugin.json` manifest that every plugin
+  /// ships and that `LocalCachePluginSource` already treats as the marker of a
+  /// complete checkout. The directory name is only a fallback, because both
+  /// sources lay their caches out as `<name>/<version>`, which makes the
+  /// basename a version number rather than a name.
+  static String pluginNameOf(Directory root) {
+    final manifest = root
+        .childDirectory('.claude-plugin')
+        .childFile('plugin.json');
+    if (!manifest.existsSync()) return p.basename(root.path);
+
+    final name = ConfigMap.parseJson(
+      manifest.readAsStringSync(),
+      path: manifest.path,
+    ).string('name');
+    return name ?? p.basename(root.path);
+  }
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.
   ///
@@ -135,7 +155,7 @@ class const ClaudePluginParser() implements PluginParser {
   ///
   /// Every level is tolerated as absent or the wrong type rather than assumed,
   /// because a plugin may ship no hooks at all.
-  List<HookAsset> _readHooks(Directory hooksDir) {
+  List<HookAsset> _readHooks(Directory hooksDir, {required String plugin}) {
     final file = hooksDir.childFile('hooks.json');
     if (!file.existsSync()) return const [];
 
@@ -154,6 +174,7 @@ class const ClaudePluginParser() implements PluginParser {
         assets.add(
           HookAsset(
             event: event.key,
+            plugin: plugin,
             matcher: matcher is String ? matcher : null,
             commands: commands,
             directory: hooksDir,

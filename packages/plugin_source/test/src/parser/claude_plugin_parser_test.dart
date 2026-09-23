@@ -1,5 +1,6 @@
 import 'package:file/file.dart';
 import 'package:file/local.dart';
+import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
@@ -330,6 +331,13 @@ void main() {
       expect(hookFor('PostToolUse').commands.last.timeout, isNull);
     });
 
+    test('labels every hook with the plugin it came from', () {
+      // A translator copying the scripts to a directory it owns needs a
+      // per-plugin name, and the cache lays plugins out as <name>/<version>,
+      // so the directory basename is a version number.
+      expect(assets.hooks.map((h) => h.plugin).toSet(), {'fixture-plugin'});
+    });
+
     test('carries the hooks directory so scripts can be copied', () {
       final directory = hookFor('SessionStart').directory;
 
@@ -554,6 +562,42 @@ void main() {
       test('is empty when absent', () {
         expect(ClaudePluginParser.allowedToolsOf(fm('name: a')), isEmpty);
       });
+    });
+  });
+
+  group('pluginNameOf', () {
+    late FileSystem memory;
+
+    Directory pluginAt(String manifest) {
+      final root = memory.directory('/cache/vgv-wingspan/0.0.5')
+        ..createSync(recursive: true);
+      if (manifest.isNotEmpty) {
+        root.childDirectory('.claude-plugin').childFile('plugin.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(manifest);
+      }
+      return root;
+    }
+
+    setUp(() => memory = MemoryFileSystem.test());
+
+    test('reads the declared name from the manifest', () {
+      final root = pluginAt('{"name":"vgv-wingspan"}');
+
+      expect(ClaudePluginParser.pluginNameOf(root), 'vgv-wingspan');
+    });
+
+    test('falls back to the directory name with no manifest', () {
+      // Only a fallback: the cache is laid out <name>/<version>, so this is a
+      // version number, which is why the manifest is preferred.
+      expect(ClaudePluginParser.pluginNameOf(pluginAt('')), '0.0.5');
+    });
+
+    test('falls back when the manifest declares no name', () {
+      expect(
+        ClaudePluginParser.pluginNameOf(pluginAt('{"version":"1"}')),
+        '0.0.5',
+      );
     });
   });
 }

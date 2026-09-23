@@ -26,9 +26,15 @@ class const HookCommand({
 /// [event] is the lifecycle point, carried as the source harness names it.
 /// [matcher] narrows which tools it fires for. [directory] holds the scripts
 /// the commands reference, carried per hook because merging combines several.
+///
+/// [plugin] names the plugin the hook came from. A translator copying the
+/// scripts somewhere it owns needs a stable per-plugin directory name, and
+/// [directory] cannot supply one: both plugin sources lay out their cache as
+/// `<name>/<version>`, so its basename is a version number.
 /// {@endtemplate}
 class const HookAsset({
   required final String event,
+  required final String plugin,
   required final List<HookCommand> commands,
   required final Directory directory,
   final String? matcher,
