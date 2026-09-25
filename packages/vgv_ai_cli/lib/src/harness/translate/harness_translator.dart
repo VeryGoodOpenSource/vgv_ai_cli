@@ -11,8 +11,8 @@ import 'package:vgv_ai_cli/src/model/harness.dart';
 /// harness lacks has no folder in the brick, so there is nothing here to
 /// imitate it with.
 ///
-/// One implementation per harness, so a new harness is one new class and one
-/// new brick folder. None depends on another translator.
+/// One implementation per harness, and none depends on another translator.
+/// See `Harness` for every step of adding a harness.
 /// {@endtemplate}
 abstract class HarnessTranslator {
   /// {@macro harness_translator}
@@ -21,8 +21,10 @@ abstract class HarnessTranslator {
   /// Which harness this configures.
   Harness get harness;
 
-  /// The settings fragment merged into the root of this harness's config.
-  String settings(PluginAssets assets, {required String skillsRoot});
+  /// The settings fragment merged into the root of this harness's config,
+  /// or null for a harness with nothing to set, whose brick folder then has
+  /// no settings file.
+  String? settings(PluginAssets assets) => null;
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///

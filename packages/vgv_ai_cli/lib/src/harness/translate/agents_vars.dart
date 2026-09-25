@@ -33,10 +33,7 @@ class const AgentsVars({
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
       for (final translator in translators)
-        '${translator.harness.name}_settings': translator.settings(
-          assets,
-          skillsRoot: skillsRoot,
-        ),
+        '${translator.harness.name}_settings': ?translator.settings(assets),
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
       'index': {

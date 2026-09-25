@@ -28,10 +28,14 @@ void main() {
                 env: {'TOKEN': 'x'},
               ),
               const LocalMCPServer(name: 'bare', command: 'bare'),
-              const RemoteMCPServer(name: 'docs', url: 'https://docs.example'),
+              const RemoteMCPServer(
+                name: 'docs',
+                url: 'https://docs.example',
+                headers: {'X-Region': 'us'},
+              ),
+              const RemoteMCPServer(name: 'open', url: 'https://open.example'),
             ],
           ),
-          skillsRoot: '/skills',
         ),
       );
 
@@ -47,7 +51,12 @@ void main() {
             'type': 'local',
             'command': ['bare'],
           },
-          'docs': {'type': 'remote', 'url': 'https://docs.example'},
+          'docs': {
+            'type': 'remote',
+            'url': 'https://docs.example',
+            'headers': {'X-Region': 'us'},
+          },
+          'open': {'type': 'remote', 'url': 'https://open.example'},
         },
         'instructions': ['AGENTS.md'],
       });

@@ -16,9 +16,7 @@ void main() {
     });
 
     test('points Claude Code at the marketplace and enables both plugins', () {
-      final settings = jsonDecode(
-        translator.settings(pluginAssets(), skillsRoot: '/skills'),
-      );
+      final settings = jsonDecode(translator.settings(pluginAssets()));
 
       expect(settings, {
         'extraKnownMarketplaces': {

@@ -82,8 +82,9 @@ void main() {
         ]);
       });
 
-      test('Codex gets config, TOML agents and prompts', () async {
+      test('Codex gets config, instructions, agents and prompts', () async {
         expect(await tree(Harness.codex), [
+          'AGENTS.md',
           'agents/planner.toml',
           'agents/review.toml',
           'config.toml',
@@ -105,12 +106,12 @@ void main() {
         ]);
       });
 
-      test('Pi gets settings and prompts, and no agents', () async {
+      test('Pi gets instructions and prompts, and no agents', () async {
         expect(await tree(Harness.pi), [
+          'AGENTS.md',
           'prompts/plan.md',
           'prompts/review.md',
           'prompts/testing.md',
-          'settings.json',
         ]);
       });
     });
@@ -167,6 +168,10 @@ void main() {
 
       expect(documents, hasLength(assets.skills.length));
       expect(results.keys, [null, Harness.gemini, Harness.pi]);
+    });
+
+    test('plans nothing when no harness is selected', () async {
+      expect(await translate({}), isEmpty);
     });
 
     test('plans no shared skills for Claude Code alone', () async {
@@ -263,6 +268,85 @@ void main() {
 
         expect(instructions, contains('No skills are configured.'));
         expect(instructions, contains('No agents are configured.'));
+      });
+    });
+
+    // The brick is checked file by file above. These sweep every file every
+    // harness gets, so a template bug in a file no test names still fails.
+    group('renders every file cleanly', () {
+      late Map<String, String> files;
+
+      setUp(() async {
+        // Characters mustache would HTML-escape if a template used a double
+        // mustache where it needs a triple one.
+        const awkward = 'Compare <T> & "U" with \'V\'.';
+        final results = await translate(
+          Harness.values.toSet(),
+          using: pluginAssets(
+            skills: [
+              skillAsset(fs, 'plan', body: '$awkward\n', description: awkward),
+            ],
+            agents: [agentAsset('review', body: '$awkward\n')],
+            mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+          ),
+        );
+        files = {
+          for (final result in results.values)
+            for (final change in result.changes)
+              change.file.path: change.contents,
+        };
+      });
+
+      test('covers every harness', () {
+        for (final harness in Harness.values) {
+          expect(
+            files.keys,
+            contains(startsWith(harness.configDirectory(home).path)),
+          );
+        }
+      });
+
+      test('leaves no unrendered mustache behind', () {
+        // A whole tag, since a JSON object nested last closes with `}}`.
+        final tag = RegExp(r'\{\{[^{}]*\}\}');
+        for (final MapEntry(key: path, value: contents) in files.entries) {
+          expect(
+            contents,
+            isNot(contains(tag)),
+            reason: '$path still contains mustache syntax',
+          );
+        }
+      });
+
+      test('writes no empty file', () {
+        for (final MapEntry(key: path, value: contents) in files.entries) {
+          expect(contents.trim(), isNotEmpty, reason: '$path is empty');
+        }
+      });
+
+      test('never HTML-escapes', () {
+        for (final MapEntry(key: path, value: contents) in files.entries) {
+          expect(
+            contents,
+            isNot(anyOf(contains('&amp;'), contains('&lt;'), contains('&#'))),
+            reason: '$path contains HTML-escaped output',
+          );
+        }
+      });
+
+      test('writes JSON and TOML that parse', () {
+        for (final MapEntry(key: path, value: contents) in files.entries) {
+          if (path.endsWith('.json')) {
+            expect(() => jsonDecode(contents), returnsNormally, reason: path);
+          }
+          if (path.endsWith('.toml')) {
+            expect(
+              () => TomlDocument.parse(contents),
+              returnsNormally,
+              reason: path,
+            );
+          }
+        }
       });
     });
   });

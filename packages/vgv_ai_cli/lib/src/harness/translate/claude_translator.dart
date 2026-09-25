@@ -18,18 +18,17 @@ class const ClaudeTranslator() extends HarnessTranslator {
   Harness get harness => Harness.claude;
 
   @override
-  String settings(PluginAssets assets, {required String skillsRoot}) =>
-      jsonEncode({
-        'extraKnownMarketplaces': {
-          vgvMarketplaceName: {
-            'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
-          },
-        },
-        'enabledPlugins': {
-          for (final plugin in vgvPlugins)
-            '${plugin.name}@$vgvMarketplaceName': true,
-        },
-      });
+  String settings(PluginAssets assets) => jsonEncode({
+    'extraKnownMarketplaces': {
+      vgvMarketplaceName: {
+        'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
+      },
+    },
+    'enabledPlugins': {
+      for (final plugin in vgvPlugins)
+        '${plugin.name}@$vgvMarketplaceName': true,
+    },
+  });
 
   /// Nothing: the plugins run here exactly as their authors wrote them,
   /// hooks included.

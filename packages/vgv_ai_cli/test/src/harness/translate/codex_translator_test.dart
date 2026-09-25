@@ -15,11 +15,15 @@ void main() {
       expect(translator.harness, Harness.codex);
     });
 
-    test('declares MCP servers as TOML tables', () {
+    test('declares MCP servers as TOML tables, headers as http_headers', () {
       final toml = translator.settings(
         pluginAssets(
           mcpServers: [
-            const RemoteMCPServer(name: 'docs', url: 'https://docs.example'),
+            const RemoteMCPServer(
+              name: 'docs',
+              url: 'https://docs.example',
+              headers: {'X-Region': 'us'},
+            ),
             const LocalMCPServer(
               name: 'dart',
               command: 'dart',
@@ -27,12 +31,14 @@ void main() {
             ),
           ],
         ),
-        skillsRoot: '/skills',
       );
 
       expect(TomlDocument.parse(toml).toMap(), {
         'mcp_servers': {
-          'docs': {'url': 'https://docs.example'},
+          'docs': {
+            'url': 'https://docs.example',
+            'http_headers': {'X-Region': 'us'},
+          },
           'dart': {
             'command': 'dart',
             'env': {'TOKEN': 'x'},

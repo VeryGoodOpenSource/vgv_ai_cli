@@ -10,15 +10,16 @@ merged, so keys you own are preserved.
 
 Each top-level folder is one harness and is rendered only when its flag is set.
 What a folder contains is what that harness supports. Pi's folder has
-`prompts/` and nothing else, and that absence is how Pi opts out of agents.
+`AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
+out of agents and settings.
 
 | Harness  | Settings        | `AGENTS.md` | Agents          | Commands           |
 | -------- | --------------- | ----------- | --------------- | ------------------ |
 | claude   | `settings.json` |             |                 |                    |
 | gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |
-| codex    | `config.toml`   |             | `agents/*.toml` | `prompts/*.md`     |
+| codex    | `config.toml`   | yes         | `agents/*.toml` | `prompts/*.md`     |
 | opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |
-| pi       | `settings.json` |             |                 | `prompts/*.md`     |
+| pi       |                 | yes         |                 | `prompts/*.md`     |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
@@ -42,7 +43,7 @@ frontmatter block and every TOML agent or command arrives finished.
 | Var                      | Type    | What it is                                        |
 | ------------------------ | ------- | ------------------------------------------------- |
 | `claude` ... `pi`        | boolean | Which harnesses to render                          |
-| `<harness>_settings`     | string  | That harness's settings fragment                   |
+| `<harness>_settings`     | string  | That harness's settings fragment, absent for Pi   |
 | `agents`                 | list    | Each agent's `name`, `instructions`, and a map per harness |
 | `commands`               | list    | Each invocable skill's `name`, `body`, and a map per harness |
 | `index`                  | map     | `skills` and `agents` to list in `AGENTS.md`        |

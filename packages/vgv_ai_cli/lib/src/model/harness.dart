@@ -5,7 +5,13 @@ import 'package:path/path.dart' as p;
 /// A coding agent harness `vgv_ai` knows how to configure.
 ///
 /// [Harness.values] is the single source of truth for harness selection and
-/// reporting. Adding a harness means adding an entry here and nothing else.
+/// reporting. Adding a harness takes four steps:
+///
+/// 1. Add an entry here.
+/// 2. Write its `HarnessTranslator` and add it to `harnessTranslators`.
+/// 3. Add a boolean var named after it to `bricks/agents/brick.yaml`, and a
+///    folder of the same name under `__brick__` holding the files it reads.
+/// 4. Regenerate the bundle with `tool/generate_agents_bundle.sh`.
 /// {@endtemplate}
 enum Harness {
   /// Claude Code, which installs the VGV plugins from the marketplace.

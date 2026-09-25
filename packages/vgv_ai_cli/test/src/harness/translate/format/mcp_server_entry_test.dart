@@ -6,7 +6,10 @@ void main() {
   group('mcpServerEntry', () {
     test('spells a local server, leaving out empty args and env', () {
       expect(
-        mcpServerEntry(const LocalMCPServer(name: 'dart', command: 'dart')),
+        mcpServerEntry(
+          const LocalMCPServer(name: 'dart', command: 'dart'),
+          headersKey: 'headers',
+        ),
         {'command': 'dart'},
       );
     });
@@ -20,6 +23,7 @@ void main() {
             args: ['mcp-server'],
             env: {'TOKEN': 'x'},
           ),
+          headersKey: 'headers',
         ),
         {
           'command': 'dart',
@@ -33,8 +37,26 @@ void main() {
       expect(
         mcpServerEntry(
           const RemoteMCPServer(name: 'docs', url: 'https://docs.example'),
+          headersKey: 'headers',
         ),
         {'url': 'https://docs.example'},
+      );
+    });
+
+    test("writes a remote server's headers under the key it is given", () {
+      expect(
+        mcpServerEntry(
+          const RemoteMCPServer(
+            name: 'docs',
+            url: 'https://docs.example',
+            headers: {'Authorization': 'Bearer x'},
+          ),
+          headersKey: 'http_headers',
+        ),
+        {
+          'url': 'https://docs.example',
+          'http_headers': {'Authorization': 'Bearer x'},
+        },
       );
     });
   });

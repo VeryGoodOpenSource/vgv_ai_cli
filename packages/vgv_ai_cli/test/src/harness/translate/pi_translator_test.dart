@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:file/memory.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/pi_translator.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
@@ -15,13 +14,8 @@ void main() {
       expect(translator.harness, Harness.pi);
     });
 
-    test('points its settings at the shared skills', () {
-      expect(
-        jsonDecode(translator.settings(pluginAssets(), skillsRoot: '/skills')),
-        {
-          'skills': ['/skills'],
-        },
-      );
+    test('has no settings, since Pi reads the shared skills natively', () {
+      expect(translator.settings(pluginAssets()), isNull);
     });
 
     test('spells nothing else, since Pi reads prompts as written', () {
@@ -41,6 +35,24 @@ void main() {
         translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
         contains('Pi gets none for now'),
       );
+    });
+
+    test('reports the agents and MCP servers it cannot configure', () {
+      final notes = translator.notes(
+        pluginAssets(
+          agents: [agentAsset('reviewer'), agentAsset('planner')],
+          mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+        ),
+      );
+
+      expect(notes.map((note) => note.subject), [
+        '2 agent(s)',
+        '1 MCP server(s)',
+      ]);
+    });
+
+    test('reports nothing when the plugins bring nothing Pi lacks', () {
+      expect(translator.notes(pluginAssets()), isEmpty);
     });
   });
 }

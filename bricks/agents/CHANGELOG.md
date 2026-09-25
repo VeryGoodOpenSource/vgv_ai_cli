@@ -5,7 +5,9 @@
   lacks is simply absent from its tree.
 - refactor: take finished settings strings from the CLI and drop the
   `pre_gen` hook and its models.
-- fix: drop `codex/AGENTS.md`, which Codex never reads.
+- feat: render `AGENTS.md` for Pi, which reads it from `~/.pi/agent`.
+- fix: drop `pi/settings.json`. Pi reads `~/.agents/skills` natively, so its
+  only entry was redundant.
 
 # 0.1.0+1
 
