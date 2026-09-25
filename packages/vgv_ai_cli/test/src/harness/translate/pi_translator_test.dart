@@ -10,7 +10,7 @@ import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
-const StagedOutput _staged = {StagedPaths.piSettings: '{"skills":[]}'};
+final _staged = StagedOutput({StagedFragment.piSettings.path: '{"skills":[]}'});
 
 void main() {
   late FileSystem fs;
@@ -45,8 +45,11 @@ void main() {
 
     test('reports an absent settings fragment', () {
       expect(
-        translate(pluginAssets(), staged: const {}).notes.single.subject,
-        StagedPaths.piSettings,
+        translate(
+          pluginAssets(),
+          staged: const StagedOutput({}),
+        ).notes.single.subject,
+        StagedFragment.piSettings.path,
       );
     });
 

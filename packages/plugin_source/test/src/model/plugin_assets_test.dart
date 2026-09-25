@@ -1,8 +1,9 @@
+import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 
-final _fs = MemoryFileSystem.test();
+late FileSystem _fs;
 
 SkillAsset _skill(String name) => SkillAsset(
   name: name,
@@ -37,6 +38,8 @@ PluginAssets _assets({
 );
 
 void main() {
+  setUp(() => _fs = MemoryFileSystem.test());
+
   group('PluginAssets.invocableSkills', () {
     test('keeps only the skills a user can invoke as a command', () {
       final assets = _assets(

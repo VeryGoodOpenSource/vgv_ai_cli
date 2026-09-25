@@ -21,17 +21,12 @@ class const ClaudePluginParser() implements PluginParser {
     hooks: _readHooks(root.childDirectory('hooks'), plugin: pluginNameOf(root)),
   );
 
-  /// The plugin's declared name, for labelling the assets it contributes.
+  /// The plugin's declared name, read from the `.claude-plugin/plugin.json`
+  /// manifest that every plugin ships and that `LocalCachePluginSource`
+  /// already treats as the marker of a complete checkout.
   ///
-  /// Read from the `.claude-plugin/plugin.json` manifest that every plugin
-  /// ships and that `LocalCachePluginSource` already treats as the marker of a
-  /// complete checkout. The directory name is only a fallback, because both
-  /// sources lay their caches out as `<name>/<version>`, which makes the
-  /// basename a version number rather than a name.
-  ///
-  /// A manifest that will not parse falls back rather than throwing. It is a
-  /// label, not content: refusing to read a plugin's skills because its
-  /// manifest has a stray comma would be the worse outcome.
+  /// Falls back to the directory name, which both caches lay out as
+  /// `<name>/<version>`, so it is a version number rather than a name.
   static String pluginNameOf(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')

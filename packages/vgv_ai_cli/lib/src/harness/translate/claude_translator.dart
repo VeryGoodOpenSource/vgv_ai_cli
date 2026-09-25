@@ -31,7 +31,7 @@ class const ClaudeTranslator() extends HarnessTranslator {
     );
     final settings = stagedContents(
       staged: staged,
-      path: StagedPaths.claudeSettings,
+      fragment: StagedFragment.claudeSettings,
       target: target,
       notes: notes,
     );

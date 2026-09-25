@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/agent_markdown.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/mcp_tool_map.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
@@ -38,7 +36,7 @@ class const OpenCodeTranslator() extends HarnessTranslator {
 
     final config = stagedContents(
       staged: staged,
-      path: StagedPaths.openCodeConfig,
+      fragment: StagedFragment.openCodeConfig,
       target: fs.file(p.join(root, 'opencode.json')),
       notes: notes,
     );

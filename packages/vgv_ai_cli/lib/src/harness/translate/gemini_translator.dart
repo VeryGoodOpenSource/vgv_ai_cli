@@ -4,10 +4,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/agent_markdown.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/hook_event_map.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/mcp_tool_map.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/vgv_paths.dart';
+import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
@@ -50,7 +47,7 @@ class const GeminiTranslator() extends HarnessTranslator {
 
     final settings = stagedContents(
       staged: staged,
-      path: StagedPaths.geminiSettings,
+      fragment: StagedFragment.geminiSettings,
       target: settingsFile,
       notes: notes,
     );
@@ -101,15 +98,10 @@ class const GeminiTranslator() extends HarnessTranslator {
       );
     }
 
-    // Gemini states its hook timeouts in milliseconds; Claude states them in
-    // seconds.
     final hooks = buildHookDocument(
       assets.hooks,
       home: home,
-      events: geminiEvents,
-      timeoutScale: 1000,
-      tools: geminiTools,
-      harnessName: 'Gemini',
+      vocabulary: HookVocabulary.gemini,
       notes: notes,
     );
     if (hooks.isNotEmpty) {

@@ -8,13 +8,13 @@ import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 
 import '_assets.dart';
 
-const StagedOutput _staged = {
-  StagedPaths.claudeSettings: '{}',
-  StagedPaths.geminiSettings: '{}',
-  StagedPaths.codexConfig: 'model = "gpt"\n',
-  StagedPaths.openCodeConfig: '{}',
-  StagedPaths.piSettings: '{}',
-};
+final _staged = StagedOutput({
+  StagedFragment.claudeSettings.path: '{}',
+  StagedFragment.geminiSettings.path: '{}',
+  StagedFragment.codexConfig.path: 'model = "gpt"\n',
+  StagedFragment.openCodeConfig.path: '{}',
+  StagedFragment.piSettings.path: '{}',
+});
 
 void main() {
   late FileSystem fs;

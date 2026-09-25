@@ -45,7 +45,7 @@ void main() {
       final result = const ClaudeTranslator().translate(
         assets: assets(),
         home: home,
-        staged: const {StagedPaths.claudeSettings: _settings},
+        staged: StagedOutput({StagedFragment.claudeSettings.path: _settings}),
       );
 
       final change = result.changes.single;
@@ -62,7 +62,7 @@ void main() {
       final result = const ClaudeTranslator().translate(
         assets: assets(skills: [skillNamed('testing')]),
         home: home,
-        staged: const {StagedPaths.claudeSettings: _settings},
+        staged: StagedOutput({StagedFragment.claudeSettings.path: _settings}),
       );
 
       expect(
@@ -76,11 +76,11 @@ void main() {
       final result = const ClaudeTranslator().translate(
         assets: assets(),
         home: home,
-        staged: const {},
+        staged: const StagedOutput({}),
       );
 
       expect(result.changes, isEmpty);
-      expect(result.notes.single.subject, StagedPaths.claudeSettings);
+      expect(result.notes.single.subject, StagedFragment.claudeSettings.path);
       expect(
         result.notes.single.reason,
         contains('/home/dev/.claude/settings.json'),
