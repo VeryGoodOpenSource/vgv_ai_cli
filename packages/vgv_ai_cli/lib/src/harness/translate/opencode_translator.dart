@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
@@ -69,89 +67,15 @@ class const OpenCodeTranslator() extends HarnessTranslator {
           file: fs.file(p.join(root, 'command', '${skill.name}.md')),
           contents:
               '${Frontmatter.render({'description': skill.description})}\n'
-              '${McpToolMap.rewrite(skill.body)}',
+              '${skill.body}',
           harness: harness,
         ),
       );
     }
 
-    changes.addAll(_hooks(assets, home: home, root: root, notes: notes));
-
-    return TranslationResult(changes: changes, notes: notes);
-  }
-
-  /// Translates what OpenCode's experimental hooks can express.
-  ///
-  /// Config-level hooks are limited to `file_edited` and `session_completed`,
-  /// so a post-edit hook maps and everything else, a pre-tool guard included,
-  /// has no equivalent at all. OpenCode keys on a file glob rather than a tool
-  /// name, so the matcher is not translated so much as replaced.
-  Iterable<PlannedChange> _hooks(
-    PluginAssets assets, {
-    required Directory home,
-    required String root,
-    required List<TranslationNote> notes,
-  }) sync* {
-    final commands = <Map<String, Object?>>[];
-
-    for (final hook in assets.hooks) {
-      if (hook.event != 'PostToolUse') {
-        notes.add(
-          TranslationNote(
-            subject: '${hook.event} hook from ${hook.plugin}',
-            reason:
-                'OpenCode config hooks cover only file_edited and '
-                'session_completed',
-          ),
-        );
-        continue;
-      }
-
-      for (final command in hook.commands) {
-        if (command.type != 'command') {
-          notes.add(
-            TranslationNote(
-              subject: '${hook.event} hook from ${hook.plugin}',
-              reason: 'a ${command.type} command has no OpenCode equivalent',
-            ),
-          );
-          continue;
-        }
-        if (command.timeout != null) {
-          notes.add(
-            TranslationNote(
-              subject: '${hook.event} hook from ${hook.plugin}',
-              reason:
-                  'OpenCode config hooks take no timeout, so its '
-                  '${command.timeout}s limit was dropped',
-            ),
-          );
-        }
-
-        commands.add({
-          'command': [
-            'bash',
-            '-c',
-            resolveHookCommand(command, home: home, plugin: hook.plugin),
-          ],
-        });
-      }
-    }
-
-    if (commands.isEmpty) return;
-
-    yield PlannedChange.mergeJson(
-      file: home.fileSystem.file(p.join(root, 'opencode.json')),
-      contents: jsonEncode({
-        'experimental': {
-          'hook': {
-            // Claude matches on tool name and OpenCode on a file glob, so an
-            // Edit|Write matcher becomes every file rather than a translation.
-            'file_edited': {'*': commands},
-          },
-        },
-      }),
-      harness: harness,
+    return TranslationResult(
+      changes: changes,
+      notes: [...notes, ...hooksNotes(assets)],
     );
   }
 }

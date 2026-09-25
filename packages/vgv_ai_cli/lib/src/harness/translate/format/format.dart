@@ -5,6 +5,4 @@
 library;
 
 export 'agent_markdown.dart';
-export 'hook_event_map.dart';
-export 'mcp_tool_map.dart';
 export 'vgv_paths.dart';

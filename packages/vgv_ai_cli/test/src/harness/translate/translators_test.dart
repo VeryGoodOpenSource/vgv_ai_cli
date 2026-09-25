@@ -36,8 +36,7 @@ void main() {
     home = fs.directory('/home/dev')..createSync(recursive: true);
 
     // Two plugins, merged the way install will merge them. `review` is
-    // deliberately both an agent and a command name, which is the collision
-    // Pi's single prompts directory would otherwise lose.
+    // deliberately both an agent and a command name.
     assets = PluginAssets.merge([
       pluginAssets(
         skills: [skillAsset(fs, 'review'), skillAsset(fs, 'plan')],
@@ -61,8 +60,7 @@ void main() {
     group(translator.harness.name, () {
       test('claims a unique path for every file it owns', () {
         // Two `own` changes to one path means one silently overwrites the
-        // other. Two merge changes to one path both apply, which is how a
-        // harness gets its settings fragment and its hooks in one document.
+        // other.
         final paths = translator
             .translate(assets: assets, home: home, staged: _staged)
             .changes
@@ -79,6 +77,26 @@ void main() {
             .changes;
 
         expect(changes.map((c) => c.harness).toSet(), {translator.harness});
+      });
+
+      test('installs hooks only for Claude Code, reporting the rest once', () {
+        final result = translator.translate(
+          assets: assets,
+          home: home,
+          staged: _staged,
+        );
+        final hookNotes = result.notes.where((n) => n.subject.contains('hook'));
+
+        if (translator.harness == Harness.claude) {
+          expect(hookNotes, isEmpty);
+        } else {
+          expect(hookNotes.single.subject, '2 hook(s)');
+          expect(hookNotes.single.reason, contains('only understand Claude'));
+        }
+        expect(
+          result.changes.map((c) => c.file.path),
+          everyElement(isNot(contains('hooks'))),
+        );
       });
 
       test('writes nothing into the shared skills directory', () {
@@ -98,19 +116,6 @@ void main() {
 
   test('every translator covers a distinct harness', () {
     expect(_translators.map((t) => t.harness).toSet(), Harness.values.toSet());
-  });
-
-  test('the hook scripts are copied once for all of them', () {
-    final scripts = const HookScriptsTranslator().translate(
-      assets: assets,
-      home: home,
-    );
-
-    final paths = scripts.changes.map((c) => c.file.path).toList();
-
-    expect(paths, isNotEmpty);
-    expect(paths.toSet(), hasLength(paths.length));
-    expect(scripts.changes.every((c) => c.harness == null), isTrue);
   });
 
   test('the shared skills are planned once for all of them', () {

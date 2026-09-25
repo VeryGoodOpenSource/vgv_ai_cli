@@ -227,81 +227,40 @@ void main() {
       });
     });
 
-    group('MCP rewriting', () {
-      test('rewrites tool names in the skill body', () {
-        final result = translate([
-          skill('testing', body: 'Run mcp__dart__analyze_files.\n'),
-        ]);
-
-        expect(
-          changeAt(result, 'testing/SKILL.md').contents,
-          contains('`dart analyze`'),
-        );
-      });
-
-      test('rewrites tool names in the frontmatter', () {
+    group('MCP tool names', () {
+      test('are copied untouched, frontmatter included', () {
+        // Rewriting them to CLI commands once put backticked commands into
+        // `allowed-tools`, an invalid allowlist on every harness that reads
+        // the Agent Skills spec.
         final result = translate([
           skill(
             'testing',
             frontmatter: {
               'name': 'testing',
-              'allowed-tools': 'mcp__dart__analyze_files',
+              'allowed-tools': 'Bash mcp__dart__analyze_files',
             },
+            body: 'Run mcp__dart__analyze_files.\n',
           ),
         ]);
 
+        final document = changeAt(result, 'testing/SKILL.md').contents;
         expect(
-          changeAt(result, 'testing/SKILL.md').contents,
-          contains('`dart analyze`'),
+          document,
+          contains('allowed-tools: "Bash mcp__dart__analyze_files"'),
         );
+        expect(document, contains('Run mcp__dart__analyze_files.'));
+        expect(result.notes, isEmpty);
       });
 
-      test('rewrites tool names in markdown references', () {
+      test('are copied untouched in reference files', () {
         final result = translate([
           skill('testing', files: {'references/a.md': 'mcp__dart__pub here\n'}),
         ]);
 
         expect(
           changeAt(result, 'references/a.md').contents,
-          '`dart pub` here\n',
+          'mcp__dart__pub here\n',
         );
-      });
-
-      test('leaves shell scripts alone', () {
-        // Rewriting a tool name inside a script would corrupt it.
-        final result = translate([
-          skill('rebase', files: {'scripts/run.sh': 'echo mcp__dart__pub\n'}),
-        ]);
-
-        expect(
-          changeAt(result, 'scripts/run.sh').contents,
-          'echo mcp__dart__pub\n',
-        );
-      });
-
-      test('reports a reference with no CLI equivalent', () {
-        final result = translate([
-          skill('testing', body: 'Call mcp__unknown__thing.\n'),
-        ]);
-
-        expect(result.notes.single.subject, 'testing');
-        expect(result.notes.single.reason, contains('mcp__unknown__thing'));
-      });
-
-      test('reports an unmapped reference found in a reference file', () {
-        final result = translate([
-          skill('testing', files: {'references/a.md': 'mcp__unknown__thing\n'}),
-        ]);
-
-        expect(result.notes.single.subject, 'testing/references/a.md');
-      });
-
-      test('reports nothing when every reference maps', () {
-        final result = translate([
-          skill('testing', body: 'Run mcp__dart__analyze_files.\n'),
-        ]);
-
-        expect(result.notes, isEmpty);
       });
     });
   });

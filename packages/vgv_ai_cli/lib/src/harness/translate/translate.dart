@@ -17,7 +17,6 @@ export 'claude_translator.dart';
 export 'codex_translator.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';
-export 'hook_scripts_translator.dart';
 export 'opencode_translator.dart';
 export 'pi_translator.dart';
 export 'skills_translator.dart';

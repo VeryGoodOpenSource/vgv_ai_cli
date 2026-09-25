@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
@@ -98,29 +96,16 @@ class const GeminiTranslator() extends HarnessTranslator {
       );
     }
 
-    final hooks = buildHookDocument(
-      assets.hooks,
-      home: home,
-      vocabulary: HookVocabulary.gemini,
-      notes: notes,
+    return TranslationResult(
+      changes: changes,
+      notes: [...notes, ...hooksNotes(assets)],
     );
-    if (hooks.isNotEmpty) {
-      changes.add(
-        PlannedChange.mergeJson(
-          file: settingsFile,
-          contents: jsonEncode({'hooks': hooks}),
-          harness: harness,
-        ),
-      );
-    }
-
-    return TranslationResult(changes: changes, notes: notes);
   }
 
   /// Renders a command. Gemini's schema is strict: `prompt` is required,
   /// `description` optional, and nothing else is accepted.
   String _command(SkillAsset skill) => TomlDocument.fromMap({
     'description': skill.description,
-    'prompt': McpToolMap.rewrite(skill.body).replaceAll(_arguments, '{{args}}'),
+    'prompt': skill.body.replaceAll(_arguments, '{{args}}'),
   }).toString();
 }

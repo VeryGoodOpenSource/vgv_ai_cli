@@ -53,50 +53,24 @@ void main() {
       );
     });
 
-    group('agents', () {
-      test('writes them as prompts, since Pi has no subagent primitive', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
+    test('writes no agents, since Pi has no subagents', () {
+      final result = translate(pluginAssets(agents: [agentAsset('reviewer')]));
 
-        expect(
-          at(result, 'agent-reviewer.md').file.path,
-          '/home/dev/.pi/agent/prompts/agent-reviewer.md',
-        );
-      });
+      expect(
+        result.changes.map((c) => c.file.path),
+        everyElement(isNot(contains('reviewer'))),
+      );
+      expect(result.notes, isEmpty);
+    });
 
-      test('reports the downgrade rather than making it look native', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
+    test('writes each invocable skill as a prompt', () {
+      final result = translate(pluginAssets(skills: [skillAsset(fs, 'plan')]));
 
-        expect(result.notes.single.subject, 'agent reviewer');
-        expect(result.notes.single.reason, contains('no subagent primitive'));
-      });
-
-      test('prefixes agents so they cannot collide with commands', () {
-        // Pi is the only harness where both land in one directory. Without the
-        // prefix the last change applied would silently win.
-        final result = translate(
-          pluginAssets(
-            agents: [agentAsset('review')],
-            skills: [skillAsset(fs, 'review')],
-          ),
-        );
-
-        expect(
-          result.changes.map((c) => c.file.path).toSet(),
-          hasLength(result.changes.length),
-        );
-      });
-
-      test('writes the body with no frontmatter, which a prompt has none', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
-
-        expect(at(result, 'agent-reviewer.md').contents, startsWith('You '));
-      });
+      expect(
+        at(result, 'plan.md').file.path,
+        '/home/dev/.pi/agent/prompts/plan.md',
+      );
+      expect(at(result, 'plan.md').contents, '# Body\n');
     });
 
     test('writes no prompt for a skill that is not user invocable', () {

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
@@ -75,31 +73,15 @@ class const CodexTranslator() extends HarnessTranslator {
       changes.add(
         PlannedChange.own(
           file: fs.file(p.join(root, 'prompts', '${skill.name}.md')),
-          contents: McpToolMap.rewrite(skill.body),
+          contents: skill.body,
           harness: harness,
         ),
       );
     }
 
-    // Codex reads hooks from either hooks.json or inline [hooks] tables in
-    // config.toml. A separate file keeps one format per concern and leaves the
-    // config fragment a single change.
-    final hooks = buildHookDocument(
-      assets.hooks,
-      home: home,
-      vocabulary: HookVocabulary.codex,
-      notes: notes,
+    return TranslationResult(
+      changes: changes,
+      notes: [...notes, ...hooksNotes(assets)],
     );
-    if (hooks.isNotEmpty) {
-      changes.add(
-        PlannedChange.mergeJson(
-          file: fs.file(p.join(root, 'hooks.json')),
-          contents: jsonEncode({'hooks': hooks}),
-          harness: harness,
-        ),
-      );
-    }
-
-    return TranslationResult(changes: changes, notes: notes);
   }
 }

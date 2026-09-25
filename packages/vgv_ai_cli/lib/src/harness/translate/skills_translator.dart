@@ -12,11 +12,6 @@ import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 /// `HarnessTranslator`: the changes it produces belong to no single harness.
 /// {@endtemplate}
 class const SkillsTranslator() {
-  /// Files whose contents are rewritten. Markdown carries the prose and the
-  /// frontmatter that name MCP tools; a shell script does not, and rewriting a
-  /// tool name inside one would corrupt it.
-  static const _rewritableExtensions = {'.md'};
-
   /// Plans every skill, plus the files each one ships alongside its `SKILL.md`.
   TranslationResult translate({
     required PluginAssets assets,
@@ -32,7 +27,7 @@ class const SkillsTranslator() {
         ..add(
           PlannedChange.own(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
-            contents: _skillDocument(skill, notes),
+            contents: _skillDocument(skill),
             harness: null,
           ),
         )
@@ -46,9 +41,9 @@ class const SkillsTranslator() {
   ///
   /// Claude-only keys were already dropped at parse time, so what is rendered
   /// here is the open Agent Skills key set and nothing else.
-  String _skillDocument(SkillAsset skill, List<TranslationNote> notes) {
+  String _skillDocument(SkillAsset skill) {
     final frontmatter = Frontmatter.render(skill.portableFrontmatter);
-    return _rewrite('$frontmatter\n${skill.body}', skill.name, notes);
+    return '$frontmatter\n${skill.body}';
   }
 
   /// Plans everything under the skill's directory except its `SKILL.md`.
@@ -92,17 +87,9 @@ class const SkillsTranslator() {
       final source = _sourceFile(entity, skill.name, relative, notes);
       if (source == null) continue;
 
-      final contents = _rewritableExtensions.contains(p.extension(relative))
-          ? _rewrite(
-              source.readAsStringSync(),
-              '${skill.name}/$relative',
-              notes,
-            )
-          : source.readAsStringSync();
-
       yield PlannedChange.own(
         file: target.fileSystem.file(p.join(target.path, relative)),
-        contents: contents,
+        contents: source.readAsStringSync(),
         harness: null,
       );
     }
@@ -144,24 +131,5 @@ class const SkillsTranslator() {
       ),
     );
     return null;
-  }
-
-  /// Rewrites MCP tool names, reporting any that have no CLI equivalent.
-  String _rewrite(
-    String contents,
-    String subject,
-    List<TranslationNote> notes,
-  ) {
-    for (final tool in McpToolMap.unmapped(contents)) {
-      notes.add(
-        TranslationNote(
-          subject: subject,
-          reason:
-              'names $tool, which has no CLI equivalent, so Pi cannot '
-              'run it',
-        ),
-      );
-    }
-    return McpToolMap.rewrite(contents);
   }
 }

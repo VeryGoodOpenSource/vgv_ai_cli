@@ -30,6 +30,21 @@ abstract class HarnessTranslator {
     required StagedOutput staged,
   });
 
+  /// Reports that [assets]' hooks were not installed, once for the harness.
+  ///
+  /// The plugins' hook scripts read Claude Code's payload, which no other
+  /// harness sends, so a hook wired in elsewhere would run and do nothing.
+  /// They are left out until the scripts are harness-aware.
+  List<TranslationNote> hooksNotes(PluginAssets assets) => [
+    if (assets.hooks.isNotEmpty)
+      TranslationNote(
+        subject: '${assets.hooks.length} hook(s)',
+        reason:
+            'the plugin hook scripts only understand Claude Code, so '
+            '${harness.displayName} gets none for now',
+      ),
+  ];
+
   /// The contents the brick rendered for [fragment].
   ///
   /// Appends a [TranslationNote] and returns null when the brick rendered no
