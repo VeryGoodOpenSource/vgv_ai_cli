@@ -30,30 +30,13 @@ void main() {
     return f..writeAsStringSync(contents);
   }
 
-  PlannedChange change(File target, String contents, ChangeMode mode) {
-    return switch (mode) {
-      ChangeMode.own => PlannedChange.own(
+  PlannedChange change(File target, String contents, ChangeMode mode) =>
+      PlannedChange(
         file: target,
         contents: contents,
         harness: null,
-      ),
-      ChangeMode.mergeJson => PlannedChange.mergeJson(
-        file: target,
-        contents: contents,
-        harness: null,
-      ),
-      ChangeMode.mergeToml => PlannedChange.mergeToml(
-        file: target,
-        contents: contents,
-        harness: null,
-      ),
-      ChangeMode.mergeMarkdown => PlannedChange.mergeMarkdown(
-        file: target,
-        contents: contents,
-        harness: null,
-      ),
-    };
-  }
+        mode: mode,
+      );
 
   Map<String, dynamic> readJson(File target) =>
       jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;

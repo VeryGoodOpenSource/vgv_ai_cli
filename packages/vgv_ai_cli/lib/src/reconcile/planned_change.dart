@@ -33,29 +33,12 @@ enum ChangeMode {
 /// {@endtemplate}
 class PlannedChange {
   /// {@macro planned_change}
-  new own({required this.file, required this.contents, required this.harness})
-    : mode = ChangeMode.own;
-
-  /// {@macro planned_change}
-  new mergeJson({
+  new({
     required this.file,
     required this.contents,
     required this.harness,
-  }) : mode = ChangeMode.mergeJson;
-
-  /// {@macro planned_change}
-  new mergeToml({
-    required this.file,
-    required this.contents,
-    required this.harness,
-  }) : mode = ChangeMode.mergeToml;
-
-  /// {@macro planned_change}
-  new mergeMarkdown({
-    required this.file,
-    required this.contents,
-    required this.harness,
-  }) : mode = ChangeMode.mergeMarkdown;
+    this.mode = ChangeMode.own,
+  });
 
   /// The file to write.
   final File file;
@@ -103,19 +86,7 @@ enum ChangeOutcome {
 /// {@endtemplate}
 class AppliedChange {
   /// {@macro applied_change}
-  new created({required this.change}) : outcome = ChangeOutcome.created;
-
-  /// {@macro applied_change}
-  new updated({required this.change}) : outcome = ChangeOutcome.updated;
-
-  /// {@macro applied_change}
-  new partial({required this.change}) : outcome = ChangeOutcome.partial;
-
-  /// {@macro applied_change}
-  new skipped({required this.change}) : outcome = ChangeOutcome.skipped;
-
-  /// {@macro applied_change}
-  new unchanged({required this.change}) : outcome = ChangeOutcome.unchanged;
+  new({required this.change, required this.outcome});
 
   /// The change that was applied.
   final PlannedChange change;

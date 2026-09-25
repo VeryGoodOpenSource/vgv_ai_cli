@@ -8,10 +8,11 @@ void main() {
 
   group('PlannedChange', () {
     test('toString names the mode, the owner and the path', () {
-      final change = PlannedChange.mergeToml(
+      final change = PlannedChange(
         file: fileSystem.file('/home/user/.codex/config.toml'),
         contents: 'body',
         harness: Harness.codex,
+        mode: ChangeMode.mergeToml,
       );
 
       expect(
@@ -23,7 +24,7 @@ void main() {
     test('toString reports an ownerless change as shared', () {
       // `~/.agents/skills` is written once and read by four harnesses, so it
       // belongs to none of them.
-      final change = PlannedChange.own(
+      final change = PlannedChange(
         file: fileSystem.file('/home/user/.agents/skills/testing/SKILL.md'),
         contents: 'body',
         harness: null,
@@ -39,17 +40,18 @@ void main() {
       // Required rather than defaulted: a forgotten tag would otherwise be
       // indistinguishable from a deliberate shared write, which uninstall
       // treats differently.
-      final change = PlannedChange.mergeJson(
+      final change = PlannedChange(
         file: fileSystem.file('/home/user/.gemini/settings.json'),
         contents: '{}',
         harness: null,
+        mode: ChangeMode.mergeJson,
       );
 
       expect(change.harness, isNull);
     });
 
-    test('carries the harness it was given', () {
-      final change = PlannedChange.own(
+    test('carries the harness it was given, and owns its file by default', () {
+      final change = PlannedChange(
         file: fileSystem.file('/home/user/.gemini/agents/a.md'),
         contents: 'body',
         harness: Harness.gemini,
@@ -61,44 +63,19 @@ void main() {
   });
 
   group('AppliedChange', () {
-    final change = PlannedChange.own(
-      file: fileSystem.file('/home/user/.claude/settings.json'),
-      contents: '{}',
-      harness: null,
-    );
+    test('carries its change and outcome', () {
+      final change = PlannedChange(
+        file: fileSystem.file('/home/user/.claude/settings.json'),
+        contents: '{}',
+        harness: null,
+      );
+      final applied = AppliedChange(
+        change: change,
+        outcome: ChangeOutcome.partial,
+      );
 
-    test('created', () {
-      final applied = AppliedChange.created(change: change);
-      expect(applied.outcome, ChangeOutcome.created);
       expect(applied.change, change);
-    });
-
-    test('updated', () {
-      expect(
-        AppliedChange.updated(change: change).outcome,
-        ChangeOutcome.updated,
-      );
-    });
-
-    test('partial', () {
-      expect(
-        AppliedChange.partial(change: change).outcome,
-        ChangeOutcome.partial,
-      );
-    });
-
-    test('skipped', () {
-      expect(
-        AppliedChange.skipped(change: change).outcome,
-        ChangeOutcome.skipped,
-      );
-    });
-
-    test('unchanged', () {
-      expect(
-        AppliedChange.unchanged(change: change).outcome,
-        ChangeOutcome.unchanged,
-      );
+      expect(applied.outcome, ChangeOutcome.partial);
     });
   });
 }

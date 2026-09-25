@@ -24,22 +24,15 @@ PlannedChange renderedChange(
     p.joinAll([harness.configDirectory(home).path, ...segments]),
   );
 
-  return switch ((segments.length, p.extension(path))) {
-    (1, '.json') => PlannedChange.mergeJson(
-      file: file,
-      contents: contents,
-      harness: harness,
-    ),
-    (1, '.toml') => PlannedChange.mergeToml(
-      file: file,
-      contents: contents,
-      harness: harness,
-    ),
-    (1, _) => PlannedChange.mergeMarkdown(
-      file: file,
-      contents: contents,
-      harness: harness,
-    ),
-    _ => PlannedChange.own(file: file, contents: contents, harness: harness),
-  };
+  return PlannedChange(
+    file: file,
+    contents: contents,
+    harness: harness,
+    mode: switch ((segments.length, p.extension(path))) {
+      (1, '.json') => ChangeMode.mergeJson,
+      (1, '.toml') => ChangeMode.mergeToml,
+      (1, _) => ChangeMode.mergeMarkdown,
+      _ => ChangeMode.own,
+    },
+  );
 }

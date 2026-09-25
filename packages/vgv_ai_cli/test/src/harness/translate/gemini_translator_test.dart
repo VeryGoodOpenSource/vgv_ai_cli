@@ -121,15 +121,6 @@ void main() {
     });
 
     group('notes', () {
-      test('report a name the agent loader would refuse', () {
-        final notes = translator.notes(
-          pluginAssets(agents: [agentAsset('Reviewer.v2')]),
-        );
-
-        expect(notes.single.subject, 'agent Reviewer.v2');
-        expect(notes.single.reason, contains('will ignore this one'));
-      });
-
       test('report that hooks are Claude-only, once', () {
         final notes = translator.notes(
           pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),

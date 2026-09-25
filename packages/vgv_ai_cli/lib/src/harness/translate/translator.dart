@@ -33,7 +33,7 @@ class const Translator({
   final SkillsTranslator skills = const SkillsTranslator(),
 }) {
   /// The changes and notes for each of [selected], plus the shared skills
-  /// under a null key when any harness besides Claude Code reads them.
+  /// under a null key when any of them reads them.
   Future<Map<Harness?, TranslationResult>> translate({
     required PluginAssets assets,
     required Directory home,
@@ -55,7 +55,7 @@ class const Translator({
     ].groupListsBy((change) => change.harness);
 
     return {
-      if (chosen.any((translator) => translator.harness != Harness.claude))
+      if (chosen.any((translator) => translator.readsSharedSkills))
         null: skills.translate(assets: assets, home: home),
       for (final translator in chosen)
         translator.harness: TranslationResult(

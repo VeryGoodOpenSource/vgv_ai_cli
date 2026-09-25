@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:plugin_source/src/format/config_map.dart';
 import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
@@ -82,7 +84,8 @@ class const Frontmatter({
   /// in one test file. Strings are always quoted rather than emitted plain:
   /// deciding when a scalar is safe unquoted is a pile of branches over YAML's
   /// indicator characters, reserved words and number forms, and quoting is
-  /// correct in every one of those cases.
+  /// correct in every one of those cases. A JSON string is a valid YAML
+  /// double-quoted scalar, so `jsonEncode` does the quoting.
   static String render(Map<String, Object?> values) {
     if (values.isEmpty) return '';
     final buffer = StringBuffer('---\n');
@@ -134,19 +137,11 @@ class const Frontmatter({
           '|2-\n',
           for (final line in text.trimRight().split('\n')) '$indent  $line\n',
         ].join().trimRight(),
-        final String text => _quote(text),
+        final String text => jsonEncode(text),
         final bool flag => '$flag',
         final num number => '$number',
         // An empty map or list, or anything else, has no useful YAML form as a
         // scalar; stringify and quote it rather than emit a broken document.
-        _ => _quote('$value'),
+        _ => jsonEncode('$value'),
       };
-
-  static String _quote(String value) {
-    final escaped = value
-        .replaceAll(r'\', r'\\')
-        .replaceAll('"', r'\"')
-        .replaceAll('\t', r'\t');
-    return '"$escaped"';
-  }
 }

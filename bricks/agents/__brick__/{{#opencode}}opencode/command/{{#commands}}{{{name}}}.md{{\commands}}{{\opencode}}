@@ -1,1 +1,2 @@
-{{#commands}}{{#opencode}}{{> command.md }}{{/opencode}}{{/commands}}
+{{#commands}}{{#opencode}}{{{frontmatter}}}
+{{{body}}}{{/opencode}}{{/commands}}

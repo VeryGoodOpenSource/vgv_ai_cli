@@ -213,7 +213,7 @@ class const ClaudePluginParser() implements PluginParser {
     if (servers == null) return const [];
 
     return [
-      for (final name in servers.entries.map((entry) => entry.key))
+      for (final MapEntry(key: name) in servers.entries)
         // Anything that is not an object (e.g. a bare string) is not a server
         // declaration and is skipped.
         if (servers.child(name) case final config?) ?_mcpServer(name, config),

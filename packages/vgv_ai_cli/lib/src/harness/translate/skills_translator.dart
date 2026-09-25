@@ -25,7 +25,7 @@ class const SkillsTranslator() {
       final target = root.fileSystem.directory(p.join(root.path, skill.name));
       changes
         ..add(
-          PlannedChange.own(
+          PlannedChange(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
             contents: _skillDocument(skill),
             harness: null,
@@ -49,12 +49,13 @@ class const SkillsTranslator() {
   /// Plans everything under the skill's directory except its `SKILL.md`.
   ///
   /// `references/`, `scripts/`, and the flat `reference.md` two skills use all
-  /// travel with the skill.
-  Iterable<PlannedChange> _bundledFiles(
+  /// travel with the skill. Built eagerly, so every note lands in [notes]
+  /// before [translate] returns them.
+  List<PlannedChange> _bundledFiles(
     SkillAsset skill,
     Directory target,
     List<TranslationNote> notes,
-  ) sync* {
+  ) {
     // The parser only builds a skill from a directory holding a SKILL.md, so
     // this is not the normal case. A plugin cache cleared between resolution
     // and translation is, and it should report rather than throw a raw
@@ -68,7 +69,7 @@ class const SkillsTranslator() {
               'only the SKILL.md was written',
         ),
       );
-      return;
+      return const [];
     }
 
     // followLinks is off so a symlinked directory is reported rather than
@@ -78,6 +79,7 @@ class const SkillsTranslator() {
       followLinks: false,
     );
 
+    final changes = <PlannedChange>[];
     for (final entity in entities) {
       if (entity is Directory) continue;
 
@@ -87,12 +89,15 @@ class const SkillsTranslator() {
       final source = _sourceFile(entity, skill.name, relative, notes);
       if (source == null) continue;
 
-      yield PlannedChange.own(
-        file: target.fileSystem.file(p.join(target.path, relative)),
-        contents: source.readAsStringSync(),
-        harness: null,
+      changes.add(
+        PlannedChange(
+          file: target.fileSystem.file(p.join(target.path, relative)),
+          contents: source.readAsStringSync(),
+          harness: null,
+        ),
       );
     }
+    return changes;
   }
 
   /// Resolves [entity] to a readable file.

@@ -8,11 +8,21 @@ import 'package:vgv_ai_cli/src/templates/templates.dart';
 ///
 /// Nothing is generated into `$HOME` or a staging directory, so `--check`
 /// stays a true dry run and the reconcile layer decides what reaches disk.
+/// The generator is built straight from the bundle too, because
+/// `MasonGenerator.fromBundle` unpacks it into `~/.mason-cache` and reads it
+/// back. The brick has no hooks, so the bundle's files are all it needs.
 /// {@endtemplate}
 class const AgentsBrick() {
   /// Renders every file [vars] select, keyed by its path in the brick.
   Future<Map<String, String>> render(Map<String, dynamic> vars) async {
-    final generator = await MasonGenerator.fromBundle(agentsBundle);
+    final generator = MasonGenerator(
+      agentsBundle.name,
+      agentsBundle.description,
+      files: [
+        for (final file in agentsBundle.files)
+          TemplateFile.fromBytes(file.path, base64.decode(file.data)),
+      ],
+    );
     final target = _MemoryTarget();
     await generator.generate(target, vars: vars);
     return target.files;

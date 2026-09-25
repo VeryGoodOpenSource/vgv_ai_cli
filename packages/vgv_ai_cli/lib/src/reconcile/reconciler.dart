@@ -1,16 +1,14 @@
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
+import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
-class _Merge({required final String contents, required final bool declined});
+typedef _Merge = ({String contents, bool declined});
 
-class _DeepMergeResult({
-  required final Map<String, dynamic> merged,
-  required final bool declined,
-});
+typedef _DeepMerge = ({Map<String, dynamic> merged, bool declined});
 
 /// {@template reconciler}
 /// Applies a [PlannedChange] to disk according to its [ChangeMode].
@@ -32,7 +30,7 @@ class const Reconciler({
     final original = existed ? file.readAsStringSync() : '';
 
     final merge = switch (change.mode) {
-      ChangeMode.own => _Merge(contents: change.contents, declined: false),
+      ChangeMode.own => (contents: change.contents, declined: false),
       ChangeMode.mergeJson => _mergeDocument(
         original,
         change.contents,
@@ -47,33 +45,39 @@ class const Reconciler({
         encode: _encodeToml,
         rewrite: _rewriteToml,
       ),
-      ChangeMode.mergeMarkdown => _Merge(
+      ChangeMode.mergeMarkdown => (
         contents: _mergeBlock(original, change.contents),
         declined: false,
       ),
     };
 
-    if (merge.contents == original) {
-      return merge.declined
-          ? AppliedChange.skipped(change: change)
-          : AppliedChange.unchanged(change: change);
-    }
+    final changed = merge.contents != original;
+    if (changed) _write(file, merge.contents);
 
+    return AppliedChange(
+      change: change,
+      outcome: switch ((changed, existed, merge.declined)) {
+        (false, _, true) => ChangeOutcome.skipped,
+        (false, _, false) => ChangeOutcome.unchanged,
+        (true, false, _) => ChangeOutcome.created,
+        (true, true, true) => ChangeOutcome.partial,
+        (true, true, false) => ChangeOutcome.updated,
+      },
+    );
+  }
+
+  /// Writes [contents] to [file], or only logs it on a dry run.
+  void _write(File file, String contents) {
     if (dryRun) {
       logger.detail('Would write ${file.path}');
-    } else {
-      file.parent.createSync(recursive: true);
-      // Write beside the target and publish by rename, so an interrupted run
-      // cannot leave a half-written config behind.
-      file.fileSystem.file('${file.path}.vgv-tmp')
-        ..writeAsStringSync(merge.contents, flush: true)
-        ..renameSync(file.path);
+      return;
     }
-
-    if (!existed) return AppliedChange.created(change: change);
-    return merge.declined
-        ? AppliedChange.partial(change: change)
-        : AppliedChange.updated(change: change);
+    file.parent.createSync(recursive: true);
+    // Write beside the target and publish by rename, so an interrupted run
+    // cannot leave a half-written config behind.
+    file.fileSystem.file('${file.path}.vgv-tmp')
+      ..writeAsStringSync(contents, flush: true)
+      ..renameSync(file.path);
   }
 
   /// Merges [incoming] into [original] using one format's codec.
@@ -93,25 +97,25 @@ class const Reconciler({
     rewrite,
   }) {
     final addition = decode(incoming);
-    if (addition == null) return _Merge(contents: original, declined: true);
+    if (addition == null) return (contents: original, declined: true);
 
     if (original.trim().isEmpty) {
-      return _Merge(contents: encode(addition), declined: false);
+      return (contents: encode(addition), declined: false);
     }
 
     final existing = decode(original);
-    if (existing == null) return _Merge(contents: original, declined: true);
+    if (existing == null) return (contents: original, declined: true);
 
     final deepMerged = _deepMerge(existing, addition, overwrite: force);
 
     if (deepEquality.equals(existing, deepMerged.merged)) {
-      return _Merge(contents: original, declined: deepMerged.declined);
+      return (contents: original, declined: deepMerged.declined);
     }
 
     final contents = rewrite(original, existing, deepMerged.merged);
-    if (contents == null) return _Merge(contents: original, declined: true);
+    if (contents == null) return (contents: original, declined: true);
 
-    return _Merge(contents: contents, declined: deepMerged.declined);
+    return (contents: contents, declined: deepMerged.declined);
   }
 
   /// Appends what [merged] adds to [original] as TOML text, so the user's
@@ -216,7 +220,7 @@ class const Reconciler({
   }
 
   /// Merges [addition] into [base].
-  _DeepMergeResult _deepMerge(
+  _DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition, {
     required bool overwrite,
@@ -261,6 +265,6 @@ class const Reconciler({
       declined = declined || existing != value;
     }
 
-    return _DeepMergeResult(merged: result, declined: declined);
+    return (merged: result, declined: declined);
   }
 }

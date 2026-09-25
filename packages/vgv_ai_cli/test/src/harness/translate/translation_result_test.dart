@@ -7,7 +7,7 @@ void main() {
   final fs = MemoryFileSystem.test();
 
   PlannedChange change(String path) =>
-      PlannedChange.own(file: fs.file(path), contents: 'body', harness: null);
+      PlannedChange(file: fs.file(path), contents: 'body', harness: null);
 
   const note = TranslationNote(subject: 'a', reason: 'b');
 

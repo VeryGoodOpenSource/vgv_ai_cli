@@ -31,8 +31,8 @@ subdirectory belongs to VGV and is written whole.
 ## Partials
 
 Markdown-shaped content is a partial. `{{~ agents.md }}` is the shared
-instructions index, and `{{~ agent.md }}` and `{{~ command.md }}` frame an
-agent or a command under its frontmatter.
+instructions index, and `{{~ agent.md }}` frames an agent under its
+frontmatter.
 
 Data-shaped content is rendered by the CLI and placed with a triple mustache.
 Mustache cannot escape YAML, TOML or JSON, so every settings file, every

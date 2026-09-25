@@ -21,6 +21,10 @@ abstract class HarnessTranslator {
   /// Which harness this configures.
   Harness get harness;
 
+  /// Whether this harness loads the shared copy of the skills under
+  /// `~/.agents/skills`.
+  bool get readsSharedSkills => true;
+
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
