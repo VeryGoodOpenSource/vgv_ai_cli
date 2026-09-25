@@ -1,0 +1,12 @@
+# Agent instructions
+
+These instructions are managed by the VGV AI CLI. They mirror what this
+harness gets from the enabled VGV plugins.
+{{#index}}
+## Skills
+
+{{#has_skills}}Use a skill when its description matches the task at hand.
+
+{{#skills}}- **{{{name}}}**: {{{description}}}
+{{/skills}}{{/has_skills}}{{^has_skills}}No skills are configured.
+{{/has_skills}}{{/index}}

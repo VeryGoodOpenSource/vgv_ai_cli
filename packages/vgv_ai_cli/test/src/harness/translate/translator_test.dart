@@ -258,6 +258,16 @@ void main() {
         expect(instructions, contains('- **planner**: reviews code\n'));
       });
 
+      test("Pi's AGENTS.md indexes the skills but no agents", () async {
+        // Pi has no subagents, so pointing it at one would be advice it
+        // cannot follow.
+        final instructions = await contents(Harness.pi, 'AGENTS.md');
+
+        expect(instructions, contains('- **quiet**: what it does\n'));
+        expect(instructions, isNot(contains('## Agents')));
+        expect(instructions, isNot(contains('planner')));
+      });
+
       test('AGENTS.md says so when there is nothing to index', () async {
         final results = await translate({
           Harness.opencode,

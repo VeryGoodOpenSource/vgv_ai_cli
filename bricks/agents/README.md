@@ -30,9 +30,11 @@ subdirectory belongs to VGV and is written whole.
 
 ## Partials
 
-Markdown-shaped content is a partial. `{{~ agents.md }}` is the shared
-instructions index, and `{{~ agent.md }}` frames an agent under its
-frontmatter.
+Markdown-shaped content is a partial. `{{~ instructions.md }}` opens every
+`AGENTS.md` and indexes the skills, and `{{~ agent_index.md }}` indexes the
+agents for the harnesses that have them. Pi has no subagents, so its
+`AGENTS.md` leaves the agent index out. `{{~ agent.md }}` frames an agent
+under its frontmatter.
 
 Data-shaped content is rendered by the CLI and placed with a triple mustache.
 Mustache cannot escape YAML, TOML or JSON, so every settings file, every

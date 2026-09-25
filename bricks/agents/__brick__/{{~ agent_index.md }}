@@ -1,0 +1,8 @@
+{{#index}}
+## Agents
+
+{{#has_agents}}Delegate to an agent when its description matches the task at hand.
+
+{{#agents}}- **{{{name}}}**: {{{description}}}
+{{/agents}}{{/has_agents}}{{^has_agents}}No agents are configured.
+{{/has_agents}}{{/index}}
