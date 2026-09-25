@@ -12,6 +12,8 @@ on:
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
+      - "packages/plugin_source/lib/**"
+      - "packages/plugin_source/pubspec.yaml"
       - "bricks/**"
       - "tool/**"
   push:
@@ -23,6 +25,8 @@ on:
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
+      - "packages/plugin_source/lib/**"
+      - "packages/plugin_source/pubspec.yaml"
       - "bricks/**"
       - "tool/**"
 

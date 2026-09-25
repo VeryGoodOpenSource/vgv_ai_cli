@@ -18,11 +18,10 @@ SkillAsset _skill(String name) => SkillAsset(
 AgentAsset _agent(String name) =>
     AgentAsset(name: name, description: 'd', body: 'b', skills: const []);
 
-HookAsset _hook(String plugin) => HookAsset(
-  event: 'PreToolUse',
-  plugin: plugin,
+HookAsset _hook(String event) => HookAsset(
+  event: event,
   commands: const [HookCommand(type: 'command', command: 'run.sh')],
-  directory: _fs.directory('/plugins/$plugin/hooks'),
+  directory: _fs.directory('/plugins/hooks'),
 );
 
 PluginAssets _assets({
@@ -91,16 +90,33 @@ void main() {
       expect(merged.agents.map((a) => a.name), ['architect', 'reviewer']);
     });
 
-    test('keeps every hook, labelled with its own plugin', () {
+    test('keeps the first skill of a name two plugins share', () {
+      final first = _skill('testing');
       final merged = PluginAssets.merge([
-        _assets(hooks: [_hook('vgv-wingspan')]),
-        _assets(hooks: [_hook('vgv-ai-flutter-plugin')]),
+        _assets(skills: [first]),
+        _assets(skills: [_skill('testing')]),
       ]);
 
-      expect(merged.hooks.map((h) => h.plugin), [
-        'vgv-wingspan',
-        'vgv-ai-flutter-plugin',
+      expect(merged.skills, [same(first)]);
+    });
+
+    test('keeps the first agent of a name two plugins share', () {
+      final first = _agent('reviewer');
+      final merged = PluginAssets.merge([
+        _assets(agents: [first]),
+        _assets(agents: [_agent('reviewer')]),
       ]);
+
+      expect(merged.agents, [same(first)]);
+    });
+
+    test('keeps every hook from every plugin', () {
+      final merged = PluginAssets.merge([
+        _assets(hooks: [_hook('PreToolUse')]),
+        _assets(hooks: [_hook('PostToolUse')]),
+      ]);
+
+      expect(merged.hooks.map((h) => h.event), ['PreToolUse', 'PostToolUse']);
     });
 
     test('combines MCP servers declared by different plugins', () {

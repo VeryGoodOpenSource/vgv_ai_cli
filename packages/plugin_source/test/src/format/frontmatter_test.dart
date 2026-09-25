@@ -219,10 +219,52 @@ void main() {
 
       final rendered = Frontmatter.render({'description': multi});
 
-      expect(rendered, contains('|-'));
+      expect(rendered, contains('|2-'));
       expect(
         roundTrip({'description': multi}).config.string('description'),
         multi,
+      );
+    });
+
+    test('round-trips a multi-line string whose first line is indented', () {
+      const indented = '  indented first\nthen flush';
+
+      expect(
+        roundTrip({'description': indented}).config.string('description'),
+        indented,
+      );
+    });
+
+    test('round-trips a multi-line string inside a list', () {
+      const multi = 'First line.\nSecond line.';
+
+      expect(
+        roundTrip({
+          'notes': [multi, 'single'],
+        }).config['notes'],
+        [multi, 'single'],
+      );
+    });
+
+    test('round-trips a multi-line string inside a nested map', () {
+      const multi = '  First line.\nSecond line.';
+
+      expect(
+        roundTrip({
+          'outer': {'inner': multi},
+        }).config.child('outer')!.string('inner'),
+        multi,
+      );
+    });
+
+    test('refuses a collection inside a list', () {
+      expect(
+        () => Frontmatter.render({
+          'servers': [
+            {'name': 'dart'},
+          ],
+        }),
+        throwsArgumentError,
       );
     });
 

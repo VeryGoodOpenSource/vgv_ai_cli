@@ -18,31 +18,8 @@ class const ClaudePluginParser() implements PluginParser {
     skills: _readSkills(root.childDirectory('skills')),
     agents: _readAgents(root.childDirectory('agents')),
     mcpServers: _readMcpServers(root.childFile('.mcp.json')),
-    hooks: _readHooks(root.childDirectory('hooks'), plugin: pluginNameOf(root)),
+    hooks: _readHooks(root.childDirectory('hooks')),
   );
-
-  /// The plugin's declared name, read from the `.claude-plugin/plugin.json`
-  /// manifest that every plugin ships and that `LocalCachePluginSource`
-  /// already treats as the marker of a complete checkout.
-  ///
-  /// Falls back to the directory name, which both caches lay out as
-  /// `<name>/<version>`, so it is a version number rather than a name.
-  static String pluginNameOf(Directory root) {
-    final manifest = root
-        .childDirectory('.claude-plugin')
-        .childFile('plugin.json');
-    if (!manifest.existsSync()) return p.basename(root.path);
-
-    try {
-      final name = ConfigMap.parseJson(
-        manifest.readAsStringSync(),
-        path: manifest.path,
-      ).string('name');
-      return name ?? p.basename(root.path);
-    } on PluginParseException {
-      return p.basename(root.path);
-    }
-  }
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.
   ///
@@ -86,6 +63,11 @@ class const ClaudePluginParser() implements PluginParser {
       if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
   };
 
+  /// What a skill or agent may be named. The name becomes a file or
+  /// directory name under the user's home, so a separator, a `..` or a
+  /// character Windows refuses would write somewhere it must not.
+  static final _namePattern = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
+
   /// One tool name, plus an optional parenthesized scope that may itself
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
@@ -93,6 +75,17 @@ class const ClaudePluginParser() implements PluginParser {
   /// Claude's own name for the plugin root inside a hook command. Rewritten to
   /// the neutral [HookCommand.pluginRoot] so translators never see it.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
+
+  /// [name], once it is known to be safe as a file name.
+  ///
+  /// [path] names the file in the [PluginParseException] otherwise.
+  String _validName(String name, {required String path}) {
+    if (_namePattern.hasMatch(name)) return name;
+    throw PluginParseException(
+      path,
+      'name "$name" may only use lowercase letters, digits, "-" and "_"',
+    );
+  }
 
   List<SkillAsset> _readSkills(Directory skillsDir) {
     if (!skillsDir.existsSync()) return const [];
@@ -111,7 +104,10 @@ class const ClaudePluginParser() implements PluginParser {
       );
       skills.add(
         SkillAsset(
-          name: frontmatter.name ?? p.basename(entity.path),
+          name: _validName(
+            frontmatter.name ?? p.basename(entity.path),
+            path: file.path,
+          ),
           description: frontmatter.description,
           body: frontmatter.body,
           userInvocable: userInvocableOf(frontmatter),
@@ -142,7 +138,10 @@ class const ClaudePluginParser() implements PluginParser {
       );
       agents.add(
         AgentAsset(
-          name: frontmatter.name ?? p.basenameWithoutExtension(file.path),
+          name: _validName(
+            frontmatter.name ?? p.basenameWithoutExtension(file.path),
+            path: file.path,
+          ),
           description: frontmatter.description,
           body: frontmatter.body,
           skills: frontmatter.skills,
@@ -158,7 +157,7 @@ class const ClaudePluginParser() implements PluginParser {
   ///
   /// Every level is tolerated as absent or the wrong type rather than assumed,
   /// because a plugin may ship no hooks at all.
-  List<HookAsset> _readHooks(Directory hooksDir, {required String plugin}) {
+  List<HookAsset> _readHooks(Directory hooksDir) {
     final file = hooksDir.childFile('hooks.json');
     if (!file.existsSync()) return const [];
 
@@ -177,7 +176,6 @@ class const ClaudePluginParser() implements PluginParser {
         assets.add(
           HookAsset(
             event: event.key,
-            plugin: plugin,
             matcher: matcher is String ? matcher : null,
             commands: commands,
             directory: hooksDir,

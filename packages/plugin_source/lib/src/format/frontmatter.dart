@@ -105,19 +105,33 @@ class const Frontmatter({
     ].join(),
     final List<Object?> items when items.isNotEmpty => [
       '$indent$key:\n',
-      for (final item in items) '$indent  - ${_scalar(item, indent: indent)}\n',
+      for (final item in items)
+        '$indent  - ${_scalar(item, indent: '$indent  ')}\n',
     ].join(),
     _ => '$indent$key: ${_scalar(value, indent: indent)}\n',
   };
 
-  /// Renders one scalar. A string carrying newlines becomes a literal block
-  /// scalar, because the plugins write descriptions as folded and literal
-  /// blocks and a quoted `\n` would be unreadable in a file people open.
+  /// Renders one scalar owned by a key or list dash at [indent].
+  ///
+  /// A string carrying newlines becomes a literal block scalar, because the
+  /// plugins write descriptions as folded and literal blocks and a quoted
+  /// `\n` would be unreadable in a file people open. The `2` indentation
+  /// indicator places its lines two columns past their owner, so a first line
+  /// that starts with spaces keeps them rather than setting the indentation.
+  ///
+  /// Throws an [ArgumentError] for a collection inside a list, which no
+  /// harness frontmatter needs.
   static String _scalar(Object? value, {required String indent}) =>
       switch (value) {
         null => '',
+        Map(isNotEmpty: true) ||
+        List(isNotEmpty: true) => throw ArgumentError.value(
+          value,
+          'value',
+          'a list item must be a scalar',
+        ),
         final String text when text.contains('\n') => [
-          '|-\n',
+          '|2-\n',
           for (final line in text.trimRight().split('\n')) '$indent  $line\n',
         ].join().trimRight(),
         final String text => _quote(text),

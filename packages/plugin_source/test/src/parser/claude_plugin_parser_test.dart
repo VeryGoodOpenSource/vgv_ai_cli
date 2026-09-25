@@ -342,13 +342,6 @@ void main() {
       expect(hookFor('PostToolUse').commands.last.timeout, isNull);
     });
 
-    test('labels every hook with the plugin it came from', () {
-      // A translator copying the scripts to a directory it owns needs a
-      // per-plugin name, and the cache lays plugins out as <name>/<version>,
-      // so the directory basename is a version number.
-      expect(assets.hooks.map((h) => h.plugin).toSet(), {'fixture-plugin'});
-    });
-
     test('carries the hooks directory so scripts can be copied', () {
       final directory = hookFor('SessionStart').directory;
 
@@ -401,6 +394,62 @@ void main() {
             contains('hooks.json'),
           ),
         ),
+      );
+    });
+  });
+
+  group('names', () {
+    late Directory root;
+
+    setUp(() {
+      root = MemoryFileSystem.test().directory('/plugin')
+        ..createSync(recursive: true);
+    });
+
+    void write(String relative, String contents) {
+      root.childFile(relative)
+        ..createSync(recursive: true)
+        ..writeAsStringSync(contents);
+    }
+
+    Matcher refuses(String name) => throwsA(
+      isA<PluginParseException>().having(
+        (e) => e.message,
+        'message',
+        contains('"$name"'),
+      ),
+    );
+
+    test('refuses a skill name that climbs out of its directory', () {
+      write('skills/evil/SKILL.md', '---\nname: ../../.ssh\n---\nbody\n');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        refuses('../../.ssh'),
+      );
+    });
+
+    test('refuses an agent name with a separator', () {
+      write('agents/evil.md', '---\nname: nested/agent\n---\nbody\n');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        refuses('nested/agent'),
+      );
+    });
+
+    test('refuses an unsafe name that came from the file name', () {
+      write('agents/Bad:Name.md', '---\ndescription: d\n---\nbody\n');
+
+      expect(() => const ClaudePluginParser().parse(root), refuses('Bad:Name'));
+    });
+
+    test('accepts lowercase names with digits, dashes and underscores', () {
+      write('skills/a/SKILL.md', '---\nname: dart_3-tips\n---\nbody\n');
+
+      expect(
+        const ClaudePluginParser().parse(root).skills.single.name,
+        'dart_3-tips',
       );
     });
   });
@@ -573,52 +622,6 @@ void main() {
       test('is empty when absent', () {
         expect(ClaudePluginParser.allowedToolsOf(fm('name: a')), isEmpty);
       });
-    });
-  });
-
-  group('pluginNameOf', () {
-    late FileSystem memory;
-
-    Directory pluginAt(String manifest) {
-      final root = memory.directory('/cache/vgv-wingspan/0.0.5')
-        ..createSync(recursive: true);
-      if (manifest.isNotEmpty) {
-        root.childDirectory('.claude-plugin').childFile('plugin.json')
-          ..createSync(recursive: true)
-          ..writeAsStringSync(manifest);
-      }
-      return root;
-    }
-
-    setUp(() => memory = MemoryFileSystem.test());
-
-    test('reads the declared name from the manifest', () {
-      final root = pluginAt('{"name":"vgv-wingspan"}');
-
-      expect(ClaudePluginParser.pluginNameOf(root), 'vgv-wingspan');
-    });
-
-    test('falls back to the directory name with no manifest', () {
-      // Only a fallback: the cache is laid out <name>/<version>, so this is a
-      // version number, which is why the manifest is preferred.
-      expect(ClaudePluginParser.pluginNameOf(pluginAt('')), '0.0.5');
-    });
-
-    test('falls back when the manifest will not parse', () {
-      // A label, not content. Refusing to read a plugin's skills because its
-      // manifest has a stray comma would be the worse outcome.
-      expect(ClaudePluginParser.pluginNameOf(pluginAt('{oops')), '0.0.5');
-    });
-
-    test('falls back when the manifest is not an object', () {
-      expect(ClaudePluginParser.pluginNameOf(pluginAt('[1,2]')), '0.0.5');
-    });
-
-    test('falls back when the manifest declares no name', () {
-      expect(
-        ClaudePluginParser.pluginNameOf(pluginAt('{"version":"1"}')),
-        '0.0.5',
-      );
     });
   });
 }

@@ -13,30 +13,31 @@ class const PluginAssets({
   final List<HookAsset> hooks = const [],
 }) {
   /// Combines what several plugins contribute into one [PluginAssets].
-  factory merge(Iterable<PluginAssets> assets) {
-    final skills = [for (final a in assets) ...a.skills]
-      ..sort((a, b) => a.name.compareTo(b.name));
-    final agents = [for (final a in assets) ...a.agents]
-      ..sort((a, b) => a.name.compareTo(b.name));
-
-    // First declaration wins, so a server two plugins share is configured once.
-    final mcpServers = <String, MCPServer>{};
-    for (final server in [for (final a in assets) ...a.mcpServers]) {
-      mcpServers.putIfAbsent(server.name, () => server);
-    }
-
-    return PluginAssets(
-      skills: skills,
-      agents: agents,
-      mcpServers: mcpServers.values.toList()
-        ..sort((a, b) => a.name.compareTo(b.name)),
-      hooks: [for (final a in assets) ...a.hooks],
-    );
-  }
+  ///
+  /// Each skill, agent and MCP server is written to a path or key derived
+  /// from its name, so the first declaration of a name wins and a later one
+  /// is dropped rather than planned as a second write to the same place.
+  factory merge(Iterable<PluginAssets> assets) => PluginAssets(
+    skills: _firstByName([for (final a in assets) ...a.skills], (s) => s.name),
+    agents: _firstByName([for (final a in assets) ...a.agents], (a) => a.name),
+    mcpServers: _firstByName([
+      for (final a in assets) ...a.mcpServers,
+    ], (s) => s.name),
+    hooks: [for (final a in assets) ...a.hooks],
+  );
 
   /// The skills a user can invoke as a command.
   List<SkillAsset> get invocableSkills => [
     for (final skill in skills)
       if (skill.userInvocable) skill,
   ];
+}
+
+/// The first of [items] for each name, sorted by name.
+List<T> _firstByName<T>(List<T> items, String Function(T) nameOf) {
+  final byName = <String, T>{};
+  for (final item in items) {
+    byName.putIfAbsent(nameOf(item), () => item);
+  }
+  return byName.values.toList()..sort((a, b) => nameOf(a).compareTo(nameOf(b)));
 }
