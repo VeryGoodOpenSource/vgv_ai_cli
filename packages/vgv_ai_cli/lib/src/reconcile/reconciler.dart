@@ -40,6 +40,10 @@ class const Reconciler({
         encode: _encodeToml,
         overwrite: true,
       ),
+      ChangeMode.mergeMarkdown => _Merge(
+        contents: _mergeBlock(original, change.contents),
+        declined: false,
+      ),
     };
 
     if (merge.contents == original) {
@@ -92,6 +96,29 @@ class const Reconciler({
       contents: encode(deepMerged.merged),
       declined: deepMerged.declined,
     );
+  }
+
+  /// Opens the section of a markdown file that VGV manages.
+  static const blockStart = '<!-- vgv_ai:start -->';
+
+  /// Closes the section of a markdown file that VGV manages.
+  static const blockEnd = '<!-- vgv_ai:end -->';
+
+  /// Replaces VGV's delimited section of [original] with [incoming].
+  ///
+  /// An instructions file such as `~/.gemini/AGENTS.md` may already hold the
+  /// user's own guidance, so everything outside the markers is theirs and is
+  /// kept. The section is appended the first time.
+  String _mergeBlock(String original, String incoming) {
+    final block = '$blockStart\n${incoming.trimRight()}\n$blockEnd';
+    final start = original.indexOf(blockStart);
+    final end = start == -1 ? -1 : original.indexOf(blockEnd, start);
+
+    if (end == -1) {
+      final kept = original.trimRight();
+      return kept.isEmpty ? '$block\n' : '$kept\n\n$block\n';
+    }
+    return original.replaceRange(start, end + blockEnd.length, block);
   }
 
   /// Decodes a JSON object, or null when it is malformed or not an object.

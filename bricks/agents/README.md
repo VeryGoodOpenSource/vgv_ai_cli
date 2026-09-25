@@ -1,61 +1,56 @@
 # agents
 
-Staging output for `vgv_ai install`.
+The files each coding agent harness reads to use the VGV plugins.
 
-This brick does not write to your home directory. It renders full config files
-into a per-harness staging directory, and the CLI reconciles that staging
-output against your real config: settings files are deep merged so keys you own
-are preserved. Generating straight into `$HOME` would clobber them.
+`vgv_ai install` renders this brick into memory, never into your home
+directory, and hands each file to its reconciler. Settings files are deep
+merged, so keys you own are preserved.
 
-## What it generates
+## The tree is the capability matrix
 
-| file                     | goes to                            |
-| ------------------------ | ---------------------------------- |
-| `claude/settings.json`   | `~/.claude/settings.json`          |
-| `gemini/settings.json`   | `~/.gemini/settings.json`          |
-| `gemini/AGENTS.md`       | `~/.gemini/AGENTS.md`              |
-| `codex/config.toml`      | `~/.codex/config.toml`             |
-| `codex/AGENTS.md`        | `~/.codex/AGENTS.md`               |
-| `opencode/opencode.json` | `~/.config/opencode/opencode.json` |
-| `opencode/AGENTS.md`     | `~/.config/opencode/AGENTS.md`     |
-| `pi/settings.json`       | `~/.pi/agent/settings.json`        |
+Each top-level folder is one harness and is rendered only when its flag is set.
+What a folder contains is what that harness supports. Pi's folder has
+`prompts/` and nothing else, and that absence is how Pi opts out of agents.
 
-Each harness folder is generated only when its flag is set. Every generated
-file is a complete config file rather than a fragment of one.
+| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           |
+| -------- | --------------- | ----------- | --------------- | ------------------ |
+| claude   | `settings.json` |             |                 |                    |
+| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |
+| codex    | `config.toml`   |             | `agents/*.toml` | `prompts/*.md`     |
+| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |
+| pi       | `settings.json` |             |                 | `prompts/*.md`     |
+
+Claude Code installs the plugins natively from the marketplace, so its folder
+holds only the settings that point at it.
+
+The CLI maps each folder onto the harness's config directory. A file at the
+root of a folder is merged into what is already there. A file in a
+subdirectory belongs to VGV and is written whole.
 
 ## Partials
 
-The harnesses that read shared agent instructions (`gemini`, `codex` and
-`opencode`) each ship an identical `AGENTS.md`. Rather than duplicating it per
-folder, the body lives in the `{{~ agents.md }}` mason partial and each folder's
-`AGENTS.md` includes it with `{{> agents.md }}`. The partial renders the
-resolved `skills` and `agents` so every harness shares the same guidance.
+Markdown-shaped content is a partial. `{{~ agents.md }}` is the shared
+instructions index, and `{{~ agent.md }}` and `{{~ command.md }}` frame an
+agent or a command under its frontmatter.
+
+Data-shaped content is rendered by the CLI and placed with a triple mustache.
+Mustache cannot escape YAML, TOML or JSON, so every settings file, every
+frontmatter block and every TOML agent or command arrives finished.
 
 ## Variables
 
-`claude`, `gemini`, `codex`, `opencode` and `pi` select harnesses. At least one
-must be set or `pre_gen` fails. `skills_root` is where the translated skills
-live. The Claude Code marketplace hosting the VGV plugins is fixed to
-`VeryGoodOpenSource/very_good_claude_marketplace`.
+| Var                      | Type    | What it is                                        |
+| ------------------------ | ------- | ------------------------------------------------- |
+| `claude` ... `pi`        | boolean | Which harnesses to render                          |
+| `<harness>_settings`     | string  | That harness's settings fragment                   |
+| `agents`                 | list    | Each agent's `name`, `instructions`, and a map per harness |
+| `commands`               | list    | Each invocable skill's `name`, `body`, and a map per harness |
+| `index`                  | map     | `skills` and `agents` to list in `AGENTS.md`        |
 
-`skills`, `agents` and `mcp_servers` are supplied by the CLI from the resolved
-plugins rather than prompted for. They default to empty, so `mason make` works
-standalone.
-
-## Settings
-
-Each settings file is rendered from a var the `pre_gen` hook builds. The hook
-models every settings file as a class under `hooks/lib/models` and serializes
-it with `json_serializable`, so the shape of each settings file lives in code
-rather than in mustache. Use triple mustache for anything containing a path.
-`{{skills_root}}` HTML escapes the slashes; `{{{skills_root}}}` does not.
-
-The models rely on generated `*.g.dart` code. Regenerate it after changing a
-model:
-
-```sh
-cd hooks && dart run build_runner build
-```
+`agents` and `commands` are the only top-level lists, and the CLI leaves either
+out when it is empty. Mason renders a path loop once for every combination of
+every top-level list, and renders an empty list as a file with no name. The
+`AGENTS.md` lists live inside `index` for the same reason.
 
 ## Regenerating the bundle
 

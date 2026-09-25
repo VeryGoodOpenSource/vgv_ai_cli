@@ -1,87 +1,42 @@
-import 'package:file/file.dart';
-import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 /// {@template codex_translator}
 /// Configures Codex.
 ///
-/// Codex reads `~/.agents/skills` natively. Its subagents are TOML rather than
-/// markdown, and its prompts directory is flat with no subdirectory support.
+/// Codex reads `~/.agents/skills` natively and keeps Claude's `$ARGUMENTS`, so
+/// its prompts are the skill bodies as written. Its agents are TOML.
 /// {@endtemplate}
 class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
+  /// Codex declares servers as `[mcp_servers.<name>]` tables.
   @override
-  TranslationResult translate({
-    required PluginAssets assets,
-    required Directory home,
-    required StagedOutput staged,
-  }) {
-    final root = p.join(home.path, '.codex');
-    final fs = home.fileSystem;
-    final skillsRoot = agentsSkillsRoot(home).path;
-    final changes = <PlannedChange>[];
-    final notes = <TranslationNote>[];
+  String settings(PluginAssets assets, {required String skillsRoot}) =>
+      TomlDocument.fromMap({
+        'mcp_servers': {
+          for (final server in assets.mcpServers)
+            server.name: mcpServerEntry(server),
+        },
+      }).toString();
 
-    final config = stagedContents(
-      staged: staged,
-      fragment: StagedFragment.codexConfig,
-      target: fs.file(p.join(root, 'config.toml')),
-      notes: notes,
-    );
-    if (config != null) {
-      changes.add(
-        PlannedChange.mergeToml(
-          file: fs.file(p.join(root, 'config.toml')),
-          contents: config,
-          harness: harness,
-        ),
-      );
-    }
-
-    // Codex requires `name` and `developer_instructions`, and drops with a
-    // warning any role declaring no `description`, so all three are written.
-    // TomlDocument serializes it: an agent body is a whole markdown document,
-    // full of quotes, backticks and backslashes.
-    for (final agent in assets.agents) {
-      changes.add(
-        PlannedChange.own(
-          file: fs.file(p.join(root, 'agents', '${agent.name}.toml')),
-          contents: TomlDocument.fromMap({
-            'name': agent.name,
-            'description': agent.description,
-            'developer_instructions': renderAgentBody(
-              agent,
-              skillsRoot: skillsRoot,
-            ),
-          }).toString(),
-          harness: harness,
-        ),
-      );
-    }
-
-    // Prompts are flat; Codex reads no subdirectories here.
-    for (final skill in assets.invocableSkills) {
-      changes.add(
-        PlannedChange.own(
-          file: fs.file(p.join(root, 'prompts', '${skill.name}.md')),
-          contents: skill.body,
-          harness: harness,
-        ),
-      );
-    }
-
-    return TranslationResult(
-      changes: changes,
-      notes: [...notes, ...hooksNotes(assets)],
-    );
-  }
+  /// Codex requires `name` and `developer_instructions`, and drops with a
+  /// warning any agent declaring no `description`, so all three are written.
+  /// An agent body is a whole markdown document full of quotes, backticks and
+  /// backslashes, which is why TOML serializes it rather than mustache.
+  @override
+  Map<String, Object?> agent(
+    AgentAsset agent, {
+    required String instructions,
+  }) => {
+    'toml': TomlDocument.fromMap({
+      'name': agent.name,
+      'description': agent.description,
+      'developer_instructions': instructions,
+    }).toString(),
+  };
 }

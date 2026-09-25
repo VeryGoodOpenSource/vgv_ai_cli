@@ -1,6 +1,6 @@
 name: agents
-description: Staging output that configures VGV agent tooling across coding agent harnesses.
-version: 0.1.0+1
+description: The files each coding agent harness reads to use the VGV plugins.
+version: 0.2.0+1
 publish_to: none
 
 environment:
@@ -32,8 +32,3 @@ vars:
     default: true
     description: Configure Pi.
     prompt: Configure Pi?
-  skills_root:
-    type: string
-    default: ~/.agents/skills
-    description: Canonical location the translated skills are written to.
-    prompt: Where should the canonical skills live?

@@ -1,116 +1,86 @@
-import 'package:file/file.dart';
+import 'dart:convert';
+
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/opencode_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
-final _staged = StagedOutput({
-  StagedFragment.openCodeConfig.path: '{"mcp":{}}',
-});
-
 void main() {
-  late FileSystem fs;
-  late Directory home;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-  });
-
-  TranslationResult translate(PluginAssets assets, {StagedOutput? staged}) =>
-      const OpenCodeTranslator().translate(
-        assets: assets,
-        home: home,
-        staged: staged ?? _staged,
-      );
-
-  PlannedChange at(TranslationResult result, String suffix) =>
-      result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
-
   group('OpenCodeTranslator', () {
+    const translator = OpenCodeTranslator();
+
     test('configures OpenCode', () {
-      expect(const OpenCodeTranslator().harness, Harness.opencode);
+      expect(translator.harness, Harness.opencode);
     });
 
-    test('merges the staged config under the XDG config root', () {
-      final change = at(translate(pluginAssets()), 'opencode.json');
-
-      expect(change.file.path, '/home/dev/.config/opencode/opencode.json');
-      expect(change.mode, ChangeMode.mergeJson);
-    });
-
-    test('reports an absent config fragment', () {
-      expect(
-        translate(
-          pluginAssets(),
-          staged: const StagedOutput({}),
-        ).notes.single.subject,
-        StagedFragment.openCodeConfig.path,
-      );
-    });
-
-    group('agents', () {
-      test('marks them as subagents so they are delegated to', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
-
-        final parsed = Frontmatter.parse(
-          at(result, 'reviewer.md').contents,
-          path: 'reviewer.md',
-        );
-
-        expect(parsed.config.string('mode'), 'subagent');
-        expect(parsed.config.string('description'), 'reviews code');
-      });
-
-      test('uses the singular directory the maintainers use', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
-
-        expect(
-          at(result, 'reviewer.md').file.path,
-          '/home/dev/.config/opencode/agent/reviewer.md',
-        );
-      });
-    });
-
-    group('commands', () {
-      test('writes frontmatter that parses back', () {
-        final result = translate(
-          pluginAssets(skills: [skillAsset(fs, 'green-gate')]),
-        );
-
-        final change = at(result, 'green-gate.md');
-        final parsed = Frontmatter.parse(change.contents, path: 'c.md');
-
-        expect(
-          change.file.path,
-          '/home/dev/.config/opencode/command/green-gate.md',
-        );
-        expect(parsed.config.string('description'), 'what it does');
-        expect(parsed.body, contains('# Body'));
-      });
-
-      test('writes no command for a skill that is not user invocable', () {
-        final result = translate(
+    test('types each MCP server and folds its args into the command', () {
+      final settings = jsonDecode(
+        translator.settings(
           pluginAssets(
-            skills: [skillAsset(fs, 'elements-of-style', userInvocable: false)],
+            mcpServers: [
+              const LocalMCPServer(
+                name: 'dart',
+                command: 'dart',
+                args: ['mcp-server'],
+                env: {'TOKEN': 'x'},
+              ),
+              const LocalMCPServer(name: 'bare', command: 'bare'),
+              const RemoteMCPServer(name: 'docs', url: 'https://docs.example'),
+            ],
           ),
-        );
+          skillsRoot: '/skills',
+        ),
+      );
 
-        expect(
-          result.changes.map((c) => c.file.path),
-          isNot(contains(contains('command/'))),
-        );
+      expect(settings, {
+        r'$schema': 'https://opencode.ai/config.json',
+        'mcp': {
+          'dart': {
+            'type': 'local',
+            'command': ['dart', 'mcp-server'],
+            'environment': {'TOKEN': 'x'},
+          },
+          'bare': {
+            'type': 'local',
+            'command': ['bare'],
+          },
+          'docs': {'type': 'remote', 'url': 'https://docs.example'},
+        },
+        'instructions': ['AGENTS.md'],
       });
+    });
+
+    test('marks an agent as a subagent so it is delegated to', () {
+      final fields = translator.agent(
+        agentAsset('reviewer'),
+        instructions: 'x',
+      );
+
+      expect(frontmatterValues(fields['frontmatter']), {
+        'description': 'reviews code',
+        'mode': 'subagent',
+      });
+    });
+
+    test('gives a command its description as frontmatter', () {
+      final fs = MemoryFileSystem.test();
+      final fields = translator.command(skillAsset(fs, 'plan'));
+
+      expect(frontmatterValues(fields['frontmatter']), {
+        'description': 'what it does',
+      });
+    });
+
+    test('reports that hooks are Claude-only', () {
+      final fs = MemoryFileSystem.test();
+
+      expect(
+        translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
+        contains('OpenCode gets none for now'),
+      );
     });
   });
 }

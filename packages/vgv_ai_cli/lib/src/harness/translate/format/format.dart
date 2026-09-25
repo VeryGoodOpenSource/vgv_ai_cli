@@ -4,5 +4,6 @@
 /// another translator.
 library;
 
-export 'agent_markdown.dart';
+export 'agent_instructions.dart';
+export 'mcp_server_entry.dart';
 export 'vgv_paths.dart';

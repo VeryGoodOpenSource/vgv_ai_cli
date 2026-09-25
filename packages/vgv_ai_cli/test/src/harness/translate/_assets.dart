@@ -1,5 +1,6 @@
 import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
+import 'package:yaml/yaml.dart';
 
 /// Builders shared by the per-harness translator tests, so each test file
 /// asserts on translation rather than on fixture construction.
@@ -62,10 +63,18 @@ HookAsset hookAsset(
 PluginAssets pluginAssets({
   List<SkillAsset> skills = const [],
   List<AgentAsset> agents = const [],
+  List<MCPServer> mcpServers = const [],
   List<HookAsset> hooks = const [],
 }) => PluginAssets(
   skills: skills,
   agents: agents,
-  mcpServers: const [],
+  mcpServers: mcpServers,
   hooks: hooks,
 );
+
+/// Parses a rendered `---` fenced frontmatter block back into its values.
+Map<String, Object?> frontmatterValues(Object? rendered) {
+  final lines = (rendered! as String).split('\n');
+  final yaml = loadYaml(lines.sublist(1, lines.lastIndexOf('---')).join('\n'));
+  return Map<String, Object?>.from(yaml as Map);
+}

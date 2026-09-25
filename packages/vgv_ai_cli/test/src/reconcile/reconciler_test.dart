@@ -47,6 +47,11 @@ void main() {
         contents: contents,
         harness: null,
       ),
+      ChangeMode.mergeMarkdown => PlannedChange.mergeMarkdown(
+        file: target,
+        contents: contents,
+        harness: null,
+      ),
     };
   }
 
@@ -457,6 +462,68 @@ void main() {
 
         expect(applied.outcome, ChangeOutcome.skipped);
         expect(target.readAsStringSync(), '[unterminated');
+      });
+    });
+
+    group('mergeMarkdown', () {
+      const start = Reconciler.blockStart;
+      const end = Reconciler.blockEnd;
+
+      AppliedChange apply(File target, String contents) =>
+          Reconciler(logger: logger)
+              .apply(change(target, contents, ChangeMode.mergeMarkdown));
+
+      test('writes the delimited section into a new file', () {
+        final target = file('.gemini/AGENTS.md');
+
+        final applied = apply(target, '# VGV\n');
+
+        expect(applied.outcome, ChangeOutcome.created);
+        expect(target.readAsStringSync(), '$start\n# VGV\n$end\n');
+      });
+
+      test("appends the section after the user's own instructions", () {
+        final target = seed('.gemini/AGENTS.md', '# Mine\n\nBe terse.\n');
+
+        final applied = apply(target, '# VGV\n');
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(
+          target.readAsStringSync(),
+          '# Mine\n\nBe terse.\n\n$start\n# VGV\n$end\n',
+        );
+      });
+
+      test('replaces only its own section on a later install', () {
+        final target = seed(
+          '.gemini/AGENTS.md',
+          '# Mine\n\n$start\n# Old\n$end\n\n# Also mine\n',
+        );
+
+        apply(target, '# New\n');
+
+        expect(
+          target.readAsStringSync(),
+          '# Mine\n\n$start\n# New\n$end\n\n# Also mine\n',
+        );
+      });
+
+      test('reports unchanged when the section already matches', () {
+        final target = file('.gemini/AGENTS.md');
+        apply(target, '# VGV\n');
+
+        expect(apply(target, '# VGV\n').outcome, ChangeOutcome.unchanged);
+      });
+
+      test('appends a fresh section when only the start marker survives', () {
+        final target = seed('.gemini/AGENTS.md', '$start\nhalf\n');
+
+        apply(target, '# VGV\n');
+
+        expect(
+          target.readAsStringSync(),
+          '$start\nhalf\n\n$start\n# VGV\n$end\n',
+        );
       });
     });
 

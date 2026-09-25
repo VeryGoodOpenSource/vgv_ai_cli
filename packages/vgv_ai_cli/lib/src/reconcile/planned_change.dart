@@ -1,7 +1,7 @@
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
-enum ChangeMode { own, mergeJson, mergeToml }
+enum ChangeMode { own, mergeJson, mergeToml, mergeMarkdown }
 
 class PlannedChange {
   new own({required this.file, required this.contents, required this.harness})
@@ -18,6 +18,12 @@ class PlannedChange {
     required this.contents,
     required this.harness,
   }) : mode = ChangeMode.mergeToml;
+
+  new mergeMarkdown({
+    required this.file,
+    required this.contents,
+    required this.harness,
+  }) : mode = ChangeMode.mergeMarkdown;
 
   final File file;
 

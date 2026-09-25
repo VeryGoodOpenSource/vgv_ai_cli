@@ -27,23 +27,23 @@ class const PluginRef({
 /// The marketplace's declared name, which names the Claude Code cache
 /// directory.
 ///
-/// Not derivable from the repo slug. The repo is
-/// `very_good_claude_marketplace` but the manifest declares
-/// `very-good-claude-code-marketplace`, and it is the declared name Claude
-/// Code uses on disk. The `bricks/agents` hooks carry the repo slug as
-/// `Marketplace.veryGood`; they do not carry this, because only cache
-/// resolution needs it.
+/// It is also the key Claude Code stores the marketplace under in
+/// `extraKnownMarketplaces`, and the `@` suffix of every enabled plugin.
 const vgvMarketplaceName = 'very-good-claude-code-marketplace';
+
+/// The `owner/name` slug of the GitHub repository backing the marketplace.
+///
+/// Matches [vgvMarketplaceName] today, but the two are separate facts: the
+/// repository was renamed from `very_good_claude_marketplace` once already,
+/// and GitHub only redirects the old slug.
+const vgvMarketplaceRepo =
+    'VeryGoodOpenSource/very-good-claude-code-marketplace';
 
 /// The plugins `vgv_ai install` resolves, pinned by version.
 ///
 /// Bumped deliberately rather than tracked from the marketplace at runtime, so
 /// an install is reproducible and a plugin release cannot change what a given
 /// CLI version writes.
-///
-/// The plugin *names* are also declared in the `bricks/agents` hooks as
-/// `VGVPlugin`. That duplication is known: the brick hooks are a separate
-/// package the CLI cannot import, and unifying them is install-wiring work.
 const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-wingspan',

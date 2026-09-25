@@ -1,90 +1,55 @@
-import 'package:file/file.dart';
+import 'dart:convert';
+
 import 'package:file/memory.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/claude_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
-const _settings = '{"enabledPlugins":{"vgv-wingspan@vgv":true}}';
+import '_assets.dart';
 
 void main() {
-  late FileSystem fs;
-  late Directory home;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-  });
-
-  SkillAsset skillNamed(String name) => SkillAsset(
-    name: name,
-    description: 'd',
-    body: 'b',
-    userInvocable: true,
-    allowedTools: const [],
-    portableFrontmatter: {'name': name},
-    directory: fs.directory('/plugins/$name'),
-  );
-
-  PluginAssets assets({List<SkillAsset> skills = const []}) => PluginAssets(
-    skills: skills,
-    agents: const [
-      AgentAsset(name: 'reviewer', description: 'd', body: 'b', skills: []),
-    ],
-    mcpServers: const [],
-  );
-
   group('ClaudeTranslator', () {
+    const translator = ClaudeTranslator();
+
     test('configures Claude Code', () {
-      expect(const ClaudeTranslator().harness, Harness.claude);
+      expect(translator.harness, Harness.claude);
     });
 
-    test('merges the marketplace settings into the user settings', () {
-      final result = const ClaudeTranslator().translate(
-        assets: assets(),
-        home: home,
-        staged: StagedOutput({StagedFragment.claudeSettings.path: _settings}),
+    test('points Claude Code at the marketplace and enables both plugins', () {
+      final settings = jsonDecode(
+        translator.settings(pluginAssets(), skillsRoot: '/skills'),
       );
 
-      final change = result.changes.single;
-      expect(change.file.path, '/home/dev/.claude/settings.json');
-      expect(change.mode, ChangeMode.mergeJson);
-      expect(change.contents, _settings);
-      expect(change.harness, Harness.claude);
-      expect(result.notes, isEmpty);
+      expect(settings, {
+        'extraKnownMarketplaces': {
+          'very-good-claude-code-marketplace': {
+            'source': {
+              'source': 'github',
+              'repo': 'VeryGoodOpenSource/very-good-claude-code-marketplace',
+            },
+          },
+        },
+        'enabledPlugins': {
+          'vgv-wingspan@very-good-claude-code-marketplace': true,
+          'vgv-ai-flutter-plugin@very-good-claude-code-marketplace': true,
+        },
+      });
     });
 
-    test('copies no skills, because the marketplace supplies them', () {
-      // A second copy would drift from the marketplace one on the next
-      // plugin release.
-      final result = const ClaudeTranslator().translate(
-        assets: assets(skills: [skillNamed('testing')]),
-        home: home,
-        staged: StagedOutput({StagedFragment.claudeSettings.path: _settings}),
-      );
+    test('spells no agents or commands, which the marketplace supplies', () {
+      final fs = MemoryFileSystem.test();
 
       expect(
-        result.changes.map((c) => c.file.path),
-        everyElement(endsWith('settings.json')),
+        translator.agent(agentAsset('reviewer'), instructions: 'x'),
+        isEmpty,
       );
+      expect(translator.command(skillAsset(fs, 'plan')), isEmpty);
     });
 
-    test('reports the absent fragment rather than writing an empty one', () {
-      // No fragment means the harness was not selected when the brick ran.
-      final result = const ClaudeTranslator().translate(
-        assets: assets(),
-        home: home,
-        staged: const StagedOutput({}),
-      );
+    test('reports nothing, since the plugins run here as written', () {
+      final fs = MemoryFileSystem.test();
 
-      expect(result.changes, isEmpty);
-      expect(result.notes.single.subject, StagedFragment.claudeSettings.path);
-      expect(
-        result.notes.single.reason,
-        contains('/home/dev/.claude/settings.json'),
-      );
+      expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
     });
   });
 }

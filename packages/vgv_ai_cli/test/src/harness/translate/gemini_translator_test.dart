@@ -1,145 +1,126 @@
+import 'dart:convert';
+
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/translate/gemini_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/staged_output.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
-final _staged = StagedOutput({
-  StagedFragment.geminiSettings.path: '{"mcpServers":{}}',
-});
-
 void main() {
   late FileSystem fs;
-  late Directory home;
 
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-  });
-
-  TranslationResult translate(PluginAssets assets, {StagedOutput? staged}) =>
-      const GeminiTranslator().translate(
-        assets: assets,
-        home: home,
-        staged: staged ?? _staged,
-      );
-
-  PlannedChange at(TranslationResult result, String suffix) =>
-      result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
+  setUp(() => fs = MemoryFileSystem.test());
 
   group('GeminiTranslator', () {
+    const translator = GeminiTranslator();
+
     test('configures Gemini', () {
-      expect(const GeminiTranslator().harness, Harness.gemini);
+      expect(translator.harness, Harness.gemini);
     });
 
-    test('merges the staged settings fragment', () {
-      final change = at(translate(pluginAssets()), '.gemini/settings.json');
+    group('settings', () {
+      test('declares each MCP server by name', () {
+        final settings = jsonDecode(
+          translator.settings(
+            pluginAssets(
+              mcpServers: [
+                const LocalMCPServer(
+                  name: 'dart',
+                  command: 'dart',
+                  args: ['mcp-server'],
+                ),
+              ],
+            ),
+            skillsRoot: '/skills',
+          ),
+        ) as Map<String, dynamic>;
 
-      expect(change.mode, ChangeMode.mergeJson);
-      expect(change.harness, Harness.gemini);
-    });
-
-    test('reports an absent settings fragment', () {
-      final result = translate(pluginAssets(), staged: const StagedOutput({}));
-
-      expect(result.changes, isEmpty);
-      expect(result.notes.single.subject, StagedFragment.geminiSettings.path);
-    });
-
-    group('agents', () {
-      test('writes them flat, since the loader reads no subdirectories', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('code-reviewer')]),
-        );
-
-        expect(
-          at(result, 'code-reviewer.md').file.path,
-          '/home/dev/.gemini/agents/code-reviewer.md',
-        );
+        expect(settings['mcpServers'], {
+          'dart': {
+            'command': 'dart',
+            'args': ['mcp-server'],
+          },
+        });
       });
 
-      test('writes frontmatter the loader requires and can parse', () {
-        final result = translate(
-          pluginAssets(agents: [agentAsset('reviewer')]),
-        );
+      test('reads AGENTS.md without giving up its own GEMINI.md', () {
+        final settings = jsonDecode(
+          translator.settings(pluginAssets(), skillsRoot: '/skills'),
+        ) as Map<String, dynamic>;
 
-        final parsed = Frontmatter.parse(
-          at(result, 'reviewer.md').contents,
-          path: 'reviewer.md',
-        );
-
-        expect(parsed.name, 'reviewer');
-        expect(parsed.description, 'reviews code');
+        expect(settings['context'], {
+          'fileName': ['AGENTS.md', 'GEMINI.md'],
+        });
       });
+    });
 
-      test('reports a name the loader would refuse instead of writing it', () {
-        // Gemini's schema accepts ^[a-z0-9_-]+$; anything else is not loaded,
-        // so writing the file would look like success and do nothing.
-        final result = translate(
-          pluginAssets(agents: [agentAsset('Code Reviewer!')]),
-        );
+    test('gives an agent the frontmatter the loader requires', () {
+      final fields = translator.agent(
+        agentAsset('reviewer', description: 'reviews: code'),
+        instructions: 'x',
+      );
 
-        expect(
-          result.changes.map((c) => c.file.path),
-          isNot(contains(contains('agents/'))),
-        );
-        expect(result.notes.single.subject, 'agent Code Reviewer!');
+      expect(frontmatterValues(fields['frontmatter']), {
+        'name': 'reviewer',
+        'description': 'reviews: code',
       });
     });
 
     group('commands', () {
-      test('writes TOML that parses back as TOML', () {
-        // Bodies are whole markdown documents full of quotes and backticks.
-        final result = translate(
-          pluginAssets(
-            skills: [
-              skillAsset(
-                fs,
-                'green-gate',
-                body: 'Run `dart analyze`.\nHe said "go".\n',
-              ),
-            ],
-          ),
-        );
+      test('are TOML that parses back', () {
+        final toml =
+            translator.command(
+                  skillAsset(fs, 'plan', body: 'Say "hi" to `you` \\n\n'),
+                )['toml']!
+                as String;
 
-        final parsed = TomlDocument.parse(
-          at(result, 'green-gate.toml').contents,
-        ).toMap();
-
-        expect(parsed['description'], 'what it does');
-        expect(parsed['prompt'], contains('He said "go".'));
+        expect(TomlDocument.parse(toml).toMap(), {
+          'description': 'what it does',
+          'prompt': 'Say "hi" to `you` \\n\n',
+        });
       });
 
-      test('rewrites the argument placeholder to Gemini syntax', () {
-        final result = translate(
-          pluginAssets(
-            skills: [skillAsset(fs, 'plan', body: r'Plan $ARGUMENTS now.')],
-          ),
-        );
-
-        final contents = at(result, 'plan.toml').contents;
-
-        expect(contents, contains('{{args}}'));
-        expect(contents, isNot(contains(r'$ARGUMENTS')));
-      });
-
-      test('writes no command for a skill that is not user invocable', () {
-        final result = translate(
-          pluginAssets(
-            skills: [skillAsset(fs, 'elements-of-style', userInvocable: false)],
-          ),
-        );
+      test('spell the argument placeholder the Gemini way', () {
+        final toml =
+            translator.command(
+                  skillAsset(fs, 'plan', body: r'Plan $ARGUMENTS now.'),
+                )['toml']!
+                as String;
 
         expect(
-          result.changes.map((c) => c.file.path),
-          isNot(contains(contains('commands/'))),
+          TomlDocument.parse(toml).toMap()['prompt'],
+          'Plan {{args}} now.',
+        );
+      });
+    });
+
+    group('notes', () {
+      test('report a name the agent loader would refuse', () {
+        final notes = translator.notes(
+          pluginAssets(agents: [agentAsset('Reviewer.v2')]),
+        );
+
+        expect(notes.single.subject, 'agent Reviewer.v2');
+        expect(notes.single.reason, contains('will ignore this one'));
+      });
+
+      test('report that hooks are Claude-only, once', () {
+        final notes = translator.notes(
+          pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
+        );
+
+        expect(notes.single.subject, '2 hook(s)');
+        expect(notes.single.reason, contains('Gemini gets none for now'));
+      });
+
+      test('are empty when everything translates', () {
+        expect(
+          translator.notes(pluginAssets(agents: [agentAsset('reviewer')])),
+          isEmpty,
         );
       });
     });
