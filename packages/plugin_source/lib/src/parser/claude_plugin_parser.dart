@@ -208,32 +208,28 @@ class const ClaudePluginParser() implements PluginParser {
     return commands;
   }
 
-  Map<String, MCPServer> _readMcpServers(File mcpFile) {
-    if (!mcpFile.existsSync()) return const {};
+  List<MCPServer> _readMcpServers(File mcpFile) {
+    if (!mcpFile.existsSync()) return const [];
 
     final servers = _readJsonObject(mcpFile).child('mcpServers');
-    if (servers == null) return const {};
+    if (servers == null) return const [];
 
-    final result = <String, MCPServer>{};
-    for (final entry in servers.entries) {
-      // Anything that is not an object (e.g. a bare string) is not a server
-      // declaration and is skipped.
-      final config = servers.child(entry.key);
-      if (config == null) continue;
-
-      final server = _mcpServer(config);
-      if (server != null) result[entry.key] = server;
-    }
-    return result;
+    return [
+      for (final name in servers.entries.map((entry) => entry.key))
+        // Anything that is not an object (e.g. a bare string) is not a server
+        // declaration and is skipped.
+        if (servers.child(name) case final config?) ?_mcpServer(name, config),
+    ];
   }
 
   /// Discriminates a server declaration by shape: a `url` makes it remote, a
   /// `command` makes it local. A declaration with neither is not a valid MCP
   /// server, so it is dropped ([MCPServer] has no unknown variant).
-  MCPServer? _mcpServer(ConfigMap config) {
+  MCPServer? _mcpServer(String name, ConfigMap config) {
     final url = config.string('url');
     if (url != null) {
       return RemoteMCPServer(
+        name: name,
         url: url,
         headers: _stringMap(config.child('headers')),
       );
@@ -242,6 +238,7 @@ class const ClaudePluginParser() implements PluginParser {
     final command = config.string('command');
     if (command != null) {
       return LocalMCPServer(
+        name: name,
         command: command,
         args: config.stringList('args'),
         env: _stringMap(config.child('env')),

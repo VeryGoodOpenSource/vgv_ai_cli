@@ -66,6 +66,6 @@ PluginAssets pluginAssets({
 }) => PluginAssets(
   skills: skills,
   agents: agents,
-  mcpServers: const {},
+  mcpServers: const [],
   hooks: hooks,
 );

@@ -9,7 +9,7 @@ import 'package:plugin_source/src/model/skill_asset.dart';
 class const PluginAssets({
   required final List<SkillAsset> skills,
   required final List<AgentAsset> agents,
-  required final Map<String, MCPServer> mcpServers,
+  required final List<MCPServer> mcpServers,
   final List<HookAsset> hooks = const [],
 }) {
   /// Combines what several plugins contribute into one [PluginAssets].
@@ -19,17 +19,17 @@ class const PluginAssets({
     final agents = [for (final a in assets) ...a.agents]
       ..sort((a, b) => a.name.compareTo(b.name));
 
+    // First declaration wins, so a server two plugins share is configured once.
     final mcpServers = <String, MCPServer>{};
-    for (final entry in assets) {
-      for (final MapEntry(:key, :value) in entry.mcpServers.entries) {
-        mcpServers.putIfAbsent(key, () => value);
-      }
+    for (final server in [for (final a in assets) ...a.mcpServers]) {
+      mcpServers.putIfAbsent(server.name, () => server);
     }
 
     return PluginAssets(
       skills: skills,
       agents: agents,
-      mcpServers: mcpServers,
+      mcpServers: mcpServers.values.toList()
+        ..sort((a, b) => a.name.compareTo(b.name)),
       hooks: [for (final a in assets) ...a.hooks],
     );
   }

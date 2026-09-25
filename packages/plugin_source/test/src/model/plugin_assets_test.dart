@@ -28,7 +28,7 @@ HookAsset _hook(String plugin) => HookAsset(
 PluginAssets _assets({
   List<SkillAsset> skills = const [],
   List<AgentAsset> agents = const [],
-  Map<String, MCPServer> mcpServers = const {},
+  List<MCPServer> mcpServers = const [],
   List<HookAsset> hooks = const [],
 }) => PluginAssets(
   skills: skills,
@@ -105,20 +105,30 @@ void main() {
 
     test('combines MCP servers declared by different plugins', () {
       final merged = PluginAssets.merge([
-        _assets(mcpServers: {'dart': const LocalMCPServer(command: 'dart')}),
-        _assets(mcpServers: {'cli': const LocalMCPServer(command: 'vg')}),
+        _assets(
+          mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+        ),
+        _assets(
+          mcpServers: [const LocalMCPServer(name: 'cli', command: 'vg')],
+        ),
       ]);
 
-      expect(merged.mcpServers.keys, {'dart', 'cli'});
+      // Sorted by name, like skills and agents.
+      expect(merged.mcpServers.map((server) => server.name), ['cli', 'dart']);
     });
 
     test('keeps the first declaration when two plugins claim one name', () {
       final merged = PluginAssets.merge([
-        _assets(mcpServers: {'dart': const LocalMCPServer(command: 'first')}),
-        _assets(mcpServers: {'dart': const LocalMCPServer(command: 'second')}),
+        _assets(
+          mcpServers: [const LocalMCPServer(name: 'dart', command: 'first')],
+        ),
+        _assets(
+          mcpServers: [const LocalMCPServer(name: 'dart', command: 'second')],
+        ),
       ]);
 
-      expect((merged.mcpServers['dart']! as LocalMCPServer).command, 'first');
+      expect(merged.mcpServers, hasLength(1));
+      expect((merged.mcpServers.single as LocalMCPServer).command, 'first');
     });
 
     test('merges nothing into an empty view', () {

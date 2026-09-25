@@ -10,7 +10,10 @@
 /// {@endtemplate}
 sealed class MCPServer {
   /// {@macro mcp_server}
-  const new();
+  const new({required this.name});
+
+  /// The name the plugin declares the server under, unique across plugins.
+  final String name;
 }
 
 /// {@template local_mcp_server}
@@ -18,7 +21,12 @@ sealed class MCPServer {
 /// {@endtemplate}
 final class LocalMCPServer extends MCPServer {
   /// {@macro local_mcp_server}
-  const new({required this.command, this.args = const [], this.env = const {}});
+  const new({
+    required super.name,
+    required this.command,
+    this.args = const [],
+    this.env = const {},
+  });
 
   /// The executable to launch.
   final String command;
@@ -35,7 +43,7 @@ final class LocalMCPServer extends MCPServer {
 /// {@endtemplate}
 final class RemoteMCPServer extends MCPServer {
   /// {@macro remote_mcp_server}
-  const new({required this.url, this.headers = const {}});
+  const new({required super.name, required this.url, this.headers = const {}});
 
   /// The endpoint the server is reached at.
   final String url;

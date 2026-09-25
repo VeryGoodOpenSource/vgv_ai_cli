@@ -215,8 +215,19 @@ void main() {
   });
 
   group('mcpServers', () {
+    MCPServer? server(String name) =>
+        assets.mcpServers.where((server) => server.name == name).singleOrNull;
+
+    test('names each server by its key in .mcp.json', () {
+      expect(assets.mcpServers.map((server) => server.name), [
+        'dart',
+        'context7',
+        'authed',
+      ]);
+    });
+
     test('reads a local (stdio) server with args and env', () {
-      final dart = assets.mcpServers['dart'];
+      final dart = server('dart');
 
       expect(dart, isA<LocalMCPServer>());
       final local = dart! as LocalMCPServer;
@@ -226,7 +237,7 @@ void main() {
     });
 
     test('reads a remote (url) server, defaulting headers to empty', () {
-      final context7 = assets.mcpServers['context7'];
+      final context7 = server('context7');
 
       expect(context7, isA<RemoteMCPServer>());
       final remote = context7! as RemoteMCPServer;
@@ -235,20 +246,20 @@ void main() {
     });
 
     test('reads the headers of a remote server', () {
-      final authed = assets.mcpServers['authed']! as RemoteMCPServer;
+      final authed = server('authed')! as RemoteMCPServer;
 
       expect(authed.url, 'https://mcp.example.com/mcp');
       expect(authed.headers, {'Authorization': 'Bearer token'});
     });
 
     test('skips an entry that is not an object', () {
-      expect(assets.mcpServers.keys, isNot(contains('ignored')));
+      expect(server('ignored'), isNull);
     });
 
     test('skips a declaration that is neither local nor remote', () {
       // No `url` and no `command`: not a valid MCP server, and the union has
       // no unknown fallback, so it is dropped.
-      expect(assets.mcpServers.keys, isNot(contains('broken')));
+      expect(server('broken'), isNull);
     });
 
     test('is empty when the plugin has no .mcp.json', () {

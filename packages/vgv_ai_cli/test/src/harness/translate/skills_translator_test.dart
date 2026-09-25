@@ -47,7 +47,7 @@ void main() {
         assets: PluginAssets(
           skills: skills,
           agents: const [],
-          mcpServers: const {},
+          mcpServers: const [],
         ),
         home: home,
       );

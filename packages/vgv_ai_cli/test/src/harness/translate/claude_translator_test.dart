@@ -33,7 +33,7 @@ void main() {
     agents: const [
       AgentAsset(name: 'reviewer', description: 'd', body: 'b', skills: []),
     ],
-    mcpServers: const {},
+    mcpServers: const [],
   );
 
   group('ClaudeTranslator', () {
