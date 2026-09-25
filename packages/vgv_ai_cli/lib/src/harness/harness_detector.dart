@@ -34,8 +34,10 @@ class HarnessDetection {
 /// {@endtemplate}
 class HarnessDetector {
   /// {@macro harness_detector}
-  new({RunProcess? runProcess, this._timeout = const Duration(seconds: 5)})
-    : _runProcess = runProcess ?? Process.run;
+  const new({
+    RunProcess? runProcess,
+    this._timeout = const Duration(seconds: 5),
+  }) : _runProcess = runProcess ?? Process.run;
 
   /// Matches the first `x.y.z` in a version banner.
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
