@@ -12,6 +12,13 @@ class _DeepMergeResult({
   required final bool declined,
 });
 
+/// {@template reconciler}
+/// Applies a [PlannedChange] to disk according to its [ChangeMode].
+///
+/// Without [force], a merge never replaces a value the user set, and a TOML
+/// merge never re-serializes the user's file. With [dryRun], nothing is
+/// written and each write is logged instead, but the outcome is the same.
+/// {@endtemplate}
 class const Reconciler({
   required final Logger logger,
   final JsonEncoder encoder = const JsonEncoder.withIndent('  '),
@@ -31,14 +38,14 @@ class const Reconciler({
         change.contents,
         decode: _decodeJson,
         encode: _encodeJson,
-        overwrite: force,
+        rewrite: (_, _, merged) => _encodeJson(merged),
       ),
       ChangeMode.mergeToml => _mergeDocument(
         original,
         change.contents,
         decode: _decodeToml,
         encode: _encodeToml,
-        overwrite: true,
+        rewrite: _rewriteToml,
       ),
       ChangeMode.mergeMarkdown => _Merge(
         contents: _mergeBlock(original, change.contents),
@@ -63,18 +70,27 @@ class const Reconciler({
         ..renameSync(file.path);
     }
 
-    return existed
-        ? AppliedChange.updated(change: change)
-        : AppliedChange.created(change: change);
+    if (!existed) return AppliedChange.created(change: change);
+    return merge.declined
+        ? AppliedChange.partial(change: change)
+        : AppliedChange.updated(change: change);
   }
 
   /// Merges [incoming] into [original] using one format's codec.
+  ///
+  /// [rewrite] turns the merged document back into the file's contents, or
+  /// returns null when it cannot do so without losing what the user wrote.
   _Merge _mergeDocument(
     String original,
     String incoming, {
     required Map<String, dynamic>? Function(String) decode,
     required String Function(Map<String, dynamic>) encode,
-    required bool overwrite,
+    required String? Function(
+      String original,
+      Map<String, dynamic> existing,
+      Map<String, dynamic> merged,
+    )
+    rewrite,
   }) {
     final addition = decode(incoming);
     if (addition == null) return _Merge(contents: original, declined: true);
@@ -86,16 +102,63 @@ class const Reconciler({
     final existing = decode(original);
     if (existing == null) return _Merge(contents: original, declined: true);
 
-    final deepMerged = _deepMerge(existing, addition, overwrite: overwrite);
+    final deepMerged = _deepMerge(existing, addition, overwrite: force);
 
     if (deepEquality.equals(existing, deepMerged.merged)) {
       return _Merge(contents: original, declined: deepMerged.declined);
     }
 
-    return _Merge(
-      contents: encode(deepMerged.merged),
-      declined: deepMerged.declined,
-    );
+    final contents = rewrite(original, existing, deepMerged.merged);
+    if (contents == null) return _Merge(contents: original, declined: true);
+
+    return _Merge(contents: contents, declined: deepMerged.declined);
+  }
+
+  /// Appends what [merged] adds to [original] as TOML text, so the user's
+  /// comments and layout survive.
+  ///
+  /// The append is kept only when it parses back to exactly [merged]. A merge
+  /// that edits a value or an inline array cannot be appended, and
+  /// re-serializing drops every comment, so it happens only when forced.
+  String? _rewriteToml(
+    String original,
+    Map<String, dynamic> existing,
+    Map<String, dynamic> merged,
+  ) {
+    final additions = _encodeToml(_missing(existing, merged));
+    final appended = '${original.trimRight()}\n\n$additions';
+    if (deepEquality.equals(_decodeToml(appended), merged)) return appended;
+    return force ? _encodeToml(merged) : null;
+  }
+
+  /// What [target] holds that [base] does not: every absent key, and the
+  /// entries a list gained. [target] is a merge of [base], so a list it
+  /// shares with [base] starts with [base]'s entries.
+  Map<String, dynamic> _missing(
+    Map<String, dynamic> base,
+    Map<String, dynamic> target,
+  ) {
+    final missing = <String, dynamic>{};
+    for (final MapEntry(:key, :value) in target.entries) {
+      if (!base.containsKey(key)) {
+        missing[key] = value;
+        continue;
+      }
+      final gap = switch ((base[key], value)) {
+        (
+          final Map<dynamic, dynamic> existing,
+          final Map<dynamic, dynamic> added,
+        ) =>
+          _missing(existing.cast(), added.cast()),
+        (final List<dynamic> existing, final List<dynamic> added) =>
+          added.sublist(existing.length),
+        _ => const <Object>[],
+      };
+      if (gap case Map(isNotEmpty: true) || List(isNotEmpty: true)) {
+        missing[key] = gap;
+      }
+    }
+    return missing;
   }
 
   /// Opens the section of a markdown file that VGV manages.

@@ -11,8 +11,8 @@ environment:
 dependencies:
   args: ^2.7.0
   cli_completion: ^0.6.0
-  equatable: ^2.0.7
   collection: ^1.19.1
+  equatable: ^2.0.7
   file: ^7.0.1
   mason: ^0.1.0
   mason_logger: ^0.3.5

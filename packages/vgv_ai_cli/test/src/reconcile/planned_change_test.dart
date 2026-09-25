@@ -80,6 +80,13 @@ void main() {
       );
     });
 
+    test('partial', () {
+      expect(
+        AppliedChange.partial(change: change).outcome,
+        ChangeOutcome.partial,
+      );
+    });
+
     test('skipped', () {
       expect(
         AppliedChange.skipped(change: change).outcome,

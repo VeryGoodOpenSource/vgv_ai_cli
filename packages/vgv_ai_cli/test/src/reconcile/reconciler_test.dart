@@ -182,6 +182,24 @@ void main() {
         expect(readJson(target)['model'], 'y');
       });
 
+      test('reports a write that kept a user value as partial', () {
+        final target = seed(
+          '.gemini/settings.json',
+          jsonEncode({'model': 'x'}),
+        );
+
+        final applied = Reconciler(logger: logger).apply(
+          change(
+            target,
+            jsonEncode({'model': 'y', 'added': true}),
+            ChangeMode.mergeJson,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.partial);
+        expect(readJson(target), {'model': 'x', 'added': true});
+      });
+
       test('leaves an unparseable file alone rather than discarding it', () {
         final target = seed('.claude/settings.json', '{ not json');
 
@@ -371,11 +389,9 @@ void main() {
         expect(result['loose'], 'value');
       });
 
-      test('overwrites a value the user edited', () {
-        final target = seed(
-          '.codex/config.toml',
-          '[mcp_servers.dart]\ncommand = "custom"\n',
-        );
+      test('keeps a value the user edited', () {
+        const edited = '[mcp_servers.dart]\ncommand = "custom"\n';
+        final target = seed('.codex/config.toml', edited);
 
         final applied = Reconciler(logger: logger).apply(
           change(
@@ -385,19 +401,17 @@ void main() {
           ),
         );
 
-        expect((readToml(target)['mcp_servers'] as Map)['dart'], {
-          'command': 'dart',
-        });
-        expect(applied.outcome, ChangeOutcome.updated);
+        expect(applied.outcome, ChangeOutcome.skipped);
+        expect(target.readAsStringSync(), edited);
       });
 
-      test('keeps unrelated keys the user added', () {
+      test('overwrites a value the user edited when forced', () {
         final target = seed(
           '.codex/config.toml',
           '[mcp_servers.dart]\ncommand = "custom"\nextra = "mine"\n',
         );
 
-        Reconciler(logger: logger).apply(
+        final applied = Reconciler(logger: logger, force: true).apply(
           change(
             target,
             '[mcp_servers.dart]\ncommand = "dart"',
@@ -408,6 +422,94 @@ void main() {
         expect((readToml(target)['mcp_servers'] as Map)['dart'], {
           'command': 'dart',
           'extra': 'mine',
+        });
+        expect(applied.outcome, ChangeOutcome.updated);
+      });
+
+      test("keeps the user's comments when it adds a table", () {
+        const original =
+            '# My Codex setup\n'
+            'model = "gpt" # the fast one\n'
+            '\n'
+            '[mcp_servers.mine]\n'
+            'url = "https://example.com"\n';
+        final target = seed('.codex/config.toml', original);
+
+        final applied = Reconciler(logger: logger).apply(
+          change(
+            target,
+            '[mcp_servers.dart]\ncommand = "dart"',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(target.readAsStringSync(), startsWith(original));
+        expect((readToml(target)['mcp_servers'] as Map).keys, ['mine', 'dart']);
+      });
+
+      test('adds a table and reports the value it kept as partial', () {
+        final target = seed(
+          '.codex/config.toml',
+          '# mine\n[mcp_servers.dart]\ncommand = "custom"\n',
+        );
+
+        final applied = Reconciler(logger: logger).apply(
+          change(
+            target,
+            '[mcp_servers.dart]\ncommand = "dart"\n'
+            '[mcp_servers.gh]\ncommand = "gh"',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.partial);
+        expect(target.readAsStringSync(), startsWith('# mine\n'));
+        expect(readToml(target)['mcp_servers'], {
+          'dart': {'command': 'custom'},
+          'gh': {'command': 'gh'},
+        });
+      });
+
+      test('skips a merge that would have to rewrite the file', () {
+        const original = '# mine\n[mcp_servers.dart]\nargs = ["a"]\n';
+        final target = seed('.codex/config.toml', original);
+
+        final applied = Reconciler(logger: logger).apply(
+          change(
+            target,
+            '[mcp_servers.dart]\nargs = ["b"]',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(
+          applied.outcome,
+          ChangeOutcome.skipped,
+          reason:
+              'growing an inline array means re-serializing the file, '
+              "which would drop the user's comments",
+        );
+        expect(target.readAsStringSync(), original);
+      });
+
+      test('rewrites the file when forced', () {
+        final target = seed(
+          '.codex/config.toml',
+          '# mine\n[mcp_servers.dart]\nargs = ["a"]\n',
+        );
+
+        final applied = Reconciler(logger: logger, force: true).apply(
+          change(
+            target,
+            '[mcp_servers.dart]\nargs = ["b"]',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect((readToml(target)['mcp_servers'] as Map)['dart'], {
+          'args': ['a', 'b'],
         });
       });
 
@@ -541,6 +643,7 @@ void main() {
 
         expect(applied.outcome, ChangeOutcome.updated);
         expect(jsonDecode(target.readAsStringSync()), {'model': 'x'});
+        verify(() => logger.detail('Would write ${target.path}')).called(1);
       });
 
       test('creates nothing for a new file', () {
@@ -553,6 +656,7 @@ void main() {
 
         expect(applied.outcome, ChangeOutcome.created);
         expect(target.existsSync(), isFalse);
+        verify(() => logger.detail('Would write ${target.path}')).called(1);
       });
     });
 
