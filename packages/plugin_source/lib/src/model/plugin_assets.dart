@@ -12,15 +12,7 @@ class const PluginAssets({
   required final Map<String, MCPServer> mcpServers,
   final List<HookAsset> hooks = const [],
 }) {
-  /// Combines what several plugins contribute into one view.
-  ///
-  /// Translators consume one [PluginAssets], not a list, so the question
-  /// "which plugin did this come from" is answered once here rather than in
-  /// every translator. Skills and agents are re-sorted by name so the merged
-  /// order does not depend on which plugin resolved first.
-  ///
-  /// On an MCP server name declared by two plugins the first wins, matching
-  /// how the harnesses themselves resolve a duplicate server key.
+  /// Combines what several plugins contribute into one [PluginAssets].
   factory merge(Iterable<PluginAssets> assets) {
     final skills = [for (final a in assets) ...a.skills]
       ..sort((a, b) => a.name.compareTo(b.name));
@@ -43,10 +35,6 @@ class const PluginAssets({
   }
 
   /// The skills a user can invoke as a command.
-  ///
-  /// Which skills become commands is a property of the skill, not of any
-  /// harness, so it is answered once here rather than filtered identically in
-  /// every translator.
   List<SkillAsset> get invocableSkills => [
     for (final skill in skills)
       if (skill.userInvocable) skill,

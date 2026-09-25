@@ -18,13 +18,13 @@ const _translators = <HarnessTranslator>[
 ];
 
 /// Every fragment the brick renders, so no translator reports one missing.
-const StagedOutput _staged = {
-  StagedPaths.claudeSettings: '{"enabledPlugins":{}}',
-  StagedPaths.geminiSettings: '{"mcpServers":{}}',
-  StagedPaths.codexConfig: '[mcp_servers.dart]\ncommand = "dart"\n',
-  StagedPaths.openCodeConfig: '{"mcp":{}}',
-  StagedPaths.piSettings: '{"skills":[]}',
-};
+final _staged = StagedOutput({
+  StagedFragment.claudeSettings.path: '{"enabledPlugins":{}}',
+  StagedFragment.geminiSettings.path: '{"mcpServers":{}}',
+  StagedFragment.codexConfig.path: '[mcp_servers.dart]\ncommand = "dart"\n',
+  StagedFragment.openCodeConfig.path: '{"mcp":{}}',
+  StagedFragment.piSettings.path: '{"skills":[]}',
+});
 
 void main() {
   late FileSystem fs;

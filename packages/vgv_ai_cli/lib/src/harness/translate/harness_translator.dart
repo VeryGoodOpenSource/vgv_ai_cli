@@ -30,7 +30,7 @@ abstract class HarnessTranslator {
     required StagedOutput staged,
   });
 
-  /// The brick fragment rendered at [path].
+  /// The contents the brick rendered for [fragment].
   ///
   /// Appends a [TranslationNote] and returns null when the brick rendered no
   /// such file, which means this harness was not selected when it ran. Each
@@ -38,16 +38,16 @@ abstract class HarnessTranslator {
   /// so this stays one branch rather than a switch over every mode.
   String? stagedContents({
     required StagedOutput staged,
-    required String path,
+    required StagedFragment fragment,
     required File target,
     required List<TranslationNote> notes,
   }) {
-    final contents = staged[path];
+    final contents = staged[fragment];
     if (contents != null) return contents;
 
     notes.add(
       TranslationNote(
-        subject: path,
+        subject: fragment.path,
         reason:
             'the agents brick rendered no such file, so ${target.path} was '
             'left alone',

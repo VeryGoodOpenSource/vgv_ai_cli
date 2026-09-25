@@ -9,16 +9,18 @@ final _section = RegExp(r'\{\{[#/][a-z]+\}\}');
 String _stripSections(String path) => path.replaceAll(_section, '');
 
 void main() {
-  group('StagedPaths', () {
+  final claimed = StagedFragment.values.map((f) => f.path).toSet();
+
+  group('StagedFragment', () {
     final rendered = agentsBundle.files
         .map((f) => _stripSections(f.path))
         .toSet();
 
-    test('every constant names a path the brick actually renders', () {
-      // Plain string constants cannot be checked at compile time, so this is
-      // what catches a rename in bricks/agents/__brick__ before a harness
-      // silently gets no settings.
-      expect(rendered, containsAll(StagedPaths.values));
+    test('every fragment names a path the brick actually renders', () {
+      // Nothing ties the enum to the brick at compile time, so this is what
+      // catches a rename in bricks/agents/__brick__ before a harness silently
+      // gets no settings.
+      expect(rendered, containsAll(claimed));
     });
 
     test('every config path the brick renders is claimed by a translator', () {
@@ -34,7 +36,7 @@ void main() {
         '{{~ agents.md }}',
       };
 
-      expect(rendered.difference(StagedPaths.values.toSet()), instructionFiles);
+      expect(rendered.difference(claimed), instructionFiles);
     });
   });
 }

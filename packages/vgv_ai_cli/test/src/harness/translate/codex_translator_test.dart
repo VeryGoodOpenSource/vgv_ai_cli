@@ -11,9 +11,9 @@ import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
-const StagedOutput _staged = {
-  StagedPaths.codexConfig: '[mcp_servers.dart]\ncommand = "dart"\n',
-};
+final _staged = StagedOutput({
+  StagedFragment.codexConfig.path: '[mcp_servers.dart]\ncommand = "dart"\n',
+});
 
 void main() {
   late FileSystem fs;
@@ -48,8 +48,11 @@ void main() {
 
     test('reports an absent config fragment', () {
       expect(
-        translate(pluginAssets(), staged: const {}).notes.single.subject,
-        StagedPaths.codexConfig,
+        translate(
+          pluginAssets(),
+          staged: const StagedOutput({}),
+        ).notes.single.subject,
+        StagedFragment.codexConfig.path,
       );
     });
 

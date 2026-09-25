@@ -11,7 +11,9 @@ import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
 
 import '_assets.dart';
 
-const StagedOutput _staged = {StagedPaths.geminiSettings: '{"mcpServers":{}}'};
+final _staged = StagedOutput({
+  StagedFragment.geminiSettings.path: '{"mcpServers":{}}',
+});
 
 void main() {
   late FileSystem fs;
@@ -45,10 +47,10 @@ void main() {
     });
 
     test('reports an absent settings fragment', () {
-      final result = translate(pluginAssets(), staged: const {});
+      final result = translate(pluginAssets(), staged: const StagedOutput({}));
 
       expect(result.changes, isEmpty);
-      expect(result.notes.single.subject, StagedPaths.geminiSettings);
+      expect(result.notes.single.subject, StagedFragment.geminiSettings.path);
     });
 
     group('agents', () {
