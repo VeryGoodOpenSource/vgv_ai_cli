@@ -39,29 +39,30 @@ class const Reconciler() {
     bool force = false,
     bool dryRun = false,
   }) {
-    final hashes = _loadManifest(manifest);
-    final recorded = {...hashes};
-    final run = _Run(force: force, dryRun: dryRun, hashes: recorded);
+    final existed = manifest.existsSync();
+    final loaded = _loadManifest(manifest, existed: existed);
+    final run = _Run(force: force, dryRun: dryRun, hashes: {...loaded});
 
     final applied = [for (final change in changes) run.guarded(change)];
-    if (dryRun || _deepEquality.equals(hashes, recorded)) return applied;
+    if (dryRun || _hashesEquality.equals(loaded, run.hashes)) return applied;
 
-    // The manifest is VGV's alone, so it is always forced, and what it
-    // records about itself goes nowhere.
-    final saved = _Run(force: true, dryRun: false, hashes: {}).guarded(
-      PlannedChange.text(
+    // The manifest is VGV's alone, so it is written outright.
+    final contents = _encodeJson(run.hashes);
+    try {
+      _write(manifest, utf8.encode(contents), existed: existed);
+      return applied;
+    } on FileSystemException catch (error) {
+      final change = PlannedChange.text(
         file: manifest,
-        contents: _encodeJson(recorded),
+        contents: contents,
         harness: null,
-      ),
-    );
-    return [...applied, if (saved.outcome == ChangeOutcome.failed) saved];
+      );
+      return [...applied, _failed(change, error)];
+    }
   }
 
-  Map<String, String> _loadManifest(File manifest) {
-    final decoded = manifest.existsSync()
-        ? _decodeJson(manifest.readAsStringSync())
-        : null;
+  Map<String, String> _loadManifest(File manifest, {required bool existed}) {
+    final decoded = existed ? _decodeJson(manifest.readAsStringSync()) : null;
     return {
       for (final MapEntry(:key, :value) in (decoded ?? const {}).entries)
         if (value is String) key: value,
@@ -72,6 +73,10 @@ class const Reconciler() {
 const _encoder = JsonEncoder.withIndent('  ');
 
 const _deepEquality = DeepCollectionEquality();
+
+const _bytesEquality = ListEquality<int>();
+
+const _hashesEquality = MapEquality<String, String>();
 
 typedef _Merge = ({String contents, _Held held});
 
@@ -104,11 +109,7 @@ class _Run {
     try {
       return _apply(change);
     } on FileSystemException catch (error) {
-      return AppliedChange(
-        change: change,
-        outcome: ChangeOutcome.failed,
-        error: [error.message, ?error.osError?.message].join(': '),
-      );
+      return _failed(change, error);
     }
   }
 
@@ -122,8 +123,10 @@ class _Run {
       final mode => _mergeText(mode, original, change.contents),
     };
 
-    final changed = !_deepEquality.equals(bytes, original);
-    if (changed && !dryRun) _write(file, bytes, source: change.source);
+    final changed = !_bytesEquality.equals(bytes, original);
+    if (changed && !dryRun) {
+      _write(file, bytes, existed: existed, source: change.source);
+    }
     if (change.mode == ChangeMode.own && held == _Held.nothing) {
       hashes[file.path] = _hash(bytes);
     }
@@ -153,7 +156,7 @@ class _Run {
     final ours =
         original == null ||
         force ||
-        _deepEquality.equals(original, change.bytes) ||
+        _bytesEquality.equals(original, change.bytes) ||
         hashes[change.file.path] == _hash(original);
     return ours
         ? (bytes: change.bytes, held: _Held.nothing)
@@ -191,30 +194,6 @@ class _Run {
       _ => (contents: _mergeBlock(text, incoming), held: _Held.nothing),
     };
     return (bytes: utf8.encode(merge.contents), held: merge.held);
-  }
-
-  /// Writes [bytes] to [file], through a symlink and keeping its permissions.
-  ///
-  /// The bytes go to a temporary file beside the target and are published by
-  /// rename, so an interrupted run cannot leave a half-written config behind.
-  /// The temporary file starts as a copy of the target, or of [source] when
-  /// there is no target yet, because a copy carries the file mode across.
-  void _write(File file, List<int> bytes, {File? source}) {
-    final target = file.existsSync()
-        ? file.fileSystem.file(file.resolveSymbolicLinksSync())
-        : file;
-    target.parent.createSync(recursive: true);
-    final temp = target.fileSystem.file('${target.path}.vgv-tmp');
-
-    try {
-      (target.existsSync() ? target : source)?.copySync(temp.path);
-      temp
-        ..writeAsBytesSync(bytes, flush: true)
-        ..renameSync(target.path);
-    } on FileSystemException {
-      if (temp.existsSync()) temp.deleteSync();
-      rethrow;
-    }
   }
 
   /// Merges [incoming] into [original] using one format's codec.
@@ -379,6 +358,38 @@ class _Run {
     return (merged: result, declined: declined);
   }
 }
+
+/// Writes [bytes] to [file], through a symlink and keeping its permissions.
+///
+/// The bytes go to a temporary file beside the target and are published by
+/// rename, so an interrupted run cannot leave a half-written config behind.
+/// The temporary file starts as a copy of the target, or of [source] when
+/// there is no target yet, because a copy carries the file mode across.
+void _write(File file, List<int> bytes, {required bool existed, File? source}) {
+  final target = existed
+      ? file.fileSystem.file(file.resolveSymbolicLinksSync())
+      : file;
+  target.parent.createSync(recursive: true);
+  final temp = target.fileSystem.file('${target.path}.vgv-tmp');
+
+  try {
+    (existed ? target : source)?.copySync(temp.path);
+    temp
+      ..writeAsBytesSync(bytes, flush: true)
+      ..renameSync(target.path);
+  } on FileSystemException {
+    if (temp.existsSync()) temp.deleteSync();
+    rethrow;
+  }
+}
+
+/// Reports [change] as failed with [error], rather than throwing it.
+AppliedChange _failed(PlannedChange change, FileSystemException error) =>
+    AppliedChange(
+      change: change,
+      outcome: ChangeOutcome.failed,
+      error: [error.message, ?error.osError?.message].join(': '),
+    );
 
 String _hash(List<int> bytes) => sha256.convert(bytes).toString();
 

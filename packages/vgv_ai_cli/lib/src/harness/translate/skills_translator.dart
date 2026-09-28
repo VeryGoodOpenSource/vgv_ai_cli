@@ -27,10 +27,9 @@ class const SkillsTranslator() {
       final target = root.fileSystem.directory(p.join(root.path, skill.name));
       changes
         ..add(
-          PlannedChange.text(
+          PlannedChange(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
-            contents: _skillDocument(skill)
-                .replaceAll(_claudeSkillDir, target.path),
+            bytes: _expandSkillDir(utf8.encode(_skillDocument(skill)), target),
             harness: null,
           ),
         )
@@ -112,17 +111,17 @@ class const SkillsTranslator() {
 
   /// [bytes] with [_claudeSkillDir] spelled out as [target]'s path.
   ///
-  /// A file that is not UTF-8 text, such as an image, is copied untouched.
+  /// Every file a skill ships goes through here, `SKILL.md` included, so this
+  /// is the one place that knows the variable. A file that is not UTF-8
+  /// text, such as an image, is copied untouched.
   List<int> _expandSkillDir(List<int> bytes, Directory target) {
-    final String text;
     try {
-      text = utf8.decode(bytes);
+      return utf8.encode(
+        utf8.decode(bytes).replaceAll(_claudeSkillDir, target.path),
+      );
     } on FormatException {
       return bytes;
     }
-    return text.contains(_claudeSkillDir)
-        ? utf8.encode(text.replaceAll(_claudeSkillDir, target.path))
-        : bytes;
   }
 
   /// Resolves [entity] to a readable file.

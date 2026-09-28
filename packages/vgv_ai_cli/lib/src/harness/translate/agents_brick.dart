@@ -34,6 +34,9 @@ class const AgentsBrick() {
   /// A backslash before a newline or a non-ASCII character in rendered
   /// output. Mason strips it, taking the shell line continuation in a prompt
   /// with it, so every such backslash in a value is doubled first.
+  ///
+  /// This mirrors `_sanitizeOutput` in mason's `lib/src/render.dart`, so
+  /// recheck it whenever the mason constraint moves.
   static final _strippedBackslash = RegExp(r'\\(?=\r|\n|[^\x00-\x7F])');
 
   /// [value] with every string in it guarded against [_strippedBackslash].
