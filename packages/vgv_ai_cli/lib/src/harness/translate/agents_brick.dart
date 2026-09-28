@@ -24,9 +24,28 @@ class const AgentsBrick() {
       ],
     );
     final target = _MemoryTarget();
-    await generator.generate(target, vars: vars);
+    await generator.generate(
+      target,
+      vars: _escaped(vars) as Map<String, dynamic>,
+    );
     return target.files;
   }
+
+  /// A backslash before a newline or a non-ASCII character in rendered
+  /// output. Mason strips it, taking the shell line continuation in a prompt
+  /// with it, so every such backslash in a value is doubled first.
+  static final _strippedBackslash = RegExp(r'\\(?=\r|\n|[^\x00-\x7F])');
+
+  /// [value] with every string in it guarded against [_strippedBackslash].
+  static dynamic _escaped(dynamic value) => switch (value) {
+    final String text => text.replaceAll(_strippedBackslash, r'\\'),
+    final Map<String, dynamic> map => {
+      for (final MapEntry(:key, value: entry) in map.entries)
+        key: _escaped(entry),
+    },
+    final List<dynamic> list => [for (final entry in list) _escaped(entry)],
+    _ => value,
+  };
 }
 
 class _MemoryTarget implements GeneratorTarget {

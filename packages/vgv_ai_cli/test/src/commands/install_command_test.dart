@@ -1,24 +1,28 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 
-import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:plugin_source/plugin_source.dart';
+import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
 
 class _MockProgress extends Mock implements Progress;
 
 class _MockDetector extends Mock implements HarnessDetector;
+
+class _MockPubUpdater extends Mock implements PubUpdater;
 
 class _FakeSource extends PluginSource {
   const new(this.resolution);
@@ -36,6 +40,14 @@ class _FakeParser implements PluginParser {
 
   @override
   PluginAssets parse(Directory root) => assets;
+}
+
+class _ThrowingParser implements PluginParser {
+  const new();
+
+  @override
+  PluginAssets parse(Directory root) =>
+      throw const PluginParseException('/plugin/agents/a.md', 'bad name');
 }
 
 /// A [Translator] whose results are supplied per test, and which records
@@ -92,6 +104,7 @@ void main() {
     late FileSystem fs;
     late Directory home;
     late _FakeTranslator translator;
+    late PubUpdater pubUpdater;
 
     setUp(() {
       logger = _MockLogger();
@@ -100,27 +113,37 @@ void main() {
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
       translator = _FakeTranslator();
+      pubUpdater = _MockPubUpdater();
 
       when(() => logger.progress(any())).thenReturn(progress);
+      when(() => pubUpdater.getLatestVersion(any()))
+          .thenAnswer((_) async => packageVersion);
     });
 
-    Future<int?> runInstall(
+    Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
+        VgvAiCliCommandRunner(
+          logger: logger,
+          pubUpdater: pubUpdater,
+          installCommand: command,
+        ).run(['install', ...args]);
+
+    Future<int> runInstall(
       List<String> args, {
       PluginSource? source,
+      PluginParser? parser,
       Translator? using,
-    }) {
-      final command = InstallCommand(
+    }) => runThroughRunner(
+      InstallCommand(
         logger: logger,
         home: home,
         detector: detector,
         pluginSource:
             source ?? _FakeSource(ResolvedPlugin(fs.directory('/plugin'))),
-        parser: _FakeParser(_assets(fs)),
+        parser: parser ?? _FakeParser(_assets(fs)),
         translator: using ?? translator,
-      );
-      final runner = CommandRunner<int>('test', 'test')..addCommand(command);
-      return runner.run(['install', ...args]);
-    }
+      ),
+      args,
+    );
 
     File homeFile(String relativePath) =>
         fs.file(fs.path.join(home.path, relativePath));
@@ -129,7 +152,7 @@ void main() {
       Harness? harness,
       String relativePath,
       String contents,
-    ) => PlannedChange(
+    ) => PlannedChange.text(
       file: homeFile(relativePath),
       contents: contents,
       harness: harness,
@@ -185,6 +208,16 @@ void main() {
             .called(1);
       });
 
+      test('an unknown --only harness is a usage error', () async {
+        final exitCode = await runInstall(['--only', 'bogus']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(any(that: contains('"bogus" is not an allowed'))),
+        ).called(1);
+      });
+
       test('an empty selection is a usage error', () async {
         detectAll(const []);
 
@@ -216,6 +249,21 @@ void main() {
           verify(() => logger.err('  - no git')).called(1);
         },
       );
+
+      test('aborts with unavailable when a plugin cannot be parsed', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+        ], parser: const _ThrowingParser());
+
+        expect(exitCode, ExitCode.unavailable.code);
+        expect(translator.selected, isNull);
+        verify(() => progress.fail(any(that: contains('Could not parse'))))
+            .called(1);
+        verify(
+          () => logger.err('  - Could not parse /plugin/agents/a.md: bad name'),
+        ).called(1);
+      });
 
       test('merges every plugin and translates the result', () async {
         await runInstall(['--only', 'codex']);
@@ -267,8 +315,14 @@ void main() {
         expect(homeFile('.codex/agents/b.toml').readAsStringSync(), 'b');
         verify(() => logger.info('  Shared: 1 file(s)')).called(1);
         verify(() => logger.info('  Codex: 2 file(s)')).called(1);
-        verify(() => logger.info(any(that: contains('vgv_ai doctor'))))
-            .called(1);
+        verify(
+          () => logger.detail('Wrote ${homeFile('.codex/agents/b.toml').path}'),
+        ).called(1);
+        verify(
+          () => logger.info(
+            '\nRestart your coding agents to pick up the changes.',
+          ),
+        ).called(1);
       });
 
       test('--check writes nothing', () async {
@@ -282,9 +336,84 @@ void main() {
 
         expect(exitCode, ExitCode.success.code);
         expect(homeFile('.claude/a.md').existsSync(), isFalse);
+        verify(
+          () => logger.detail('Would write ${homeFile('.claude/a.md').path}'),
+        ).called(1);
         verify(() => logger.info('  Claude Code: 1 file(s)')).called(1);
         verify(() => logger.info(any(that: contains('nothing was written'))))
             .called(1);
+      });
+
+      test('exits with an I/O error when a file cannot be written', () async {
+        fs.directory(homeFile('.claude/a.md').path).createSync(recursive: true);
+        translator.results = {
+          Harness.claude: TranslationResult(
+            changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+          ),
+        };
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Could not write ${homeFile('.claude/a.md').path}: ',
+              ),
+            ),
+          ),
+        ).called(1);
+      });
+
+      test('warns about a config it cannot parse, without --force', () async {
+        homeFile('.gemini/settings.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{ // mine\n}');
+        translator.results = {
+          Harness.gemini: TranslationResult(
+            changes: [
+              PlannedChange.text(
+                file: homeFile('.gemini/settings.json'),
+                contents: '{"a": 1}',
+                harness: Harness.gemini,
+                mode: ChangeMode.mergeJson,
+              ),
+            ],
+          ),
+        };
+
+        final exitCode = await runInstall(['--only', 'gemini']);
+
+        expect(exitCode, ExitCode.success.code);
+        verify(
+          () => logger.warn(
+            any(that: contains('could not be parsed. If it has comments')),
+          ),
+        ).called(1);
+        verifyNever(() => logger.info(any(that: contains('--force'))));
+      });
+
+      test('keeps a file of the user where VGV owns one', () async {
+        homeFile('.codex/prompts/plan.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('mine');
+        translator.results = {
+          Harness.codex: TranslationResult(
+            changes: [
+              ownChange(Harness.codex, '.codex/prompts/plan.md', 'vgv'),
+            ],
+          ),
+        };
+
+        await runInstall(['--only', 'codex']);
+
+        expect(homeFile('.codex/prompts/plan.md').readAsStringSync(), 'mine');
+        verify(
+          () => logger.warn(
+            'Kept your values in ${homeFile('.codex/prompts/plan.md').path}',
+          ),
+        ).called(1);
       });
 
       test('reports when everything is already up to date', () async {
@@ -379,10 +508,10 @@ void main() {
       });
 
       test('plugins resolve from the Claude Code cache under home', () async {
-        final command = InstallCommand(logger: logger, home: home);
-        final runner = CommandRunner<int>('test', 'test')..addCommand(command);
-
-        final exitCode = await runner.run(['install', '--only', 'claude']);
+        final exitCode = await runThroughRunner(
+          InstallCommand(logger: logger, home: home),
+          ['--only', 'claude'],
+        );
 
         expect(exitCode, ExitCode.unavailable.code);
         verify(

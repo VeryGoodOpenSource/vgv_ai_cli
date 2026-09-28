@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 import '_assets.dart';
 

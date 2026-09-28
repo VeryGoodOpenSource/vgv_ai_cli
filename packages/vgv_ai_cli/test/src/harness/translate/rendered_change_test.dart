@@ -2,7 +2,7 @@ import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/rendered_change.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 void main() {
   final home = MemoryFileSystem.test().directory('/home/dev');

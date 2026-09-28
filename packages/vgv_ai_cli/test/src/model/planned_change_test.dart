@@ -1,14 +1,16 @@
+import 'dart:convert';
+
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 void main() {
   final fileSystem = MemoryFileSystem.test();
 
   group('PlannedChange', () {
     test('toString names the mode, the owner and the path', () {
-      final change = PlannedChange(
+      final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.codex/config.toml'),
         contents: 'body',
         harness: Harness.codex,
@@ -24,7 +26,7 @@ void main() {
     test('toString reports an ownerless change as shared', () {
       // `~/.agents/skills` is written once and read by four harnesses, so it
       // belongs to none of them.
-      final change = PlannedChange(
+      final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.agents/skills/testing/SKILL.md'),
         contents: 'body',
         harness: null,
@@ -40,7 +42,7 @@ void main() {
       // Required rather than defaulted: a forgotten tag would otherwise be
       // indistinguishable from a deliberate shared write, which uninstall
       // treats differently.
-      final change = PlannedChange(
+      final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.gemini/settings.json'),
         contents: '{}',
         harness: null,
@@ -50,8 +52,33 @@ void main() {
       expect(change.harness, isNull);
     });
 
-    test('carries the harness it was given, and owns its file by default', () {
+    test('encodes text as UTF-8 and decodes it back', () {
+      final change = PlannedChange.text(
+        file: fileSystem.file('/home/user/.gemini/agents/a.md'),
+        contents: 'café',
+        harness: null,
+      );
+
+      expect(change.bytes, utf8.encode('café'));
+      expect(change.contents, 'café');
+      expect(change.source, isNull);
+    });
+
+    test('carries raw bytes and the file they were copied from', () {
+      final source = fileSystem.file('/plugin/skills/a/run.sh');
       final change = PlannedChange(
+        file: fileSystem.file('/home/user/.agents/skills/a/run.sh'),
+        bytes: const [0xff],
+        harness: null,
+        source: source,
+      );
+
+      expect(change.bytes, [0xff]);
+      expect(change.source, source);
+    });
+
+    test('carries the harness it was given, and owns its file by default', () {
+      final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.gemini/agents/a.md'),
         contents: 'body',
         harness: Harness.gemini,
@@ -59,23 +86,6 @@ void main() {
 
       expect(change.harness, Harness.gemini);
       expect(change.mode, ChangeMode.own);
-    });
-  });
-
-  group('AppliedChange', () {
-    test('carries its change and outcome', () {
-      final change = PlannedChange(
-        file: fileSystem.file('/home/user/.claude/settings.json'),
-        contents: '{}',
-        harness: null,
-      );
-      final applied = AppliedChange(
-        change: change,
-        outcome: ChangeOutcome.partial,
-      );
-
-      expect(applied.change, change);
-      expect(applied.outcome, ChangeOutcome.partial);
     });
   });
 }

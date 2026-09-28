@@ -9,7 +9,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
 
 /// {@template install_command}
@@ -29,6 +29,7 @@ class InstallCommand extends Command<int> {
     this._parser = const ClaudePluginParser(),
     this._detector = const HarnessDetector(),
     this._translator = const Translator(),
+    this._reconciler = const Reconciler(),
   }) {
     argParser
       ..addFlag(
@@ -68,6 +69,7 @@ class InstallCommand extends Command<int> {
   final PluginParser _parser;
   final HarnessDetector _detector;
   final Translator _translator;
+  final Reconciler _reconciler;
 
   static const String commandName = 'install';
 
@@ -127,18 +129,17 @@ class InstallCommand extends Command<int> {
       selected: selected,
     );
 
-    final reconciler = Reconciler(
-      logger: _logger,
+    final applied = _reconciler.apply(
+      [for (final result in results.values) ...result.changes],
+      manifest: installManifest(home),
       force: force,
       dryRun: dryRun,
     );
-    final applied = [
-      for (final result in results.values)
-        ...result.changes.map(reconciler.apply),
-    ];
 
     _report(results, applied, dryRun: dryRun);
-    return ExitCode.success.code;
+    return applied.any((change) => change.outcome == ChangeOutcome.failed)
+        ? ExitCode.ioError.code
+        : ExitCode.success.code;
   }
 
   /// Resolves which harnesses to configure.
@@ -186,7 +187,13 @@ class InstallCommand extends Command<int> {
 
       switch (resolution) {
         case ResolvedPlugin(:final directory):
-          parsed.add(_parser.parse(directory));
+          try {
+            parsed.add(_parser.parse(directory));
+          } on PluginParseException catch (error) {
+            progress.fail('Could not parse $ref');
+            _logger.err('  - $error');
+            return null;
+          }
         case UnavailablePlugin(:final reasons):
           progress.fail('Could not resolve $ref');
           for (final reason in reasons) {
@@ -208,8 +215,8 @@ class InstallCommand extends Command<int> {
     return assets;
   }
 
-  /// Prints what could not be translated, the files that kept the user's
-  /// values, and then what was written per owner.
+  /// Prints what could not be translated, the files that could not be
+  /// written or kept the user's values, and then what was written per owner.
   void _report(
     Map<Harness?, TranslationResult> results,
     List<AppliedChange> applied, {
@@ -220,6 +227,22 @@ class InstallCommand extends Command<int> {
     for (final MapEntry(key: harness, value: result) in results.entries) {
       for (final note in result.notes) {
         _logger.warn('${ownerName(harness)}: $note');
+      }
+    }
+
+    for (final AppliedChange(:change, :outcome, :error) in applied) {
+      final path = change.file.path;
+      switch (outcome) {
+        case ChangeOutcome.failed:
+          _logger.err('Could not write $path: $error');
+        case ChangeOutcome.unparseable:
+          _logger.warn(
+            'Left $path alone because it could not be parsed. If it has '
+            "comments, add VGV's settings to it by hand.",
+          );
+        case _ when _wrote.contains(outcome):
+          _logger.detail('${dryRun ? 'Would write' : 'Wrote'} $path');
+        case _:
       }
     }
 
@@ -249,7 +272,7 @@ class InstallCommand extends Command<int> {
     _logger.info(
       dryRun
           ? '\n${lightYellow.wrap('--check')} so nothing was written.'
-          : '\nRun ${lightCyan.wrap('vgv_ai doctor')} to verify.',
+          : '\nRestart your coding agents to pick up the changes.',
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// Plans the change that writes one file the `agents` brick rendered.
 ///
@@ -24,7 +24,7 @@ PlannedChange renderedChange(
     p.joinAll([harness.configDirectory(home).path, ...segments]),
   );
 
-  return PlannedChange(
+  return PlannedChange.text(
     file: file,
     contents: contents,
     harness: harness,

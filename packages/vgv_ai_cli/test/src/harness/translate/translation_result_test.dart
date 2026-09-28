@@ -1,13 +1,13 @@
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 void main() {
   final fs = MemoryFileSystem.test();
 
   PlannedChange change(String path) =>
-      PlannedChange(file: fs.file(path), contents: 'body', harness: null);
+      PlannedChange.text(file: fs.file(path), contents: 'body', harness: null);
 
   const note = TranslationNote(subject: 'a', reason: 'b');
 

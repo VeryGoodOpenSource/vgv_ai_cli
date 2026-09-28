@@ -1,9 +1,11 @@
+import 'dart:convert';
+
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template skills_translator}
 /// Writes the one shared copy of the skills, not a per-harness copy.
@@ -25,9 +27,10 @@ class const SkillsTranslator() {
       final target = root.fileSystem.directory(p.join(root.path, skill.name));
       changes
         ..add(
-          PlannedChange(
+          PlannedChange.text(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
-            contents: _skillDocument(skill),
+            contents: _skillDocument(skill)
+                .replaceAll(_claudeSkillDir, target.path),
             harness: null,
           ),
         )
@@ -36,6 +39,12 @@ class const SkillsTranslator() {
 
     return TranslationResult(changes: changes, notes: notes);
   }
+
+  /// The variable Claude Code expands to a skill's own directory.
+  ///
+  /// No other harness expands it, so each copy spells out the directory it
+  /// was written to, or a skill that runs its own scripts points nowhere.
+  static const _claudeSkillDir = r'${CLAUDE_SKILL_DIR}';
 
   /// Rebuilds `SKILL.md` from the portable frontmatter and the body.
   ///
@@ -92,12 +101,28 @@ class const SkillsTranslator() {
       changes.add(
         PlannedChange(
           file: target.fileSystem.file(p.join(target.path, relative)),
-          contents: source.readAsStringSync(),
+          bytes: _expandSkillDir(source.readAsBytesSync(), target),
           harness: null,
+          source: source,
         ),
       );
     }
     return changes;
+  }
+
+  /// [bytes] with [_claudeSkillDir] spelled out as [target]'s path.
+  ///
+  /// A file that is not UTF-8 text, such as an image, is copied untouched.
+  List<int> _expandSkillDir(List<int> bytes, Directory target) {
+    final String text;
+    try {
+      text = utf8.decode(bytes);
+    } on FormatException {
+      return bytes;
+    }
+    return text.contains(_claudeSkillDir)
+        ? utf8.encode(text.replaceAll(_claudeSkillDir, target.path))
+        : bytes;
   }
 
   /// Resolves [entity] to a readable file.

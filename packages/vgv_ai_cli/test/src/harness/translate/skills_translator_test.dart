@@ -5,7 +5,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 void main() {
   late FileSystem fs;
@@ -121,6 +121,54 @@ void main() {
         changeAt(result, 'testing/references/matchers.md').contents,
         '# Matchers\n',
       );
+    });
+
+    test('remembers the file each bundled copy came from', () {
+      final result = translate([
+        skill('review', files: {'scripts/scope.sh': 'echo\n'}),
+      ]);
+
+      expect(
+        changeAt(result, 'review/scripts/scope.sh').source?.path,
+        '/plugins/wingspan/skills/review/scripts/scope.sh',
+      );
+    });
+
+    test('copies a file that is not UTF-8 byte for byte', () {
+      final review = skill('review');
+      final bytes = [0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe];
+      review.directory.childFile('logo.png').writeAsBytesSync(bytes);
+
+      final result = translate([review]);
+
+      expect(changeAt(result, 'review/logo.png').bytes, bytes);
+    });
+
+    group('CLAUDE_SKILL_DIR', () {
+      const variable = r'${CLAUDE_SKILL_DIR}';
+      const target = '/home/dev/.agents/skills/review';
+
+      test('is spelled out in SKILL.md as the copy it lands in', () {
+        final result = translate([
+          skill('review', body: 'Run $variable/scripts/scope.sh\n'),
+        ]);
+
+        expect(
+          changeAt(result, 'review/SKILL.md').contents,
+          contains('Run $target/scripts/scope.sh'),
+        );
+      });
+
+      test('is spelled out in a bundled text file', () {
+        final result = translate([
+          skill('review', files: {'reference.md': 'See $variable/a.md\n'}),
+        ]);
+
+        expect(
+          changeAt(result, 'review/reference.md').contents,
+          'See $target/a.md\n',
+        );
+      });
     });
 
     test('does not copy the source SKILL.md over the rebuilt one', () {

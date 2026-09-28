@@ -28,6 +28,25 @@ void main() {
       expect(files['gemini/settings.json'], settings);
     });
 
+    test('keeps a backslash that ends a line or precedes non-ASCII', () async {
+      const instructions = 'Run:\n  dart test \\\n    --coverage\nC:\\é\n';
+
+      final files = await const AgentsBrick().render(
+        only(Harness.opencode, {
+          'opencode_settings': '{}',
+          'agents': [
+            {
+              'name': 'review',
+              'instructions': instructions,
+              'opencode': {'frontmatter': '---\n---\n'},
+            },
+          ],
+        }),
+      );
+
+      expect(files['opencode/agent/review.md'], '---\n---\n\n$instructions');
+    });
+
     test('renders an agent file per agent for a harness with agents', () async {
       final files = await const AgentsBrick().render(
         only(Harness.opencode, {
