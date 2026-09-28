@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/reconcile/toml_edits.dart';
 
 /// Where the reconciler records the files VGV owns under [home].
 File installManifest(Directory home) =>
@@ -21,12 +23,6 @@ File installManifest(Directory home) =>
 /// `dryRun`, nothing is written, but the outcomes are the same.
 /// {@endtemplate}
 class const Reconciler() {
-  /// Opens the section of a markdown file that VGV manages.
-  static const blockStart = '<!-- vgv_ai:start -->';
-
-  /// Closes the section of a markdown file that VGV manages.
-  static const blockEnd = '<!-- vgv_ai:end -->';
-
   /// Applies every one of [changes] and returns what each did.
   ///
   /// [manifest] records a hash of every owned file this writes, which is how
@@ -120,7 +116,7 @@ class _Run {
 
     final (:bytes, :held) = switch (change.mode) {
       ChangeMode.own => _own(change, existed ? original : null),
-      final mode => _mergeText(mode, original, change.contents),
+      _ => _mergeText(change, original),
     };
 
     final changed = !_bytesEquality.equals(bytes, original);
@@ -163,11 +159,10 @@ class _Run {
         : (bytes: original, held: _Held.userValue);
   }
 
-  /// Merges [incoming] into the text of [original] in [mode]'s format.
+  /// Merges [change] into the text of [original] in its mode's format.
   ({List<int> bytes, _Held held}) _mergeText(
-    ChangeMode mode,
+    PlannedChange change,
     List<int> original,
-    String incoming,
   ) {
     final String text;
     try {
@@ -176,7 +171,8 @@ class _Run {
       return (bytes: original, held: _Held.unparseable);
     }
 
-    final merge = switch (mode) {
+    final incoming = change.contents;
+    final merge = switch (change.mode) {
       ChangeMode.mergeJson => _mergeDocument(
         text,
         incoming,
@@ -191,7 +187,10 @@ class _Run {
         encode: _encodeToml,
         rewrite: _rewriteToml,
       ),
-      _ => (contents: _mergeBlock(text, incoming), held: _Held.nothing),
+      _ => (
+        contents: upsertSection(text, change.section!, incoming),
+        held: _Held.nothing,
+      ),
     };
     return (bytes: utf8.encode(merge.contents), held: merge.held);
   }
@@ -235,21 +234,54 @@ class _Run {
     return (contents: contents, held: held);
   }
 
-  /// Appends what [merged] adds to [original] as TOML text, so the user's
-  /// comments and layout survive.
+  /// Writes [merged] into [original] as TOML text, so the user's comments,
+  /// layout and unrelated keys survive.
   ///
-  /// The append is kept only when it parses back to exactly [merged]. A merge
-  /// that edits a value or an inline array cannot be appended, and
-  /// re-serializing drops every comment, so it happens only when forced.
+  /// Two edits are tried in turn, and the first that parses back to exactly
+  /// [merged] is kept. Appending what [merged] adds covers new tables and
+  /// arrays of tables. Upserting each key that changed covers a key added to
+  /// a table the user already has, or a value VGV replaces. Re-serializing
+  /// drops every comment, so it happens only when neither works and forced.
   String? _rewriteToml(
     String original,
     Map<String, dynamic> existing,
     Map<String, dynamic> merged,
   ) {
-    final additions = _encodeToml(_missing(existing, merged));
-    final appended = '${original.trimRight()}\n\n$additions';
-    if (_deepEquality.equals(_decodeToml(appended), merged)) return appended;
-    return force ? _encodeToml(merged) : null;
+    Iterable<String> edits() sync* {
+      final additions = _encodeToml(_missing(existing, merged));
+      yield '${original.trimRight()}\n\n$additions';
+      yield _upsertChanged(original, existing, merged);
+    }
+
+    final edited = edits().firstWhereOrNull(
+      (edit) => _deepEquality.equals(_decodeToml(edit), merged),
+    );
+    return edited ?? (force ? _encodeToml(merged) : null);
+  }
+
+  /// [text] with every value [merged] holds that [existing] does not
+  /// upserted into [table], and every table under it.
+  String _upsertChanged(
+    String text,
+    Map<String, dynamic> existing,
+    Map<String, dynamic> merged, {
+    List<String> table = const [],
+  }) {
+    var edited = text;
+    for (final MapEntry(:key, :value) in merged.entries) {
+      final before = existing[key];
+      if (value is Map<String, dynamic>) {
+        edited = _upsertChanged(
+          edited,
+          before is Map<String, dynamic> ? before : const {},
+          value,
+          table: [...table, key],
+        );
+      } else if (!_deepEquality.equals(before, value)) {
+        edited = upsertTomlKey(edited, table: table, key: key, value: value);
+      }
+    }
+    return edited;
   }
 
   /// What [target] holds that [base] does not: every absent key, and the
@@ -280,35 +312,6 @@ class _Run {
       }
     }
     return missing;
-  }
-
-  /// Replaces VGV's delimited section of [original] with [incoming].
-  ///
-  /// An instructions file such as `~/.gemini/AGENTS.md` may already hold the
-  /// user's own guidance, so everything outside the markers is theirs and is
-  /// kept. The section is appended the first time.
-  ///
-  /// The end marker is paired with the start marker nearest before it, so a
-  /// start marker left behind on its own never swallows the user's text
-  /// between it and a later block.
-  String _mergeBlock(String original, String incoming) {
-    final block =
-        '${Reconciler.blockStart}\n${incoming.trimRight()}\n'
-        '${Reconciler.blockEnd}';
-    final end = original.indexOf(Reconciler.blockEnd);
-    final start = end == -1
-        ? -1
-        : original.lastIndexOf(Reconciler.blockStart, end);
-
-    if (start == -1) {
-      final kept = original.trimRight();
-      return kept.isEmpty ? '$block\n' : '$kept\n\n$block\n';
-    }
-    return original.replaceRange(
-      start,
-      end + Reconciler.blockEnd.length,
-      block,
-    );
   }
 
   /// Merges [addition] into [base].

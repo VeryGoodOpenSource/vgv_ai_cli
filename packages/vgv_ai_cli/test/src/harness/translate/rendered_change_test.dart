@@ -25,6 +25,12 @@ void main() {
       expect(plan('gemini/AGENTS.md').mode, ChangeMode.mergeMarkdown);
     });
 
+    test('names the instructions section, and only for markdown', () {
+      expect(plan('gemini/AGENTS.md').section, instructionsSection);
+      expect(plan('gemini/settings.json').section, isNull);
+      expect(plan('codex/agents/review.toml').section, isNull);
+    });
+
     test('owns anything in a subdirectory, whatever its type', () {
       expect(plan('codex/agents/review.toml').mode, ChangeMode.own);
       expect(plan('pi/prompts/plan.md').mode, ChangeMode.own);

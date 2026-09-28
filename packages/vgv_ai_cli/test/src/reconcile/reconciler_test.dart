@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
 
 void main() {
@@ -39,13 +40,18 @@ void main() {
     return f..writeAsStringSync(contents);
   }
 
-  PlannedChange change(File target, String contents, ChangeMode mode) =>
-      PlannedChange.text(
-        file: target,
-        contents: contents,
-        harness: null,
-        mode: mode,
-      );
+  PlannedChange change(
+    File target,
+    String contents,
+    ChangeMode mode, {
+    String section = 'instructions',
+  }) => PlannedChange.text(
+    file: target,
+    contents: contents,
+    harness: null,
+    mode: mode,
+    section: mode == ChangeMode.mergeMarkdown ? section : null,
+  );
 
   Map<String, dynamic> readJson(File target) =>
       jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
@@ -507,8 +513,81 @@ void main() {
         });
       });
 
-      test('skips a merge that would have to rewrite the file', () {
-        const original = '# mine\n[mcp_servers.dart]\nargs = ["a"]\n';
+      test('grows an inline array in place, keeping comments', () {
+        final target = seed(
+          '.codex/config.toml',
+          '# mine\n[mcp_servers.dart]\nargs = ["a"] # first\n'
+              '\n[other]\nx = 1\n',
+        );
+
+        final applied = applyOne(
+          change(
+            target,
+            '[mcp_servers.dart]\nargs = ["b"]',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(
+          target.readAsStringSync(),
+          "# mine\n[mcp_servers.dart]\nargs = ['a', 'b']\n\n[other]\nx = 1\n",
+        );
+      });
+
+      test('adds a key to a table the user already has', () {
+        const original =
+            '# My Codex setup\n'
+            'model = "gpt"\n'
+            '\n'
+            '[mcp_servers.dart]\n'
+            'command = "dart" # pinned\n'
+            '\n'
+            '[profiles.fast]\n'
+            'model = "mini"\n';
+        final target = seed('.codex/config.toml', original);
+
+        final applied = applyOne(
+          change(
+            target,
+            '[mcp_servers.dart]\ncommand = "dart"\nargs = ["mcp-server"]',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(
+          target.readAsStringSync(),
+          original.replaceFirst(
+            '# pinned\n',
+            "# pinned\nargs = ['mcp-server']\n",
+          ),
+        );
+      });
+
+      test("replaces a forced value in place, keeping the user's comments", () {
+        final target = seed(
+          '.codex/config.toml',
+          '# mine\n[mcp_servers.dart]\ncommand = "custom"\n',
+        );
+
+        applyOne(
+          change(
+            target,
+            '[mcp_servers.dart]\ncommand = "dart"',
+            ChangeMode.mergeToml,
+          ),
+          force: true,
+        );
+
+        expect(
+          target.readAsStringSync(),
+          "# mine\n[mcp_servers.dart]\ncommand = 'dart'\n",
+        );
+      });
+
+      test('skips an edit it cannot make without rewriting the file', () {
+        const original = '# mine\nmcp_servers.dart.args = ["a"]\n';
         final target = seed('.codex/config.toml', original);
 
         final applied = applyOne(
@@ -523,16 +602,16 @@ void main() {
           applied.outcome,
           ChangeOutcome.skipped,
           reason:
-              'growing an inline array means re-serializing the file, '
-              "which would drop the user's comments",
+              'a dotted key cannot be edited in place, and re-serializing '
+              "the file would drop the user's comments",
         );
         expect(target.readAsStringSync(), original);
       });
 
-      test('rewrites the file when forced', () {
+      test('rewrites the file when forced and no edit fits', () {
         final target = seed(
           '.codex/config.toml',
-          '# mine\n[mcp_servers.dart]\nargs = ["a"]\n',
+          '# mine\nmcp_servers.dart.args = ["a"]\n',
         );
 
         final applied = applyOne(
@@ -606,11 +685,16 @@ void main() {
     });
 
     group('mergeMarkdown', () {
-      const start = Reconciler.blockStart;
-      const end = Reconciler.blockEnd;
+      final start = sectionStart('instructions');
+      final end = sectionEnd('instructions');
 
-      AppliedChange apply(File target, String contents) =>
-          applyOne(change(target, contents, ChangeMode.mergeMarkdown));
+      AppliedChange apply(
+        File target,
+        String contents, {
+        String section = 'instructions',
+      }) => applyOne(
+        change(target, contents, ChangeMode.mergeMarkdown, section: section),
+      );
 
       test('writes the delimited section into a new file', () {
         final target = file('.gemini/AGENTS.md');
@@ -644,6 +728,20 @@ void main() {
         expect(
           target.readAsStringSync(),
           '# Mine\n\n$start\n# New\n$end\n\n# Also mine\n',
+        );
+      });
+
+      test('rewrites one named section and leaves its siblings alone', () {
+        final target = file('.gemini/AGENTS.md');
+        apply(target, '# Instructions\n');
+        apply(target, '# Persona\n', section: 'persona');
+
+        apply(target, '# Instructions v2\n');
+
+        expect(
+          target.readAsStringSync(),
+          '$start\n# Instructions v2\n$end\n\n'
+          '${sectionStart('persona')}\n# Persona\n${sectionEnd('persona')}\n',
         );
       });
 
