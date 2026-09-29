@@ -7,9 +7,8 @@ import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
   const reconciler = Reconciler();
@@ -898,6 +897,19 @@ void main() {
         ], manifest: temp.childFile('manifest.json'));
 
         expect(modeOf(target), modeOf(script));
+      });
+
+      test('applies nothing when the manifest cannot be read', () {
+        final manifest = onDisk('manifest.json', contents: '{}', mode: '000');
+        final target = onDisk('a.md');
+
+        final applied = reconciler.apply([
+          change(target, 'a', ChangeMode.own),
+        ], manifest: manifest);
+
+        expect(applied.single.outcome, ChangeOutcome.failed);
+        expect(applied.single.change.file.path, manifest.path);
+        expect(target.existsSync(), isFalse);
       });
 
       test('an updated file keeps its own mode', () {

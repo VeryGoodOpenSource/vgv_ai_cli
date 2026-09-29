@@ -8,9 +8,8 @@ import 'package:mason_logger/mason_logger.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 /// {@template install_command}
 /// Configures Very Good AI tooling across the detected coding-agent harnesses.
@@ -234,7 +233,7 @@ class InstallCommand extends Command<int> {
       final path = change.file.path;
       switch (outcome) {
         case ChangeOutcome.failed:
-          _logger.err('Could not write $path: $error');
+          _logger.err('Could not update $path: $error');
         case ChangeOutcome.unparseable:
           _logger.warn(
             'Left $path alone because it could not be parsed. If it has '
@@ -261,7 +260,11 @@ class InstallCommand extends Command<int> {
         .groupListsBy((change) => change.change.harness);
 
     if (written.isEmpty) {
-      _logger.info('Everything is already up to date.');
+      if (applied.every(
+        (change) => change.outcome == ChangeOutcome.unchanged,
+      )) {
+        _logger.info('Everything is already up to date.');
+      }
       return;
     }
 

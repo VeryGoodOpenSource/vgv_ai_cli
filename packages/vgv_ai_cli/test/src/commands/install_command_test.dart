@@ -12,8 +12,7 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
@@ -355,11 +354,12 @@ void main() {
         final exitCode = await runInstall(['--only', 'claude']);
 
         expect(exitCode, ExitCode.ioError.code);
+        verifyNever(() => logger.info('Everything is already up to date.'));
         verify(
           () => logger.err(
             any(
               that: startsWith(
-                'Could not write ${homeFile('.claude/a.md').path}: ',
+                'Could not update ${homeFile('.claude/a.md').path}: ',
               ),
             ),
           ),
