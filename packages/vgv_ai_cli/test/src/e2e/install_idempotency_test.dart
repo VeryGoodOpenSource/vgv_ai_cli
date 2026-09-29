@@ -179,5 +179,30 @@ void main() {
         containsPair('dart', isA<Map<String, dynamic>>()),
       );
     });
+
+    test('edits a TOML table the user already has in place', () async {
+      seed(
+        '.codex/config.toml',
+        '[mcp_servers.dart]\n'
+            '# pinned by me\n'
+            'command = "dart"\n'
+            'args = ["--verbose"] # mine\n',
+      );
+
+      await install();
+      final first = snapshot();
+      await install();
+
+      expect(snapshot(), first);
+
+      final toml = file('.codex/config.toml').readAsStringSync();
+      expect(toml, contains('# pinned by me\n'));
+      expect(toml, contains('# mine\n'));
+      expect(count(toml, '[mcp_servers.dart]'), 1);
+      expect(
+        TomlDocument.parse(toml).toMap()['mcp_servers'],
+        containsPair('dart', containsPair('args', ['--verbose', 'mcp-server'])),
+      );
+    });
   });
 }

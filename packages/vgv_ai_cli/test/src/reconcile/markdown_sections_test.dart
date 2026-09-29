@@ -46,6 +46,48 @@ void main() {
         expect(once, '$end\nMine.\n\n$start\nbody\n$end\n');
         expect(upsertSection(once, 'a', 'body'), once);
       });
+
+      test('keeps the text before a stray end marker after the section', () {
+        final text = '$start\nold\n$end\nMine.\n$end\n';
+        final once = upsertSection(text, 'a', 'new');
+
+        expect(once, '$start\nnew\n$end\nMine.\n$end\n');
+        expect(upsertSection(once, 'a', 'new'), once);
+      });
+
+      test('keeps the text after a stray start marker before the section', () {
+        final text = '$start\nMine.\n$start\nold\n$end\n';
+        final once = upsertSection(text, 'a', 'new');
+
+        expect(once, '$start\nMine.\n$start\nnew\n$end\n');
+        expect(upsertSection(once, 'a', 'new'), once);
+      });
+
+      test('pairs past a stray start marker after the section', () {
+        final text = '$start\nold\n$end\nMine.\n$start\n';
+        final once = upsertSection(text, 'a', 'new');
+
+        expect(once, '$start\nnew\n$end\nMine.\n$start\n');
+        expect(upsertSection(once, 'a', 'new'), once);
+      });
+
+      test('rewrites only the last of two complete sections', () {
+        final text = '$start\nfirst\n$end\nMine.\n$start\nsecond\n$end\n';
+
+        expect(
+          upsertSection(text, 'a', 'new'),
+          '$start\nfirst\n$end\nMine.\n$start\nnew\n$end\n',
+        );
+      });
+
+      test('keeps CRLF line endings', () {
+        final text = 'Mine.\r\n\r\n$start\r\nold\r\n$end\r\n';
+
+        expect(
+          upsertSection(text, 'a', 'one\ntwo'),
+          'Mine.\r\n\r\n$start\r\none\r\ntwo\r\n$end\r\n',
+        );
+      });
     });
   });
 }

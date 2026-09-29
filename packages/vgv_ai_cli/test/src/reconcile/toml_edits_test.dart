@@ -43,7 +43,7 @@ void main() {
 
       expect(
         upsert(original, 'command', 'new', table: ['mcp']),
-        "# top\n[mcp]\n# the command\ncommand = 'new'\nargs = []\n",
+        "# top\n[mcp]\n# the command\ncommand = 'new' # note\nargs = []\n",
       );
     });
 
@@ -146,6 +146,89 @@ void main() {
 
     test('ends the last statement at the end of the text', () {
       expect(upsert('a = [\n  1,', 'b', 1), 'a = [\n  1,\nb = 1');
+    });
+
+    test('keeps the comment after a value that spans several lines', () {
+      const original = 'args = [\n  "a", # dropped\n]  # kept\n';
+
+      expect(upsert(original, 'args', ['b']), "args = ['b']  # kept\n");
+    });
+
+    test('decodes keys the way TOML does, keeping quoted whitespace', () {
+      final edited = upsert('[" a "]\nx = 1\n', 'y', 2, table: ['a']);
+
+      expect(parse(edited), {
+        ' a ': {'x': 1},
+        'a': {'y': 2},
+      });
+    });
+
+    test('matches nothing on a line that does not start with a key', () {
+      // Malformed input: the caller's parse check rejects the result.
+      expect(upsert('= 1\n', 'b', 1), '= 1\nb = 1\n');
+    });
+  });
+
+  group('editToml', () {
+    String? edit(String original, Map<String, dynamic> merged) {
+      final existing = parse(original);
+      return editToml(
+        original,
+        existing: existing,
+        merged: merged,
+        added: {
+          for (final MapEntry(:key, :value) in merged.entries)
+            if (!existing.containsKey(key)) key: value,
+        },
+      );
+    }
+
+    test('appends a new table after the existing text', () {
+      expect(
+        edit('# mine\nmodel = "gpt"\n', {
+          'model': 'gpt',
+          'mcp': {'command': 'dart'},
+        }),
+        "# mine\nmodel = \"gpt\"\n\n[mcp]\ncommand = 'dart'\n",
+      );
+    });
+
+    test('upserts a key when appending would repeat a table', () {
+      expect(
+        edit('[mcp] # mine\ncommand = "dart"\n', {
+          'mcp': {
+            'command': 'dart',
+            'args': ['x'],
+          },
+        }),
+        "[mcp] # mine\ncommand = \"dart\"\nargs = ['x']\n",
+      );
+    });
+
+    test('keeps CRLF line endings', () {
+      expect(
+        edit('# mine\r\n[mcp]\r\ncommand = "old" # pinned\r\n', {
+          'mcp': {'command': 'new'},
+        }),
+        "# mine\r\n[mcp]\r\ncommand = 'new' # pinned\r\n",
+      );
+    });
+
+    test('is null when no edit decodes to the merge', () {
+      expect(
+        edit('mcp.args = ["a"]\n', {
+          'mcp': {
+            'args': ['a', 'b'],
+          },
+        }),
+        isNull,
+      );
+    });
+  });
+
+  group('decodeToml', () {
+    test('is null for a malformed document', () {
+      expect(decodeToml('[unterminated'), isNull);
     });
   });
 }

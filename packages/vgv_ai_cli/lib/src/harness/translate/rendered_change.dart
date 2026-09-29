@@ -29,18 +29,22 @@ PlannedChange renderedChange(
     p.joinAll([harness.configDirectory(home).path, ...segments]),
   );
 
-  final mode = switch ((segments.length, p.extension(path))) {
-    (1, '.json') => ChangeMode.mergeJson,
-    (1, '.toml') => ChangeMode.mergeToml,
-    (1, _) => ChangeMode.mergeMarkdown,
-    _ => ChangeMode.own,
-  };
-
-  return PlannedChange.text(
+  PlannedChange planned(ChangeMode mode) => PlannedChange.text(
     file: file,
     contents: contents,
     harness: harness,
     mode: mode,
-    section: mode == ChangeMode.mergeMarkdown ? instructionsSection : null,
   );
+
+  return switch ((segments.length, p.extension(path))) {
+    (1, '.json') => planned(ChangeMode.mergeJson),
+    (1, '.toml') => planned(ChangeMode.mergeToml),
+    (1, _) => PlannedChange.markdown(
+      file: file,
+      contents: contents,
+      harness: harness,
+      section: instructionsSection,
+    ),
+    _ => planned(ChangeMode.own),
+  };
 }

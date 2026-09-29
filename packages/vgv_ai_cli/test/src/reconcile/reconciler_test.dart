@@ -40,18 +40,13 @@ void main() {
     return f..writeAsStringSync(contents);
   }
 
-  PlannedChange change(
-    File target,
-    String contents,
-    ChangeMode mode, {
-    String section = 'instructions',
-  }) => PlannedChange.text(
-    file: target,
-    contents: contents,
-    harness: null,
-    mode: mode,
-    section: mode == ChangeMode.mergeMarkdown ? section : null,
-  );
+  PlannedChange change(File target, String contents, ChangeMode mode) =>
+      PlannedChange.text(
+        file: target,
+        contents: contents,
+        harness: null,
+        mode: mode,
+      );
 
   Map<String, dynamic> readJson(File target) =>
       jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
@@ -531,7 +526,8 @@ void main() {
         expect(applied.outcome, ChangeOutcome.updated);
         expect(
           target.readAsStringSync(),
-          "# mine\n[mcp_servers.dart]\nargs = ['a', 'b']\n\n[other]\nx = 1\n",
+          "# mine\n[mcp_servers.dart]\nargs = ['a', 'b'] # first\n"
+          '\n[other]\nx = 1\n',
         );
       });
 
@@ -693,7 +689,12 @@ void main() {
         String contents, {
         String section = 'instructions',
       }) => applyOne(
-        change(target, contents, ChangeMode.mergeMarkdown, section: section),
+        PlannedChange.markdown(
+          file: target,
+          contents: contents,
+          harness: null,
+          section: section,
+        ),
       );
 
       test('writes the delimited section into a new file', () {

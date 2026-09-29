@@ -4,7 +4,6 @@ import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
@@ -76,7 +75,13 @@ const _hashesEquality = MapEquality<String, String>();
 
 typedef _Merge = ({String contents, _Held held});
 
-typedef _DeepMerge = ({Map<String, dynamic> merged, bool declined});
+/// A merged document, what the merge added to it, and whether it kept a
+/// value the user set in place of VGV's.
+typedef _DeepMerge = ({
+  Map<String, dynamic> merged,
+  Map<String, dynamic> added,
+  bool declined,
+});
 
 /// What a merge left in place instead of taking VGV's.
 enum _Held {
@@ -178,13 +183,13 @@ class _Run {
         incoming,
         decode: _decodeJson,
         encode: _encodeJson,
-        rewrite: (_, _, merged) => _encodeJson(merged),
+        rewrite: (_, _, merge) => _encodeJson(merge.merged),
       ),
       ChangeMode.mergeToml => _mergeDocument(
         text,
         incoming,
-        decode: _decodeToml,
-        encode: _encodeToml,
+        decode: decodeToml,
+        encode: encodeToml,
         rewrite: _rewriteToml,
       ),
       _ => (
@@ -207,7 +212,7 @@ class _Run {
     required String? Function(
       String original,
       Map<String, dynamic> existing,
-      Map<String, dynamic> merged,
+      _DeepMerge merge,
     )
     rewrite,
   }) {
@@ -228,105 +233,44 @@ class _Run {
       return (contents: original, held: held);
     }
 
-    final contents = rewrite(original, existing, deepMerged.merged);
+    final contents = rewrite(original, existing, deepMerged);
     if (contents == null) return (contents: original, held: _Held.userValue);
 
     return (contents: contents, held: held);
   }
 
-  /// Writes [merged] into [original] as TOML text, so the user's comments,
-  /// layout and unrelated keys survive.
-  ///
-  /// Two edits are tried in turn, and the first that parses back to exactly
-  /// [merged] is kept. Appending what [merged] adds covers new tables and
-  /// arrays of tables. Upserting each key that changed covers a key added to
-  /// a table the user already has, or a value VGV replaces. Re-serializing
-  /// drops every comment, so it happens only when neither works and forced.
+  /// Writes [merge] into [original] as TOML text, so the user's comments,
+  /// layout and unrelated keys survive. Re-serializing drops every comment,
+  /// so it happens only when forced and no edit in place works.
   String? _rewriteToml(
     String original,
     Map<String, dynamic> existing,
-    Map<String, dynamic> merged,
+    _DeepMerge merge,
   ) {
-    Iterable<String> edits() sync* {
-      final additions = _encodeToml(_missing(existing, merged));
-      yield '${original.trimRight()}\n\n$additions';
-      yield _upsertChanged(original, existing, merged);
-    }
-
-    final edited = edits().firstWhereOrNull(
-      (edit) => _deepEquality.equals(_decodeToml(edit), merged),
+    final edited = editToml(
+      original,
+      existing: existing,
+      merged: merge.merged,
+      added: merge.added,
     );
-    return edited ?? (force ? _encodeToml(merged) : null);
+    return edited ?? (force ? encodeToml(merge.merged) : null);
   }
 
-  /// [text] with every value [merged] holds that [existing] does not
-  /// upserted into [table], and every table under it.
-  String _upsertChanged(
-    String text,
-    Map<String, dynamic> existing,
-    Map<String, dynamic> merged, {
-    List<String> table = const [],
-  }) {
-    var edited = text;
-    for (final MapEntry(:key, :value) in merged.entries) {
-      final before = existing[key];
-      if (value is Map<String, dynamic>) {
-        edited = _upsertChanged(
-          edited,
-          before is Map<String, dynamic> ? before : const {},
-          value,
-          table: [...table, key],
-        );
-      } else if (!_deepEquality.equals(before, value)) {
-        edited = upsertTomlKey(edited, table: table, key: key, value: value);
-      }
-    }
-    return edited;
-  }
-
-  /// What [target] holds that [base] does not: every absent key, and the
-  /// entries a list gained. [target] is a merge of [base], so a list it
-  /// shares with [base] starts with [base]'s entries.
-  Map<String, dynamic> _missing(
-    Map<String, dynamic> base,
-    Map<String, dynamic> target,
-  ) {
-    final missing = <String, dynamic>{};
-    for (final MapEntry(:key, :value) in target.entries) {
-      if (!base.containsKey(key)) {
-        missing[key] = value;
-        continue;
-      }
-      final gap = switch ((base[key], value)) {
-        (
-          final Map<dynamic, dynamic> existing,
-          final Map<dynamic, dynamic> added,
-        ) =>
-          _missing(existing.cast(), added.cast()),
-        (final List<dynamic> existing, final List<dynamic> added) =>
-          added.sublist(existing.length),
-        _ => const <Object>[],
-      };
-      if (gap case Map(isNotEmpty: true) || List(isNotEmpty: true)) {
-        missing[key] = gap;
-      }
-    }
-    return missing;
-  }
-
-  /// Merges [addition] into [base].
+  /// Merges [addition] into [base], and collects what the merge added:
+  /// every key [base] lacks, and the entries a list gained.
   _DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
   ) {
     final result = Map<String, dynamic>.from(base);
+    final added = <String, dynamic>{};
     var declined = false;
 
     for (final MapEntry(:key, :value) in addition.entries) {
       final existing = result[key];
 
       if (!result.containsKey(key)) {
-        result[key] = value;
+        result[key] = added[key] = value;
         continue;
       }
 
@@ -336,17 +280,17 @@ class _Run {
           value.cast<String, dynamic>(),
         );
         result[key] = merged.merged;
+        if (merged.added.isNotEmpty) added[key] = merged.added;
         declined = declined || merged.declined;
         continue;
       }
 
       if (existing is List && value is List) {
-        result[key] = <dynamic>[
-          ...existing,
-          ...value.where(
-            (v) => !existing.any((e) => _deepEquality.equals(e, v)),
-          ),
-        ];
+        final gained = value
+            .where((v) => !existing.any((e) => _deepEquality.equals(e, v)))
+            .toList();
+        result[key] = <dynamic>[...existing, ...gained];
+        if (gained.isNotEmpty) added[key] = gained;
         continue;
       }
 
@@ -358,7 +302,7 @@ class _Run {
       declined = declined || existing != value;
     }
 
-    return (merged: result, declined: declined);
+    return (merged: result, added: added, declined: declined);
   }
 }
 
@@ -412,18 +356,3 @@ Map<String, dynamic>? _decodeJson(String source) {
 
 /// Encodes a decoded map back to canonical JSON with a trailing newline.
 String _encodeJson(Map<String, dynamic> map) => '${_encoder.convert(map)}\n';
-
-/// Decodes a TOML document, or null when it is malformed.
-Map<String, dynamic>? _decodeToml(String source) {
-  try {
-    return TomlDocument.parse(source).toMap();
-  } on TomlException catch (_) {
-    return null;
-  }
-}
-
-/// Encodes a decoded map back to canonical TOML with a trailing newline.
-String _encodeToml(Map<String, dynamic> map) {
-  final toml = TomlDocument.fromMap(map).toString().trim();
-  return '$toml\n';
-}

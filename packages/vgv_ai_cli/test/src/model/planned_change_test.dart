@@ -77,36 +77,38 @@ void main() {
       expect(change.source, source);
     });
 
-    test('carries the section a markdown merge writes', () {
-      final change = PlannedChange.text(
+    test('names the section a markdown merge writes', () {
+      final change = PlannedChange.markdown(
         file: fileSystem.file('/home/user/.gemini/AGENTS.md'),
         contents: '# VGV',
         harness: Harness.gemini,
-        mode: ChangeMode.mergeMarkdown,
         section: 'instructions',
       );
 
+      expect(change.mode, ChangeMode.mergeMarkdown);
       expect(change.section, 'instructions');
+      expect(change.contents, '# VGV');
+      expect(change.source, isNull);
     });
 
-    test('requires a section for a markdown merge, and only for one', () {
-      final file = fileSystem.file('/home/user/.gemini/AGENTS.md');
+    test('has no section for any other mode', () {
+      final change = PlannedChange.text(
+        file: fileSystem.file('/home/user/.gemini/settings.json'),
+        contents: '{}',
+        harness: null,
+        mode: ChangeMode.mergeJson,
+      );
 
+      expect(change.section, isNull);
+    });
+
+    test('leaves a markdown merge to PlannedChange.markdown', () {
       expect(
         () => PlannedChange.text(
-          file: file,
+          file: fileSystem.file('/home/user/.gemini/AGENTS.md'),
           contents: '# VGV',
           harness: null,
           mode: ChangeMode.mergeMarkdown,
-        ),
-        throwsA(isA<AssertionError>()),
-      );
-      expect(
-        () => PlannedChange.text(
-          file: file,
-          contents: '# VGV',
-          harness: null,
-          section: 'instructions',
         ),
         throwsA(isA<AssertionError>()),
       );
