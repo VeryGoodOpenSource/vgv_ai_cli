@@ -1,6 +1,5 @@
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
@@ -15,13 +14,19 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
+  /// The keys Codex spells differently from `.mcp.json`.
+  static const _renamedKeys = {'headers': 'http_headers'};
+
   /// Codex declares servers as `[mcp_servers.<name>]` tables, and a remote
   /// server's static headers as `http_headers`.
   @override
   String settings(PluginAssets assets) => TomlDocument.fromMap({
     'mcp_servers': {
       for (final server in assets.mcpServers)
-        server.name: mcpServerEntry(server, headersKey: 'http_headers'),
+        server.name: {
+          for (final MapEntry(:key, :value) in server.toJson().entries)
+            _renamedKeys[key] ?? key: value,
+        },
     },
   }).toString();
 

@@ -14,6 +14,10 @@ sealed class MCPServer {
 
   /// The name the plugin declares the server under, unique across plugins.
   final String name;
+
+  /// The server as a `.mcp.json` file declares it under its [name], leaving
+  /// out every empty list and map rather than writing it empty.
+  Map<String, Object> toJson();
 }
 
 /// {@template local_mcp_server}
@@ -36,6 +40,13 @@ final class LocalMCPServer extends MCPServer {
 
   /// Environment variables set for the subprocess.
   final Map<String, String> env;
+
+  @override
+  Map<String, Object> toJson() => {
+    'command': command,
+    if (args.isNotEmpty) 'args': args,
+    if (env.isNotEmpty) 'env': env,
+  };
 }
 
 /// {@template remote_mcp_server}
@@ -50,4 +61,10 @@ final class RemoteMCPServer extends MCPServer {
 
   /// Headers sent with each request.
   final Map<String, String> headers;
+
+  @override
+  Map<String, Object> toJson() => {
+    'url': url,
+    if (headers.isNotEmpty) 'headers': headers,
+  };
 }
