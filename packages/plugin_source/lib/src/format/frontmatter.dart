@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:plugin_source/src/format/config_map.dart';
 import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:yaml/yaml.dart';
@@ -73,4 +75,73 @@ class const Frontmatter({
 
   static String _oneLine(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Renders [values] as a fenced YAML frontmatter block, closing newline
+  /// included. An empty [values] renders an empty string rather than an empty
+  /// fence, which no harness reads as valid.
+  ///
+  /// Lives beside `Frontmatter.parse` so the two round-trip against each other
+  /// in one test file. Strings are always quoted rather than emitted plain:
+  /// deciding when a scalar is safe unquoted is a pile of branches over YAML's
+  /// indicator characters, reserved words and number forms, and quoting is
+  /// correct in every one of those cases. A JSON string is a valid YAML
+  /// double-quoted scalar, so `jsonEncode` does the quoting.
+  static String render(Map<String, Object?> values) {
+    if (values.isEmpty) return '';
+    final buffer = StringBuffer('---\n');
+    for (final MapEntry(:key, :value) in values.entries) {
+      buffer.write(_renderEntry(key, value, indent: ''));
+    }
+    buffer.write('---\n');
+    return buffer.toString();
+  }
+
+  static String _renderEntry(
+    String key,
+    Object? value, {
+    required String indent,
+  }) => switch (value) {
+    final Map<String, Object?> map when map.isNotEmpty => [
+      '$indent$key:\n',
+      for (final entry in map.entries)
+        _renderEntry(entry.key, entry.value, indent: '$indent  '),
+    ].join(),
+    final List<Object?> items when items.isNotEmpty => [
+      '$indent$key:\n',
+      for (final item in items)
+        '$indent  - ${_scalar(item, indent: '$indent  ')}\n',
+    ].join(),
+    _ => '$indent$key: ${_scalar(value, indent: indent)}\n',
+  };
+
+  /// Renders one scalar owned by a key or list dash at [indent].
+  ///
+  /// A string carrying newlines becomes a literal block scalar, because the
+  /// plugins write descriptions as folded and literal blocks and a quoted
+  /// `\n` would be unreadable in a file people open. The `2` indentation
+  /// indicator places its lines two columns past their owner, so a first line
+  /// that starts with spaces keeps them rather than setting the indentation.
+  ///
+  /// Throws an [ArgumentError] for a collection inside a list, which no
+  /// harness frontmatter needs.
+  static String _scalar(Object? value, {required String indent}) =>
+      switch (value) {
+        null => '',
+        Map(isNotEmpty: true) ||
+        List(isNotEmpty: true) => throw ArgumentError.value(
+          value,
+          'value',
+          'a list item must be a scalar',
+        ),
+        final String text when text.contains('\n') => [
+          '|2-\n',
+          for (final line in text.trimRight().split('\n')) '$indent  $line\n',
+        ].join().trimRight(),
+        final String text => jsonEncode(text),
+        final bool flag => '$flag',
+        final num number => '$number',
+        // An empty map or list, or anything else, has no useful YAML form as a
+        // scalar; stringify and quote it rather than emit a broken document.
+        _ => jsonEncode('$value'),
+      };
 }

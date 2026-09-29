@@ -12,6 +12,8 @@ on:
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
+      - "packages/plugin_source/lib/**"
+      - "packages/plugin_source/pubspec.yaml"
       - "bricks/**"
       - "tool/**"
   push:
@@ -23,6 +25,8 @@ on:
       - "packages/vgv_ai_cli/lib/**"
       - "packages/vgv_ai_cli/test/**"
       - "packages/vgv_ai_cli/pubspec.yaml"
+      - "packages/plugin_source/lib/**"
+      - "packages/plugin_source/pubspec.yaml"
       - "bricks/**"
       - "tool/**"
 
@@ -44,12 +48,6 @@ jobs:
         !bricks/**/__brick__/**
         .*/**/*.md
       modified_files_only: false
-
-  build-hooks:
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v1.21.1
-    with:
-      dart_sdk: "3.13.0"
-      working_directory: bricks/agents/hooks
 
   verify-bundle:
     runs-on: ubuntu-latest

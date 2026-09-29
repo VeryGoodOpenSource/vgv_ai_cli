@@ -1,0 +1,1 @@
+{{#agents}}{{#opencode}}{{> agent.md }}{{/opencode}}{{/agents}}

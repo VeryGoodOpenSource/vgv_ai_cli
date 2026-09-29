@@ -173,4 +173,147 @@ void main() {
       expect(_parse('---\ndescription: a\n---\n').name, isNull);
     });
   });
+
+  group('Frontmatter.render', () {
+    /// Renders then parses, so every case proves the two agree rather than
+    /// asserting on a formatting choice that could drift.
+    Frontmatter roundTrip(Map<String, Object?> values) =>
+        _parse('${Frontmatter.render(values)}\nbody\n');
+
+    test('renders nothing for an empty map', () {
+      // An empty fence is not a valid frontmatter block, so emit no block.
+      expect(Frontmatter.render(const {}), isEmpty);
+    });
+
+    test('round-trips a plain string', () {
+      expect(roundTrip({'name': 'testing'}).config.string('name'), 'testing');
+    });
+
+    test('round-trips a string carrying YAML indicator characters', () {
+      const awkward = 'Use when: reviewing #code, [maybe] {always}';
+
+      expect(
+        roundTrip({'description': awkward}).config.string('description'),
+        awkward,
+      );
+    });
+
+    test('round-trips a string that looks like a bool', () {
+      // Emitted plain, `yes` parses back as a boolean rather than a string.
+      expect(roundTrip({'name': 'yes'}).config.string('name'), 'yes');
+    });
+
+    test('round-trips a string that looks like a number', () {
+      expect(roundTrip({'name': '1.0'}).config.string('name'), '1.0');
+    });
+
+    test('round-trips a string containing a quote and a backslash', () {
+      const awkward = r'He said "run C:\dart" loudly';
+
+      expect(roundTrip({'name': awkward}).config.string('name'), awkward);
+    });
+
+    test('round-trips a multi-line string as a literal block', () {
+      // The plugins write descriptions as folded and literal block scalars.
+      const multi = 'First line.\nSecond line.';
+
+      final rendered = Frontmatter.render({'description': multi});
+
+      expect(rendered, contains('|2-'));
+      expect(
+        roundTrip({'description': multi}).config.string('description'),
+        multi,
+      );
+    });
+
+    test('round-trips a multi-line string whose first line is indented', () {
+      const indented = '  indented first\nthen flush';
+
+      expect(
+        roundTrip({'description': indented}).config.string('description'),
+        indented,
+      );
+    });
+
+    test('round-trips a multi-line string inside a list', () {
+      const multi = 'First line.\nSecond line.';
+
+      expect(
+        roundTrip({
+          'notes': [multi, 'single'],
+        }).config['notes'],
+        [multi, 'single'],
+      );
+    });
+
+    test('round-trips a multi-line string inside a nested map', () {
+      const multi = '  First line.\nSecond line.';
+
+      expect(
+        roundTrip({
+          'outer': {'inner': multi},
+        }).config.child('outer')!.string('inner'),
+        multi,
+      );
+    });
+
+    test('refuses a collection inside a list', () {
+      expect(
+        () => Frontmatter.render({
+          'servers': [
+            {'name': 'dart'},
+          ],
+        }),
+        throwsArgumentError,
+      );
+    });
+
+    test('round-trips a string containing a tab', () {
+      expect(roundTrip({'name': 'a\tb'}).config.string('name'), 'a\tb');
+    });
+
+    test('round-trips a list', () {
+      expect(
+        roundTrip({
+          'keywords': ['a', 'b'],
+        }).config.stringList('keywords'),
+        ['a', 'b'],
+      );
+    });
+
+    test('round-trips a nested map', () {
+      final parsed = roundTrip({
+        'metadata': {'type': 'reference', 'level': 2},
+      });
+
+      expect(parsed.config.child('metadata')?.string('type'), 'reference');
+      expect(parsed.config.child('metadata')?.integer('level'), 2);
+    });
+
+    test('round-trips a bool and a number', () {
+      final parsed = roundTrip({'enabled': true, 'weight': 3});
+
+      expect(parsed.config.boolean('enabled'), isTrue);
+      expect(parsed.config.integer('weight'), 3);
+    });
+
+    test('renders a null as an empty value', () {
+      expect(roundTrip({'license': null}).config.string('license'), isNull);
+    });
+
+    test('renders an empty list and map as quoted scalars', () {
+      // Neither has a useful block form; stringifying keeps the document
+      // parseable instead of emitting a dangling key.
+      final parsed = roundTrip({'a': <String>[], 'b': <String, Object?>{}});
+
+      expect(parsed.config.string('a'), '[]');
+      expect(parsed.config.string('b'), '{}');
+    });
+
+    test('round-trips the body beneath it', () {
+      final rendered = Frontmatter.render({'name': 'a'});
+
+      expect(_parse('$rendered\n# Body\n').body, '# Body\n');
+    });
+  });
 }

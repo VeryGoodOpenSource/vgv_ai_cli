@@ -1,5 +1,6 @@
 import 'package:file/file.dart';
 import 'package:file/local.dart';
+import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
@@ -214,8 +215,19 @@ void main() {
   });
 
   group('mcpServers', () {
+    MCPServer? server(String name) =>
+        assets.mcpServers.where((server) => server.name == name).singleOrNull;
+
+    test('names each server by its key in .mcp.json', () {
+      expect(assets.mcpServers.map((server) => server.name), [
+        'dart',
+        'context7',
+        'authed',
+      ]);
+    });
+
     test('reads a local (stdio) server with args and env', () {
-      final dart = assets.mcpServers['dart'];
+      final dart = server('dart');
 
       expect(dart, isA<LocalMCPServer>());
       final local = dart! as LocalMCPServer;
@@ -225,7 +237,7 @@ void main() {
     });
 
     test('reads a remote (url) server, defaulting headers to empty', () {
-      final context7 = assets.mcpServers['context7'];
+      final context7 = server('context7');
 
       expect(context7, isA<RemoteMCPServer>());
       final remote = context7! as RemoteMCPServer;
@@ -234,20 +246,20 @@ void main() {
     });
 
     test('reads the headers of a remote server', () {
-      final authed = assets.mcpServers['authed']! as RemoteMCPServer;
+      final authed = server('authed')! as RemoteMCPServer;
 
       expect(authed.url, 'https://mcp.example.com/mcp');
       expect(authed.headers, {'Authorization': 'Bearer token'});
     });
 
     test('skips an entry that is not an object', () {
-      expect(assets.mcpServers.keys, isNot(contains('ignored')));
+      expect(server('ignored'), isNull);
     });
 
     test('skips a declaration that is neither local nor remote', () {
       // No `url` and no `command`: not a valid MCP server, and the union has
       // no unknown fallback, so it is dropped.
-      expect(assets.mcpServers.keys, isNot(contains('broken')));
+      expect(server('broken'), isNull);
     });
 
     test('is empty when the plugin has no .mcp.json', () {
@@ -382,6 +394,62 @@ void main() {
             contains('hooks.json'),
           ),
         ),
+      );
+    });
+  });
+
+  group('names', () {
+    late Directory root;
+
+    setUp(() {
+      root = MemoryFileSystem.test().directory('/plugin')
+        ..createSync(recursive: true);
+    });
+
+    void write(String relative, String contents) {
+      root.childFile(relative)
+        ..createSync(recursive: true)
+        ..writeAsStringSync(contents);
+    }
+
+    Matcher refuses(String name) => throwsA(
+      isA<PluginParseException>().having(
+        (e) => e.message,
+        'message',
+        contains('"$name"'),
+      ),
+    );
+
+    test('refuses a skill name that climbs out of its directory', () {
+      write('skills/evil/SKILL.md', '---\nname: ../../.ssh\n---\nbody\n');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        refuses('../../.ssh'),
+      );
+    });
+
+    test('refuses an agent name with a separator', () {
+      write('agents/evil.md', '---\nname: nested/agent\n---\nbody\n');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        refuses('nested/agent'),
+      );
+    });
+
+    test('refuses an unsafe name that came from the file name', () {
+      write('agents/Bad:Name.md', '---\ndescription: d\n---\nbody\n');
+
+      expect(() => const ClaudePluginParser().parse(root), refuses('Bad:Name'));
+    });
+
+    test('accepts lowercase names with digits, dashes and underscores', () {
+      write('skills/a/SKILL.md', '---\nname: dart_3-tips\n---\nbody\n');
+
+      expect(
+        const ClaudePluginParser().parse(root).skills.single.name,
+        'dart_3-tips',
       );
     });
   });
