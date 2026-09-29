@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/reconcile/line_endings.dart';
+import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 
 /// Opens the section of a markdown file named [name] that VGV manages.
 String sectionStart(String name) => '<!-- vgv-ai-cli:$name -->';
@@ -18,12 +18,16 @@ String sectionEnd(String name) => '<!-- /vgv-ai-cli:$name -->';
 /// its own never swallows the user's text and never makes a later run
 /// append the section again.
 String upsertSection(String original, String name, String body) {
-  final (:text, :restore) = normalizeLineEndings(original);
+  final NormalizedText(:text, :restore) = NormalizedText.from(original);
   final section =
       '${sectionStart(name)}\n${body.trimRight()}\n${sectionEnd(name)}';
 
   return restore(switch (_locate(text, name)) {
-    (:final start, :final end) => text.replaceRange(start, end, section),
+    SectionSpan(:final start, :final end) => text.replaceRange(
+      start,
+      end,
+      section,
+    ),
     null when text.trim().isEmpty => '$section\n',
     null => '${text.trimRight()}\n\n$section\n',
   });
@@ -31,15 +35,13 @@ String upsertSection(String original, String name, String body) {
 
 /// Where the section named [name] starts and ends in [text], markers
 /// included, or null when it has no complete pair of markers.
-({int start, int end})? _locate(String text, String name) {
+SectionSpan? _locate(String text, String name) {
   final close = sectionEnd(name);
-  final starts = sectionStart(name).allMatches(text).map((m) => m.start);
+  final starts = sectionStart(name).allMatches(text).toList().reversed;
 
-  return starts
-      .toList()
-      .reversed
-      .map((start) => (start: start, end: text.indexOf(close, start)))
-      .where((pair) => pair.end != -1)
-      .map((pair) => (start: pair.start, end: pair.end + close.length))
-      .firstOrNull;
+  for (final Match(:start) in starts) {
+    final end = text.indexOf(close, start);
+    if (end != -1) return SectionSpan(start: start, end: end + close.length);
+  }
+  return null;
 }

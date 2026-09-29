@@ -7,7 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
-import 'package:vgv_ai_cli/src/reconcile/toml_edits.dart';
+import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/toml_text.dart';
 
 /// Where the reconciler records the files VGV owns under [home].
 File installManifest(Directory home) =>
@@ -77,28 +78,6 @@ const _bytesEquality = ListEquality<int>();
 
 const _hashesEquality = MapEquality<String, String>();
 
-typedef _Merge = ({String contents, _Held held});
-
-/// A merged document, what the merge added to it, and whether it kept a
-/// value the user set in place of VGV's.
-typedef _DeepMerge = ({
-  Map<String, dynamic> merged,
-  Map<String, dynamic> added,
-  bool declined,
-});
-
-/// What a merge left in place instead of taking VGV's.
-enum _Held {
-  /// Nothing: the file holds everything VGV contributes.
-  nothing,
-
-  /// A value, file or layout the user set.
-  userValue,
-
-  /// The whole file, because it could not be parsed.
-  unparseable,
-}
-
 /// One [Reconciler.apply] call's settings, and the manifest it updates.
 class _Run {
   new({required this.force, required this.dryRun, required this.hashes});
@@ -123,7 +102,7 @@ class _Run {
     final existed = file.existsSync();
     final original = existed ? file.readAsBytesSync() : const <int>[];
 
-    final (:bytes, :held) = switch (change.mode) {
+    final WriteDecision(:bytes, :held) = switch (change.mode) {
       ChangeMode.own => _own(change, existed ? original : null),
       _ => _mergeText(change, original),
     };
@@ -132,18 +111,18 @@ class _Run {
     if (changed && !dryRun) {
       _write(file, bytes, existed: existed, source: change.source);
     }
-    if (change.mode == ChangeMode.own && held == _Held.nothing) {
+    if (change.mode == ChangeMode.own && held == HeldBack.nothing) {
       hashes[file.path] = _hash(bytes);
     }
 
     return AppliedChange(
       change: change,
       outcome: switch ((changed, existed, held)) {
-        (false, _, _Held.userValue) => ChangeOutcome.skipped,
-        (false, _, _Held.unparseable) => ChangeOutcome.unparseable,
-        (false, _, _Held.nothing) => ChangeOutcome.unchanged,
+        (false, _, HeldBack.userValue) => ChangeOutcome.skipped,
+        (false, _, HeldBack.unparseable) => ChangeOutcome.unparseable,
+        (false, _, HeldBack.nothing) => ChangeOutcome.unchanged,
         (true, false, _) => ChangeOutcome.created,
-        (true, true, _Held.nothing) => ChangeOutcome.updated,
+        (true, true, HeldBack.nothing) => ChangeOutcome.updated,
         // Only a kept user value gets here: an unparseable file is returned
         // as it was, so it never changes.
         (true, true, _) => ChangeOutcome.partial,
@@ -156,30 +135,24 @@ class _Run {
   /// It may when there is nothing there, when what is there already matches,
   /// when it is exactly what VGV last wrote, or when forced. Anything else is
   /// the user's.
-  ({List<int> bytes, _Held held}) _own(
-    PlannedChange change,
-    List<int>? original,
-  ) {
+  WriteDecision _own(PlannedChange change, List<int>? original) {
     final ours =
         original == null ||
         force ||
         _bytesEquality.equals(original, change.bytes) ||
         hashes[change.file.path] == _hash(original);
     return ours
-        ? (bytes: change.bytes, held: _Held.nothing)
-        : (bytes: original, held: _Held.userValue);
+        ? WriteDecision(bytes: change.bytes, held: HeldBack.nothing)
+        : WriteDecision(bytes: original, held: HeldBack.userValue);
   }
 
   /// Merges [change] into the text of [original] in its mode's format.
-  ({List<int> bytes, _Held held}) _mergeText(
-    PlannedChange change,
-    List<int> original,
-  ) {
+  WriteDecision _mergeText(PlannedChange change, List<int> original) {
     final String text;
     try {
       text = utf8.decode(original);
     } on FormatException {
-      return (bytes: original, held: _Held.unparseable);
+      return WriteDecision(bytes: original, held: HeldBack.unparseable);
     }
 
     final incoming = change.contents;
@@ -189,82 +162,85 @@ class _Run {
         incoming,
         decode: _decodeJson,
         encode: _encodeJson,
-        rewrite: (_, _, merge) => _encodeJson(merge.merged),
+        rewrite: (_, {required existing, required merge}) =>
+            _encodeJson(merge.merged),
       ),
       ChangeMode.mergeToml => _mergeDocument(
         text,
         incoming,
-        decode: decodeToml,
-        encode: encodeToml,
+        decode: (source) => TomlText(source).decode(),
+        encode: (map) => TomlText.encode(map).source,
         rewrite: _rewriteToml,
       ),
-      _ => (
+      _ => TextMerge(
         contents: upsertSection(text, change.section!, incoming),
-        held: _Held.nothing,
+        held: HeldBack.nothing,
       ),
     };
-    return (bytes: utf8.encode(merge.contents), held: merge.held);
+    return WriteDecision(bytes: utf8.encode(merge.contents), held: merge.held);
   }
 
   /// Merges [incoming] into [original] using one format's codec.
   ///
   /// [rewrite] turns the merged document back into the file's contents, or
   /// returns null when it cannot do so without losing what the user wrote.
-  _Merge _mergeDocument(
+  TextMerge _mergeDocument(
     String original,
     String incoming, {
     required Map<String, dynamic>? Function(String) decode,
     required String Function(Map<String, dynamic>) encode,
     required String? Function(
-      String original,
-      Map<String, dynamic> existing,
-      _DeepMerge merge,
-    )
+      String original, {
+      required Map<String, dynamic> existing,
+      required DeepMerge merge,
+    })
     rewrite,
   }) {
     final addition = decode(incoming);
-    if (addition == null) return (contents: original, held: _Held.unparseable);
+    if (addition == null) {
+      return TextMerge(contents: original, held: HeldBack.unparseable);
+    }
 
     if (original.trim().isEmpty) {
-      return (contents: encode(addition), held: _Held.nothing);
+      return TextMerge(contents: encode(addition), held: HeldBack.nothing);
     }
 
     final existing = decode(original);
-    if (existing == null) return (contents: original, held: _Held.unparseable);
-
-    final deepMerged = _deepMerge(existing, addition);
-    final held = deepMerged.declined ? _Held.userValue : _Held.nothing;
-
-    if (_deepEquality.equals(existing, deepMerged.merged)) {
-      return (contents: original, held: held);
+    if (existing == null) {
+      return TextMerge(contents: original, held: HeldBack.unparseable);
     }
 
-    final contents = rewrite(original, existing, deepMerged);
-    if (contents == null) return (contents: original, held: _Held.userValue);
+    final deepMerged = _deepMerge(existing, addition);
+    final held = deepMerged.declined ? HeldBack.userValue : HeldBack.nothing;
 
-    return (contents: contents, held: held);
+    if (_deepEquality.equals(existing, deepMerged.merged)) {
+      return TextMerge(contents: original, held: held);
+    }
+
+    final contents = rewrite(original, existing: existing, merge: deepMerged);
+    if (contents == null) {
+      return TextMerge(contents: original, held: HeldBack.userValue);
+    }
+
+    return TextMerge(contents: contents, held: held);
   }
 
   /// Writes [merge] into [original] as TOML text, so the user's comments,
   /// layout and unrelated keys survive. Re-serializing drops every comment,
   /// so it happens only when forced and no edit in place works.
   String? _rewriteToml(
-    String original,
-    Map<String, dynamic> existing,
-    _DeepMerge merge,
-  ) {
-    final edited = editToml(
-      original,
-      existing: existing,
-      merged: merge.merged,
-      added: merge.added,
-    );
-    return edited ?? (force ? encodeToml(merge.merged) : null);
+    String original, {
+    required Map<String, dynamic> existing,
+    required DeepMerge merge,
+  }) {
+    final edited = TomlText(original)
+        .edit(existing: existing, merged: merge.merged, added: merge.added);
+    return (edited ?? (force ? TomlText.encode(merge.merged) : null))?.source;
   }
 
   /// Merges [addition] into [base], and collects what the merge added:
   /// every key [base] lacks, and the entries a list gained.
-  _DeepMerge _deepMerge(
+  DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
   ) {
@@ -308,7 +284,7 @@ class _Run {
       declined = declined || existing != value;
     }
 
-    return (merged: result, added: added, declined: declined);
+    return DeepMerge(merged: result, added: added, declined: declined);
   }
 }
 
