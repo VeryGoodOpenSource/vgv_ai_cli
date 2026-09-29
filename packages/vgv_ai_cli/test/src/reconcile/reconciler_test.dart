@@ -666,6 +666,19 @@ void main() {
         );
       });
 
+      test('appends one section, once, after an orphaned end marker', () {
+        final target = seed('.gemini/AGENTS.md', 'Mine.\n$end\nMore.\n');
+
+        apply(target, '# VGV\n');
+        final second = apply(target, '# VGV\n');
+
+        expect(second.outcome, ChangeOutcome.unchanged);
+        expect(
+          target.readAsStringSync(),
+          'Mine.\n$end\nMore.\n\n$start\n# VGV\n$end\n',
+        );
+      });
+
       test('appends a fresh section when only the start marker survives', () {
         final target = seed('.gemini/AGENTS.md', '$start\nhalf\n');
 

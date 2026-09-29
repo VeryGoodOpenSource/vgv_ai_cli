@@ -143,6 +143,8 @@ class _Run {
         (false, _, _Held.nothing) => ChangeOutcome.unchanged,
         (true, false, _) => ChangeOutcome.created,
         (true, true, _Held.nothing) => ChangeOutcome.updated,
+        // Only a kept user value gets here: an unparseable file is returned
+        // as it was, so it never changes.
         (true, true, _) => ChangeOutcome.partial,
       },
     );
@@ -292,28 +294,29 @@ class _Run {
   /// user's own guidance, so everything outside the markers is theirs and is
   /// kept. The section is appended the first time.
   ///
-  /// The end marker is paired with the start marker nearest before it, so a
-  /// start marker left behind on its own never swallows the user's text
-  /// between it and a later block.
+  /// The section is the first start marker followed by an end marker with no
+  /// other start marker between them, so a marker left behind on its own
+  /// never swallows the user's text, and never makes each run append again.
   String _mergeBlock(String original, String incoming) {
     final block =
         '${Reconciler.blockStart}\n${incoming.trimRight()}\n'
         '${Reconciler.blockEnd}';
-    final end = original.indexOf(Reconciler.blockEnd);
-    final start = end == -1
-        ? -1
-        : original.lastIndexOf(Reconciler.blockStart, end);
+    final section = _section.firstMatch(original);
 
-    if (start == -1) {
+    if (section == null) {
       final kept = original.trimRight();
       return kept.isEmpty ? '$block\n' : '$kept\n\n$block\n';
     }
-    return original.replaceRange(
-      start,
-      end + Reconciler.blockEnd.length,
-      block,
-    );
+    return original.replaceRange(section.start, section.end, block);
   }
+
+  /// Matches VGV's section: a start marker, then the nearest end marker
+  /// after it, with no other start marker in between.
+  static final _section = RegExp(
+    '${RegExp.escape(Reconciler.blockStart)}'
+    '(?:(?!${RegExp.escape(Reconciler.blockStart)})[\\s\\S])*?'
+    '${RegExp.escape(Reconciler.blockEnd)}',
+  );
 
   /// Merges [addition] into [base].
   _DeepMerge _deepMerge(

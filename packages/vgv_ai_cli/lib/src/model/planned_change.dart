@@ -18,6 +18,10 @@ enum ChangeMode {
 
   /// Deep merged into a JSON object. Maps merge, lists union, and a scalar
   /// the user already set is kept unless forced.
+  ///
+  /// A merge that adds anything re-serializes the file with two-space
+  /// indentation. Key order and values survive, but the user's own
+  /// indentation does not.
   mergeJson,
 
   /// Deep merged into a TOML document with the same rules as [mergeJson].
