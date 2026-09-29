@@ -12,8 +12,7 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
@@ -97,6 +96,8 @@ PluginAssets _assets(FileSystem fs) => PluginAssets(
 );
 
 void main() {
+  setUpAll(() => registerFallbackValue(Harness.claude));
+
   group('install', () {
     late Logger logger;
     late Progress progress;
@@ -159,13 +160,11 @@ void main() {
     );
 
     void detectAll(Iterable<Harness> installed) {
-      when(() => detector.detectAll()).thenAnswer(
-        (_) async => {
-          for (final harness in Harness.values)
-            harness: installed.contains(harness)
-                ? const HarnessDetection.detected(version: '1.0.0')
-                : const HarnessDetection.missing(),
-        },
+      when(() => detector.detect(any())).thenAnswer(
+        (invocation) async =>
+            installed.contains(invocation.positionalArguments.single)
+            ? const HarnessDetection.detected(version: '1.0.0')
+            : const HarnessDetection.missing(),
       );
     }
 
@@ -182,9 +181,26 @@ void main() {
 
           expect(exitCode, ExitCode.success.code);
           expect(translator.selected, {Harness.claude, Harness.gemini});
-          verifyNever(() => detector.detectAll());
+          verifyNever(() => detector.detect(any()));
         },
       );
+
+      test('--only cannot be combined with a harness flag', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+          '--no-gemini',
+          '--codex',
+        ]);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(
+            '--only cannot be combined with --[no-]gemini, --[no-]codex.',
+          ),
+        ).called(1);
+      });
 
       test('defaults to enabled and detected harnesses', () async {
         detectAll([Harness.claude]);
@@ -206,6 +222,7 @@ void main() {
         expect(translator.selected, isNot(contains(Harness.claude)));
         verify(() => logger.detail('Skipping Claude Code: opted out'))
             .called(1);
+        verifyNever(() => detector.detect(Harness.claude));
       });
 
       test('an unknown --only harness is a usage error', () async {
@@ -337,7 +354,7 @@ void main() {
         expect(exitCode, ExitCode.success.code);
         expect(homeFile('.claude/a.md').existsSync(), isFalse);
         verify(
-          () => logger.detail('Would write ${homeFile('.claude/a.md').path}'),
+          () => logger.info('Would write ${homeFile('.claude/a.md').path}'),
         ).called(1);
         verify(() => logger.info('  Claude Code: 1 file(s)')).called(1);
         verify(() => logger.info(any(that: contains('nothing was written'))))
@@ -355,11 +372,12 @@ void main() {
         final exitCode = await runInstall(['--only', 'claude']);
 
         expect(exitCode, ExitCode.ioError.code);
+        verifyNever(() => logger.info('Everything is already up to date.'));
         verify(
           () => logger.err(
             any(
               that: startsWith(
-                'Could not write ${homeFile('.claude/a.md').path}: ',
+                'Could not update ${homeFile('.claude/a.md').path}: ',
               ),
             ),
           ),
@@ -502,9 +520,29 @@ void main() {
         final environment = Platform.environment;
 
         expect(
-          InstallCommand(logger: logger).home.path,
+          InstallCommand(logger: logger).home?.path,
           environment['HOME'] ?? environment['USERPROFILE'],
         );
+      });
+
+      test('the home falls back to USERPROFILE', () {
+        expect(
+          InstallCommand.userHome(const {'USERPROFILE': r'C:\Users\dev'})?.path,
+          r'C:\Users\dev',
+        );
+      });
+
+      test('a missing home is a config error', () async {
+        final exitCode = await runThroughRunner(
+          InstallCommand(logger: logger, environment: const {}),
+          ['--only', 'claude'],
+        );
+
+        expect(exitCode, ExitCode.config.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(any(that: contains('Could not find your home'))),
+        ).called(1);
       });
 
       test('plugins resolve from the Claude Code cache under home', () async {

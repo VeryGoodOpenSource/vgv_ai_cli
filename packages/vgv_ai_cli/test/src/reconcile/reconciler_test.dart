@@ -7,10 +7,9 @@ import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
-import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
   const reconciler = Reconciler();
@@ -766,6 +765,19 @@ void main() {
         );
       });
 
+      test('appends one section, once, after an orphaned end marker', () {
+        final target = seed('.gemini/AGENTS.md', 'Mine.\n$end\nMore.\n');
+
+        apply(target, '# VGV\n');
+        final second = apply(target, '# VGV\n');
+
+        expect(second.outcome, ChangeOutcome.unchanged);
+        expect(
+          target.readAsStringSync(),
+          'Mine.\n$end\nMore.\n\n$start\n# VGV\n$end\n',
+        );
+      });
+
       test('appends a fresh section when only the start marker survives', () {
         final target = seed('.gemini/AGENTS.md', '$start\nhalf\n');
 
@@ -997,6 +1009,19 @@ void main() {
         ], manifest: temp.childFile('manifest.json'));
 
         expect(modeOf(target), modeOf(script));
+      });
+
+      test('applies nothing when the manifest cannot be read', () {
+        final manifest = onDisk('manifest.json', contents: '{}', mode: '000');
+        final target = onDisk('a.md');
+
+        final applied = reconciler.apply([
+          change(target, 'a', ChangeMode.own),
+        ], manifest: manifest);
+
+        expect(applied.single.outcome, ChangeOutcome.failed);
+        expect(applied.single.change.file.path, manifest.path);
+        expect(target.existsSync(), isFalse);
       });
 
       test('an updated file keeps its own mode', () {

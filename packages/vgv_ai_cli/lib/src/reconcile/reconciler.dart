@@ -27,15 +27,24 @@ class const Reconciler() {
   /// [manifest] records a hash of every owned file this writes, which is how
   /// a later run tells VGV's files from the user's. A change that fails to
   /// read or write is reported as [ChangeOutcome.failed] and the rest still
-  /// apply.
+  /// apply. A manifest that cannot be read fails the whole call, since owned
+  /// files could not be checked against it.
   List<AppliedChange> apply(
     List<PlannedChange> changes, {
     required File manifest,
     bool force = false,
     bool dryRun = false,
   }) {
-    final existed = manifest.existsSync();
-    final loaded = _loadManifest(manifest, existed: existed);
+    final bool existed;
+    final Map<String, String> loaded;
+    try {
+      existed = manifest.existsSync();
+      loaded = _loadManifest(manifest, existed: existed);
+    } on FileSystemException catch (error) {
+      // Without the manifest VGV's files cannot be told from the user's, so
+      // nothing is applied.
+      return [_manifestFailed(manifest, error)];
+    }
     final run = _Run(force: force, dryRun: dryRun, hashes: {...loaded});
 
     final applied = [for (final change in changes) run.guarded(change)];
@@ -47,12 +56,7 @@ class const Reconciler() {
       _write(manifest, utf8.encode(contents), existed: existed);
       return applied;
     } on FileSystemException catch (error) {
-      final change = PlannedChange.text(
-        file: manifest,
-        contents: contents,
-        harness: null,
-      );
-      return [...applied, _failed(change, error)];
+      return [...applied, _manifestFailed(manifest, error)];
     }
   }
 
@@ -140,6 +144,8 @@ class _Run {
         (false, _, _Held.nothing) => ChangeOutcome.unchanged,
         (true, false, _) => ChangeOutcome.created,
         (true, true, _Held.nothing) => ChangeOutcome.updated,
+        // Only a kept user value gets here: an unparseable file is returned
+        // as it was, so it never changes.
         (true, true, _) => ChangeOutcome.partial,
       },
     );
@@ -336,6 +342,13 @@ AppliedChange _failed(PlannedChange change, FileSystemException error) =>
       change: change,
       outcome: ChangeOutcome.failed,
       error: [error.message, ?error.osError?.message].join(': '),
+    );
+
+/// Reports [manifest] as failed with [error].
+AppliedChange _manifestFailed(File manifest, FileSystemException error) =>
+    _failed(
+      PlannedChange.text(file: manifest, contents: '', harness: null),
+      error,
     );
 
 String _hash(List<int> bytes) => sha256.convert(bytes).toString();

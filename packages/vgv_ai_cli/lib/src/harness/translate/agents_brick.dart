@@ -42,9 +42,9 @@ class const AgentsBrick() {
   /// [value] with every string in it guarded against [_strippedBackslash].
   static dynamic _escaped(dynamic value) => switch (value) {
     final String text => text.replaceAll(_strippedBackslash, r'\\'),
-    final Map<String, dynamic> map => {
+    final Map<dynamic, dynamic> map => <String, dynamic>{
       for (final MapEntry(:key, value: entry) in map.entries)
-        key: _escaped(entry),
+        '$key': _escaped(entry),
     },
     final List<dynamic> list => [for (final entry in list) _escaped(entry)],
     _ => value,
