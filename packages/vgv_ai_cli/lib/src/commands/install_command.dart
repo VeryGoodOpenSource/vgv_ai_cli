@@ -190,14 +190,14 @@ class InstallCommand extends Command<int> {
     final selected = <Harness>{};
 
     for (final MapEntry(key: harness, value: detection) in detections.entries) {
-      if (!detection.installed) {
+      if (detection.installed) {
+        selected.add(harness);
+      } else {
         _logger.info(
           '${lightYellow.wrap('skipped')} ${harness.displayName} '
           '(not installed)',
         );
-        continue;
       }
-      selected.add(harness);
     }
 
     return selected;
