@@ -68,7 +68,7 @@ void main() {
         instructions: 'x',
       );
 
-      expect(frontmatterValues(fields['frontmatter']), {
+      expect(frontmatterValues(fields.frontmatter), {
         'description': 'reviews code',
         'mode': 'subagent',
       });
@@ -78,7 +78,7 @@ void main() {
       final fs = MemoryFileSystem.test();
       final fields = translator.command(skillAsset(fs, 'plan'));
 
-      expect(frontmatterValues(fields['frontmatter']), {
+      expect(frontmatterValues(fields.frontmatter), {
         'description': 'what it does',
       });
     });

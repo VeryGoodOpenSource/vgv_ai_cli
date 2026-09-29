@@ -2,6 +2,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template codex_translator}
@@ -29,14 +30,12 @@ class const CodexTranslator() extends HarnessTranslator {
   /// An agent body is a whole markdown document full of quotes, backticks and
   /// backslashes, which is why TOML serializes it rather than mustache.
   @override
-  Map<String, Object?> agent(
-    AgentAsset agent, {
-    required String instructions,
-  }) => {
-    'toml': TomlDocument.fromMap({
-      'name': agent.name,
-      'description': agent.description,
-      'developer_instructions': instructions,
-    }).toString(),
-  };
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      HarnessFields(
+        toml: TomlDocument.fromMap({
+          'name': agent.name,
+          'description': agent.description,
+          'developer_instructions': instructions,
+        }).toString(),
+      );
 }

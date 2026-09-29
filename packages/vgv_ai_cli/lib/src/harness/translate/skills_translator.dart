@@ -4,7 +4,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template skills_translator}

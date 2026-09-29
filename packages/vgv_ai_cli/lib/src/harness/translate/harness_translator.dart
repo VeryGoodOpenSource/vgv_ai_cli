@@ -1,5 +1,5 @@
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template harness_translator}
@@ -33,13 +33,11 @@ abstract class HarnessTranslator {
   /// What the brick renders [agent] with for this harness, under its name.
   ///
   /// [instructions] is the agent body every harness shares.
-  Map<String, Object?> agent(
-    AgentAsset agent, {
-    required String instructions,
-  }) => const {};
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      const HarnessFields();
 
   /// What the brick renders [skill] as a command with, under its name.
-  Map<String, Object?> command(SkillAsset skill) => const {};
+  HarnessFields command(SkillAsset skill) => const HarnessFields();
 
   /// Everything in [assets] this harness cannot express.
   ///

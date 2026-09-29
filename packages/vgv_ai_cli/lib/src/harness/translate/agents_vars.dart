@@ -23,7 +23,7 @@ class const AgentsVars({
   /// `agents` and `commands` are the only top-level lists, and each is left
   /// out when empty. Mason renders a path loop once for every combination of
   /// every top-level list, and renders an empty one as a file with no name.
-  Map<String, dynamic> toMap() {
+  Map<String, Object?> toMap() {
     final agents = [for (final agent in assets.agents) _agent(agent)];
     final commands = [
       for (final skill in assets.invocableSkills) _command(skill),
@@ -57,10 +57,9 @@ class const AgentsVars({
       'name': agent.name,
       'instructions': instructions,
       for (final translator in translators)
-        translator.harness.name: translator.agent(
-          agent,
-          instructions: instructions,
-        ),
+        translator.harness.name: translator
+            .agent(agent, instructions: instructions)
+            .toMap(),
     };
   }
 
@@ -68,7 +67,7 @@ class const AgentsVars({
     'name': skill.name,
     'body': skill.body,
     for (final translator in translators)
-      translator.harness.name: translator.command(skill),
+      translator.harness.name: translator.command(skill).toMap(),
   };
 
   static Map<String, String> _entry(String name, String description) => {

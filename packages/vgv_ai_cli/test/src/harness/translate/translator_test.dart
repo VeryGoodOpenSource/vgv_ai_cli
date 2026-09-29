@@ -41,7 +41,7 @@ void main() {
     ]);
   });
 
-  Future<Map<Harness?, TranslationResult>> translate(
+  Future<TranslationPlan> translate(
     Set<Harness> selected, {
     PluginAssets? using,
   }) => const Translator().translate(
@@ -52,10 +52,10 @@ void main() {
 
   /// Every planned path under [harness]'s config directory, relative to it.
   Future<List<String>> tree(Harness harness, {PluginAssets? using}) async {
-    final results = await translate({harness}, using: using);
+    final plan = await translate({harness}, using: using);
     final root = harness.configDirectory(home).path;
     return [
-      for (final change in results[harness]!.changes)
+      for (final change in plan.harnesses[harness]!.changes)
         change.file.path.substring(root.length + 1),
     ]..sort();
   }
@@ -129,11 +129,10 @@ void main() {
     });
 
     test('merges root config files and owns everything beneath', () async {
-      final results = await translate(Harness.values.toSet());
+      final plan = await translate(Harness.values.toSet());
       final modes = {
-        for (final result in results.values)
-          for (final change in result.changes)
-            change.file.path.substring(home.path.length + 1): change.mode,
+        for (final change in plan.changes)
+          change.file.path.substring(home.path.length + 1): change.mode,
       };
 
       expect(
@@ -153,43 +152,51 @@ void main() {
     });
 
     test('tags every change with the harness it configures', () async {
-      final results = await translate(Harness.values.toSet());
+      final plan = await translate(Harness.values.toSet());
 
-      for (final MapEntry(key: harness, value: result) in results.entries) {
+      expect(plan.shared!.changes.map((c) => c.harness).toSet(), {null});
+      for (final MapEntry(key: harness, value: result)
+          in plan.harnesses.entries) {
         expect(result.changes.map((c) => c.harness).toSet(), {harness});
       }
     });
 
     test('plans the shared skills once, when a harness reads them', () async {
-      final results = await translate({Harness.gemini, Harness.pi});
-      final documents = results[null]!.changes
+      final plan = await translate({Harness.gemini, Harness.pi});
+      final documents = plan.shared!.changes
           .where((c) => c.file.path.endsWith('SKILL.md'))
           .map((c) => c.file.path);
 
       expect(documents, hasLength(assets.skills.length));
-      expect(results.keys, [null, Harness.gemini, Harness.pi]);
+      expect(plan.harnesses.keys, [Harness.gemini, Harness.pi]);
     });
 
     test('plans nothing when no harness is selected', () async {
-      expect(await translate({}), isEmpty);
+      final plan = await translate({});
+
+      expect(plan.shared, isNull);
+      expect(plan.harnesses, isEmpty);
     });
 
     test('plans no shared skills for Claude Code alone', () async {
-      expect((await translate({Harness.claude})).keys, [Harness.claude]);
+      final plan = await translate({Harness.claude});
+
+      expect(plan.shared, isNull);
+      expect(plan.harnesses.keys, [Harness.claude]);
     });
 
     test('carries each harness its own notes', () async {
-      final results = await translate({Harness.claude, Harness.codex});
+      final plan = await translate({Harness.claude, Harness.codex});
 
-      expect(results[Harness.claude]!.notes, isEmpty);
-      expect(results[Harness.codex]!.notes.single.subject, '1 hook(s)');
+      expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+      expect(plan.harnesses[Harness.codex]!.notes.single.subject, '1 hook(s)');
     });
 
     group('renders contents the harness can read', () {
       Future<String> contents(Harness harness, String relative) async {
-        final results = await translate({harness});
+        final plan = await translate({harness});
         final path = '${harness.configDirectory(home).path}/$relative';
-        return results[harness]!.changes
+        return plan.harnesses[harness]!.changes
             .singleWhere((c) => c.file.path == path)
             .contents;
       }
@@ -269,10 +276,8 @@ void main() {
       });
 
       test('AGENTS.md says so when there is nothing to index', () async {
-        final results = await translate({
-          Harness.opencode,
-        }, using: pluginAssets());
-        final instructions = results[Harness.opencode]!.changes
+        final plan = await translate({Harness.opencode}, using: pluginAssets());
+        final instructions = plan.harnesses[Harness.opencode]!.changes
             .singleWhere((c) => c.file.path.endsWith('AGENTS.md'))
             .contents;
 
@@ -290,7 +295,7 @@ void main() {
         // Characters mustache would HTML-escape if a template used a double
         // mustache where it needs a triple one.
         const awkward = 'Compare <T> & "U" with \'V\'.';
-        final results = await translate(
+        final plan = await translate(
           Harness.values.toSet(),
           using: pluginAssets(
             skills: [
@@ -301,9 +306,7 @@ void main() {
           ),
         );
         files = {
-          for (final result in results.values)
-            for (final change in result.changes)
-              change.file.path: change.contents,
+          for (final change in plan.changes) change.file.path: change.contents,
         };
       });
 

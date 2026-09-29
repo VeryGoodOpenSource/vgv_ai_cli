@@ -3,6 +3,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/harness/translate/codex_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 import '_assets.dart';
@@ -49,12 +50,9 @@ void main() {
 
     group('agents', () {
       test('carry the three keys the loader needs, as parseable TOML', () {
-        final toml =
-            translator.agent(
-                  agentAsset('reviewer'),
-                  instructions: 'You review code.\n',
-                )['toml']!
-                as String;
+        final toml = translator
+            .agent(agentAsset('reviewer'), instructions: 'You review code.\n')
+            .toml!;
 
         expect(TomlDocument.parse(toml).toMap(), {
           'name': 'reviewer',
@@ -68,12 +66,9 @@ void main() {
         () {
           const instructions = 'Say "no" to `rm -rf`\\ and \'"""\' too.\n';
 
-          final toml =
-              translator.agent(
-                    agentAsset('reviewer'),
-                    instructions: instructions,
-                  )['toml']!
-                  as String;
+          final toml = translator
+              .agent(agentAsset('reviewer'), instructions: instructions)
+              .toml!;
 
           expect(
             TomlDocument.parse(toml).toMap()['developer_instructions'],
@@ -86,7 +81,7 @@ void main() {
     test('spells no command, since a prompt is the skill body as written', () {
       final fs = MemoryFileSystem.test();
 
-      expect(translator.command(skillAsset(fs, 'plan')), isEmpty);
+      expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
     test('reports that hooks are Claude-only', () {

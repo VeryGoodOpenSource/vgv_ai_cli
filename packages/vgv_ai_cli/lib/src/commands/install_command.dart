@@ -135,20 +135,20 @@ class InstallCommand extends Command<int> {
     );
     if (assets == null) return ExitCode.unavailable.code;
 
-    final results = await _translator.translate(
+    final plan = await _translator.translate(
       assets: assets,
       home: home,
       selected: selected,
     );
 
     final applied = _reconciler.apply(
-      [for (final result in results.values) ...result.changes],
+      plan.changes,
       manifest: installManifest(home),
       force: force,
       dryRun: dryRun,
     );
 
-    _report(results, applied, dryRun: dryRun);
+    _report(plan, applied, dryRun: dryRun);
     return applied.any((change) => change.outcome == ChangeOutcome.failed)
         ? ExitCode.ioError.code
         : ExitCode.success.code;
@@ -247,13 +247,17 @@ class InstallCommand extends Command<int> {
   /// Prints what could not be translated, the files that could not be
   /// written or kept the user's values, and then what was written per owner.
   void _report(
-    Map<Harness?, TranslationResult> results,
+    TranslationPlan plan,
     List<AppliedChange> applied, {
     required bool dryRun,
   }) {
     String ownerName(Harness? harness) => harness?.displayName ?? 'Shared';
 
-    for (final MapEntry(key: harness, value: result) in results.entries) {
+    for (final note in plan.shared?.notes ?? const <TranslationNote>[]) {
+      _logger.warn('${ownerName(null)}: $note');
+    }
+    for (final MapEntry(key: harness, value: result)
+        in plan.harnesses.entries) {
       for (final note in result.notes) {
         _logger.warn('${ownerName(harness)}: $note');
       }

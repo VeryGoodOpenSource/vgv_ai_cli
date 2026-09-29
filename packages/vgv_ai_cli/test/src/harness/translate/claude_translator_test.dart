@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/harness/translate/claude_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 import '_assets.dart';
@@ -39,9 +40,9 @@ void main() {
 
       expect(
         translator.agent(agentAsset('reviewer'), instructions: 'x'),
-        isEmpty,
+        const HarnessFields(),
       );
-      expect(translator.command(skillAsset(fs, 'plan')), isEmpty);
+      expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
     test('reports nothing, since the plugins run here as written', () {

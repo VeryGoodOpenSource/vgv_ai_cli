@@ -14,7 +14,7 @@ import 'package:vgv_ai_cli/src/templates/templates.dart';
 /// {@endtemplate}
 class const AgentsBrick() {
   /// Renders every file [vars] select, keyed by its path in the brick.
-  Future<Map<String, String>> render(Map<String, dynamic> vars) async {
+  Future<Map<String, String>> render(Map<String, Object?> vars) async {
     final generator = MasonGenerator(
       agentsBundle.name,
       agentsBundle.description,
@@ -24,10 +24,7 @@ class const AgentsBrick() {
       ],
     );
     final target = _MemoryTarget();
-    await generator.generate(
-      target,
-      vars: _escaped(vars) as Map<String, dynamic>,
-    );
+    await generator.generate(target, vars: _escapedMap(vars));
     return target.files;
   }
 
@@ -40,14 +37,16 @@ class const AgentsBrick() {
   static final _strippedBackslash = RegExp(r'\\(?=\r|\n|[^\x00-\x7F])');
 
   /// [value] with every string in it guarded against [_strippedBackslash].
-  static dynamic _escaped(dynamic value) => switch (value) {
+  static Object? _escaped(Object? value) => switch (value) {
     final String text => text.replaceAll(_strippedBackslash, r'\\'),
-    final Map<dynamic, dynamic> map => <String, dynamic>{
-      for (final MapEntry(:key, value: entry) in map.entries)
-        '$key': _escaped(entry),
-    },
-    final List<dynamic> list => [for (final entry in list) _escaped(entry)],
+    final Map<String, Object?> map => _escapedMap(map),
+    final List<Object?> list => [for (final entry in list) _escaped(entry)],
     _ => value,
+  };
+
+  /// [map] with every string in it guarded against [_strippedBackslash].
+  static Map<String, Object?> _escapedMap(Map<String, Object?> map) => {
+    for (final MapEntry(:key, :value) in map.entries) key: _escaped(value),
   };
 }
 
