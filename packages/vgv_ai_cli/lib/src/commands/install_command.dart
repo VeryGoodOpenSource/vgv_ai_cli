@@ -17,13 +17,15 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 /// * `--check` prints the changes without writing them.
 /// * `--force` takes VGV's values where they conflict with the user's.
 /// * `--only` configures the named harnesses, detected or not.
-/// * `--no-<harness>` skips one detected harness.
+/// * `--no-<harness>` skips one detected harness. It cannot be combined with
+///   `--only`, which already names the set.
 /// {@endtemplate}
 class InstallCommand extends Command<int> {
   /// {@macro install_command}
   new({
     required this._logger,
     this._home,
+    this._environment,
     this._pluginSource,
     this._parser = const ClaudePluginParser(),
     this._detector = const HarnessDetector(),
@@ -64,6 +66,7 @@ class InstallCommand extends Command<int> {
 
   final Logger _logger;
   final Directory? _home;
+  final Map<String, String>? _environment;
   final PluginSource? _pluginSource;
   final PluginParser _parser;
   final HarnessDetector _detector;
@@ -92,22 +95,30 @@ class InstallCommand extends Command<int> {
   @override
   String get name => commandName;
 
-  /// The current user's home directory.
-  static Directory get userHome {
-    final environment = Platform.environment;
+  /// The home directory [environment] names, or null when it names none.
+  static Directory? userHome(Map<String, String> environment) {
     final home = environment['HOME'] ?? environment['USERPROFILE'];
-    return const LocalFileSystem().directory(home ?? '.');
+    return home == null ? null : const LocalFileSystem().directory(home);
   }
 
-  Directory get home => _home ?? userHome;
-
-  PluginSource get pluginSource =>
-      _pluginSource ?? LocalCachePluginSource(home: home);
+  /// The directory install configures, or null when it cannot be found.
+  Directory? get home =>
+      _home ?? userHome(_environment ?? Platform.environment);
 
   @override
   Future<int> run() async {
     final force = argResults!['force'] == true;
     final dryRun = argResults!['check'] == true;
+
+    // Falling back to the working directory would scatter harness config
+    // wherever install happened to run, so a missing home is fatal.
+    final home = this.home;
+    if (home == null) {
+      _logger.err(
+        'Could not find your home directory. Set HOME and run install again.',
+      );
+      return ExitCode.config.code;
+    }
 
     final selected = await _select();
     if (selected.isEmpty) {
@@ -119,7 +130,9 @@ class InstallCommand extends Command<int> {
       return ExitCode.usage.code;
     }
 
-    final assets = await _resolveAssets();
+    final assets = await _resolveAssets(
+      _pluginSource ?? LocalCachePluginSource(home: home),
+    );
     if (assets == null) return ExitCode.unavailable.code;
 
     final results = await _translator.translate(
@@ -145,28 +158,45 @@ class InstallCommand extends Command<int> {
   ///
   /// `--only` wins outright and bypasses detection. Otherwise every harness
   /// that is both enabled and actually installed is configured, since writing
-  /// config for a harness the user does not have is noise.
+  /// config for a harness the user does not have is noise. Only enabled
+  /// harnesses are probed, since each probe may wait out a timeout.
   Future<Set<Harness>> _select() async {
-    final only = argResults!['only'] as List<String>;
-    if (only.isNotEmpty) return only.map(Harness.values.byName).toSet();
+    final results = argResults!;
+    final only = results['only'] as List<String>;
+    if (only.isNotEmpty) {
+      final flagged = Harness.values.where((h) => results.wasParsed(h.name));
+      if (flagged.isNotEmpty) {
+        usageException(
+          '--only cannot be combined with '
+          '${flagged.map((harness) => '--[no-]${harness.name}').join(', ')}.',
+        );
+      }
+      return only.map(Harness.values.byName).toSet();
+    }
 
-    final detections = await _detector.detectAll();
+    final enabled = <Harness>[];
+    for (final harness in Harness.values) {
+      if (results[harness.name] == true) {
+        enabled.add(harness);
+      } else {
+        _logger.detail('Skipping ${harness.displayName}: opted out');
+      }
+    }
+
+    final detections = Map.fromIterables(
+      enabled,
+      await Future.wait(enabled.map(_detector.detect)),
+    );
     final selected = <Harness>{};
 
-    for (final harness in Harness.values) {
-      if (argResults![harness.name] != true) {
-        _logger.detail('Skipping ${harness.displayName}: opted out');
-        continue;
-      }
-
-      if (detections[harness]?.installed != true) {
+    for (final MapEntry(key: harness, value: detection) in detections.entries) {
+      if (!detection.installed) {
         _logger.info(
           '${lightYellow.wrap('skipped')} ${harness.displayName} '
           '(not installed)',
         );
         continue;
       }
-
       selected.add(harness);
     }
 
@@ -177,7 +207,7 @@ class InstallCommand extends Command<int> {
   ///
   /// Returns `null` when any plugin cannot be resolved: a half-configured
   /// harness is worse than an unconfigured one, so the first failure aborts.
-  Future<PluginAssets?> _resolveAssets() async {
+  Future<PluginAssets?> _resolveAssets(PluginSource pluginSource) async {
     final progress = _logger.progress('Resolving plugins');
     final parsed = <PluginAssets>[];
 
@@ -239,8 +269,12 @@ class InstallCommand extends Command<int> {
             'Left $path alone because it could not be parsed. If it has '
             "comments, add VGV's settings to it by hand.",
           );
+        // A dry run exists to show what would change, so its paths are
+        // always printed.
+        case _ when _wrote.contains(outcome) && dryRun:
+          _logger.info('Would write $path');
         case _ when _wrote.contains(outcome):
-          _logger.detail('${dryRun ? 'Would write' : 'Wrote'} $path');
+          _logger.detail('Wrote $path');
         case _:
       }
     }
