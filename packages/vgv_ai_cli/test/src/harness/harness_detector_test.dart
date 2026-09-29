@@ -20,7 +20,7 @@ Matcher _hasVersion(String version) =>
 void main() {
   group('HarnessDetector', () {
     test('uses the real Process.run when none is injected', () {
-      expect(HarnessDetector(), isNotNull);
+      expect(const HarnessDetector(), isNotNull);
     });
 
     group('detect', () {

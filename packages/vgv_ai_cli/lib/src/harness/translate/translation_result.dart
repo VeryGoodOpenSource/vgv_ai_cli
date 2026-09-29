@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:vgv_ai_cli/src/reconcile/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template translation_note}
 /// Something the source declared that a harness cannot express.

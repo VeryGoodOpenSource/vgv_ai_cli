@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
@@ -9,11 +11,17 @@ import 'package:vgv_ai_cli/src/model/harness.dart';
 /// is forced.
 /// {@endtemplate}
 enum ChangeMode {
-  /// VGV owns the file and writes it whole.
+  /// VGV owns the file and writes it whole. A file at the same path that
+  /// VGV did not write, or that the user has since edited, is theirs and is
+  /// kept unless forced.
   own,
 
   /// Deep merged into a JSON object. Maps merge, lists union, and a scalar
   /// the user already set is kept unless forced.
+  ///
+  /// A merge that adds anything re-serializes the file with two-space
+  /// indentation. Key order and values survive, but the user's own
+  /// indentation does not.
   mergeJson,
 
   /// Deep merged into a TOML document with the same rules as [mergeJson].
@@ -35,62 +43,53 @@ class PlannedChange {
   /// {@macro planned_change}
   new({
     required this.file,
-    required this.contents,
+    required this.bytes,
     required this.harness,
     this.mode = ChangeMode.own,
+    this.source,
   });
+
+  /// {@macro planned_change}
+  ///
+  /// Convenience for text, which is what every change but a copied skill
+  /// file is.
+  new text({
+    required File file,
+    required String contents,
+    required Harness? harness,
+    ChangeMode mode = ChangeMode.own,
+  }) : this(
+         file: file,
+         bytes: utf8.encode(contents),
+         harness: harness,
+         mode: mode,
+       );
 
   /// The file to write.
   final File file;
 
   /// What VGV contributes to [file], before any merge.
-  final String contents;
+  ///
+  /// Bytes rather than text, because a skill may ship a file that is not
+  /// UTF-8.
+  final List<int> bytes;
 
-  /// How [contents] lands on [file].
+  /// How [bytes] lands on [file].
   final ChangeMode mode;
 
   /// Null when the change is shared rather than owned by one harness.
   final Harness? harness;
+
+  /// The file [bytes] was copied from, whose permissions [file] takes when
+  /// it is created, so a copied script stays executable.
+  final File? source;
+
+  /// [bytes] decoded as UTF-8. Every merged format is text.
+  String get contents => utf8.decode(bytes);
 
   @override
   String toString() {
     final owner = harness?.name ?? 'shared';
     return '[${mode.name}] ($owner) ${file.path}';
   }
-}
-
-/// {@template change_outcome}
-/// What applying a [PlannedChange] did.
-/// {@endtemplate}
-enum ChangeOutcome {
-  /// The file did not exist and was written.
-  created,
-
-  /// The file existed and now holds everything VGV contributes.
-  updated,
-
-  /// The file existed and was written, but kept the user's value for at
-  /// least one key VGV also sets. Forcing takes VGV's.
-  partial,
-
-  /// The file was left alone because it could not be merged safely, or
-  /// because every difference was a value the user set.
-  skipped,
-
-  /// The file already held everything VGV contributes.
-  unchanged,
-}
-
-/// {@template applied_change}
-/// A [PlannedChange] and what applying it did.
-/// {@endtemplate}
-class AppliedChange {
-  /// {@macro applied_change}
-  new({required this.change, required this.outcome});
-
-  /// The change that was applied.
-  final PlannedChange change;
-
-  /// What applying [change] did.
-  final ChangeOutcome outcome;
 }
