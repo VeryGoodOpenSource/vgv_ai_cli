@@ -3,6 +3,10 @@ import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
+/// The section of an instructions file such as `AGENTS.md` that the brick's
+/// rendered instructions are written to.
+const instructionsSection = 'instructions';
+
 /// Plans the change that writes one file the `agents` brick rendered.
 ///
 /// The brick renders each harness into a folder named after it, laid out the
@@ -12,7 +16,8 @@ import 'package:vgv_ai_cli/src/model/planned_change.dart';
 ///
 /// A file at the root of the folder is a config file the user may already
 /// have edited, so it is merged. Anything deeper is an agent, command or
-/// prompt VGV owns, so it is written whole.
+/// prompt VGV owns, so it is written whole. A root markdown file is merged
+/// as the [instructionsSection] section, next to anything the user wrote.
 PlannedChange renderedChange(
   String path, {
   required String contents,
@@ -24,15 +29,22 @@ PlannedChange renderedChange(
     p.joinAll([harness.configDirectory(home).path, ...segments]),
   );
 
-  return PlannedChange.text(
+  PlannedChange planned(ChangeMode mode) => PlannedChange.text(
     file: file,
     contents: contents,
     harness: harness,
-    mode: switch ((segments.length, p.extension(path))) {
-      (1, '.json') => ChangeMode.mergeJson,
-      (1, '.toml') => ChangeMode.mergeToml,
-      (1, _) => ChangeMode.mergeMarkdown,
-      _ => ChangeMode.own,
-    },
+    mode: mode,
   );
+
+  return switch ((segments.length, p.extension(path))) {
+    (1, '.json') => planned(ChangeMode.mergeJson),
+    (1, '.toml') => planned(ChangeMode.mergeToml),
+    (1, _) => PlannedChange.markdown(
+      file: file,
+      contents: contents,
+      harness: harness,
+      section: instructionsSection,
+    ),
+    _ => planned(ChangeMode.own),
+  };
 }

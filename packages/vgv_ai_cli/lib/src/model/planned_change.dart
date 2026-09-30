@@ -26,13 +26,18 @@ enum ChangeMode {
 
   /// Deep merged into a TOML document with the same rules as [mergeJson].
   ///
-  /// New keys are appended as text, so the user's comments and layout
-  /// survive. A merge that has to edit what is already there re-serializes
-  /// the file, which drops its comments, so it is made only when forced.
+  /// New tables are appended and changed keys are edited where they stand,
+  /// so the user's comments and layout survive. Re-serializing the file
+  /// drops its comments, so it happens only when forced, and only for a
+  /// change neither edit can make.
   mergeToml,
 
-  /// Written between VGV's markers in a markdown file. Everything outside
-  /// the markers belongs to the user and is kept.
+  /// Written as a named section between VGV's markers in a markdown file,
+  /// `<!-- vgv-ai-cli:NAME -->` and `<!-- /vgv-ai-cli:NAME -->`. Everything
+  /// outside the markers belongs to the user and is kept, and each section is
+  /// rewritten on its own, so several can share one file. Only
+  /// [PlannedChange.markdown] makes a change in this mode, since it is the
+  /// one that names the section.
   mergeMarkdown,
 }
 
@@ -45,9 +50,17 @@ class PlannedChange {
     required this.file,
     required this.bytes,
     required this.harness,
-    this.mode = ChangeMode.own,
+    ChangeMode mode = ChangeMode.own,
     this.source,
-  });
+  }) : mode = mode == ChangeMode.mergeMarkdown
+           ? throw ArgumentError.value(
+               mode,
+               'mode',
+               'a markdown merge names its section, so use '
+                   'PlannedChange.markdown',
+             )
+           : mode,
+       section = null;
 
   /// {@macro planned_change}
   ///
@@ -64,6 +77,19 @@ class PlannedChange {
          harness: harness,
          mode: mode,
        );
+
+  /// {@macro planned_change}
+  ///
+  /// A [ChangeMode.mergeMarkdown] change, which writes [contents] as the
+  /// section of [file] named [section].
+  new markdown({
+    required this.file,
+    required String contents,
+    required this.harness,
+    required String this.section,
+  }) : bytes = utf8.encode(contents),
+       mode = ChangeMode.mergeMarkdown,
+       source = null;
 
   /// The file to write.
   final File file;
@@ -83,6 +109,10 @@ class PlannedChange {
   /// The file [bytes] was copied from, whose permissions [file] takes when
   /// it is created, so a copied script stays executable.
   final File? source;
+
+  /// The name of the section a [PlannedChange.markdown] change writes, and
+  /// null for every other change.
+  final String? section;
 
   /// [bytes] decoded as UTF-8. Every merged format is text.
   String get contents => utf8.decode(bytes);

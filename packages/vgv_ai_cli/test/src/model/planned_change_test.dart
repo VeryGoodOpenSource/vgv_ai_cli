@@ -77,6 +77,43 @@ void main() {
       expect(change.source, source);
     });
 
+    test('names the section a markdown merge writes', () {
+      final change = PlannedChange.markdown(
+        file: fileSystem.file('/home/user/.gemini/AGENTS.md'),
+        contents: '# VGV',
+        harness: Harness.gemini,
+        section: 'instructions',
+      );
+
+      expect(change.mode, ChangeMode.mergeMarkdown);
+      expect(change.section, 'instructions');
+      expect(change.contents, '# VGV');
+      expect(change.source, isNull);
+    });
+
+    test('has no section for any other mode', () {
+      final change = PlannedChange.text(
+        file: fileSystem.file('/home/user/.gemini/settings.json'),
+        contents: '{}',
+        harness: null,
+        mode: ChangeMode.mergeJson,
+      );
+
+      expect(change.section, isNull);
+    });
+
+    test('leaves a markdown merge to PlannedChange.markdown', () {
+      expect(
+        () => PlannedChange.text(
+          file: fileSystem.file('/home/user/.gemini/AGENTS.md'),
+          contents: '# VGV',
+          harness: null,
+          mode: ChangeMode.mergeMarkdown,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('carries the harness it was given, and owns its file by default', () {
       final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.gemini/agents/a.md'),

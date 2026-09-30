@@ -4,9 +4,11 @@ import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/toml_text.dart';
 
 /// Where the reconciler records the files VGV owns under [home].
 File installManifest(Directory home) =>
@@ -21,12 +23,6 @@ File installManifest(Directory home) =>
 /// `dryRun`, nothing is written, but the outcomes are the same.
 /// {@endtemplate}
 class const Reconciler() {
-  /// Opens the section of a markdown file that VGV manages.
-  static const blockStart = '<!-- vgv_ai:start -->';
-
-  /// Closes the section of a markdown file that VGV manages.
-  static const blockEnd = '<!-- vgv_ai:end -->';
-
   /// Applies every one of [changes] and returns what each did.
   ///
   /// [manifest] records a hash of every owned file this writes, which is how
@@ -82,22 +78,6 @@ const _bytesEquality = ListEquality<int>();
 
 const _hashesEquality = MapEquality<String, String>();
 
-typedef _Merge = ({String contents, _Held held});
-
-typedef _DeepMerge = ({Map<String, dynamic> merged, bool declined});
-
-/// What a merge left in place instead of taking VGV's.
-enum _Held {
-  /// Nothing: the file holds everything VGV contributes.
-  nothing,
-
-  /// A value, file or layout the user set.
-  userValue,
-
-  /// The whole file, because it could not be parsed.
-  unparseable,
-}
-
 /// One [Reconciler.apply] call's settings, and the manifest it updates.
 class _Run {
   new({required this.force, required this.dryRun, required this.hashes});
@@ -122,27 +102,27 @@ class _Run {
     final existed = file.existsSync();
     final original = existed ? file.readAsBytesSync() : const <int>[];
 
-    final (:bytes, :held) = switch (change.mode) {
+    final WriteDecision(:bytes, :held) = switch (change.mode) {
       ChangeMode.own => _own(change, existed ? original : null),
-      final mode => _mergeText(mode, original, change.contents),
+      _ => _mergeText(change, original),
     };
 
     final changed = !_bytesEquality.equals(bytes, original);
     if (changed && !dryRun) {
       _write(file, bytes, existed: existed, source: change.source);
     }
-    if (change.mode == ChangeMode.own && held == _Held.nothing) {
+    if (change.mode == ChangeMode.own && held == HeldBack.nothing) {
       hashes[file.path] = _hash(bytes);
     }
 
     return AppliedChange(
       change: change,
       outcome: switch ((changed, existed, held)) {
-        (false, _, _Held.userValue) => ChangeOutcome.skipped,
-        (false, _, _Held.unparseable) => ChangeOutcome.unparseable,
-        (false, _, _Held.nothing) => ChangeOutcome.unchanged,
+        (false, _, HeldBack.userValue) => ChangeOutcome.skipped,
+        (false, _, HeldBack.unparseable) => ChangeOutcome.unparseable,
+        (false, _, HeldBack.nothing) => ChangeOutcome.unchanged,
         (true, false, _) => ChangeOutcome.created,
-        (true, true, _Held.nothing) => ChangeOutcome.updated,
+        (true, true, HeldBack.nothing) => ChangeOutcome.updated,
         // Only a kept user value gets here: an unparseable file is returned
         // as it was, so it never changes.
         (true, true, _) => ChangeOutcome.partial,
@@ -155,182 +135,126 @@ class _Run {
   /// It may when there is nothing there, when what is there already matches,
   /// when it is exactly what VGV last wrote, or when forced. Anything else is
   /// the user's.
-  ({List<int> bytes, _Held held}) _own(
-    PlannedChange change,
-    List<int>? original,
-  ) {
+  WriteDecision _own(PlannedChange change, List<int>? original) {
     final ours =
         original == null ||
         force ||
         _bytesEquality.equals(original, change.bytes) ||
         hashes[change.file.path] == _hash(original);
     return ours
-        ? (bytes: change.bytes, held: _Held.nothing)
-        : (bytes: original, held: _Held.userValue);
+        ? WriteDecision(bytes: change.bytes, held: HeldBack.nothing)
+        : WriteDecision(bytes: original, held: HeldBack.userValue);
   }
 
-  /// Merges [incoming] into the text of [original] in [mode]'s format.
-  ({List<int> bytes, _Held held}) _mergeText(
-    ChangeMode mode,
-    List<int> original,
-    String incoming,
-  ) {
+  /// Merges [change] into the text of [original] in its mode's format.
+  WriteDecision _mergeText(PlannedChange change, List<int> original) {
     final String text;
     try {
       text = utf8.decode(original);
     } on FormatException {
-      return (bytes: original, held: _Held.unparseable);
+      return WriteDecision(bytes: original, held: HeldBack.unparseable);
     }
 
-    final merge = switch (mode) {
-      ChangeMode.mergeJson => _mergeDocument(
+    final incoming = change.contents;
+    // Only a markdown merge names a section, and PlannedChange makes every
+    // markdown merge name one.
+    final merge = switch (change) {
+      PlannedChange(:final section?) => TextMerge(
+        contents: upsertSection(text, section, incoming),
+        held: HeldBack.nothing,
+      ),
+      PlannedChange(mode: ChangeMode.mergeToml) => _mergeDocument(
+        text,
+        incoming,
+        decode: (source) => TomlText(source).decode(),
+        encode: (map) => TomlText.encode(map).source,
+        rewrite: _rewriteToml,
+      ),
+      _ => _mergeDocument(
         text,
         incoming,
         decode: _decodeJson,
         encode: _encodeJson,
-        rewrite: (_, _, merged) => _encodeJson(merged),
+        rewrite: (_, {required existing, required merge}) =>
+            _encodeJson(merge.merged),
       ),
-      ChangeMode.mergeToml => _mergeDocument(
-        text,
-        incoming,
-        decode: _decodeToml,
-        encode: _encodeToml,
-        rewrite: _rewriteToml,
-      ),
-      _ => (contents: _mergeBlock(text, incoming), held: _Held.nothing),
     };
-    return (bytes: utf8.encode(merge.contents), held: merge.held);
+    return WriteDecision(bytes: utf8.encode(merge.contents), held: merge.held);
   }
 
   /// Merges [incoming] into [original] using one format's codec.
   ///
   /// [rewrite] turns the merged document back into the file's contents, or
   /// returns null when it cannot do so without losing what the user wrote.
-  _Merge _mergeDocument(
+  TextMerge _mergeDocument(
     String original,
     String incoming, {
     required Map<String, dynamic>? Function(String) decode,
     required String Function(Map<String, dynamic>) encode,
     required String? Function(
-      String original,
-      Map<String, dynamic> existing,
-      Map<String, dynamic> merged,
-    )
+      String original, {
+      required Map<String, dynamic> existing,
+      required DeepMerge merge,
+    })
     rewrite,
   }) {
     final addition = decode(incoming);
-    if (addition == null) return (contents: original, held: _Held.unparseable);
+    if (addition == null) {
+      return TextMerge(contents: original, held: HeldBack.unparseable);
+    }
 
     if (original.trim().isEmpty) {
-      return (contents: encode(addition), held: _Held.nothing);
+      return TextMerge(contents: encode(addition), held: HeldBack.nothing);
     }
 
     final existing = decode(original);
-    if (existing == null) return (contents: original, held: _Held.unparseable);
+    if (existing == null) {
+      return TextMerge(contents: original, held: HeldBack.unparseable);
+    }
 
     final deepMerged = _deepMerge(existing, addition);
-    final held = deepMerged.declined ? _Held.userValue : _Held.nothing;
+    final held = deepMerged.declined ? HeldBack.userValue : HeldBack.nothing;
 
     if (_deepEquality.equals(existing, deepMerged.merged)) {
-      return (contents: original, held: held);
+      return TextMerge(contents: original, held: held);
     }
 
-    final contents = rewrite(original, existing, deepMerged.merged);
-    if (contents == null) return (contents: original, held: _Held.userValue);
+    final contents = rewrite(original, existing: existing, merge: deepMerged);
+    if (contents == null) {
+      return TextMerge(contents: original, held: HeldBack.userValue);
+    }
 
-    return (contents: contents, held: held);
+    return TextMerge(contents: contents, held: held);
   }
 
-  /// Appends what [merged] adds to [original] as TOML text, so the user's
-  /// comments and layout survive.
-  ///
-  /// The append is kept only when it parses back to exactly [merged]. A merge
-  /// that edits a value or an inline array cannot be appended, and
-  /// re-serializing drops every comment, so it happens only when forced.
+  /// Writes [merge] into [original] as TOML text, so the user's comments,
+  /// layout and unrelated keys survive. Re-serializing drops every comment,
+  /// so it happens only when forced and no edit in place works.
   String? _rewriteToml(
-    String original,
-    Map<String, dynamic> existing,
-    Map<String, dynamic> merged,
-  ) {
-    final additions = _encodeToml(_missing(existing, merged));
-    final appended = '${original.trimRight()}\n\n$additions';
-    if (_deepEquality.equals(_decodeToml(appended), merged)) return appended;
-    return force ? _encodeToml(merged) : null;
+    String original, {
+    required Map<String, dynamic> existing,
+    required DeepMerge merge,
+  }) {
+    final edited = TomlText(original)
+        .edit(existing: existing, merged: merge.merged, added: merge.added);
+    return (edited ?? (force ? TomlText.encode(merge.merged) : null))?.source;
   }
 
-  /// What [target] holds that [base] does not: every absent key, and the
-  /// entries a list gained. [target] is a merge of [base], so a list it
-  /// shares with [base] starts with [base]'s entries.
-  Map<String, dynamic> _missing(
-    Map<String, dynamic> base,
-    Map<String, dynamic> target,
-  ) {
-    final missing = <String, dynamic>{};
-    for (final MapEntry(:key, :value) in target.entries) {
-      if (!base.containsKey(key)) {
-        missing[key] = value;
-        continue;
-      }
-      final gap = switch ((base[key], value)) {
-        (
-          final Map<dynamic, dynamic> existing,
-          final Map<dynamic, dynamic> added,
-        ) =>
-          _missing(existing.cast(), added.cast()),
-        (final List<dynamic> existing, final List<dynamic> added) =>
-          added.sublist(existing.length),
-        _ => const <Object>[],
-      };
-      if (gap case Map(isNotEmpty: true) || List(isNotEmpty: true)) {
-        missing[key] = gap;
-      }
-    }
-    return missing;
-  }
-
-  /// Replaces VGV's delimited section of [original] with [incoming].
-  ///
-  /// An instructions file such as `~/.gemini/AGENTS.md` may already hold the
-  /// user's own guidance, so everything outside the markers is theirs and is
-  /// kept. The section is appended the first time.
-  ///
-  /// The section is the first start marker followed by an end marker with no
-  /// other start marker between them, so a marker left behind on its own
-  /// never swallows the user's text, and never makes each run append again.
-  String _mergeBlock(String original, String incoming) {
-    final block =
-        '${Reconciler.blockStart}\n${incoming.trimRight()}\n'
-        '${Reconciler.blockEnd}';
-    final section = _section.firstMatch(original);
-
-    if (section == null) {
-      final kept = original.trimRight();
-      return kept.isEmpty ? '$block\n' : '$kept\n\n$block\n';
-    }
-    return original.replaceRange(section.start, section.end, block);
-  }
-
-  /// Matches VGV's section: a start marker, then the nearest end marker
-  /// after it, with no other start marker in between.
-  static final _section = RegExp(
-    '${RegExp.escape(Reconciler.blockStart)}'
-    '(?:(?!${RegExp.escape(Reconciler.blockStart)})[\\s\\S])*?'
-    '${RegExp.escape(Reconciler.blockEnd)}',
-  );
-
-  /// Merges [addition] into [base].
-  _DeepMerge _deepMerge(
+  /// Merges [addition] into [base], and collects what the merge added:
+  /// every key [base] lacks, and the entries a list gained.
+  DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
   ) {
     final result = Map<String, dynamic>.from(base);
+    final added = <String, dynamic>{};
     var declined = false;
 
     for (final MapEntry(:key, :value) in addition.entries) {
       final existing = result[key];
 
       if (!result.containsKey(key)) {
-        result[key] = value;
+        result[key] = added[key] = value;
         continue;
       }
 
@@ -340,17 +264,17 @@ class _Run {
           value.cast<String, dynamic>(),
         );
         result[key] = merged.merged;
+        if (merged.added.isNotEmpty) added[key] = merged.added;
         declined = declined || merged.declined;
         continue;
       }
 
       if (existing is List && value is List) {
-        result[key] = <dynamic>[
-          ...existing,
-          ...value.where(
-            (v) => !existing.any((e) => _deepEquality.equals(e, v)),
-          ),
-        ];
+        final gained = value
+            .where((v) => !existing.any((e) => _deepEquality.equals(e, v)))
+            .toList();
+        result[key] = <dynamic>[...existing, ...gained];
+        if (gained.isNotEmpty) added[key] = gained;
         continue;
       }
 
@@ -362,7 +286,7 @@ class _Run {
       declined = declined || existing != value;
     }
 
-    return (merged: result, declined: declined);
+    return DeepMerge(merged: result, added: added, declined: declined);
   }
 }
 
@@ -423,18 +347,3 @@ Map<String, dynamic>? _decodeJson(String source) {
 
 /// Encodes a decoded map back to canonical JSON with a trailing newline.
 String _encodeJson(Map<String, dynamic> map) => '${_encoder.convert(map)}\n';
-
-/// Decodes a TOML document, or null when it is malformed.
-Map<String, dynamic>? _decodeToml(String source) {
-  try {
-    return TomlDocument.parse(source).toMap();
-  } on TomlException catch (_) {
-    return null;
-  }
-}
-
-/// Encodes a decoded map back to canonical TOML with a trailing newline.
-String _encodeToml(Map<String, dynamic> map) {
-  final toml = TomlDocument.fromMap(map).toString().trim();
-  return '$toml\n';
-}
