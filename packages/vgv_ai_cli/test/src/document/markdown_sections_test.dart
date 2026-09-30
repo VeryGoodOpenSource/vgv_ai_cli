@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
 
 void main() {
   group('markdown sections', () {
@@ -87,6 +87,67 @@ void main() {
           upsertSection(text, 'a', 'one\ntwo'),
           'Mine.\r\n\r\n$start\r\none\r\ntwo\r\n$end\r\n',
         );
+      });
+    });
+
+    group('sectionBody', () {
+      final start = sectionStart('a');
+      final end = sectionEnd('a');
+
+      test('is what upsertSection wrote', () {
+        final text = upsertSection('Mine.\n', 'a', 'line one\nline two\n');
+
+        expect(sectionBody(text, 'a'), 'line one\nline two');
+      });
+
+      test('is empty for an empty section, markers adjacent or not', () {
+        expect(sectionBody('$start\n\n$end\n', 'a'), '');
+        expect(sectionBody('$start$end', 'a'), '');
+      });
+
+      test('is null when the section is not there', () {
+        expect(sectionBody('Mine.\n', 'a'), isNull);
+        expect(sectionBody('$start\nhalf\n', 'a'), isNull);
+      });
+
+      test('has LF line endings in a CRLF file', () {
+        final text = upsertSection('Mine.\r\n', 'a', 'one\ntwo');
+
+        expect(sectionBody(text, 'a'), 'one\ntwo');
+      });
+    });
+
+    group('removeSection', () {
+      test('takes back exactly what upsertSection added', () {
+        for (final original in ['Mine.\n', '# Title\n\nBody.\n', '']) {
+          final written = upsertSection(original, 'a', 'body');
+
+          expect(removeSection(written, 'a'), original);
+        }
+      });
+
+      test('keeps the text on both sides of a section in the middle', () {
+        final b = '${sectionStart('b')}\nb\n${sectionEnd('b')}';
+        final text = upsertSection('Mine.\n', 'a', 'a');
+
+        expect(removeSection('$text\n$b\n', 'a'), 'Mine.\n\n$b\n');
+      });
+
+      test('keeps the text after a leading section', () {
+        final text = upsertSection('', 'a', 'body');
+
+        expect(removeSection('$text\nMine.\n', 'a'), 'Mine.\n');
+      });
+
+      test('leaves the text alone when the section is not there', () {
+        expect(removeSection('Mine.\n', 'a'), 'Mine.\n');
+      });
+
+      test('keeps CRLF line endings', () {
+        const original = 'Mine.\r\n';
+        final written = upsertSection(original, 'a', 'body');
+
+        expect(removeSection(written, 'a'), original);
       });
     });
   });

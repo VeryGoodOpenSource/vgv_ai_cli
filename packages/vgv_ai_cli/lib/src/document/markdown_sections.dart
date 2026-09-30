@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
+import 'package:vgv_ai_cli/src/document/model/model.dart';
 
 /// Opens the section of a markdown file named [name] that VGV manages.
 String sectionStart(String name) => '<!-- vgv-ai-cli:$name -->';
@@ -30,6 +30,43 @@ String upsertSection(String original, String name, String body) {
     ),
     null when text.trim().isEmpty => '$section\n',
     null => '${text.trimRight()}\n\n$section\n',
+  });
+}
+
+/// The body of the section named [name] in [original], as [upsertSection]
+/// wrote it, or null when [original] has no such section.
+///
+/// The body has `\n` line endings whatever the file's, so it hashes the same
+/// as the body install wrote.
+String? sectionBody(String original, String name) {
+  final NormalizedText(:text) = NormalizedText.from(original);
+  return switch (_locate(text, name)) {
+    SectionSpan(:final start, :final end) =>
+      text
+          .substring(
+            start + sectionStart(name).length,
+            end - sectionEnd(name).length,
+          )
+          .replaceFirst(RegExp(r'^\n'), '')
+          .replaceFirst(RegExp(r'\n$'), ''),
+    null => null,
+  };
+}
+
+/// [original] without the section named [name], and the blank line
+/// [upsertSection] put before it, and unchanged when there is no such
+/// section. The file keeps its line endings.
+String removeSection(String original, String name) {
+  final NormalizedText(:text, :restore) = NormalizedText.from(original);
+  final located = _locate(text, name);
+  if (located == null) return original;
+
+  final before = text.substring(0, located.start).trimRight();
+  final after = text.substring(located.end).replaceFirst(RegExp(r'^\n+'), '');
+  return restore(switch ((before.isEmpty, after.isEmpty)) {
+    (true, _) => after,
+    (false, true) => '$before\n',
+    (false, false) => '$before\n\n$after',
   });
 }
 

@@ -1,3 +1,4 @@
+import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template change_outcome}
@@ -11,9 +12,8 @@ enum ChangeOutcome {
   updated,
 
   /// The file existed and was written, but kept the user's value for at
-  /// least one key VGV also sets. Forcing takes VGV's.
-  ///
-  /// The one outcome that both wrote the file and kept a user value.
+  /// least one key VGV also sets. The only outcome that both writes the file
+  /// and keeps a user value. Forcing takes VGV's.
   partial,
 
   /// The file was left alone because every difference was the user's:
@@ -48,3 +48,16 @@ class AppliedChange {
   /// Why the change [ChangeOutcome.failed], and null otherwise.
   final String? error;
 }
+
+/// {@template reconciliation}
+/// What applying a plan did, change by change, and the manifest that
+/// records what VGV owns afterwards.
+/// {@endtemplate}
+class const Reconciliation({
+  /// Each change that was applied, and what applying it did.
+  required final List<AppliedChange> changes,
+
+  /// The manifest the changes were applied against, updated with what they
+  /// wrote. On a dry run it records what they would have written.
+  required final InstallManifest manifest,
+});

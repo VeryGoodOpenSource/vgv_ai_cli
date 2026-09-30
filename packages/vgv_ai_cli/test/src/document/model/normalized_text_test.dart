@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
+import 'package:vgv_ai_cli/src/document/model/model.dart';
 
 void main() {
   group('NormalizedText', () {

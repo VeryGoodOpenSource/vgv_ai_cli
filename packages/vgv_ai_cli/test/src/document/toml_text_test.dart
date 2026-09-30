@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/reconcile/toml_text.dart';
+import 'package:vgv_ai_cli/src/document/toml_text.dart';
 
 void main() {
   String upsert(
@@ -301,6 +301,137 @@ void main() {
             },
           },
         ),
+        isNull,
+      );
+    });
+  });
+
+  group('TomlText.remove', () {
+    String remove(
+      String text, {
+      required String key,
+      List<String> table = const [],
+    }) => TomlText(text).remove(table: table, key: key).source;
+
+    test('removes the statement and keeps every other line', () {
+      const original = '# top\n[mcp]\nargs = [\n  "a",\n]\nkept = 1 # mine\n';
+
+      expect(
+        remove(original, key: 'args', table: ['mcp']),
+        '# top\n[mcp]\nkept = 1 # mine\n',
+      );
+    });
+
+    test('removes a top-level key', () {
+      expect(remove('a = 1\nb = 2\n', key: 'a'), 'b = 2\n');
+    });
+
+    test('leaves the text alone when there is no such key or table', () {
+      const original = '[mcp]\nx = 1\n';
+
+      expect(remove(original, key: 'y', table: ['mcp']), original);
+      expect(remove(original, key: 'x', table: ['other']), original);
+    });
+  });
+
+  group('TomlText.removeTable', () {
+    String removeTable(String text, List<String> table) =>
+        TomlText(text).removeTable(table).source;
+
+    test('removes a trailing table and the blank line under it', () {
+      expect(removeTable('x = 1\n\n[mcp]\n', ['mcp']), 'x = 1\n');
+    });
+
+    test('removes a table between two others', () {
+      expect(
+        removeTable('a = 1\n\n[mcp]\n\n[other]\nx = 1\n', ['mcp']),
+        'a = 1\n\n[other]\nx = 1\n',
+      );
+    });
+
+    test('keeps a comment that describes the next table', () {
+      expect(
+        removeTable('a = 1\n\n[mcp]\n\n# other\n[other]\n', ['mcp']),
+        'a = 1\n\n# other\n[other]\n',
+      );
+    });
+
+    test('removes just the header when the next one follows it', () {
+      expect(
+        removeTable('[mcp]\n# other\n[other]\n', ['mcp']),
+        '# other\n[other]\n',
+      );
+    });
+
+    test('leaves the text alone when there is no such header', () {
+      expect(removeTable('x = 1\n', ['mcp']), 'x = 1\n');
+      expect(removeTable('x = 1\n', const []), 'x = 1\n');
+    });
+  });
+
+  group('TomlText.withdraw', () {
+    String? withdraw(String text, {required Map<String, dynamic> remaining}) =>
+        TomlText(text)
+            .withdraw(existing: parse(text), remaining: remaining)
+            ?.source;
+
+    test('changes and removes keys and tables in place', () {
+      const original =
+          '# mine\n'
+          'model = "gpt"\n'
+          '\n'
+          '[mcp_servers.old]\n'
+          'command = "old"\n'
+          '\n'
+          '[mcp_servers.dart]\n'
+          'command = "dart"\n'
+          'stale = true\n';
+
+      expect(
+        withdraw(
+          original,
+          remaining: {
+            'model': 'gpt',
+            'mcp_servers': {
+              'dart': {
+                'command': 'dart',
+                'args': ['mcp'],
+              },
+            },
+          },
+        ),
+        '# mine\n'
+        'model = "gpt"\n'
+        '\n'
+        '[mcp_servers.dart]\n'
+        'command = "dart"\n'
+        "args = ['mcp']\n",
+      );
+    });
+
+    test('trims what install appended back to one line ending', () {
+      expect(
+        withdraw(
+          '# mine\nmodel = "gpt"\n\n[mcp]\nx = 1\n',
+          remaining: {'model': 'gpt'},
+        ),
+        '# mine\nmodel = "gpt"\n',
+      );
+    });
+
+    test('keeps CRLF line endings', () {
+      expect(
+        withdraw(
+          '# mine\r\nmodel = "gpt"\r\n\r\n[mcp]\r\nx = 1\r\n',
+          remaining: {'model': 'gpt'},
+        ),
+        '# mine\r\nmodel = "gpt"\r\n',
+      );
+    });
+
+    test('is null when the edit does not decode to what remains', () {
+      expect(
+        withdraw('mcp.x = 1\nmodel = "gpt"\n', remaining: {'model': 'gpt'}),
         isNull,
       );
     });

@@ -1,4 +1,4 @@
-/// The harness-neutral types every layer of `install` shares.
+/// The harness-neutral types the rest of the CLI plans and writes with.
 library;
 
 export 'harness.dart';
