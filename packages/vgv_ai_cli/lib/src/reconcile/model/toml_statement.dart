@@ -34,6 +34,10 @@ class const TomlStatement({
   /// What follows the statement on its last line, from the whitespace before
   /// its `#`, and empty when there is none.
   required final String comment,
+
+  /// Whether a comment sits on a line of the statement before its last,
+  /// inside a value that spans several lines.
+  required final bool hasInnerComment,
 }) {
   /// Whether the statement opens a table or an array of tables.
   bool get isHeader =>

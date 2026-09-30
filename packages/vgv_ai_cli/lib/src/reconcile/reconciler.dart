@@ -156,25 +156,27 @@ class _Run {
     }
 
     final incoming = change.contents;
-    final merge = switch (change.mode) {
-      ChangeMode.mergeJson => _mergeDocument(
-        text,
-        incoming,
-        decode: _decodeJson,
-        encode: _encodeJson,
-        rewrite: (_, {required existing, required merge}) =>
-            _encodeJson(merge.merged),
+    // Only a markdown merge names a section, and PlannedChange makes every
+    // markdown merge name one.
+    final merge = switch (change) {
+      PlannedChange(:final section?) => TextMerge(
+        contents: upsertSection(text, section, incoming),
+        held: HeldBack.nothing,
       ),
-      ChangeMode.mergeToml => _mergeDocument(
+      PlannedChange(mode: ChangeMode.mergeToml) => _mergeDocument(
         text,
         incoming,
         decode: (source) => TomlText(source).decode(),
         encode: (map) => TomlText.encode(map).source,
         rewrite: _rewriteToml,
       ),
-      _ => TextMerge(
-        contents: upsertSection(text, change.section!, incoming),
-        held: HeldBack.nothing,
+      _ => _mergeDocument(
+        text,
+        incoming,
+        decode: _decodeJson,
+        encode: _encodeJson,
+        rewrite: (_, {required existing, required merge}) =>
+            _encodeJson(merge.merged),
       ),
     };
     return WriteDecision(bytes: utf8.encode(merge.contents), held: merge.held);

@@ -62,8 +62,9 @@ class const TomlText(
   /// other line of it kept as written.
   ///
   /// An empty [table] is the document's top level. A key already in the table
-  /// has its statement replaced, and the comment after it is kept, though a
-  /// comment inside a value that spans several lines is not. A new key goes
+  /// has its statement replaced, and the comment after it is kept. A value
+  /// that spans several lines with a comment inside it is left as it is,
+  /// since replacing it would drop that comment. A new key goes
   /// after the table's last key, and a table the document does not have is
   /// appended at the end. So the user's comments, layout and every key VGV
   /// does not set survive.
@@ -94,6 +95,7 @@ class const TomlText(
       (s) => _pathEquality.equals(s.path, [key]),
     );
 
+    if (current case TomlStatement(hasInnerComment: true)) return this;
     if (current != null) {
       lines.replaceRange(current.start, current.end + 1, [
         '$statement${current.comment}',
@@ -168,11 +170,15 @@ List<TomlStatement> _scan(List<String> lines) {
   final statements = <TomlStatement>[];
   final scanner = _LineScanner();
   var start = 0;
+  var hasInnerComment = false;
 
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index];
     scanner.feed(line);
-    if (scanner.open && index < lines.length - 1) continue;
+    if (scanner.open && index < lines.length - 1) {
+      hasInnerComment = hasInnerComment || scanner.comment < line.length;
+      continue;
+    }
 
     final code = line.substring(0, scanner.comment).trimRight();
     statements.add(
@@ -181,9 +187,11 @@ List<TomlStatement> _scan(List<String> lines) {
         start: start,
         end: index,
         comment: line.substring(code.length),
+        hasInnerComment: hasInnerComment,
       ),
     );
     start = index + 1;
+    hasInnerComment = false;
   }
   return statements;
 }
@@ -194,6 +202,7 @@ TomlStatement _classify(
   required int start,
   required int end,
   required String comment,
+  required bool hasInnerComment,
 }) {
   final trimmed = first.trimLeft();
   final kind = switch (trimmed) {
@@ -214,6 +223,7 @@ TomlStatement _classify(
     end: end,
     path: path,
     comment: comment,
+    hasInnerComment: hasInnerComment,
   );
 }
 

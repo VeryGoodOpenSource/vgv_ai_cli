@@ -50,13 +50,17 @@ class PlannedChange {
     required this.file,
     required this.bytes,
     required this.harness,
-    this.mode = ChangeMode.own,
+    ChangeMode mode = ChangeMode.own,
     this.source,
-  }) : section = null,
-       assert(
-         mode != ChangeMode.mergeMarkdown,
-         'a markdown merge names its section, so use PlannedChange.markdown',
-       );
+  }) : mode = mode == ChangeMode.mergeMarkdown
+           ? throw ArgumentError.value(
+               mode,
+               'mode',
+               'a markdown merge names its section, so use '
+                   'PlannedChange.markdown',
+             )
+           : mode,
+       section = null;
 
   /// {@macro planned_change}
   ///

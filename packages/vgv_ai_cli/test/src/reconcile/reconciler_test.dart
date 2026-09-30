@@ -603,6 +603,26 @@ void main() {
         expect(target.readAsStringSync(), original);
       });
 
+      test('skips growing an array that has a comment inside it', () {
+        const original = '[mcp_servers.dart]\nargs = [\n  "a", # mine\n]\n';
+        final target = seed('.codex/config.toml', original);
+
+        final applied = applyOne(
+          change(
+            target,
+            '[mcp_servers.dart]\nargs = ["b"]',
+            ChangeMode.mergeToml,
+          ),
+        );
+
+        expect(
+          applied.outcome,
+          ChangeOutcome.skipped,
+          reason: "replacing the array would drop the user's comment",
+        );
+        expect(target.readAsStringSync(), original);
+      });
+
       test('rewrites the file when forced and no edit fits', () {
         final target = seed(
           '.codex/config.toml',

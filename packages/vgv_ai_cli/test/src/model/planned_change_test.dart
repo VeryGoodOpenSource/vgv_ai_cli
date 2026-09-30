@@ -110,7 +110,7 @@ void main() {
           harness: null,
           mode: ChangeMode.mergeMarkdown,
         ),
-        throwsA(isA<AssertionError>()),
+        throwsArgumentError,
       );
     });
 

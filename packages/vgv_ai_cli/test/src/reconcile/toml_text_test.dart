@@ -182,12 +182,24 @@ void main() {
     });
 
     test('keeps the comment after a value that spans several lines', () {
-      const original = 'args = [\n  "a", # dropped\n]  # kept\n';
+      const original = 'args = [\n  "a",\n]  # kept\n';
 
       expect(
         upsert(original, key: 'args', value: ['b']),
         "args = ['b']  # kept\n",
       );
+    });
+
+    test('leaves a value with a comment inside it as it is', () {
+      const original = 'args = [\n  "a", # mine\n]\n';
+
+      expect(upsert(original, key: 'args', value: ['b']), original);
+    });
+
+    test('reads a comment inside a multiline string as the value', () {
+      const original = 'a = """\n# text\n"""\n';
+
+      expect(upsert(original, key: 'a', value: 'b'), "a = 'b'\n");
     });
 
     test('decodes keys the way TOML does, keeping quoted whitespace', () {
@@ -262,6 +274,20 @@ void main() {
           },
         ),
         "# mine\r\n[mcp]\r\ncommand = 'new' # pinned\r\n",
+      );
+    });
+
+    test('is null when an edit would drop a comment inside a value', () {
+      expect(
+        edit(
+          '[mcp]\nargs = [\n  "a", # mine\n]\n',
+          merged: {
+            'mcp': {
+              'args': ['a', 'b'],
+            },
+          },
+        ),
+        isNull,
       );
     });
 
