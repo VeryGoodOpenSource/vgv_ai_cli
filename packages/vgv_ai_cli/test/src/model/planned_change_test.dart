@@ -125,4 +125,22 @@ void main() {
       expect(change.mode, ChangeMode.own);
     });
   });
+
+  group('ChangeMode', () {
+    test('has the format of each document merge, and of nothing else', () {
+      expect(ChangeMode.mergeJson.format, DocumentFormat.json);
+      expect(ChangeMode.mergeToml.format, DocumentFormat.toml);
+      expect(ChangeMode.own.format, isNull);
+      expect(ChangeMode.mergeMarkdown.format, isNull);
+    });
+  });
+
+  group('DocumentFormat', () {
+    test('decodes and encodes its own format', () {
+      expect(DocumentFormat.json.decode('{"a": 1}'), {'a': 1});
+      expect(DocumentFormat.json.encode({'a': 1}), '{\n  "a": 1\n}\n');
+      expect(DocumentFormat.toml.decode('a = 1'), {'a': 1});
+      expect(DocumentFormat.toml.encode({'a': 1}), 'a = 1\n');
+    });
+  });
 }

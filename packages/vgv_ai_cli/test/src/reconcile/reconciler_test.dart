@@ -7,8 +7,9 @@ import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
@@ -16,23 +17,41 @@ void main() {
 
   late FileSystem fileSystem;
   late Directory home;
-  late File manifest;
+  late InstallManifest manifest;
 
   setUp(() {
     fileSystem = MemoryFileSystem.test();
     home = fileSystem.directory('/home/dev')..createSync(recursive: true);
-    manifest = installManifest(home);
+    manifest = InstallManifest();
   });
+
+  /// Applies [changes] against [manifest], and keeps what they recorded
+  /// unless it was a dry run, as `install` does.
+  List<AppliedChange> applyAll(
+    List<PlannedChange> changes, {
+    bool force = false,
+    bool dryRun = false,
+  }) {
+    final reconciliation = reconciler.apply(
+      changes,
+      manifest: manifest,
+      force: force,
+      dryRun: dryRun,
+    );
+    if (!dryRun) manifest = reconciliation.manifest;
+    return reconciliation.changes;
+  }
 
   AppliedChange applyOne(
     PlannedChange change, {
     bool force = false,
     bool dryRun = false,
-  }) => reconciler
-      .apply([change], manifest: manifest, force: force, dryRun: dryRun)
-      .single;
+  }) => applyAll([change], force: force, dryRun: dryRun).single;
 
   File file(String relative) => fileSystem.file(p.join(home.path, relative));
+
+  T entryFor<T extends ManifestEntry>(File target) =>
+      manifest.entryOf<T>(target.path)!;
 
   File seed(String relative, String contents) {
     final f = file(relative)..parent.createSync(recursive: true);
@@ -772,6 +791,65 @@ void main() {
         expect(apply(target, '# VGV\n').outcome, ChangeOutcome.unchanged);
       });
 
+      test('keeps a section the user edited since VGV wrote it', () {
+        final target = file('.gemini/AGENTS.md');
+        apply(target, '# VGV\n');
+        final before = entryFor<MarkdownSections>(target);
+        final edited = upsertSection(
+          target.readAsStringSync(),
+          'instructions',
+          '# Mine now',
+        );
+        target.writeAsStringSync(edited);
+
+        final applied = apply(target, '# VGV v2\n');
+
+        expect(applied.outcome, ChangeOutcome.skipped);
+        expect(target.readAsStringSync(), edited);
+        expect(
+          entryFor<MarkdownSections>(target).sections,
+          before.sections,
+          reason: 'the hash of what VGV last wrote is kept',
+        );
+      });
+
+      test('writes over an edited section when forced', () {
+        final target = file('.gemini/AGENTS.md');
+        apply(target, '# VGV\n');
+        target.writeAsStringSync(
+          upsertSection(target.readAsStringSync(), 'instructions', 'Mine'),
+        );
+
+        final applied = applyOne(
+          PlannedChange.markdown(
+            file: target,
+            contents: '# VGV v2\n',
+            harness: null,
+            section: 'instructions',
+          ),
+          force: true,
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(
+          sectionBody(target.readAsStringSync(), 'instructions'),
+          '# VGV v2',
+        );
+      });
+
+      test('takes an edited section that already matches as unchanged', () {
+        final target = file('.gemini/AGENTS.md');
+        apply(target, '# VGV\n');
+        target.writeAsStringSync(
+          upsertSection(target.readAsStringSync(), 'instructions', '# VGV v2'),
+        );
+
+        expect(apply(target, '# VGV v2\n').outcome, ChangeOutcome.unchanged);
+        expect(entryFor<MarkdownSections>(target).sections, {
+          'instructions': hashText('# VGV v2'),
+        });
+      });
+
       test('keeps the text after an orphaned start marker on every run', () {
         final target = seed('.gemini/AGENTS.md', '$start\nhalf\n\nMine.\n');
 
@@ -867,89 +945,359 @@ void main() {
     });
 
     group('manifest', () {
-      Map<String, dynamic> readManifest() => readJson(manifest);
+      test('records each file by how it was written, and for whom', () {
+        final skill = file('.agents/skills/a/SKILL.md');
+        final settings = seed(
+          '.gemini/settings.json',
+          jsonEncode({'model': 'pro'}),
+        );
+        final agents = file('.gemini/AGENTS.md');
 
-      test('lives under ~/.vgv_ai', () {
-        expect(manifest.path, p.join(home.path, '.vgv_ai', 'manifest.json'));
+        applyAll([
+          change(skill, 'body', ChangeMode.own),
+          PlannedChange.text(
+            file: settings,
+            contents: jsonEncode({
+              'model': 'flash',
+              'mcpServers': {
+                'dart': {'command': 'dart'},
+              },
+            }),
+            harness: Harness.gemini,
+            mode: ChangeMode.mergeJson,
+          ),
+          PlannedChange.markdown(
+            file: agents,
+            contents: '# VGV\n',
+            harness: Harness.gemini,
+            section: 'instructions',
+          ),
+        ]);
+
+        final [owned, merged, sections] = manifest.entries.toList();
+        expect(owned, isA<OwnedFile>().having((e) => e.owner, 'owner', null));
+        expect((owned as OwnedFile).sha256, hashBytes(utf8.encode('body')));
+        expect(
+          merged,
+          isA<MergedDocument>()
+              .having((e) => e.owner, 'owner', Harness.gemini)
+              .having((e) => e.mode, 'mode', ChangeMode.mergeJson)
+              .having((e) => e.contribution, 'contribution', {
+                'mcpServers': {
+                  'dart': {'command': 'dart'},
+                },
+              }),
+        );
+        expect(
+          sections,
+          isA<MarkdownSections>().having((e) => e.sections, 'sections', {
+            'instructions': hashBytes(utf8.encode('# VGV')),
+          }),
+        );
       });
 
-      test('records every owned file it writes, and no merged one', () {
-        final skill = file('.agents/skills/a/SKILL.md');
-        final settings = file('.claude/settings.json');
+      test('records the entries VGV appended to a list of the user', () {
+        final settings = seed(
+          '.claude/settings.json',
+          jsonEncode({
+            'allow': ['Read'],
+          }),
+        );
 
-        reconciler.apply([
-          change(skill, 'body', ChangeMode.own),
-          change(settings, jsonEncode({'a': 1}), ChangeMode.mergeJson),
-        ], manifest: manifest);
+        applyOne(
+          change(
+            settings,
+            jsonEncode({
+              'allow': ['Read', 'Bash'],
+            }),
+            ChangeMode.mergeJson,
+          ),
+        );
 
-        expect(readManifest().keys, [skill.path]);
+        expect(entryFor<MergedDocument>(settings).contribution, {
+          'allow': ['Bash'],
+        });
       });
 
       test('keeps entries for files this run did not touch', () {
-        manifest
-          ..createSync(recursive: true)
-          ..writeAsStringSync(jsonEncode({'/elsewhere': 'hash'}));
+        const elsewhere = OwnedFile(
+          path: '/elsewhere',
+          owner: Harness.codex,
+          sha256: 'hash',
+        );
+        manifest = InstallManifest(const [elsewhere]);
         final skill = file('.agents/skills/a/SKILL.md');
 
         applyOne(change(skill, 'body', ChangeMode.own));
 
-        expect(
-          readManifest().keys,
-          unorderedEquals(['/elsewhere', skill.path]),
-        );
+        expect(manifest.entries.map((e) => e.path), ['/elsewhere', skill.path]);
       });
 
-      test('is not rewritten when nothing it records changed', () {
+      test('keeps the entry of a file it could not parse this time', () {
+        final settings = file('.gemini/settings.json');
+        final planned = change(
+          settings,
+          jsonEncode({'a': 1}),
+          ChangeMode.mergeJson,
+        );
+        applyOne(planned);
+        settings.writeAsStringSync('{ "a": 1, // mine\n}');
+
+        applyOne(planned);
+
+        expect(entryFor<MergedDocument>(settings).contribution, {'a': 1});
+      });
+
+      test('comes back equal when nothing it records changed', () {
         final skill = change(
           file('.agents/skills/a/SKILL.md'),
           'body',
           ChangeMode.own,
         );
         applyOne(skill);
-        final compact = jsonEncode(readManifest());
-        manifest.writeAsStringSync(compact);
+        final before = manifest;
 
         applyOne(skill);
 
-        expect(manifest.readAsStringSync(), compact);
+        expect(manifest, before);
       });
 
-      test('is not written on a dry run', () {
-        applyOne(
-          change(file('.agents/skills/a/SKILL.md'), 'body', ChangeMode.own),
+      test('comes back with what a dry run would record', () {
+        final skill = file('.agents/skills/a/SKILL.md');
+
+        final reconciliation = reconciler.apply(
+          [change(skill, 'body', ChangeMode.own)],
+          manifest: manifest,
           dryRun: true,
         );
 
-        expect(manifest.existsSync(), isFalse);
+        expect(reconciliation.manifest[skill.path], isA<OwnedFile>());
+        expect(skill.existsSync(), isFalse);
       });
 
-      test('treats a malformed manifest, or an odd entry, as unrecorded', () {
-        final target = seed('.agents/skills/a/SKILL.md', 'old');
-        manifest
-          ..createSync(recursive: true)
-          ..writeAsStringSync(jsonEncode({target.path: 1}));
+      test("records nothing for a document that already held VGV's values", () {
+        final settings = seed('.gemini/settings.json', jsonEncode({'a': 1}));
 
-        final applied = applyOne(change(target, 'new', ChangeMode.own));
-        manifest.writeAsStringSync('{ not json');
-        final again = applyOne(change(target, 'newer', ChangeMode.own));
+        applyOne(change(settings, jsonEncode({'a': 1}), ChangeMode.mergeJson));
+
+        expect(manifest.entries, isEmpty);
+      });
+    });
+
+    group('managed keys', () {
+      test('updates a JSON value VGV wrote, without forcing', () {
+        final settings = seed(
+          '.gemini/settings.json',
+          jsonEncode({'model': 'pro'}),
+        );
+        applyOne(
+          change(
+            settings,
+            jsonEncode({
+              'mcpServers': {
+                'dart': {
+                  'args': ['old'],
+                },
+              },
+            }),
+            ChangeMode.mergeJson,
+          ),
+        );
+
+        final applied = applyOne(
+          change(
+            settings,
+            jsonEncode({
+              'mcpServers': {
+                'dart': {
+                  'args': ['new'],
+                },
+              },
+            }),
+            ChangeMode.mergeJson,
+          ),
+        );
+
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(readJson(settings), {
+          'model': 'pro',
+          'mcpServers': {
+            'dart': {
+              'args': ['new'],
+            },
+          },
+        });
+      });
+
+      test('keeps a VGV value the user has since edited', () {
+        final settings = file('.gemini/settings.json');
+        applyOne(
+          change(settings, jsonEncode({'theme': 'vgv'}), ChangeMode.mergeJson),
+        );
+        settings.writeAsStringSync(jsonEncode({'theme': 'mine'}));
+
+        final applied = applyOne(
+          change(
+            settings,
+            jsonEncode({'theme': 'vgv 2'}),
+            ChangeMode.mergeJson,
+          ),
+        );
 
         expect(applied.outcome, ChangeOutcome.skipped);
-        expect(again.outcome, ChangeOutcome.skipped);
+        expect(readJson(settings), {'theme': 'mine'});
+        expect(
+          manifest[settings.path],
+          isNull,
+          reason: 'a value the user changed is theirs from then on',
+        );
       });
 
-      test('reports a manifest it cannot write as a failed change', () {
-        fileSystem.directory(manifest.path).createSync(recursive: true);
-        final skill = file('.agents/skills/a/SKILL.md');
+      test('updates a TOML value VGV wrote in place', () {
+        final config = seed('.codex/config.toml', '# mine\nmodel = "gpt"\n');
+        applyOne(
+          change(
+            config,
+            '[mcp_servers.dart]\nargs = ["old"]',
+            ChangeMode.mergeToml,
+          ),
+        );
 
-        final applied = reconciler.apply([
-          change(skill, 'body', ChangeMode.own),
-        ], manifest: manifest);
+        final applied = applyOne(
+          change(
+            config,
+            '[mcp_servers.dart]\nargs = ["new"]',
+            ChangeMode.mergeToml,
+          ),
+        );
 
-        expect(applied.map((a) => a.outcome), [
-          ChangeOutcome.created,
-          ChangeOutcome.failed,
-        ]);
-        expect(applied.last.change.file.path, manifest.path);
+        expect(applied.outcome, ChangeOutcome.updated);
+        expect(
+          config.readAsStringSync(),
+          "# mine\nmodel = \"gpt\"\n\n[mcp_servers.dart]\nargs = ['new']\n",
+        );
+      });
+
+      test('keeps owning a key recorded inside a table the user has', () {
+        final settings = seed(
+          '.gemini/settings.json',
+          jsonEncode({
+            'mcpServers': {
+              'mine': {'command': 'mine'},
+            },
+          }),
+        );
+        final planned = change(
+          settings,
+          jsonEncode({
+            'mcpServers': {
+              'dart': {'command': 'dart'},
+            },
+          }),
+          ChangeMode.mergeJson,
+        );
+
+        applyOne(planned);
+        applyOne(planned);
+
+        expect(entryFor<MergedDocument>(settings).contribution, {
+          'mcpServers': {
+            'dart': {'command': 'dart'},
+          },
+        });
+      });
+
+      group('a key a plugin stops writing', () {
+        PlannedChange servers(File target, Map<String, Object> entries) =>
+            change(
+              target,
+              jsonEncode({'mcpServers': entries}),
+              ChangeMode.mergeJson,
+            );
+
+        test('stays in a table VGV wrote alone', () {
+          final settings = file('.gemini/settings.json');
+          applyOne(
+            servers(settings, {
+              'dart': {'command': 'dart'},
+              'gh': {'command': 'gh'},
+            }),
+          );
+
+          final applied = applyOne(
+            servers(settings, {
+              'dart': {'command': 'dart'},
+            }),
+          );
+
+          expect(applied.outcome, ChangeOutcome.unchanged);
+          expect(readJson(settings)['mcpServers'], {
+            'dart': {'command': 'dart'},
+            'gh': {'command': 'gh'},
+          });
+          expect(entryFor<MergedDocument>(settings).contribution, {
+            'mcpServers': {
+              'dart': {'command': 'dart'},
+              'gh': {'command': 'gh'},
+            },
+          }, reason: 'uninstall still takes it back');
+        });
+
+        test('stays just the same when the user added a key beside it', () {
+          final settings = file('.gemini/settings.json');
+          applyOne(
+            servers(settings, {
+              'dart': {'command': 'dart'},
+              'gh': {'command': 'gh'},
+            }),
+          );
+          final written = readJson(settings);
+          (written['mcpServers'] as Map<String, dynamic>)['mine'] = {
+            'command': 'mine',
+          };
+          settings.writeAsStringSync(jsonEncode(written));
+
+          applyOne(
+            servers(settings, {
+              'dart': {'command': 'dart'},
+            }),
+          );
+
+          expect(readJson(settings)['mcpServers'], {
+            'dart': {'command': 'dart'},
+            'gh': {'command': 'gh'},
+            'mine': {'command': 'mine'},
+          });
+          expect(entryFor<MergedDocument>(settings).contribution, {
+            'mcpServers': {
+              'dart': {'command': 'dart'},
+              'gh': {'command': 'gh'},
+            },
+          });
+        });
+      });
+
+      test('keeps owning the list entries it appended', () {
+        final settings = seed(
+          '.claude/settings.json',
+          jsonEncode({
+            'allow': ['Read'],
+          }),
+        );
+        final planned = change(
+          settings,
+          jsonEncode({
+            'allow': ['Bash'],
+          }),
+          ChangeMode.mergeJson,
+        );
+
+        applyOne(planned);
+        applyOne(planned);
+
+        expect(entryFor<MergedDocument>(settings).contribution, {
+          'allow': ['Bash'],
+        });
       });
     });
 
@@ -959,10 +1307,10 @@ void main() {
         fileSystem.directory(blocked.path).createSync(recursive: true);
         final fine = file('.codex/agents/b.toml');
 
-        final applied = reconciler.apply([
+        final applied = applyAll([
           change(blocked, 'a', ChangeMode.own),
           change(fine, 'b', ChangeMode.own),
-        ], manifest: manifest);
+        ]);
 
         expect(applied.first.outcome, ChangeOutcome.failed);
         expect(applied.first.error, isNotEmpty);
@@ -1019,37 +1367,24 @@ void main() {
         final script = onDisk('source.sh', contents: 'echo', mode: '755');
         final target = onDisk('copied.sh');
 
-        reconciler.apply([
+        applyAll([
           PlannedChange(
             file: target,
             bytes: utf8.encode('echo'),
             harness: null,
             source: script,
           ),
-        ], manifest: temp.childFile('manifest.json'));
+        ]);
 
         expect(modeOf(target), modeOf(script));
-      });
-
-      test('applies nothing when the manifest cannot be read', () {
-        final manifest = onDisk('manifest.json', contents: '{}', mode: '000');
-        final target = onDisk('a.md');
-
-        final applied = reconciler.apply([
-          change(target, 'a', ChangeMode.own),
-        ], manifest: manifest);
-
-        expect(applied.single.outcome, ChangeOutcome.failed);
-        expect(applied.single.change.file.path, manifest.path);
-        expect(target.existsSync(), isFalse);
       });
 
       test('an updated file keeps its own mode', () {
         final target = onDisk('settings.json', contents: '{}', mode: '600');
 
-        reconciler.apply([
+        applyAll([
           change(target, jsonEncode({'a': 1}), ChangeMode.mergeJson),
-        ], manifest: temp.childFile('manifest.json'));
+        ]);
 
         expect(modeOf(target), int.parse('600', radix: 8));
         expect(readJson(target), {'a': 1});
@@ -1081,8 +1416,8 @@ void main() {
           change(skill, 'body', ChangeMode.own),
         ];
 
-        reconciler.apply(changes, manifest: manifest);
-        final second = reconciler.apply(changes, manifest: manifest);
+        applyAll(changes);
+        final second = applyAll(changes);
 
         expect(
           second.map((a) => a.outcome),

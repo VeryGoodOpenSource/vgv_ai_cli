@@ -12,6 +12,8 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
+import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
@@ -463,6 +465,90 @@ void main() {
         verify(() => logger.info('Everything is already up to date.'))
             .called(1);
         verifyNever(() => logger.warn(any()));
+      });
+    });
+
+    group('manifest', () {
+      File manifestFile() => ManifestStore(home).file;
+
+      void planOne() => translator.plan = TranslationPlan(
+        harnesses: {
+          Harness.claude: TranslationResult(
+            changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+          ),
+        },
+      );
+
+      test('records what was written', () async {
+        planOne();
+
+        await runInstall(['--only', 'claude']);
+
+        expect(
+          ManifestStore(home).load()![homeFile('.claude/a.md').path],
+          isA<OwnedFile>(),
+        );
+      });
+
+      test('is not rewritten when nothing it records changed', () async {
+        planOne();
+        await runInstall(['--only', 'claude']);
+        final compact = jsonEncode(
+          jsonDecode(manifestFile().readAsStringSync()),
+        );
+        manifestFile().writeAsStringSync(compact);
+
+        await runInstall(['--only', 'claude']);
+
+        expect(manifestFile().readAsStringSync(), compact);
+      });
+
+      test('is not written by --check', () async {
+        planOne();
+
+        await runInstall(['--only', 'claude', '--check']);
+
+        expect(manifestFile().existsSync(), isFalse);
+      });
+
+      test('installs nothing over one from another version', () async {
+        planOne();
+        final newer = jsonEncode({'version': InstallManifest.version + 1});
+        manifestFile()
+          ..createSync(recursive: true)
+          ..writeAsStringSync(newer);
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(translator.selected, isNull);
+        expect(homeFile('.claude/a.md').existsSync(), isFalse);
+        expect(manifestFile().readAsStringSync(), newer);
+        verify(
+          () => logger.err(
+            'Installed nothing, because ${ManifestStore.unreadable}: '
+            '${manifestFile().path}',
+          ),
+        ).called(1);
+      });
+
+      test('exits with an I/O error when it cannot be saved', () async {
+        planOne();
+        fs.directory(manifestFile().path).createSync(recursive: true);
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(homeFile('.claude/a.md').readAsStringSync(), 'a');
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Could not record what was written in ${manifestFile().path}: ',
+              ),
+            ),
+          ),
+        ).called(1);
       });
     });
 

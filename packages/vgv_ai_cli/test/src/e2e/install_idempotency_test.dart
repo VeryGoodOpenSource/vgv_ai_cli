@@ -12,8 +12,12 @@ import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
+import 'package:vgv_ai_cli/src/document/documents.dart';
+import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/model/manifest/reversed_entry.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
@@ -178,6 +182,45 @@ void main() {
         settings['mcpServers'],
         containsPair('dart', isA<Map<String, dynamic>>()),
       );
+    });
+
+    test('records every file under the harness it configures', () async {
+      await install();
+
+      final entries = ManifestStore(home).load()!.entries;
+      Harness? ownerOf(String relative) =>
+          entries.singleWhere((e) => e.path == file(relative).path).owner;
+
+      expect(ownerOf('.agents/skills/green-gate/SKILL.md'), isNull);
+      expect(ownerOf('.gemini/settings.json'), Harness.gemini);
+      expect(ownerOf('.codex/config.toml'), Harness.codex);
+      expect(ownerOf('.pi/agent/AGENTS.md'), Harness.pi);
+      expect(entries.map((e) => e.path), everyElement(startsWith(home.path)));
+    });
+
+    test('reversing leaves the user as they were, and install '
+        'lands where it did', () async {
+      const agents = '# Mine\n\nBe terse.\n';
+      const config = '# My Codex setup\nmodel = "gpt-5" # explicit\n';
+      final settings = encodeJson({'model': 'pro'});
+      seed('.gemini/AGENTS.md', agents);
+      seed('.codex/config.toml', config);
+      seed('.gemini/settings.json', settings);
+      final before = snapshot();
+
+      await install();
+      final installed = snapshot();
+      final reversed = const ManifestAuditor().reverse(ManifestStore(home));
+
+      expect(reversed.manifestError, isNull);
+      expect(
+        reversed.entries.map((r) => r.outcome),
+        everyElement(ReverseOutcome.removed),
+      );
+      expect(snapshot(), before);
+
+      await install();
+      expect(snapshot(), installed);
     });
 
     test('edits a TOML table the user already has in place', () async {

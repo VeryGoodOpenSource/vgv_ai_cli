@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
+import 'package:vgv_ai_cli/src/document/documents.dart';
+import 'package:vgv_ai_cli/src/document/model/model.dart';
 
 /// {@template toml_text}
 /// The text of a TOML document, edited as text so the user's comments,
@@ -17,17 +18,10 @@ class const TomlText(
   /// {@macro toml_text}
   ///
   /// [map] encoded as canonical TOML with a trailing newline.
-  new encode(Map<String, dynamic> map)
-    : this('${TomlDocument.fromMap(map).toString().trim()}\n');
+  new encode(Map<String, dynamic> map) : this(encodeToml(map));
 
   /// What [source] decodes to, or null when it is malformed.
-  Map<String, dynamic>? decode() {
-    try {
-      return TomlDocument.parse(source).toMap();
-    } on TomlException catch (_) {
-      return null;
-    }
-  }
+  Map<String, dynamic>? decode() => decodeToml(source);
 
   /// This text with [merged] written into it, or null when no edit can.
   ///
@@ -46,16 +40,34 @@ class const TomlText(
 
     Iterable<String> edits() sync* {
       yield '${text.trimRight()}\n\n${TomlText.encode(added).source}';
-      yield TomlText(text)
-          ._upsertChanged(existing: existing, merged: merged)
-          .source;
+      yield TomlText(text)._rewrite(existing: existing, target: merged).source;
     }
 
     return edits()
         .map((edit) => TomlText(restore(edit)))
-        .firstWhereOrNull(
-          (edit) => _deepEquality.equals(edit.decode(), merged),
-        );
+        .firstWhereOrNull((edit) => deepEquality.equals(edit.decode(), merged));
+  }
+
+  /// This text with [existing], what it decodes to, taken down to
+  /// [remaining], or null when the edit does not decode to exactly
+  /// [remaining].
+  ///
+  /// Each value that differs is upserted, each key [remaining] drops is
+  /// removed, and so is each table it drops, so every line VGV does not
+  /// change is kept as written. Install appends after a blank line, so what
+  /// is left at the end of the text is trimmed back to one line ending.
+  TomlText? withdraw({
+    required Map<String, dynamic> existing,
+    required Map<String, dynamic> remaining,
+  }) {
+    final NormalizedText(:text, :restore) = NormalizedText.from(source);
+    final edited = TomlText(text)
+        ._rewrite(existing: existing, target: remaining)
+        .source;
+    final withdrawn = TomlText(restore('${edited.trimRight()}\n'));
+    return deepEquality.equals(withdrawn.decode(), remaining)
+        ? withdrawn
+        : null;
   }
 
   /// This text with `key = value` set in the table at [table], and every
@@ -91,9 +103,7 @@ class const TomlText(
 
     final statement = _encode({key: value});
     final keys = region.body.where((s) => s.kind == TomlStatementKind.keyValue);
-    final current = keys.firstWhereOrNull(
-      (s) => _pathEquality.equals(s.path, [key]),
-    );
+    final current = _find(region, key);
 
     if (current case TomlStatement(hasInnerComment: true)) return this;
     if (current != null) {
@@ -107,31 +117,84 @@ class const TomlText(
     return TomlText(lines.join('\n'));
   }
 
-  /// This text with every value [merged] holds that [existing] does not
-  /// upserted into [table], and every table under it.
-  TomlText _upsertChanged({
+  /// This text without the statement that sets [key] in [table], and
+  /// unchanged when there is none.
+  TomlText remove({required List<String> table, required String key}) {
+    final lines = source.split('\n');
+    final region = _region(_scan(lines), table: table);
+    final current = region == null ? null : _find(region, key);
+    if (current == null) return this;
+
+    lines.removeRange(current.start, current.end + 1);
+    return TomlText(lines.join('\n'));
+  }
+
+  /// This text without the `[table]` header and the blank lines under it,
+  /// and unchanged when there is no such header.
+  ///
+  /// Called once the table's keys are gone. A comment directly above the
+  /// next header is kept, since it describes that table rather than this
+  /// one.
+  TomlText removeTable(List<String> table) {
+    final lines = source.split('\n');
+    final region = _region(_scan(lines), table: table);
+    final header = region?.header;
+    if (header == null) return this;
+
+    final body = region!.body;
+    var kept = body.length;
+    while (kept > 0 && lines[body[kept - 1].start].trimLeft().startsWith('#')) {
+      kept--;
+    }
+    final last = kept == 0 ? header : body[kept - 1];
+
+    lines.removeRange(header.start, last.end + 1);
+    return TomlText(lines.join('\n'));
+  }
+
+  /// This text edited so it holds [target] where it held [existing], its
+  /// decoded form at [table]: every value that differs upserted, and every
+  /// key and table [target] drops removed.
+  TomlText _rewrite({
     required Map<String, dynamic> existing,
-    required Map<String, dynamic> merged,
+    required Map<String, dynamic> target,
     List<String> table = const [],
   }) {
     var edited = this;
-    for (final MapEntry(:key, :value) in merged.entries) {
+    for (final MapEntry(:key, :value) in target.entries) {
       final before = existing[key];
       if (value is Map<String, dynamic>) {
-        edited = edited._upsertChanged(
+        edited = edited._rewrite(
           existing: before is Map<String, dynamic> ? before : const {},
-          merged: value,
+          target: value,
           table: [...table, key],
         );
-      } else if (!_deepEquality.equals(before, value)) {
+      } else if (!deepEquality.equals(before, value)) {
         edited = edited.upsert(table: table, key: key, value: value);
       }
+    }
+
+    for (final MapEntry(:key, :value) in existing.entries) {
+      if (target.containsKey(key)) continue;
+
+      final path = [...table, key];
+      edited = value is Map<String, dynamic>
+          ? edited
+                ._rewrite(existing: value, target: const {}, table: path)
+                .removeTable(path)
+          : edited.remove(table: table, key: key);
     }
     return edited;
   }
 }
 
-const _deepEquality = DeepCollectionEquality();
+/// The statement that sets [key] in [region], if any.
+TomlStatement? _find(TomlRegion region, String key) =>
+    region.body.firstWhereOrNull(
+      (s) =>
+          s.kind == TomlStatementKind.keyValue &&
+          _pathEquality.equals(s.path, [key]),
+    );
 
 const _pathEquality = ListEquality<String>();
 

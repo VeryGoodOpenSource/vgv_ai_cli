@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file/file.dart';
+import 'package:vgv_ai_cli/src/document/documents.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template change_mode}
@@ -38,7 +39,35 @@ enum ChangeMode {
   /// rewritten on its own, so several can share one file. Only
   /// [PlannedChange.markdown] makes a change in this mode, since it is the
   /// one that names the section.
-  mergeMarkdown,
+  mergeMarkdown;
+
+  /// The format this mode merges into, or null when it does not merge into
+  /// a document.
+  DocumentFormat? get format =>
+      DocumentFormat.values.where((format) => format.mode == this).firstOrNull;
+}
+
+/// {@template document_format}
+/// A structured document VGV merges keys into.
+/// {@endtemplate}
+enum DocumentFormat {
+  /// A JSON object.
+  json(ChangeMode.mergeJson, decodeJson, encodeJson),
+
+  /// A TOML document.
+  toml(ChangeMode.mergeToml, decodeToml, encodeToml);
+
+  /// {@macro document_format}
+  new(this.mode, this.decode, this.encode);
+
+  /// The mode that merges into this format.
+  final ChangeMode mode;
+
+  /// Decodes a document, or returns null when it is malformed.
+  final Map<String, dynamic>? Function(String source) decode;
+
+  /// Encodes a decoded document back to canonical text.
+  final String Function(Map<String, dynamic> document) encode;
 }
 
 /// {@template planned_change}
