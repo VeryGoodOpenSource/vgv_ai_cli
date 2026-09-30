@@ -51,6 +51,17 @@ class const ClaudePluginParser() implements PluginParser {
     return _toolPattern.allMatches(raw).map((match) => match[0]!).toList();
   }
 
+  /// The description every harness reads, with the trigger phrases folded in.
+  ///
+  /// Claude Code appends `when_to_use` to the description when it builds its
+  /// skill index, so a skill is free to keep its triggers there. No other
+  /// harness reads the key, and it is outside the Agent Skills key set, so
+  /// folding is the only way those phrases survive translation.
+  static String descriptionOf(Frontmatter frontmatter) => [
+    frontmatter.description,
+    ?frontmatter.oneLine(_whenToUse),
+  ].where((part) => part.isNotEmpty).join(' - ');
+
   /// The [frontmatter] values safe to write for any harness.
   ///
   /// Keeps exactly [SkillAsset.portableKeys]. Claude adds keys such as
@@ -61,12 +72,20 @@ class const ClaudePluginParser() implements PluginParser {
   ) => {
     for (final entry in frontmatter.config.entries)
       if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
+    // Rewrites the description in place, keeping its position. Only a skill
+    // that declares `when_to_use` is touched, so one that does not renders
+    // exactly as it was written.
+    if (frontmatter.oneLine(_whenToUse) != null)
+      'description': descriptionOf(frontmatter),
   };
 
   /// What a skill or agent may be named. The name becomes a file or
   /// directory name under the user's home, so a separator, a `..` or a
   /// character Windows refuses would write somewhere it must not.
   static final _namePattern = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
+
+  /// Claude's own key for a skill's trigger phrases.
+  static const _whenToUse = 'when_to_use';
 
   /// One tool name, plus an optional parenthesized scope that may itself
   /// contain spaces, commas and slashes.
@@ -108,7 +127,7 @@ class const ClaudePluginParser() implements PluginParser {
             frontmatter.name ?? p.basename(entity.path),
             path: file.path,
           ),
-          description: frontmatter.description,
+          description: descriptionOf(frontmatter),
           body: frontmatter.body,
           userInvocable: userInvocableOf(frontmatter),
           allowedTools: allowedToolsOf(frontmatter),

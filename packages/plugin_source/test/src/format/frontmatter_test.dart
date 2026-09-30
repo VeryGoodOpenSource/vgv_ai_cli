@@ -142,6 +142,18 @@ void main() {
     });
   });
 
+  group('oneLine', () {
+    test('flattens any key, not only the description', () {
+      final frontmatter = _parse('---\nwhen_to_use: >\n  One.\n  Two.\n---\n');
+
+      expect(frontmatter.oneLine('when_to_use'), 'One. Two.');
+    });
+
+    test('is null when the key is absent', () {
+      expect(_parse('---\nname: a\n---\n').oneLine('when_to_use'), isNull);
+    });
+  });
+
   group('skills', () {
     test('parses an inline list', () {
       expect(_parse('---\nskills: [a, b]\n---\n').skills, ['a', 'b']);
