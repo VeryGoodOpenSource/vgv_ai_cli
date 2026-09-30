@@ -6,11 +6,10 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
+import 'package:vgv_ai_cli/src/document/file_system.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
@@ -192,7 +191,7 @@ class InstallCommand extends Command<int> {
     } on FileSystemException catch (error) {
       _logger.err(
         'Could not record what was written in ${store.file.path}: '
-        '${describeError(error)}',
+        '${error.description}',
       );
       return false;
     }

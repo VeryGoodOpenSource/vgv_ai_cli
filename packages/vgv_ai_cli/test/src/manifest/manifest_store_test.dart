@@ -4,7 +4,7 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 
 void main() {
   group('ManifestStore', () {

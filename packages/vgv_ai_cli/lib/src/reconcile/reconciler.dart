@@ -2,8 +2,7 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
-import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 
@@ -68,13 +67,12 @@ class _Run {
 
     final changed = !bytesEquality.equals(bytes, original);
     if (changed && !dryRun) {
-      writeAtomically(file, bytes, existed: existed, source: change.source);
+      file.writeAtomically(bytes, existed: existed, source: change.source);
     }
     manifest = switch (entry) {
       null => manifest,
-      MergedDocument(contribution: Map(isEmpty: true)) => manifest.without([
-        entry.path,
-      ]),
+      MergedDocument(:final contribution) when contribution.isEmpty =>
+        manifest.without([entry.path]),
       _ => manifest.record(entry),
     };
 
@@ -110,10 +108,10 @@ class _Run {
     return WriteDecision(
       bytes: change.bytes,
       held: HeldBack.nothing,
-      entry: OwnedFile(
+      entry: OwnedFile.of(
         path: change.file.path,
         owner: change.harness,
-        sha256: hashBytes(change.bytes),
+        bytes: change.bytes,
       ),
     );
   }
@@ -138,7 +136,6 @@ class _Run {
   ) {
     final path = change.file.path;
     final recorded = manifest.entryOf<MarkdownSections>(path);
-    final sections = recorded?.sections ?? const <String, String>{};
     // Only a markdown merge has no document format, and PlannedChange makes
     // every markdown merge name its section.
     final section = change.section!;
@@ -160,8 +157,8 @@ class _Run {
       entry: MarkdownSections(
         path: path,
         owner: change.harness,
-        sections: {...sections, section: hashText(body)},
-      ),
+        sections: recorded?.sections ?? const {},
+      ).recording(section, body),
     );
   }
 
@@ -178,7 +175,7 @@ class _Run {
       format: format,
       managed:
           manifest.entryOf<MergedDocument>(path)?.contribution ??
-          const <String, dynamic>{},
+          Contribution.none,
     );
 
     return WriteDecision(
@@ -206,7 +203,7 @@ class _Run {
     String original,
     String incoming, {
     required DocumentFormat format,
-    required Map<String, dynamic> managed,
+    required Contribution managed,
   }) {
     final addition = format.decode(incoming);
     if (addition == null) {
@@ -217,7 +214,7 @@ class _Run {
       return TextMerge(
         contents: format.encode(addition),
         held: HeldBack.nothing,
-        contribution: addition,
+        contribution: Contribution(addition),
       );
     }
 
@@ -228,7 +225,7 @@ class _Run {
 
     final deepMerged = _deepMerge(existing, addition, managed);
     final merged = deepMerged.merged;
-    final kept = contributionOf(existing, existing, managed);
+    final kept = Contribution.of(existing, existing, managed);
     final held = deepMerged.declined ? HeldBack.userValue : HeldBack.nothing;
 
     if (deepEquality.equals(existing, merged)) {
@@ -236,7 +233,7 @@ class _Run {
     }
 
     final rewritten = switch (format) {
-      DocumentFormat.json => encodeJson(merged),
+      DocumentFormat.json => DocumentFormat.json.encode(merged),
       DocumentFormat.toml => _rewriteToml(
         original,
         existing: existing,
@@ -254,7 +251,7 @@ class _Run {
     return TextMerge(
       contents: rewritten,
       held: held,
-      contribution: contributionOf(existing, merged, managed),
+      contribution: Contribution.of(existing, merged, managed),
     );
   }
 
@@ -277,7 +274,7 @@ class _Run {
   DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
-    Map<String, dynamic> managed,
+    Contribution managed,
   ) {
     final result = Map<String, dynamic>.from(base);
     final added = <String, dynamic>{};
@@ -290,11 +287,11 @@ class _Run {
       // key a plugin stops writing stays until uninstall, whether or not
       // the user has added keys beside it.
       if (existing is Map && value is Map) {
-        final mine = managed[key];
+        final mine = managed.keys[key];
         final merged = _deepMerge(
           existing.cast<String, dynamic>(),
           value.cast<String, dynamic>(),
-          mine is Map<String, dynamic> ? mine : const {},
+          mine is Map<String, dynamic> ? Contribution(mine) : Contribution.none,
         );
         result[key] = merged.merged;
         if (merged.added.isNotEmpty) added[key] = merged.added;
@@ -308,7 +305,7 @@ class _Run {
       }
 
       // VGV's own and untouched since: VGV's to write.
-      if (isManaged(managed, key, existing)) {
+      if (managed.owns(key, existing)) {
         result[key] = value;
         continue;
       }
@@ -337,5 +334,5 @@ AppliedChange _failed(PlannedChange change, FileSystemException error) =>
     AppliedChange(
       change: change,
       outcome: ChangeOutcome.failed,
-      error: describeError(error),
+      error: error.description,
     );

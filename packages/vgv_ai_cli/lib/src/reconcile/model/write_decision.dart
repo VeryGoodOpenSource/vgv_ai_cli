@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/held_back.dart';
 
 /// {@template write_decision}

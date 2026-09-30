@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/manifest/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 
 void main() {
   const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');

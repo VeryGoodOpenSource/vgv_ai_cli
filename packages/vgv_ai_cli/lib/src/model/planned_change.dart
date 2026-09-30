@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:file/file.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
+import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template change_mode}
@@ -43,31 +43,60 @@ enum ChangeMode {
 
   /// The format this mode merges into, or null when it does not merge into
   /// a document.
-  DocumentFormat? get format =>
-      DocumentFormat.values.where((format) => format.mode == this).firstOrNull;
+  DocumentFormat? get format => switch (this) {
+    mergeJson => DocumentFormat.json,
+    mergeToml => DocumentFormat.toml,
+    own || mergeMarkdown => null,
+  };
 }
 
 /// {@template document_format}
-/// A structured document VGV merges keys into.
+/// A structured document VGV merges keys into, and how it is read and
+/// written.
 /// {@endtemplate}
 enum DocumentFormat {
   /// A JSON object.
-  json(ChangeMode.mergeJson, decodeJson, encodeJson),
+  json,
 
   /// A TOML document.
-  toml(ChangeMode.mergeToml, decodeToml, encodeToml);
-
-  /// {@macro document_format}
-  new(this.mode, this.decode, this.encode);
+  toml;
 
   /// The mode that merges into this format.
-  final ChangeMode mode;
+  ChangeMode get mode => switch (this) {
+    json => ChangeMode.mergeJson,
+    toml => ChangeMode.mergeToml,
+  };
 
-  /// Decodes a document, or returns null when it is malformed.
-  final Map<String, dynamic>? Function(String source) decode;
+  /// Decodes [source], or returns null when it is malformed, or is JSON
+  /// that is not an object.
+  ///
+  /// Gemini and OpenCode accept comments in their JSON settings, and a file
+  /// that has them lands here as malformed. Rewriting it would drop the
+  /// comments, so it is reported as unparseable for the user to edit by hand.
+  Map<String, dynamic>? decode(String source) {
+    try {
+      return switch (this) {
+        json => switch (jsonDecode(source)) {
+          final Map<dynamic, dynamic> decoded =>
+            decoded.cast<String, dynamic>(),
+          _ => null,
+        },
+        toml => TomlDocument.parse(source).toMap(),
+      };
+    } on FormatException {
+      return null;
+    } on TomlException {
+      return null;
+    }
+  }
 
-  /// Encodes a decoded document back to canonical text.
-  final String Function(Map<String, dynamic> document) encode;
+  /// Encodes [document] back to canonical text with a trailing newline.
+  String encode(Map<String, dynamic> document) => switch (this) {
+    json => '${_jsonEncoder.convert(document)}\n',
+    toml => '${TomlDocument.fromMap(document).toString().trim()}\n',
+  };
+
+  static const _jsonEncoder = JsonEncoder.withIndent('  ');
 }
 
 /// {@template planned_change}
