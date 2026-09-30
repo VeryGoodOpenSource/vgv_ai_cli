@@ -1,7 +1,7 @@
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
   group('AppliedChange', () {

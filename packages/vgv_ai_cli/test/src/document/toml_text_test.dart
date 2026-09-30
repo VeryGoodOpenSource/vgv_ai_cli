@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/toml_text.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
   String upsert(

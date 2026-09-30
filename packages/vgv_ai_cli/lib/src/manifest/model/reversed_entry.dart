@@ -1,5 +1,5 @@
 import 'package:vgv_ai_cli/src/manifest/model/reverse_outcome.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template reversed_entry}
 /// A [ManifestEntry] and what reversing it did.

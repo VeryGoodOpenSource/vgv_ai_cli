@@ -6,14 +6,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/manifest/model/model.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
   const auditor = ManifestAuditor();

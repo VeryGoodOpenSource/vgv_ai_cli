@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/contribution.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/held_back.dart';
 
 /// {@template text_merge}

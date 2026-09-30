@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template entry_status}
 /// Whether what a [ManifestEntry] records is still on disk.

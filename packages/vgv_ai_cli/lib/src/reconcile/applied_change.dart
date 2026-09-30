@@ -1,5 +1,4 @@
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template change_outcome}
 /// What applying a [PlannedChange] did.

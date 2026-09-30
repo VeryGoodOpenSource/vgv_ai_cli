@@ -1,5 +1,5 @@
 import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template reversal}
 /// What reversing a manifest did, entry by entry, and the manifest that

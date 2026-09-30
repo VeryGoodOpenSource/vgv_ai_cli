@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/model/contribution.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
   group('Contribution', () {

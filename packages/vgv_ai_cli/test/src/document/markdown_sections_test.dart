@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
   group('markdown sections', () {

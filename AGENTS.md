@@ -87,8 +87,9 @@ Under `lib/src/`, each folder is one layer, and the rule for where a type lives 
 
 - `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, and `Contribution`. It imports nothing else under `src/`.
 - `document/` edits config text through `TomlText` and the markdown section helpers, and writes files safely through the `File` extensions. It imports `model/`.
-- `harness/`, `reconcile/` and `manifest/` are the features: detecting and translating for harnesses, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
+- `detect/`, `translate/`, `reconcile/` and `manifest/` are the features: finding the installed harnesses, turning the plugins into each harness's files, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
 - `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. The classes that do the work sit at the feature's root.
+- A file reaches another folder only through that folder's barrel, `<folder>/<folder>.dart`, so a command imports the translate feature, not one of its files. Inside a folder, files import each other directly.
 - `commands/` orchestrate the features and own persistence and reporting. `install` loads and saves the manifest through `ManifestStore`, while `Reconciler.apply` and `ManifestAuditor.reverse` take the manifest and return it updated.
 
 A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is built only through a constructor per verdict, so a field that means something for one verdict cannot be set on another. A shape that would be a record or a `Map` becomes a class or an extension type, and a map appears only at the boundary that needs one, through `toJson` or `toMap`.

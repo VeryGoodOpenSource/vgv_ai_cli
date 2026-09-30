@@ -1,6 +1,5 @@
 import 'package:vgv_ai_cli/src/manifest/model/entry_status.dart';
-import 'package:vgv_ai_cli/src/model/drift.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template entry_health}
 /// What verifying one [ManifestEntry] found.

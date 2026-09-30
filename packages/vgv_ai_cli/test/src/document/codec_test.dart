@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/document/codec.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
   group('decodeUtf8', () {

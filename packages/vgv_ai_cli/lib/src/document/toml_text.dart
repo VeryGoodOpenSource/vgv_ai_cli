@@ -2,7 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/document/codec.dart';
 import 'package:vgv_ai_cli/src/document/model/model.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template toml_text}
 /// The text of a TOML document, edited as text so the user's comments,

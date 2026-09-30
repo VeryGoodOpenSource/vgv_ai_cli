@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/document/file_system.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
   late FileSystem fileSystem;
