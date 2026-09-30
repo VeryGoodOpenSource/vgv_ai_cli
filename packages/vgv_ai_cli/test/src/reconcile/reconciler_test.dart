@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io' show Process;
 
+import 'package:crypto/crypto.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:file/memory.dart';
@@ -8,9 +9,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
-import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+
+/// The hex SHA-256 the manifest records for [text].
+String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
 
 void main() {
   const reconciler = Reconciler();
@@ -976,7 +979,7 @@ void main() {
 
         final [owned, merged, sections] = manifest.entries.toList();
         expect(owned, isA<OwnedFile>().having((e) => e.owner, 'owner', null));
-        expect((owned as OwnedFile).sha256, hashBytes(utf8.encode('body')));
+        expect((owned as OwnedFile).sha256, hashText('body'));
         expect(
           merged,
           isA<MergedDocument>()
@@ -991,7 +994,7 @@ void main() {
         expect(
           sections,
           isA<MarkdownSections>().having((e) => e.sections, 'sections', {
-            'instructions': hashBytes(utf8.encode('# VGV')),
+            'instructions': hashText('# VGV'),
           }),
         );
       });

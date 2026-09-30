@@ -1,11 +1,12 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+
+/// The hex SHA-256 the manifest records for [text].
+String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
 
 void main() {
   const home = '/home/dev';
@@ -18,11 +19,11 @@ void main() {
     path: '/home/dev/.codex/config.toml',
     owner: Harness.codex,
     format: DocumentFormat.toml,
-    contribution: {
+    contribution: Contribution({
       'mcp_servers': {
         'dart': {'command': 'dart'},
       },
-    },
+    }),
   );
   const sections = MarkdownSections(
     path: '/home/dev/.gemini/AGENTS.md',
@@ -86,7 +87,7 @@ void main() {
           'path': '.codex/config.toml',
           'owner': 'codex',
           'mode': 'mergeToml',
-          'contribution': merged.contribution,
+          'contribution': merged.contribution.toJson(),
         },
       ]);
     });
@@ -237,6 +238,17 @@ void main() {
   });
 
   group('OwnedFile', () {
+    test('records the hash of what VGV wrote', () {
+      final file = OwnedFile.of(
+        path: owned.path,
+        owner: null,
+        bytes: utf8.encode('abc'),
+      );
+
+      expect(file.sha256, hashText('abc'));
+      expect(file.isUntouched(utf8.encode('abc')), isTrue);
+    });
+
     test('is untouched only while it hashes to what VGV wrote', () {
       final file = OwnedFile(
         path: owned.path,
@@ -250,6 +262,15 @@ void main() {
   });
 
   group('MarkdownSections', () {
+    test('records a section beside the ones it has', () {
+      final file = sections.recording('b', '# B');
+
+      expect(file.path, sections.path);
+      expect(file.owner, sections.owner);
+      expect(file.sections, {'instructions': 'def', 'b': hashText('# B')});
+      expect(file.isUntouched('b', '# B'), isTrue);
+    });
+
     test('is untouched only while a section hashes to what VGV wrote', () {
       final file = MarkdownSections(
         path: sections.path,

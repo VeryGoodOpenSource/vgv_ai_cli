@@ -1,7 +1,8 @@
 import 'package:collection/collection.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
+import 'package:vgv_ai_cli/src/document/codec.dart';
 import 'package:vgv_ai_cli/src/document/model/model.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template toml_text}
 /// The text of a TOML document, edited as text so the user's comments,
@@ -18,10 +19,10 @@ class const TomlText(
   /// {@macro toml_text}
   ///
   /// [map] encoded as canonical TOML with a trailing newline.
-  new encode(Map<String, dynamic> map) : this(encodeToml(map));
+  new encode(Map<String, dynamic> map) : this(DocumentFormat.toml.encode(map));
 
   /// What [source] decodes to, or null when it is malformed.
-  Map<String, dynamic>? decode() => decodeToml(source);
+  Map<String, dynamic>? decode() => DocumentFormat.toml.decode(source);
 
   /// This text with [merged] written into it, or null when no edit can.
   ///

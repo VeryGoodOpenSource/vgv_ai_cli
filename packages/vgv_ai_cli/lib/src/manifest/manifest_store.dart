@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/document/documents.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
+import 'package:vgv_ai_cli/src/document/file_system.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 
 /// {@template manifest_store}
 /// Where the [InstallManifest] for a home directory is kept, at
@@ -36,8 +36,7 @@ class const ManifestStore(
   void save(InstallManifest manifest) {
     final file = this.file;
     if (manifest.entries.isNotEmpty) {
-      writeAtomically(
-        file,
+      file.writeAtomically(
         utf8.encode(manifest.encode(home: home.path)),
         existed: file.existsSync(),
       );

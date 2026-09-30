@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/document/documents.dart';
-import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/model/contribution.dart';
+import 'package:vgv_ai_cli/src/model/harness.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template manifest_entry}
 /// What VGV wrote to one file, and so what `doctor` checks and `uninstall`
@@ -63,7 +65,7 @@ sealed class ManifestEntry extends Equatable {
             path: path,
             owner: harness,
             format: format,
-            contribution: contribution,
+            contribution: Contribution(contribution),
           ),
         (
           ChangeMode.mergeMarkdown,
@@ -92,11 +94,20 @@ final class OwnedFile extends ManifestEntry {
   /// {@macro owned_file}
   const new({required super.path, required super.owner, required this.sha256});
 
+  /// {@macro owned_file}
+  ///
+  /// Records [bytes] as what VGV wrote to [path].
+  new of({
+    required String path,
+    required Harness? owner,
+    required List<int> bytes,
+  }) : this(path: path, owner: owner, sha256: _sha256(bytes));
+
   /// The SHA-256 of what VGV last wrote.
   final String sha256;
 
   /// Whether [bytes] are exactly what VGV last wrote.
-  bool isUntouched(List<int> bytes) => hashBytes(bytes) == sha256;
+  bool isUntouched(List<int> bytes) => _sha256(bytes) == sha256;
 
   @override
   ChangeMode get mode => ChangeMode.own;
@@ -120,16 +131,14 @@ final class MergedDocument extends ManifestEntry {
   /// The format the document is parsed as.
   final DocumentFormat format;
 
-  /// The part of the document that is VGV's, shaped like the document: the
-  /// keys VGV added with the values it wrote, and the entries it appended to
-  /// lists the user already had. Nothing the user wrote first is in it.
-  final Map<String, dynamic> contribution;
+  /// The part of the document that is VGV's.
+  final Contribution contribution;
 
   @override
   ChangeMode get mode => format.mode;
 
   @override
-  Map<String, Object?> get _fields => {'contribution': contribution};
+  Map<String, Object?> get _fields => {'contribution': contribution.toJson()};
 }
 
 /// {@template markdown_sections}
@@ -146,9 +155,16 @@ final class MarkdownSections extends ManifestEntry {
   /// Each section's name to the SHA-256 of the body VGV last wrote there.
   final Map<String, String> sections;
 
+  /// This entry with [body] recorded as what VGV wrote into section [name].
+  MarkdownSections recording(String name, String body) => MarkdownSections(
+    path: path,
+    owner: owner,
+    sections: {...sections, name: _hashText(body)},
+  );
+
   /// Whether [body] is exactly what VGV last wrote into section [name].
   bool isUntouched(String name, String body) =>
-      sections[name] == hashText(body);
+      sections[name] == _hashText(body);
 
   @override
   ChangeMode get mode => ChangeMode.mergeMarkdown;
@@ -263,3 +279,9 @@ class InstallManifest extends Equatable {
   @override
   List<Object?> get props => [entries.toList()];
 }
+
+/// The SHA-256 of [bytes], as hex.
+String _sha256(List<int> bytes) => sha256.convert(bytes).toString();
+
+/// The SHA-256 of [text] as UTF-8, as hex.
+String _hashText(String text) => _sha256(utf8.encode(text));

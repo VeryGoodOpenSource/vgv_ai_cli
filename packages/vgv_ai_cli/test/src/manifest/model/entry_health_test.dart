@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/model/manifest/entry_health.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
+import 'package:vgv_ai_cli/src/manifest/model/entry_health.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 
 void main() {
   group('EntryHealth', () {

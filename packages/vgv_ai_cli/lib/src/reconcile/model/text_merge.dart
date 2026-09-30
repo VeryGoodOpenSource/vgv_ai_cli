@@ -1,3 +1,4 @@
+import 'package:vgv_ai_cli/src/model/contribution.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/held_back.dart';
 
 /// {@template text_merge}
@@ -13,5 +14,5 @@ class const TextMerge({
 
   /// What of [contents] VGV contributed, and null when nothing could be
   /// parsed.
-  final Map<String, dynamic>? contribution,
+  final Contribution? contribution,
 });

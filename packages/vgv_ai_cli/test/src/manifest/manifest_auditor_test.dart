@@ -6,14 +6,13 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
 import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
+import 'package:vgv_ai_cli/src/manifest/model/entry_health.dart';
+import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/manifest/entry_health.dart';
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/manifest/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
 
@@ -126,7 +125,7 @@ void main() {
         expect(verify(target).status, EntryStatus.intact);
 
         target.writeAsStringSync(
-          encodeJson({
+          DocumentFormat.json.encode({
             'mine': 1,
             'theme': 'mine',
             'mcpServers': {
@@ -160,7 +159,7 @@ void main() {
           }),
         ]);
         target.writeAsStringSync(
-          encodeJson({
+          DocumentFormat.json.encode({
             'allow': ['Bash', 'Read'],
           }),
         );
@@ -271,7 +270,7 @@ void main() {
         test("removes VGV's keys and keeps the user's", () {
           final target = seed(
             '.gemini/settings.json',
-            encodeJson({
+            DocumentFormat.json.encode({
               'model': 'pro',
               'mcpServers': {
                 'mine': {'command': 'mine'},
@@ -300,7 +299,10 @@ void main() {
         });
 
         test('keeps a VGV value the user changed, unless forced', () {
-          final target = seed('.gemini/settings.json', encodeJson({'a': 1}));
+          final target = seed(
+            '.gemini/settings.json',
+            DocumentFormat.json.encode({'a': 1}),
+          );
           install([
             json(target, {
               'theme': 'vgv',
@@ -310,7 +312,7 @@ void main() {
             }),
           ]);
           target.writeAsStringSync(
-            encodeJson({
+            DocumentFormat.json.encode({
               'a': 1,
               'theme': 'mine',
               'mcpServers': {
@@ -329,22 +331,32 @@ void main() {
         });
 
         test('takes back a changed value when forced', () {
-          final target = seed('.gemini/settings.json', encodeJson({'a': 1}));
+          final target = seed(
+            '.gemini/settings.json',
+            DocumentFormat.json.encode({'a': 1}),
+          );
           install([
             json(target, {'theme': 'vgv'}),
           ]);
-          target.writeAsStringSync(encodeJson({'a': 1, 'theme': 'mine'}));
+          target.writeAsStringSync(
+            DocumentFormat.json.encode({'a': 1, 'theme': 'mine'}),
+          );
 
           expect(reverseOne(force: true), ReverseOutcome.removed);
           expect(readJson(target), {'a': 1});
         });
 
         test('reports a document with only changed values as skipped', () {
-          final target = seed('.gemini/settings.json', encodeJson({'a': 1}));
+          final target = seed(
+            '.gemini/settings.json',
+            DocumentFormat.json.encode({'a': 1}),
+          );
           install([
             json(target, {'theme': 'vgv'}),
           ]);
-          target.writeAsStringSync(encodeJson({'a': 1, 'theme': 'mine'}));
+          target.writeAsStringSync(
+            DocumentFormat.json.encode({'a': 1, 'theme': 'mine'}),
+          );
 
           expect(reverseOne(), ReverseOutcome.skipped);
           expect(entryFor(target), isA<MergedDocument>());
@@ -361,11 +373,14 @@ void main() {
         });
 
         test('reports a document VGV has nothing left in as removed', () {
-          final target = seed('.gemini/settings.json', encodeJson({'a': 1}));
+          final target = seed(
+            '.gemini/settings.json',
+            DocumentFormat.json.encode({'a': 1}),
+          );
           install([
             json(target, {'theme': 'vgv'}),
           ]);
-          target.writeAsStringSync(encodeJson({'a': 1}));
+          target.writeAsStringSync(DocumentFormat.json.encode({'a': 1}));
 
           expect(reverseOne(), ReverseOutcome.removed);
           expect(readJson(target), {'a': 1});
@@ -603,7 +618,10 @@ void main() {
       });
 
       test('reports a file it cannot write as failed and goes on', () {
-        final blocked = seed('.gemini/settings.json', encodeJson({'a': 1}));
+        final blocked = seed(
+          '.gemini/settings.json',
+          DocumentFormat.json.encode({'a': 1}),
+        );
         final fine = file('.agents/skills/a/SKILL.md');
         install([
           json(blocked, {'theme': 'vgv'}),
@@ -626,7 +644,10 @@ void main() {
         late File linked;
 
         setUp(() {
-          real = seed('dotfiles/settings.json', encodeJson({'a': 1}));
+          real = seed(
+            'dotfiles/settings.json',
+            DocumentFormat.json.encode({'a': 1}),
+          );
           fs.link(file('.gemini/settings.json').path)
             ..parent.createSync(recursive: true)
             ..createSync(real.path);
@@ -658,7 +679,7 @@ void main() {
 
     group('round trip', () {
       test('install then reverse leaves every user file as it was', () {
-        final settings = encodeJson({
+        final settings = DocumentFormat.json.encode({
           'model': 'pro',
           'mcpServers': {
             'mine': {'command': 'mine'},

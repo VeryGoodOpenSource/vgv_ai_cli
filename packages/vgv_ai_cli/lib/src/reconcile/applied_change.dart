@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/manifest/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 /// {@template change_outcome}

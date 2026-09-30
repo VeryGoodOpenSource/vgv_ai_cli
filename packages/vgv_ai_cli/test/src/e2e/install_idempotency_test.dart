@@ -12,12 +12,12 @@ import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/install_command.dart';
-import 'package:vgv_ai_cli/src/document/documents.dart';
 import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
+import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/manifest/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
@@ -202,7 +202,7 @@ void main() {
         'lands where it did', () async {
       const agents = '# Mine\n\nBe terse.\n';
       const config = '# My Codex setup\nmodel = "gpt-5" # explicit\n';
-      final settings = encodeJson({'model': 'pro'});
+      final settings = DocumentFormat.json.encode({'model': 'pro'});
       seed('.gemini/AGENTS.md', agents);
       seed('.codex/config.toml', config);
       seed('.gemini/settings.json', settings);

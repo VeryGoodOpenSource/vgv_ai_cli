@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/model/manifest/manifest.dart';
+import 'package:vgv_ai_cli/src/manifest/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template manifest_auditor}
@@ -43,7 +43,7 @@ class const ManifestAuditor() {
       return EntryHealth(
         entry: entry,
         status: EntryStatus.unreadable,
-        error: describeError(error),
+        error: error.description,
       );
     }
   }
@@ -87,7 +87,7 @@ class const ManifestAuditor() {
       store.save(loaded.without(settled));
       return Reversal(entries: reversed);
     } on FileSystemException catch (error) {
-      return Reversal(entries: reversed, manifestError: describeError(error));
+      return Reversal(entries: reversed, manifestError: error.description);
     }
   }
 
@@ -104,10 +104,7 @@ class const ManifestAuditor() {
       return EntryHealth(entry: entry, status: EntryStatus.unparseable);
     }
 
-    final (:missing, :drifted) = compareContribution(
-      entry.contribution,
-      current,
-    );
+    final Drift(:missing, :drifted) = entry.contribution.compare(current);
     return _health(entry, missing, drifted);
   }
 
@@ -175,8 +172,8 @@ class const ManifestAuditor() {
       final changed = bytes == null || !bytesEquality.equals(bytes, original);
       if (changed && !dryRun) {
         bytes == null
-            ? deleteThrough(file)
-            : writeAtomically(file, bytes, existed: true);
+            ? file.deleteThrough()
+            : file.writeAtomically(bytes, existed: true);
       }
 
       return ReversedEntry(
@@ -191,7 +188,7 @@ class const ManifestAuditor() {
       return ReversedEntry(
         entry: entry,
         outcome: ReverseOutcome.failed,
-        error: describeError(error),
+        error: error.description,
       );
     }
   }
@@ -207,9 +204,8 @@ class const ManifestAuditor() {
     final current = _decode(entry.format, original);
     if (current == null) return null;
 
-    final (:remaining, :kept) = subtractContribution(
+    final Subtraction(:remaining, :kept) = entry.contribution.subtract(
       current,
-      entry.contribution,
       force: force,
     );
     if (deepEquality.equals(remaining, current)) {
@@ -217,7 +213,8 @@ class const ManifestAuditor() {
     }
 
     final contents = switch (entry.format) {
-      DocumentFormat.json => remaining.isEmpty ? '' : encodeJson(remaining),
+      DocumentFormat.json =>
+        remaining.isEmpty ? '' : DocumentFormat.json.encode(remaining),
       DocumentFormat.toml => _reverseToml(
         utf8.decode(original),
         from: current,
