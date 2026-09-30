@@ -9,8 +9,7 @@ import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/manifest/model/entry_health.dart';
-import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/manifest/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/model/install_manifest.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
@@ -71,11 +70,23 @@ void main() {
 
   EntryHealth verify(File target) => auditor.verify(entryFor(target), fs);
 
+  /// Reverses the manifest and keeps what it left, unless it was a dry run,
+  /// as `uninstall` does.
   Reversal reversal({
     Set<Harness?>? owners,
     bool force = false,
     bool dryRun = false,
-  }) => auditor.reverse(manifest, owners: owners, force: force, dryRun: dryRun);
+  }) {
+    final result = auditor.reverse(
+      manifest.load()!,
+      fs,
+      owners: owners,
+      force: force,
+      dryRun: dryRun,
+    );
+    if (!dryRun) manifest.save(result.manifest);
+    return result;
+  }
 
   List<ReversedEntry> reverse({
     Set<Harness?>? owners,
@@ -563,57 +574,24 @@ void main() {
           expect(manifest.load()!.entries.map((e) => e.path), [shared.path]);
         });
 
-        test('touches nothing on a dry run', () {
+        test('touches nothing on a dry run, but returns what it would', () {
           final target = file('.agents/skills/a/SKILL.md');
           install([owned(target, 'a')]);
           final before = manifest.file.readAsStringSync();
 
-          expect(reverse(dryRun: true).single.outcome, ReverseOutcome.removed);
+          final result = reversal(dryRun: true);
+
+          expect(result.entries.single.outcome, ReverseOutcome.removed);
+          expect(result.manifest.entries, isEmpty);
           expect(target.existsSync(), isTrue);
           expect(manifest.file.readAsStringSync(), before);
         });
 
-        test('does nothing when there is no manifest', () {
-          final result = reversal();
+        test('does nothing with an empty manifest', () {
+          final result = auditor.reverse(InstallManifest(), fs);
 
           expect(result.entries, isEmpty);
-          expect(result.manifestError, isNull);
-          expect(manifest.file.existsSync(), isFalse);
-        });
-
-        test('reports a manifest it cannot write, apart from the entries', () {
-          final kept = file('.agents/skills/a/SKILL.md');
-          install([
-            owned(kept, 'a'),
-            owned(file('.agents/skills/b/SKILL.md'), 'b'),
-          ]);
-          kept.writeAsStringSync('edited');
-          fs.directory('${manifest.file.path}.vgv-tmp').createSync();
-
-          final result = reversal();
-
-          expect(result.entries.map((r) => r.outcome), [
-            ReverseOutcome.skipped,
-            ReverseOutcome.removed,
-          ]);
-          expect(result.manifestError, isNotEmpty);
-        });
-
-        test('leaves a manifest from another version alone', () {
-          final target = file('.agents/skills/a/SKILL.md');
-          install([owned(target, 'a')]);
-          final newer = jsonEncode({
-            'version': InstallManifest.version + 1,
-            'entries': <Object>[],
-          });
-          manifest.file.writeAsStringSync(newer);
-
-          final result = reversal();
-
-          expect(result.entries, isEmpty);
-          expect(result.manifestError, ManifestStore.unreadable);
-          expect(manifest.file.readAsStringSync(), newer);
-          expect(target.existsSync(), isTrue);
+          expect(result.manifest.entries, isEmpty);
         });
       });
 

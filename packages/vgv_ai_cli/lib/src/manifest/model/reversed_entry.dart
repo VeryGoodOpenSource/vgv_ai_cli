@@ -1,35 +1,10 @@
+import 'package:vgv_ai_cli/src/manifest/model/reverse_outcome.dart';
 import 'package:vgv_ai_cli/src/model/install_manifest.dart';
-
-/// {@template reverse_outcome}
-/// What reversing a [ManifestEntry] did.
-/// {@endtemplate}
-enum ReverseOutcome {
-  /// Everything VGV wrote is gone, and the file with it when nothing was
-  /// left.
-  removed,
-
-  /// VGV's parts are gone, except those the user has changed since, which
-  /// are theirs now. Forcing removes those too.
-  partial,
-
-  /// Nothing was removed, because all of it has been changed by the user,
-  /// or removing it would have to drop their comments. Forcing removes it.
-  skipped,
-
-  /// The file was already gone.
-  missing,
-
-  /// The file could not be parsed, so nothing could be taken out of it.
-  unparseable,
-
-  /// Reading, writing or deleting the file failed.
-  failed,
-}
 
 /// {@template reversed_entry}
 /// A [ManifestEntry] and what reversing it did.
 /// {@endtemplate}
-class const ReversedEntry({
+class const ReversedEntry._({
   /// The entry that was reversed.
   required final ManifestEntry entry,
 
@@ -38,19 +13,40 @@ class const ReversedEntry({
 
   /// Why the reversal [ReverseOutcome.failed], and null otherwise.
   final String? error,
-});
-
-/// {@template reversal}
-/// What reversing a manifest did, entry by entry, and to the manifest.
-/// {@endtemplate}
-class const Reversal({
-  /// Each entry that was reversed, and what reversing it did.
-  required final List<ReversedEntry> entries,
-
-  /// Why the manifest could not be read or saved, and null when it was.
+}) {
+  /// {@macro reversed_entry}
   ///
-  /// When the manifest could not be read, nothing was reversed. When it
-  /// could not be saved, [entries] still happened, but the manifest records
-  /// them as VGV's until a later run saves it.
-  final String? manifestError,
-});
+  /// Everything VGV wrote to [entry] is gone.
+  const new removed(ManifestEntry entry)
+    : this._(entry: entry, outcome: ReverseOutcome.removed);
+
+  /// {@macro reversed_entry}
+  ///
+  /// VGV's parts of [entry] are gone, except what the user changed.
+  const new partial(ManifestEntry entry)
+    : this._(entry: entry, outcome: ReverseOutcome.partial);
+
+  /// {@macro reversed_entry}
+  ///
+  /// Nothing of [entry] was removed, because the user changed all of it.
+  const new skipped(ManifestEntry entry)
+    : this._(entry: entry, outcome: ReverseOutcome.skipped);
+
+  /// {@macro reversed_entry}
+  ///
+  /// [entry]'s file was already gone.
+  const new missing(ManifestEntry entry)
+    : this._(entry: entry, outcome: ReverseOutcome.missing);
+
+  /// {@macro reversed_entry}
+  ///
+  /// [entry]'s file could not be parsed, so it was left alone.
+  const new unparseable(ManifestEntry entry)
+    : this._(entry: entry, outcome: ReverseOutcome.unparseable);
+
+  /// {@macro reversed_entry}
+  ///
+  /// Reading, writing or deleting [entry]'s file failed with [error].
+  const new failed(ManifestEntry entry, {required String error})
+    : this._(entry: entry, outcome: ReverseOutcome.failed, error: error);
+}

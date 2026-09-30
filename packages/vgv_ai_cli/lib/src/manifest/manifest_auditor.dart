@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
 import 'package:vgv_ai_cli/src/manifest/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
@@ -24,56 +23,41 @@ class const ManifestAuditor() {
   EntryHealth verify(ManifestEntry entry, FileSystem fileSystem) {
     final file = fileSystem.file(entry.path);
     try {
-      if (!file.existsSync()) {
-        return EntryHealth(entry: entry, status: EntryStatus.missing);
-      }
+      if (!file.existsSync()) return EntryHealth.missing(entry);
 
       final bytes = file.readAsBytesSync();
       return switch (entry) {
-        OwnedFile() => EntryHealth(
-          entry: entry,
-          status: entry.isUntouched(bytes)
-              ? EntryStatus.intact
-              : EntryStatus.drifted,
-        ),
+        OwnedFile() =>
+          entry.isUntouched(bytes)
+              ? EntryHealth.intact(entry)
+              : EntryHealth.drifted(entry),
         MergedDocument() => _verifyDocument(entry, bytes),
         MarkdownSections() => _verifySections(entry, bytes),
       };
     } on FileSystemException catch (error) {
-      return EntryHealth(
-        entry: entry,
-        status: EntryStatus.unreadable,
-        error: error.description,
-      );
+      return EntryHealth.unreadable(entry, error: error.description);
     }
   }
 
-  /// Takes back every entry of the manifest in [store] that [owners] holds,
-  /// or every entry when [owners] is null, and returns what each did.
+  /// Takes back every entry of [manifest] that [owners] holds, or every
+  /// entry when [owners] is null, and returns what each did and the
+  /// manifest without what was settled.
   ///
-  /// An entry that is fully taken back, or partly and the rest is the
-  /// user's now, leaves the manifest, which is deleted once it is empty. An
-  /// entry that was skipped, could not be parsed or failed stays, so a
-  /// later run can try again. A manifest another version wrote is left
-  /// alone and nothing is reversed. With [dryRun], nothing is written, but
-  /// the outcomes are the same.
+  /// [manifest] is how this tells VGV's files and keys from the user's.
+  /// Keeping it is the caller's job. An entry that is fully taken back, or
+  /// partly and the rest is the user's now, leaves the manifest. An entry
+  /// that was skipped, could not be parsed or failed stays, so a later run
+  /// can try again. With [dryRun], nothing is written, but the outcomes
+  /// and the manifest returned are the same.
   Reversal reverse(
-    ManifestStore store, {
+    InstallManifest manifest,
+    FileSystem fileSystem, {
     Set<Harness?>? owners,
     bool force = false,
     bool dryRun = false,
   }) {
-    final loaded = store.load();
-    if (loaded == null) {
-      return const Reversal(
-        entries: [],
-        manifestError: ManifestStore.unreadable,
-      );
-    }
-
-    final fileSystem = store.file.fileSystem;
     final reversed = [
-      for (final entry in loaded.entries)
+      for (final entry in manifest.entries)
         if (owners?.contains(entry.owner) ?? true)
           _reverse(entry, fileSystem, force: force, dryRun: dryRun),
     ];
@@ -81,14 +65,7 @@ class const ManifestAuditor() {
       for (final ReversedEntry(:entry, :outcome) in reversed)
         if (_settled.contains(outcome)) entry.path,
     ];
-    if (dryRun || settled.isEmpty) return Reversal(entries: reversed);
-
-    try {
-      store.save(loaded.without(settled));
-      return Reversal(entries: reversed);
-    } on FileSystemException catch (error) {
-      return Reversal(entries: reversed, manifestError: error.description);
-    }
+    return Reversal(entries: reversed, manifest: manifest.without(settled));
   }
 
   /// The outcomes after which nothing of an entry is VGV's any more.
@@ -98,21 +75,18 @@ class const ManifestAuditor() {
     ReverseOutcome.missing,
   };
 
-  EntryHealth _verifyDocument(MergedDocument entry, List<int> bytes) {
-    final current = _decode(entry.format, bytes);
-    if (current == null) {
-      return EntryHealth(entry: entry, status: EntryStatus.unparseable);
-    }
-
-    final Drift(:missing, :drifted) = entry.contribution.compare(current);
-    return _health(entry, missing, drifted);
-  }
+  EntryHealth _verifyDocument(MergedDocument entry, List<int> bytes) =>
+      switch (_decode(entry.format, bytes)) {
+        final current? => EntryHealth.of(
+          entry,
+          entry.contribution.compare(current),
+        ),
+        null => EntryHealth.unparseable(entry),
+      };
 
   EntryHealth _verifySections(MarkdownSections entry, List<int> bytes) {
     final text = decodeUtf8(bytes);
-    if (text == null) {
-      return EntryHealth(entry: entry, status: EntryStatus.unparseable);
-    }
+    if (text == null) return EntryHealth.unparseable(entry);
 
     final missing = <String>[];
     final drifted = <String>[];
@@ -124,23 +98,8 @@ class const ManifestAuditor() {
         drifted.add(name);
       }
     }
-    return _health(entry, missing, drifted);
+    return EntryHealth.of(entry, Drift(missing: missing, drifted: drifted));
   }
-
-  EntryHealth _health(
-    ManifestEntry entry,
-    List<String> missing,
-    List<String> drifted,
-  ) => EntryHealth(
-    entry: entry,
-    status: switch ((drifted, missing)) {
-      (List(isNotEmpty: true), _) => EntryStatus.drifted,
-      (_, List(isNotEmpty: true)) => EntryStatus.missing,
-      _ => EntryStatus.intact,
-    },
-    missing: missing,
-    drifted: drifted,
-  );
 
   /// Takes back [entry], reporting a filesystem error rather than throwing.
   ReversedEntry _reverse(
@@ -151,24 +110,20 @@ class const ManifestAuditor() {
   }) {
     final file = fileSystem.file(entry.path);
     try {
-      if (!file.existsSync()) {
-        return ReversedEntry(entry: entry, outcome: ReverseOutcome.missing);
-      }
+      if (!file.existsSync()) return ReversedEntry.missing(entry);
 
       final original = file.readAsBytesSync();
-      final undo = switch (entry) {
+      final decision = switch (entry) {
         OwnedFile() =>
           force || entry.isUntouched(original)
-              ? (bytes: null, kept: false)
-              : (bytes: original, kept: true),
+              ? const ReverseDecision(bytes: null, kept: false)
+              : ReverseDecision(bytes: original, kept: true),
         MergedDocument() => _reverseDocument(entry, original, force: force),
         MarkdownSections() => _reverseSections(entry, original, force: force),
       };
-      if (undo == null) {
-        return ReversedEntry(entry: entry, outcome: ReverseOutcome.unparseable);
-      }
+      if (decision == null) return ReversedEntry.unparseable(entry);
 
-      final (:bytes, :kept) = undo;
+      final ReverseDecision(:bytes, :kept) = decision;
       final changed = bytes == null || !bytesEquality.equals(bytes, original);
       if (changed && !dryRun) {
         bytes == null
@@ -176,27 +131,20 @@ class const ManifestAuditor() {
             : file.writeAtomically(bytes, existed: true);
       }
 
-      return ReversedEntry(
-        entry: entry,
-        outcome: switch ((changed, kept)) {
-          (_, false) => ReverseOutcome.removed,
-          (true, true) => ReverseOutcome.partial,
-          (false, true) => ReverseOutcome.skipped,
-        },
-      );
+      return switch ((changed, kept)) {
+        (_, false) => ReversedEntry.removed(entry),
+        (true, true) => ReversedEntry.partial(entry),
+        (false, true) => ReversedEntry.skipped(entry),
+      };
     } on FileSystemException catch (error) {
-      return ReversedEntry(
-        entry: entry,
-        outcome: ReverseOutcome.failed,
-        error: error.description,
-      );
+      return ReversedEntry.failed(entry, error: error.description);
     }
   }
 
   /// [original] without VGV's keys, or null when it cannot be parsed.
   ///
   /// A document with nothing left in it is deleted.
-  _Undo? _reverseDocument(
+  ReverseDecision? _reverseDocument(
     MergedDocument entry,
     List<int> original, {
     required bool force,
@@ -209,7 +157,7 @@ class const ManifestAuditor() {
       force: force,
     );
     if (deepEquality.equals(remaining, current)) {
-      return (bytes: original, kept: kept);
+      return ReverseDecision(bytes: original, kept: kept);
     }
 
     final contents = switch (entry.format) {
@@ -222,9 +170,9 @@ class const ManifestAuditor() {
         force: force,
       ),
     };
-    if (contents == null) return (bytes: original, kept: true);
+    if (contents == null) return ReverseDecision(bytes: original, kept: true);
 
-    return (
+    return ReverseDecision(
       bytes: contents.trim().isEmpty ? null : utf8.encode(contents),
       kept: kept,
     );
@@ -244,7 +192,7 @@ class const ManifestAuditor() {
     return (withdrawn ?? (force ? TomlText.encode(to) : null))?.source;
   }
 
-  _Undo? _reverseSections(
+  ReverseDecision? _reverseSections(
     MarkdownSections entry,
     List<int> original, {
     required bool force,
@@ -264,16 +212,12 @@ class const ManifestAuditor() {
         kept = true;
       }
     }
-    return (
+    return ReverseDecision(
       bytes: edited.trim().isEmpty ? null : utf8.encode(edited),
       kept: kept,
     );
   }
 }
-
-/// What reversing an entry leaves: the file's new bytes, or null to delete
-/// it, and whether any of what VGV wrote was kept.
-typedef _Undo = ({List<int>? bytes, bool kept});
 
 /// [bytes] decoded as [format], or null when they cannot be.
 Map<String, dynamic>? _decode(DocumentFormat format, List<int> bytes) =>

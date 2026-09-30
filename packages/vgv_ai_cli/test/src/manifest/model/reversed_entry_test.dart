@@ -1,49 +1,32 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/manifest/model/model.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');
-
   group('ReversedEntry', () {
-    test('carries its entry and outcome, and no error by default', () {
-      const reversed = ReversedEntry(
-        entry: entry,
-        outcome: ReverseOutcome.removed,
-      );
+    const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');
 
-      expect(reversed.entry, entry);
-      expect(reversed.outcome, ReverseOutcome.removed);
-      expect(reversed.error, isNull);
+    test('carries its entry and outcome, and no error unless it failed', () {
+      final reversed = {
+        const ReversedEntry.removed(entry): ReverseOutcome.removed,
+        const ReversedEntry.partial(entry): ReverseOutcome.partial,
+        const ReversedEntry.skipped(entry): ReverseOutcome.skipped,
+        const ReversedEntry.missing(entry): ReverseOutcome.missing,
+        const ReversedEntry.unparseable(entry): ReverseOutcome.unparseable,
+      };
+
+      for (final MapEntry(key: result, value: outcome) in reversed.entries) {
+        expect(result.entry, entry);
+        expect(result.outcome, outcome);
+        expect(result.error, isNull);
+      }
     });
 
     test('carries why it failed', () {
-      const reversed = ReversedEntry(
-        entry: entry,
-        outcome: ReverseOutcome.failed,
-        error: 'Permission denied',
-      );
+      const reversed = ReversedEntry.failed(entry, error: 'Permission denied');
 
+      expect(reversed.outcome, ReverseOutcome.failed);
       expect(reversed.error, 'Permission denied');
-    });
-  });
-
-  group('Reversal', () {
-    test('carries its entries, and no manifest error by default', () {
-      const reversed = ReversedEntry(
-        entry: entry,
-        outcome: ReverseOutcome.removed,
-      );
-      const reversal = Reversal(entries: [reversed]);
-
-      expect(reversal.entries, [reversed]);
-      expect(reversal.manifestError, isNull);
-    });
-
-    test('carries why the manifest could not be saved', () {
-      const reversal = Reversal(entries: [], manifestError: 'Disk full');
-
-      expect(reversal.manifestError, 'Disk full');
     });
   });
 }

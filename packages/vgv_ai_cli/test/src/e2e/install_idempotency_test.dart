@@ -15,7 +15,7 @@ import 'package:vgv_ai_cli/src/commands/install_command.dart';
 import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/manifest/model/reversed_entry.dart';
+import 'package:vgv_ai_cli/src/manifest/model/reverse_outcome.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 import 'package:vgv_ai_cli/src/version.dart';
@@ -210,9 +210,11 @@ void main() {
 
       await install();
       final installed = snapshot();
-      final reversed = const ManifestAuditor().reverse(ManifestStore(home));
+      final store = ManifestStore(home);
+      final reversed = const ManifestAuditor().reverse(store.load()!, fs);
+      store.save(reversed.manifest);
 
-      expect(reversed.manifestError, isNull);
+      expect(store.file.existsSync(), isFalse);
       expect(
         reversed.entries.map((r) => r.outcome),
         everyElement(ReverseOutcome.removed),
