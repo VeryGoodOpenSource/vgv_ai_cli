@@ -2,4 +2,5 @@
 library;
 
 export 'applied_change.dart';
+export 'model/model.dart';
 export 'reconciler.dart';

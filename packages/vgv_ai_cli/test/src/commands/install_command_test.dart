@@ -531,6 +531,29 @@ void main() {
         ).called(1);
       });
 
+      test('installs nothing when it cannot be read', () async {
+        planOne();
+        manifestFile()
+          ..createSync(recursive: true)
+          ..writeAsBytesSync([0xff, 0xfe]);
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(translator.selected, isNull);
+        expect(homeFile('.claude/a.md').existsSync(), isFalse);
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Installed nothing, because ${manifestFile().path} could not '
+                'be read: ',
+              ),
+            ),
+          ),
+        ).called(1);
+      });
+
       test('exits with an I/O error when it cannot be saved', () async {
         planOne();
         fs.directory(manifestFile().path).createSync(recursive: true);

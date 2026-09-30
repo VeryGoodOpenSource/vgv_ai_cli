@@ -85,7 +85,7 @@ The runner owns three cross-cutting behaviors that individual commands do not re
 
 Under `lib/src/`, each folder is one layer, and the rule for where a type lives is:
 
-- `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, and `Contribution`. It imports nothing else under `src/`.
+- `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, and `Contribution` with the `Drift` and `Subtraction` its methods return. A value a shared type returns lives beside it, even when only one feature reads it. It imports nothing else under `src/`.
 - `document/` edits config text through `TomlText` and the markdown section helpers, and writes files safely through the `File` extensions. It imports `model/`.
 - `harness/`, `reconcile/` and `manifest/` are the features: detecting and translating for harnesses, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
 - `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. The classes that do the work sit at the feature's root.

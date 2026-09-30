@@ -13,6 +13,10 @@ class const ReversedEntry._({
 
   /// Why the reversal [ReverseOutcome.failed], and null otherwise.
   final String? error,
+
+  /// What the manifest still records of [entry] after a
+  /// [ReverseOutcome.partial] reversal, and null otherwise.
+  final ManifestEntry? retained,
 }) {
   /// {@macro reversed_entry}
   ///
@@ -22,9 +26,10 @@ class const ReversedEntry._({
 
   /// {@macro reversed_entry}
   ///
-  /// VGV's parts of [entry] are gone, except what the user changed.
-  const new partial(ManifestEntry entry)
-    : this._(entry: entry, outcome: ReverseOutcome.partial);
+  /// VGV's parts of [entry] are gone, except what the user changed. When
+  /// that still needs recording, [retained] is what the manifest keeps.
+  const new partial(ManifestEntry entry, {ManifestEntry? retained})
+    : this._(entry: entry, outcome: ReverseOutcome.partial, retained: retained);
 
   /// {@macro reversed_entry}
   ///

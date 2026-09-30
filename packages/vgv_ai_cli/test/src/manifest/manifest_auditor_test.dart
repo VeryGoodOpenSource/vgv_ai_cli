@@ -268,6 +268,29 @@ void main() {
           expect(target.existsSync(), isFalse);
         });
 
+        test('deletes an untouched file through its symlink', () {
+          final real = seed('dotfiles/SKILL.md', 'body');
+          final target = file('.agents/skills/a/SKILL.md');
+          fs.link(target.path).createSync(real.path, recursive: true);
+          install([owned(target, 'body')]);
+
+          expect(reverseOne(), ReverseOutcome.removed);
+          expect(fs.isLinkSync(target.path), isFalse);
+          expect(real.existsSync(), isFalse);
+        });
+
+        test('deletes only the link the user put in its place, forced', () {
+          final target = file('.agents/skills/a/SKILL.md');
+          install([owned(target, 'body')]);
+          final theirs = seed('dotfiles/SKILL.md', 'theirs');
+          target.deleteSync();
+          fs.link(target.path).createSync(theirs.path);
+
+          expect(reverseOne(force: true), ReverseOutcome.removed);
+          expect(fs.isLinkSync(target.path), isFalse);
+          expect(theirs.readAsStringSync(), 'theirs');
+        });
+
         test('reports a file that is already gone as missing', () {
           final target = file('.agents/skills/a/SKILL.md');
           install([owned(target, 'body')]);
@@ -497,6 +520,23 @@ void main() {
 
           expect(reverseOne(), ReverseOutcome.partial);
           expect(sectionBody(target.readAsStringSync(), 'a'), isNull);
+          expect(sectionBody(target.readAsStringSync(), 'b'), 'edited');
+          expect((entryFor(target) as MarkdownSections).sections.keys, ['b']);
+        });
+
+        test('keeps recording an edited section it kept, for install', () {
+          final target = seed('.gemini/AGENTS.md', 'Mine.\n');
+          install([
+            markdown(target, '# A\n'),
+            markdown(target, '# B\n', name: 'b'),
+          ]);
+          target.writeAsStringSync(
+            upsertSection(target.readAsStringSync(), 'b', 'edited'),
+          );
+          reverse();
+
+          install([markdown(target, '# B\n', name: 'b')]);
+
           expect(sectionBody(target.readAsStringSync(), 'b'), 'edited');
         });
 

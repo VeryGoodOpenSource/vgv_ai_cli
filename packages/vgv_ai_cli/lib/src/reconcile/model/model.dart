@@ -1,7 +1,9 @@
-/// The values the reconcile layer passes between its steps.
+/// What the reconcile layer returns, and the values it passes between its
+/// steps.
 library;
 
 export 'deep_merge.dart';
 export 'held_back.dart';
+export 'reconciliation.dart';
 export 'text_merge.dart';
 export 'write_decision.dart';

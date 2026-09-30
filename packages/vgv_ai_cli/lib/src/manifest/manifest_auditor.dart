@@ -45,10 +45,12 @@ class const ManifestAuditor() {
   ///
   /// [manifest] is how this tells VGV's files and keys from the user's.
   /// Keeping it is the caller's job. An entry that is fully taken back, or
-  /// partly and the rest is the user's now, leaves the manifest. An entry
-  /// that was skipped, could not be parsed or failed stays, so a later run
-  /// can try again. With [dryRun], nothing is written, but the outcomes
-  /// and the manifest returned are the same.
+  /// partly and the rest is the user's now, leaves the manifest. A markdown
+  /// file partly taken back keeps a record of the sections the user
+  /// edited, since an unrecorded section is VGV's to overwrite on the next
+  /// install. An entry that was skipped, could not be parsed or failed
+  /// stays, so a later run can try again. With [dryRun], nothing is
+  /// written, but the outcomes and the manifest returned are the same.
   Reversal reverse(
     InstallManifest manifest,
     FileSystem fileSystem, {
@@ -62,10 +64,19 @@ class const ManifestAuditor() {
           _reverse(entry, fileSystem, force: force, dryRun: dryRun),
     ];
     final settled = [
-      for (final ReversedEntry(:entry, :outcome) in reversed)
-        if (_settled.contains(outcome)) entry.path,
+      for (final ReversedEntry(:entry, :outcome, :retained) in reversed)
+        if (_settled.contains(outcome) && retained == null) entry.path,
     ];
-    return Reversal(entries: reversed, manifest: manifest.without(settled));
+    final narrowed = [
+      for (final ReversedEntry(:retained) in reversed) ?retained,
+    ];
+    return Reversal(
+      entries: reversed,
+      manifest: InstallManifest([
+        ...manifest.without(settled).entries,
+        ...narrowed,
+      ]),
+    );
   }
 
   /// The outcomes after which nothing of an entry is VGV's any more.
@@ -114,26 +125,37 @@ class const ManifestAuditor() {
 
       final original = file.readAsBytesSync();
       final decision = switch (entry) {
-        OwnedFile() =>
-          force || entry.isUntouched(original)
-              ? const ReverseDecision(bytes: null, kept: false)
-              : ReverseDecision(bytes: original, kept: true),
+        OwnedFile() when entry.isUntouched(original) => const ReverseDecision(
+          bytes: null,
+          kept: false,
+        ),
+        OwnedFile() when force => const ReverseDecision(
+          bytes: null,
+          kept: false,
+          throughLink: false,
+        ),
+        OwnedFile() => ReverseDecision(bytes: original, kept: true),
         MergedDocument() => _reverseDocument(entry, original, force: force),
         MarkdownSections() => _reverseSections(entry, original, force: force),
       };
       if (decision == null) return ReversedEntry.unparseable(entry);
 
-      final ReverseDecision(:bytes, :kept) = decision;
+      final ReverseDecision(:bytes, :kept, :retained, :throughLink) = decision;
       final changed = bytes == null || !bytesEquality.equals(bytes, original);
       if (changed && !dryRun) {
-        bytes == null
-            ? file.deleteThrough()
-            : file.writeAtomically(bytes, existed: true);
+        switch (bytes) {
+          case null when throughLink:
+            file.deleteThrough();
+          case null:
+            file.deleteHere();
+          case final bytes:
+            file.writeAtomically(bytes, existed: true);
+        }
       }
 
       return switch ((changed, kept)) {
         (_, false) => ReversedEntry.removed(entry),
-        (true, true) => ReversedEntry.partial(entry),
+        (true, true) => ReversedEntry.partial(entry, retained: retained),
         (false, true) => ReversedEntry.skipped(entry),
       };
     } on FileSystemException catch (error) {
@@ -201,20 +223,25 @@ class const ManifestAuditor() {
     if (text == null) return null;
 
     var edited = text;
-    var kept = false;
-    for (final name in entry.sections.keys) {
+    final kept = <String, String>{};
+    for (final MapEntry(key: name, value: hash) in entry.sections.entries) {
       final body = sectionBody(edited, name);
       if (body == null) continue;
 
       if (force || entry.isUntouched(name, body)) {
         edited = removeSection(edited, name);
       } else {
-        kept = true;
+        kept[name] = hash;
       }
     }
     return ReverseDecision(
       bytes: edited.trim().isEmpty ? null : utf8.encode(edited),
-      kept: kept,
+      kept: kept.isNotEmpty,
+      retained: MarkdownSections(
+        path: entry.path,
+        owner: entry.owner,
+        sections: kept,
+      ),
     );
   }
 }
