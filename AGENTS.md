@@ -81,6 +81,18 @@ The runner owns three cross-cutting behaviors that individual commands do not re
 - **Error handling.** `FormatException` and `UsageException` are caught in `run()` and converted to `ExitCode.usage.code` with usage output. Commands do not handle these themselves.
 - **Update check.** After every command except `update`, `_checkForUpdates()` compares `packageVersion` against pub.dev and prints an upgrade prompt. The `completion` command is fast-tracked and skips this entirely.
 
+### Layers
+
+Under `lib/src/`, each folder is one layer, and the rule for where a type lives is:
+
+- `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, and `Contribution`. It imports nothing else under `src/`.
+- `document/` edits config text through `TomlText` and the markdown section helpers, and writes files safely through the `File` extensions. It imports `model/`.
+- `harness/`, `reconcile/` and `manifest/` are the features: detecting and translating for harnesses, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
+- `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. The classes that do the work sit at the feature's root.
+- `commands/` orchestrate the features and own persistence and reporting. `install` loads and saves the manifest through `ManifestStore`, while `Reconciler.apply` and `ManifestAuditor.reverse` take the manifest and return it updated.
+
+A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is built only through a constructor per verdict, so a field that means something for one verdict cannot be set on another. A shape that would be a record or a `Map` becomes a class or an extension type, and a map appears only at the boundary that needs one, through `toJson` or `toMap`.
+
 ### Adding a command
 
 1. Create `lib/src/commands/<name>_command.dart` with a `Command<int>` subclass taking `required this._logger`.
