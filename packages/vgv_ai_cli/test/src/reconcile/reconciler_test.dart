@@ -12,6 +12,8 @@ import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
+import '../document/_markdown_file.dart';
+
 /// The hex SHA-256 the manifest records for [text].
 String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
 
@@ -52,19 +54,6 @@ void main() {
   }) => applyAll([change], force: force, dryRun: dryRun).single;
 
   File file(String relative) => fileSystem.file(p.join(home.path, relative));
-
-  /// Writes [body] into the section named [name] of [target], as a user
-  /// editing the file would.
-  void editSection(File target, String name, String body) =>
-      target.writeAsStringSync(
-        MarkdownText(target.readAsStringSync())
-            .upsertSection(name, body)
-            .source,
-      );
-
-  /// The body of the section named [name] in [target].
-  String? bodyOf(File target, String name) =>
-      MarkdownText(target.readAsStringSync()).sectionBody(name);
 
   T entryFor<T extends ManifestEntry>(File target) =>
       manifest.entryOf<T>(target.path)!;
@@ -812,7 +801,7 @@ void main() {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
         final before = entryFor<MarkdownSections>(target);
-        editSection(target, 'instructions', '# Mine now');
+        target.editSection('instructions', '# Mine now');
         final edited = target.readAsStringSync();
 
         final applied = apply(target, '# VGV v2\n');
@@ -829,7 +818,7 @@ void main() {
       test('writes over an edited section when forced', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        editSection(target, 'instructions', 'Mine');
+        target.editSection('instructions', 'Mine');
 
         final applied = applyOne(
           PlannedChange.markdown(
@@ -842,13 +831,13 @@ void main() {
         );
 
         expect(applied.outcome, ChangeOutcome.updated);
-        expect(bodyOf(target, 'instructions'), '# VGV v2');
+        expect(target.sectionBody('instructions'), '# VGV v2');
       });
 
       test('takes an edited section that already matches as unchanged', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        editSection(target, 'instructions', '# VGV v2');
+        target.editSection('instructions', '# VGV v2');
 
         expect(apply(target, '# VGV v2\n').outcome, ChangeOutcome.unchanged);
         expect(entryFor<MarkdownSections>(target).sections, {

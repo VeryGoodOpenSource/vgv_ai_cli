@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
   group('DocumentCodec', () {

@@ -2,7 +2,6 @@
 /// writing them back safely.
 library;
 
-export 'codec.dart';
 export 'file_system.dart';
 export 'markdown_text.dart';
 export 'toml_text.dart';

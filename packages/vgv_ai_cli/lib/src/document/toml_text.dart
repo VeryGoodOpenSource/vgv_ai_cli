@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/codec.dart';
 import 'package:vgv_ai_cli/src/document/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 

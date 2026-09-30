@@ -50,11 +50,11 @@ sealed class ManifestEntry extends Equatable {
       if (owner != null && harness == null) return null;
 
       final changeMode = ChangeMode.values.asNameMap()[mode];
-      final format = changeMode?.format;
       if (json case {'sha256': final String sha256}
           when changeMode == ChangeMode.own) {
         return OwnedFile(path: path, owner: harness, sha256: sha256);
       }
+      final format = changeMode?.format;
       if (json case {'contribution': final Map<String, dynamic> contribution}
           when format != null) {
         return MergedDocument(

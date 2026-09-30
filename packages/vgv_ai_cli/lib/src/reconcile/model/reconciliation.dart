@@ -1,5 +1,5 @@
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
+import 'package:vgv_ai_cli/src/reconcile/model/applied_change.dart';
 
 /// {@template reconciliation}
 /// What applying a plan did, change by change, and the manifest that

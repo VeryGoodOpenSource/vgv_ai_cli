@@ -2,6 +2,7 @@
 /// steps.
 library;
 
+export 'applied_change.dart';
 export 'deep_merge.dart';
 export 'held_back.dart';
 export 'reconciliation.dart';

@@ -11,6 +11,8 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
+import '../document/_markdown_file.dart';
+
 void main() {
   const auditor = ManifestAuditor();
   const reconciler = Reconciler();
@@ -26,19 +28,6 @@ void main() {
   });
 
   File file(String relative) => fs.file(p.join(home.path, relative));
-
-  /// Writes [body] into the section named [name] of [target], as a user
-  /// editing the file would.
-  void editSection(File target, String name, String body) =>
-      target.writeAsStringSync(
-        MarkdownText(target.readAsStringSync())
-            .upsertSection(name, body)
-            .source,
-      );
-
-  /// The body of the section named [name] in [target].
-  String? bodyOf(File target, String name) =>
-      MarkdownText(target.readAsStringSync()).sectionBody(name);
 
   File seed(String relative, String contents) => file(relative)
     ..createSync(recursive: true)
@@ -522,11 +511,11 @@ void main() {
             markdown(target, '# A\n'),
             markdown(target, '# B\n', name: 'b'),
           ]);
-          editSection(target, 'b', 'edited');
+          target.editSection('b', 'edited');
 
           expect(reverseOne(), ReverseOutcome.partial);
-          expect(bodyOf(target, 'a'), isNull);
-          expect(bodyOf(target, 'b'), 'edited');
+          expect(target.sectionBody('a'), isNull);
+          expect(target.sectionBody('b'), 'edited');
           expect((entryFor(target) as MarkdownSections).sections.keys, ['b']);
         });
 
@@ -536,18 +525,18 @@ void main() {
             markdown(target, '# A\n'),
             markdown(target, '# B\n', name: 'b'),
           ]);
-          editSection(target, 'b', 'edited');
+          target.editSection('b', 'edited');
           reverse();
 
           install([markdown(target, '# B\n', name: 'b')]);
 
-          expect(bodyOf(target, 'b'), 'edited');
+          expect(target.sectionBody('b'), 'edited');
         });
 
         test('skips a file whose only section the user edited', () {
           final target = seed('.gemini/AGENTS.md', 'Mine.\n');
           install([markdown(target, '# A\n')]);
-          editSection(target, 'a', 'edited');
+          target.editSection('a', 'edited');
 
           expect(reverseOne(), ReverseOutcome.skipped);
           expect(reverseOne(force: true), ReverseOutcome.removed);

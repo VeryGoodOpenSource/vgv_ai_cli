@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 
 /// {@template reconciler}
