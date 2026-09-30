@@ -144,9 +144,10 @@ class _Run {
     final section = change.section!;
     final body = change.contents.trimRight();
 
-    final edited = switch (sectionBody(text, section)) {
-      final current? when sections.containsKey(section) =>
-        current != body && !recorded!.isUntouched(section, current),
+    final edited = switch ((recorded, sectionBody(text, section))) {
+      (final recorded?, final current?)
+          when recorded.sections.containsKey(section) =>
+        current != body && !recorded.isUntouched(section, current),
       _ => false,
     };
     if (edited && !force) {
