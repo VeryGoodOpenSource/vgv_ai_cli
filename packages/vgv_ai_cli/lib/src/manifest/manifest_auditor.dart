@@ -136,11 +136,11 @@ class const ManifestAuditor() {
     List<String> drifted,
   ) => EntryHealth(
     entry: entry,
-    status: drifted.isNotEmpty
-        ? EntryStatus.drifted
-        : missing.isNotEmpty
-        ? EntryStatus.missing
-        : EntryStatus.intact,
+    status: switch ((drifted, missing)) {
+      (List(isNotEmpty: true), _) => EntryStatus.drifted,
+      (_, List(isNotEmpty: true)) => EntryStatus.missing,
+      _ => EntryStatus.intact,
+    },
     missing: missing,
     drifted: drifted,
   );
