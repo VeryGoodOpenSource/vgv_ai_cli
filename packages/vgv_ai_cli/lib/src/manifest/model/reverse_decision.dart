@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template reverse_decision}
 /// What reversing an entry leaves in its file, and whether any of what VGV

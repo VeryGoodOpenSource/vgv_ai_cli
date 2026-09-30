@@ -15,7 +15,10 @@ import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 /// VGV wrote before and the user left alone is VGV's, so it is updated
 /// freely. With `dryRun`, nothing is written, but the outcomes are the same.
 /// {@endtemplate}
-class const Reconciler() {
+class const Reconciler({
+  /// Decodes and compares what is on disk with what VGV writes.
+  final DocumentCodec codec = const DocumentCodec(),
+}) {
   /// Applies every one of [changes] against [manifest], and returns what
   /// each did and the manifest updated with what they wrote.
   ///
@@ -28,7 +31,12 @@ class const Reconciler() {
     bool force = false,
     bool dryRun = false,
   }) {
-    final run = _Run(force: force, dryRun: dryRun, manifest: manifest);
+    final run = _Run(
+      codec: codec,
+      force: force,
+      dryRun: dryRun,
+      manifest: manifest,
+    );
     return Reconciliation(
       changes: [for (final change in changes) run.guarded(change)],
       manifest: run.manifest,
@@ -38,8 +46,14 @@ class const Reconciler() {
 
 /// One [Reconciler.apply] call's settings, and the manifest it updates.
 class _Run {
-  new({required this.force, required this.dryRun, required this.manifest});
+  new({
+    required this.codec,
+    required this.force,
+    required this.dryRun,
+    required this.manifest,
+  });
 
+  final DocumentCodec codec;
   final bool force;
   final bool dryRun;
 
@@ -65,7 +79,7 @@ class _Run {
       _ => _mergeText(change, original),
     };
 
-    final changed = !bytesEquality.equals(bytes, original);
+    final changed = !codec.bytesEquality.equals(bytes, original);
     if (changed && !dryRun) {
       file.writeAtomically(bytes, existed: existed, source: change.source);
     }
@@ -100,7 +114,7 @@ class _Run {
     final ours =
         original == null ||
         force ||
-        bytesEquality.equals(original, change.bytes) ||
+        codec.bytesEquality.equals(original, change.bytes) ||
         (manifest.entryOf<OwnedFile>(change.file.path)?.isUntouched(original) ??
             false);
     if (!ours) return WriteDecision(bytes: original, held: HeldBack.userValue);
@@ -118,7 +132,7 @@ class _Run {
 
   /// Merges [change] into the text of [original] in its mode's format.
   WriteDecision _mergeText(PlannedChange change, List<int> original) {
-    return switch ((decodeUtf8(original), change.mode.format)) {
+    return switch ((codec.decodeUtf8(original), change.mode.format)) {
       (null, _) => WriteDecision(bytes: original, held: HeldBack.unparseable),
       (final text?, final format?) => _mergeInto(format, change, text),
       (final text?, null) => _mergeSection(change, text, original),
@@ -141,7 +155,8 @@ class _Run {
     final section = change.section!;
     final body = change.contents.trimRight();
 
-    final edited = switch ((recorded, sectionBody(text, section))) {
+    final markdown = MarkdownText(text);
+    final edited = switch ((recorded, markdown.sectionBody(section))) {
       (final recorded?, final current?)
           when recorded.sections.containsKey(section) =>
         current != body && !recorded.isUntouched(section, current),
@@ -152,7 +167,7 @@ class _Run {
     }
 
     return WriteDecision(
-      bytes: utf8.encode(upsertSection(text, section, body)),
+      bytes: utf8.encode(markdown.upsertSection(section, body).source),
       held: HeldBack.nothing,
       entry: MarkdownSections(
         path: path,
@@ -228,7 +243,7 @@ class _Run {
     final kept = Contribution.of(existing, existing, managed);
     final held = deepMerged.declined ? HeldBack.userValue : HeldBack.nothing;
 
-    if (deepEquality.equals(existing, merged)) {
+    if (codec.deepEquality.equals(existing, merged)) {
       return TextMerge(contents: original, held: held, contribution: kept);
     }
 
@@ -311,7 +326,9 @@ class _Run {
       }
 
       if (existing is List && value is List) {
-        final gained = value.where((v) => !listContains(existing, v)).toList();
+        final gained = value
+            .where((v) => !codec.listContains(existing, v))
+            .toList();
         result[key] = <dynamic>[...existing, ...gained];
         if (gained.isNotEmpty) added[key] = gained;
         continue;

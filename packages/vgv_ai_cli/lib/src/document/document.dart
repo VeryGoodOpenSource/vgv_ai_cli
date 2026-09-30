@@ -4,5 +4,5 @@ library;
 
 export 'codec.dart';
 export 'file_system.dart';
-export 'markdown_sections.dart';
+export 'markdown_text.dart';
 export 'toml_text.dart';

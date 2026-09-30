@@ -14,7 +14,10 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// files, keys and text survive. Forcing removes what VGV wrote even when
 /// the user has changed it.
 /// {@endtemplate}
-class const ManifestAuditor() {
+class const ManifestAuditor({
+  /// Decodes and compares what is on disk with what VGV recorded.
+  final DocumentCodec codec = const DocumentCodec(),
+}) {
   /// Checks that what [entry] records is still on disk, as VGV wrote it.
   ///
   /// Never writes, and reports a file it cannot read rather than throwing.
@@ -96,13 +99,14 @@ class const ManifestAuditor() {
       };
 
   EntryHealth _verifySections(MarkdownSections entry, List<int> bytes) {
-    final text = decodeUtf8(bytes);
+    final text = codec.decodeUtf8(bytes);
     if (text == null) return EntryHealth.unparseable(entry);
+    final markdown = MarkdownText(text);
 
     final missing = <String>[];
     final drifted = <String>[];
     for (final name in entry.sections.keys) {
-      final body = sectionBody(text, name);
+      final body = markdown.sectionBody(name);
       if (body == null) {
         missing.add(name);
       } else if (!entry.isUntouched(name, body)) {
@@ -141,7 +145,8 @@ class const ManifestAuditor() {
       if (decision == null) return ReversedEntry.unparseable(entry);
 
       final ReverseDecision(:bytes, :kept, :retained, :throughLink) = decision;
-      final changed = bytes == null || !bytesEquality.equals(bytes, original);
+      final changed =
+          bytes == null || !codec.bytesEquality.equals(bytes, original);
       if (changed && !dryRun) {
         switch (bytes) {
           case null when throughLink:
@@ -178,7 +183,7 @@ class const ManifestAuditor() {
       current,
       force: force,
     );
-    if (deepEquality.equals(remaining, current)) {
+    if (codec.deepEquality.equals(remaining, current)) {
       return ReverseDecision(bytes: original, kept: kept);
     }
 
@@ -219,23 +224,23 @@ class const ManifestAuditor() {
     List<int> original, {
     required bool force,
   }) {
-    final text = decodeUtf8(original);
+    final text = codec.decodeUtf8(original);
     if (text == null) return null;
 
-    var edited = text;
+    var edited = MarkdownText(text);
     final kept = <String, String>{};
     for (final MapEntry(key: name, value: hash) in entry.sections.entries) {
-      final body = sectionBody(edited, name);
+      final body = edited.sectionBody(name);
       if (body == null) continue;
 
       if (force || entry.isUntouched(name, body)) {
-        edited = removeSection(edited, name);
+        edited = edited.removeSection(name);
       } else {
         kept[name] = hash;
       }
     }
     return ReverseDecision(
-      bytes: edited.trim().isEmpty ? null : utf8.encode(edited),
+      bytes: edited.source.trim().isEmpty ? null : utf8.encode(edited.source),
       kept: kept.isNotEmpty,
       retained: MarkdownSections(
         path: entry.path,
@@ -244,11 +249,11 @@ class const ManifestAuditor() {
       ),
     );
   }
-}
 
-/// [bytes] decoded as [format], or null when they cannot be.
-Map<String, dynamic>? _decode(DocumentFormat format, List<int> bytes) =>
-    switch (decodeUtf8(bytes)) {
-      final text? => format.decode(text),
-      null => null,
-    };
+  /// [bytes] decoded as [format], or null when they cannot be.
+  Map<String, dynamic>? _decode(DocumentFormat format, List<int> bytes) =>
+      switch (codec.decodeUtf8(bytes)) {
+        final text? => format.decode(text),
+        null => null,
+      };
+}

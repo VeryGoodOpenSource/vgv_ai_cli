@@ -86,10 +86,12 @@ The runner owns three cross-cutting behaviors that individual commands do not re
 Under `lib/src/`, each folder is one layer, and the rule for where a type lives is:
 
 - `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, and `Contribution` with the `Drift` and `Subtraction` its methods return. A value a shared type returns lives beside it, even when only one feature reads it. It imports nothing else under `src/`.
-- `document/` edits config text through `TomlText` and the markdown section helpers, and writes files safely through the `File` extensions. It imports `model/`.
+- `document/` edits config text through `TomlText` and `MarkdownText`, decodes and compares it through `DocumentCodec`, and writes files safely through the `File` extensions. It imports `model/`.
 - `harness/`, `reconcile/` and `manifest/` are the features: detecting and translating for harnesses, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
-- `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. The classes that do the work sit at the feature's root.
+- `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. A status enum lives in the file of the result it describes, as `ReverseOutcome` does beside `ReversedEntry`. The classes that do the work sit at the feature's root.
 - `commands/` orchestrate the features and own persistence and reporting. `install` loads and saves the manifest through `ManifestStore`, while `Reconciler.apply` and `ManifestAuditor.reverse` take the manifest and return it updated.
+
+Each layer has a barrel, such as `model/model.dart`, `document/document.dart` or `manifest/manifest.dart`. A file imports another layer through its barrel, and imports a file in its own folder directly.
 
 A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is built only through a constructor per verdict, so a field that means something for one verdict cannot be set on another. A shape that would be a record or a `Map` becomes a class or an extension type, and a map appears only at the boundary that needs one, through `toJson` or `toMap`.
 

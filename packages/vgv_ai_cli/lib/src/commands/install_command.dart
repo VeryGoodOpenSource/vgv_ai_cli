@@ -6,10 +6,10 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/document/file_system.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
@@ -160,8 +160,10 @@ class InstallCommand extends Command<int> {
     _report(plan, applied, dryRun: dryRun);
     final recorded =
         dryRun || _record(store, from: manifest, to: reconciliation.manifest);
-    return !recorded ||
-            applied.any((change) => change.outcome == ChangeOutcome.failed)
+    final anyChangeFailed = applied.any(
+      (change) => change.outcome == ChangeOutcome.failed,
+    );
+    return !recorded || anyChangeFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
   }

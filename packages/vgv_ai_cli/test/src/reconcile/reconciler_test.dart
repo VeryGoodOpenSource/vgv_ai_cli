@@ -53,6 +53,19 @@ void main() {
 
   File file(String relative) => fileSystem.file(p.join(home.path, relative));
 
+  /// Writes [body] into the section named [name] of [target], as a user
+  /// editing the file would.
+  void editSection(File target, String name, String body) =>
+      target.writeAsStringSync(
+        MarkdownText(target.readAsStringSync())
+            .upsertSection(name, body)
+            .source,
+      );
+
+  /// The body of the section named [name] in [target].
+  String? bodyOf(File target, String name) =>
+      MarkdownText(target.readAsStringSync()).sectionBody(name);
+
   T entryFor<T extends ManifestEntry>(File target) =>
       manifest.entryOf<T>(target.path)!;
 
@@ -722,8 +735,8 @@ void main() {
     });
 
     group('mergeMarkdown', () {
-      final start = sectionStart('instructions');
-      final end = sectionEnd('instructions');
+      final start = MarkdownText.sectionStart('instructions');
+      final end = MarkdownText.sectionEnd('instructions');
 
       AppliedChange apply(
         File target,
@@ -783,7 +796,8 @@ void main() {
         expect(
           target.readAsStringSync(),
           '$start\n# Instructions v2\n$end\n\n'
-          '${sectionStart('persona')}\n# Persona\n${sectionEnd('persona')}\n',
+          '${MarkdownText.sectionStart('persona')}\n# Persona\n'
+          '${MarkdownText.sectionEnd('persona')}\n',
         );
       });
 
@@ -798,12 +812,8 @@ void main() {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
         final before = entryFor<MarkdownSections>(target);
-        final edited = upsertSection(
-          target.readAsStringSync(),
-          'instructions',
-          '# Mine now',
-        );
-        target.writeAsStringSync(edited);
+        editSection(target, 'instructions', '# Mine now');
+        final edited = target.readAsStringSync();
 
         final applied = apply(target, '# VGV v2\n');
 
@@ -819,9 +829,7 @@ void main() {
       test('writes over an edited section when forced', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        target.writeAsStringSync(
-          upsertSection(target.readAsStringSync(), 'instructions', 'Mine'),
-        );
+        editSection(target, 'instructions', 'Mine');
 
         final applied = applyOne(
           PlannedChange.markdown(
@@ -834,18 +842,13 @@ void main() {
         );
 
         expect(applied.outcome, ChangeOutcome.updated);
-        expect(
-          sectionBody(target.readAsStringSync(), 'instructions'),
-          '# VGV v2',
-        );
+        expect(bodyOf(target, 'instructions'), '# VGV v2');
       });
 
       test('takes an edited section that already matches as unchanged', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        target.writeAsStringSync(
-          upsertSection(target.readAsStringSync(), 'instructions', '# VGV v2'),
-        );
+        editSection(target, 'instructions', '# VGV v2');
 
         expect(apply(target, '# VGV v2\n').outcome, ChangeOutcome.unchanged);
         expect(entryFor<MarkdownSections>(target).sections, {

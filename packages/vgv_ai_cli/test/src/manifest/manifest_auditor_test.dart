@@ -6,14 +6,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/markdown_sections.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_auditor.dart';
-import 'package:vgv_ai_cli/src/manifest/manifest_store.dart';
-import 'package:vgv_ai_cli/src/manifest/model/model.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/reconciler.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
   const auditor = ManifestAuditor();
@@ -30,6 +26,19 @@ void main() {
   });
 
   File file(String relative) => fs.file(p.join(home.path, relative));
+
+  /// Writes [body] into the section named [name] of [target], as a user
+  /// editing the file would.
+  void editSection(File target, String name, String body) =>
+      target.writeAsStringSync(
+        MarkdownText(target.readAsStringSync())
+            .upsertSection(name, body)
+            .source,
+      );
+
+  /// The body of the section named [name] in [target].
+  String? bodyOf(File target, String name) =>
+      MarkdownText(target.readAsStringSync()).sectionBody(name);
 
   File seed(String relative, String contents) => file(relative)
     ..createSync(recursive: true)
@@ -208,11 +217,10 @@ void main() {
         expect(verify(target).status, EntryStatus.intact);
 
         target.writeAsStringSync(
-          upsertSection(
-            removeSection(target.readAsStringSync(), 'a'),
-            'b',
-            'x',
-          ),
+          MarkdownText(target.readAsStringSync())
+              .removeSection('a')
+              .upsertSection('b', 'x')
+              .source,
         );
         final health = verify(target);
 
@@ -514,13 +522,11 @@ void main() {
             markdown(target, '# A\n'),
             markdown(target, '# B\n', name: 'b'),
           ]);
-          target.writeAsStringSync(
-            upsertSection(target.readAsStringSync(), 'b', 'edited'),
-          );
+          editSection(target, 'b', 'edited');
 
           expect(reverseOne(), ReverseOutcome.partial);
-          expect(sectionBody(target.readAsStringSync(), 'a'), isNull);
-          expect(sectionBody(target.readAsStringSync(), 'b'), 'edited');
+          expect(bodyOf(target, 'a'), isNull);
+          expect(bodyOf(target, 'b'), 'edited');
           expect((entryFor(target) as MarkdownSections).sections.keys, ['b']);
         });
 
@@ -530,22 +536,18 @@ void main() {
             markdown(target, '# A\n'),
             markdown(target, '# B\n', name: 'b'),
           ]);
-          target.writeAsStringSync(
-            upsertSection(target.readAsStringSync(), 'b', 'edited'),
-          );
+          editSection(target, 'b', 'edited');
           reverse();
 
           install([markdown(target, '# B\n', name: 'b')]);
 
-          expect(sectionBody(target.readAsStringSync(), 'b'), 'edited');
+          expect(bodyOf(target, 'b'), 'edited');
         });
 
         test('skips a file whose only section the user edited', () {
           final target = seed('.gemini/AGENTS.md', 'Mine.\n');
           install([markdown(target, '# A\n')]);
-          target.writeAsStringSync(
-            upsertSection(target.readAsStringSync(), 'a', 'edited'),
-          );
+          editSection(target, 'a', 'edited');
 
           expect(reverseOne(), ReverseOutcome.skipped);
           expect(reverseOne(force: true), ReverseOutcome.removed);

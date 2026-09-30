@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
 
 /// {@template reconciliation}

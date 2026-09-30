@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/document/file_system.dart';
-import 'package:vgv_ai_cli/src/model/install_manifest.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template manifest_store}
 /// Where the [InstallManifest] for a home directory is kept, at
