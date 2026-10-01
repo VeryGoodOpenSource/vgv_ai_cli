@@ -82,7 +82,7 @@ void main() {
         ]);
       });
 
-      test('Codex gets config, instructions and agents, no commands', () async {
+      test('Codex gets config, instructions and agents', () async {
         expect(await tree(Harness.codex), [
           'AGENTS.md',
           'agents/planner.toml',
