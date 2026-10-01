@@ -21,7 +21,7 @@ AgentAsset _agent(String name) =>
 HookAsset _hook(String event) => HookAsset(
   event: event,
   commands: const [HookCommand(type: 'command', command: 'run.sh')],
-  directory: _fs.directory('/plugins/hooks'),
+  pluginRoot: _fs.directory('/plugins/hooks'),
 );
 
 PluginAssets _assets({

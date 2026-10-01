@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -42,4 +45,136 @@ class const CodexTranslator() extends HarnessTranslator {
           'developer_instructions': instructions,
         }).toString(),
       );
+
+  /// The plugins' hooks, as `~/.codex/hooks.json` spells them.
+  ///
+  /// Codex's hooks file has the same shape as Claude's, down to `timeout`
+  /// being seconds, and its payload carries the `tool_name` and
+  /// `tool_input.command` the plugin scripts read. So the scripts run as
+  /// written and only three things need translating: the plugin root their
+  /// commands point at, the tool names their matchers name, and the
+  /// `tool_input.file_path` Codex does not send, which [payloadScript] fills
+  /// in for the hooks that need it.
+  ///
+  /// Codex runs no hook it has not been told to trust, however, so writing
+  /// this file is half of it and [notes] says the other half.
+  ///
+  /// See https://developers.openai.com/codex/hooks.
+  @override
+  String? hooks(PluginAssets assets, {required String hooksRoot}) {
+    final events = <String, List<Object?>>{};
+    for (final hook in assets.hooks.where(_runs)) {
+      events.putIfAbsent(hook.event, () => []).add({
+        'matcher': ?switch (hook.matcher) {
+          final declared? => _codexTools(declared).join('|'),
+          _ => null,
+        },
+        'hooks': [
+          for (final command in hook.commands)
+            {
+              'type': command.type,
+              'command': _command(command, hook, hooksRoot: hooksRoot),
+              'timeout': ?command.timeout,
+            },
+        ],
+      });
+    }
+    return events.isEmpty ? null : jsonEncode({'hooks': events});
+  }
+
+  /// The hooks Codex will not run, and the trust step that starts the rest.
+  @override
+  List<TranslationNote> notes(PluginAssets assets) => [
+    for (final hook in assets.hooks)
+      if (!_runs(hook))
+        TranslationNote(
+          subject: '${hook.event} ${hook.matcher}',
+          reason: 'Codex has none of those tools, so the hook could never fire',
+        ),
+    if (assets.hooks.any(_runs))
+      const TranslationNote(
+        subject: 'the hooks written to ~/.codex/hooks.json',
+        reason:
+            'Codex runs no hook it has not been told to trust, so run /hooks '
+            'in Codex and trust them',
+      ),
+  ];
+
+  /// Whether Codex can run [hook].
+  ///
+  /// A hook with no matcher fires for every tool, so it always can. One whose
+  /// matcher names only tools Codex does not have could never fire, so it is
+  /// left out of [hooks] and reported by [notes] instead.
+  static bool _runs(HookAsset hook) => switch (hook.matcher) {
+    final declared? => _codexTools(declared).isNotEmpty,
+    _ => true,
+  };
+
+  /// The helper the brick writes into the harness's own hooks folder.
+  ///
+  /// Written whenever Codex gets any hooks at all, which is one file more than
+  /// strictly needed for the rare set that edits no file.
+  static const payloadScript = 'apply-patch-payload.sh';
+
+  /// The tool names whose Codex payload carries no `tool_input.file_path`.
+  ///
+  /// A captured `PostToolUse` payload names the tool `apply_patch` and puts
+  /// the whole patch in `tool_input.command`, where Claude would have sent the
+  /// one file it edited. A script written against Claude's payload fires and
+  /// finds nothing, so these commands run through [payloadScript], which reads
+  /// the files out of the patch and hands the script one at a time.
+  static const _patchedTools = {'Edit', 'Write'};
+
+  /// What [command] runs as, once it names a real script and a real payload.
+  ///
+  /// Both arguments are quoted, because a plugin resolved from a cache under
+  /// the user's home sits at a path that may hold spaces.
+  static String _command(
+    HookCommand command,
+    HookAsset hook, {
+    required String hooksRoot,
+  }) {
+    final expanded = command.command.replaceAll(
+      HookCommand.pluginRoot,
+      hook.pluginRoot.path,
+    );
+    if (!_claudeTools(hook.matcher).any(_patchedTools.contains)) {
+      return expanded;
+    }
+    final script = _quoted(p.join(hooksRoot, payloadScript));
+    return 'bash $script ${_quoted(expanded)}';
+  }
+
+  /// [value] as one single-quoted shell word.
+  static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
+
+  /// The tool names [matcher] fires for, as Claude named them.
+  static List<String> _claudeTools(String? matcher) =>
+      matcher?.split('|') ?? const [];
+
+  /// Claude's tool names, as Codex spells them.
+  ///
+  /// A captured payload names the file-edit tool `apply_patch`, so `Edit` and
+  /// `Write` alone would never match. Each keeps its own name as well, because
+  /// Codex documents all three as interchangeable here and a matcher costs
+  /// nothing. Codex reads files through the shell, so `Read`, `Glob` and
+  /// `Grep` name no tool it has. Every other name carries over: a captured
+  /// payload names the shell tool `Bash`, and the `mcp__<server>__<tool>` form
+  /// the MCP matchers are written in is Codex's own.
+  static const _toolNames = <String, List<String>>{
+    'Edit': ['Edit', 'apply_patch'],
+    'Write': ['Write', 'apply_patch'],
+    'Read': [],
+    'Glob': [],
+    'Grep': [],
+  };
+
+  /// The tools [matcher] fires for, as Codex names them.
+  ///
+  /// A matcher is an alternation of tool names, so each alternative is
+  /// translated on its own. One Codex has no name for drops out, which is how
+  /// a matcher naming nothing it has comes back empty.
+  static List<String> _codexTools(String matcher) => {
+    for (final name in matcher.split('|')) ...(_toolNames[name] ?? [name]),
+  }.toList();
 }

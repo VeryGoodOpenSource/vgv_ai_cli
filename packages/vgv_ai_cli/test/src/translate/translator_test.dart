@@ -81,12 +81,14 @@ void main() {
         ]);
       });
 
-      test('Codex gets config, instructions and agents', () async {
+      test('Codex gets config, instructions, agents and hooks', () async {
         expect(await tree(Harness.codex), [
           'AGENTS.md',
           'agents/planner.toml',
           'agents/review.toml',
           'config.toml',
+          'hooks.json',
+          'hooks/apply-patch-payload.sh',
         ]);
       });
 
@@ -182,10 +184,10 @@ void main() {
     });
 
     test('carries each harness its own notes', () async {
-      final plan = await translate({Harness.claude, Harness.codex});
+      final plan = await translate({Harness.claude, Harness.pi});
 
       expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
-      expect(plan.harnesses[Harness.codex]!.notes.single.subject, '1 hook(s)');
+      expect(plan.harnesses[Harness.pi]!.notes.first.subject, '1 hook(s)');
     });
 
     group('renders contents the harness can read', () {
@@ -249,6 +251,34 @@ void main() {
           }),
         );
       });
+
+      test(
+        "Codex's hooks merge into the ones the user already keeps",
+        () async {
+          final plan = await translate({Harness.codex});
+          final hooks = plan.harnesses[Harness.codex]!.changes.singleWhere(
+            (change) => change.file.path.endsWith('hooks.json'),
+          );
+
+          expect(hooks.mode, ChangeMode.mergeJson);
+          expect(jsonDecode(hooks.contents), {
+            'hooks': {
+              'PostToolUse': [
+                {
+                  'hooks': [
+                    {
+                      'type': 'command',
+                      'command':
+                          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
+                      'timeout': 30,
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        },
+      );
 
       test('AGENTS.md indexes every skill and agent', () async {
         final instructions = await contents(Harness.gemini, 'AGENTS.md');

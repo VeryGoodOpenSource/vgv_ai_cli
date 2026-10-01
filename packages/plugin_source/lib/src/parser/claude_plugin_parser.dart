@@ -18,7 +18,7 @@ class const ClaudePluginParser() implements PluginParser {
     skills: _readSkills(root.childDirectory('skills')),
     agents: _readAgents(root.childDirectory('agents')),
     mcpServers: _readMcpServers(root.childFile('.mcp.json')),
-    hooks: _readHooks(root.childDirectory('hooks')),
+    hooks: _readHooks(root),
   );
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.
@@ -171,13 +171,14 @@ class const ClaudePluginParser() implements PluginParser {
     return agents;
   }
 
-  /// Reads `hooks/hooks.json`, whose shape is an event map of registrations:
+  /// Reads `hooks/hooks.json` under [root], whose shape is an event map of
+  /// registrations:
   /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`.
   ///
   /// Every level is tolerated as absent or the wrong type rather than assumed,
   /// because a plugin may ship no hooks at all.
-  List<HookAsset> _readHooks(Directory hooksDir) {
-    final file = hooksDir.childFile('hooks.json');
+  List<HookAsset> _readHooks(Directory root) {
+    final file = root.childDirectory('hooks').childFile('hooks.json');
     if (!file.existsSync()) return const [];
 
     final events = _readJsonObject(file).child('hooks');
@@ -197,7 +198,7 @@ class const ClaudePluginParser() implements PluginParser {
             event: event.key,
             matcher: matcher is String ? matcher : null,
             commands: commands,
-            directory: hooksDir,
+            pluginRoot: root,
           ),
         );
       }

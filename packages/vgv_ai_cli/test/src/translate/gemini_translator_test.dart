@@ -117,13 +117,13 @@ void main() {
     });
 
     group('notes', () {
-      test('report that hooks are Claude-only, once', () {
+      test('report that it has nowhere to run the hooks, once', () {
         final notes = translator.notes(
           pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
         );
 
         expect(notes.single.subject, '2 hook(s)');
-        expect(notes.single.reason, contains('Gemini gets none for now'));
+        expect(notes.single.reason, contains('Gemini has no hooks system'));
       });
 
       test('are empty when everything translates', () {

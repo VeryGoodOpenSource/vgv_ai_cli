@@ -17,3 +17,14 @@ import 'package:path/path.dart' as p;
 /// - Pi: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
+
+/// The folder, inside a harness's own config directory, holding the helper
+/// scripts VGV writes for that harness's hooks.
+///
+/// Named here because two places must agree on it: the `agents` brick renders
+/// into it, and a translator spells its absolute path into a hook command.
+const harnessHooksFolder = 'hooks';
+
+/// Where [harnessConfig] keeps the hook helper scripts VGV writes.
+Directory harnessHooksRoot(Directory harnessConfig) => harnessConfig.fileSystem
+    .directory(p.join(harnessConfig.path, harnessHooksFolder));

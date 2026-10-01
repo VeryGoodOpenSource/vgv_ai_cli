@@ -6,7 +6,6 @@ import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -43,11 +42,7 @@ class const Translator({
       for (final translator in translators)
         if (selected.contains(translator.harness)) translator,
     ];
-    final vars = AgentsVars(
-      translators: chosen,
-      assets: assets,
-      skillsRoot: agentsSkillsRoot(home).path,
-    );
+    final vars = AgentsVars(translators: chosen, assets: assets, home: home);
     final rendered = await brick.render(vars.toMap());
     final changes = [
       for (final MapEntry(key: path, value: contents) in rendered.entries)
