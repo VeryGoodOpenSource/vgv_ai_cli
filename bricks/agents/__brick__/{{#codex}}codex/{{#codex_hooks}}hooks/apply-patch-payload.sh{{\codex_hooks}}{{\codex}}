@@ -1,0 +1,53 @@
+# Runs a hook script written for Claude Code against a Codex payload.
+#
+# Codex reports a file edit as tool_name "apply_patch" and puts the whole patch
+# in tool_input.command, where Claude Code sends the one file it edited in
+# tool_input.file_path. A script that reads tool_input.file_path therefore
+# fires and finds nothing. This fills the field in from the patch headers and
+# runs the script once per file the patch touches.
+#
+# Usage: bash apply-patch-payload.sh '<the command to run>'
+#
+# Written by `vgv_ai install`. Edits here are overwritten on the next run.
+
+set -uo pipefail
+
+wrapped=$1
+payload=$(cat)
+
+run() {
+  printf '%s' "$1" | sh -c "$wrapped"
+}
+
+# Without jq there is nothing to translate with, so the script gets the payload
+# as it came. Every VGV hook script already skips itself when jq is missing.
+if ! command -v jq > /dev/null 2>&1; then
+  run "$payload"
+  exit $?
+fi
+
+# The files this payload is about: the one Claude Code would have named, plus
+# every file the patch headers name. A character class avoids backslashes, so
+# the regex survives being rendered from a template.
+paths=$(printf '%s' "$payload" | jq -r '[(.tool_input.file_path // empty), ((.tool_input.command // "") | scan("(?m)^[*][*][*] (?:Add File|Update File|Move to): (.+)$"))] | flatten | unique | .[]' 2>/dev/null)
+
+status=0
+ran=0
+while IFS= read -r path; do
+  # A deleted file, or the old name of a renamed one, is no longer there to
+  # analyze or format, so it drops out here rather than failing the script.
+  if [ -n "$path" ] && [ -f "$path" ]; then
+    ran=1
+    translated=$(printf '%s' "$payload" | jq --arg path "$path" '.tool_input.file_path = $path')
+    run "$translated" || status=$?
+  fi
+done <<EOF
+$paths
+EOF
+
+# No payload field named a file that exists, so the script decides for itself.
+if [ "$ran" -eq 0 ]; then
+  run "$payload" || status=$?
+fi
+
+exit $status

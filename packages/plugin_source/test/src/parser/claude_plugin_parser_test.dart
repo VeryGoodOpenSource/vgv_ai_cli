@@ -370,11 +370,17 @@ void main() {
       expect(hookFor('PostToolUse').commands.last.timeout, isNull);
     });
 
-    test('carries the hooks directory so scripts can be copied', () {
-      final directory = hookFor('SessionStart').directory;
+    test('carries the plugin root the placeholder stands for', () {
+      // HookCommand.pluginRoot is spelled relative to the plugin root, not
+      // the hooks directory, so this is what a translator substitutes.
+      final root = hookFor('SessionStart').pluginRoot;
 
       expect(
-        directory.childDirectory('scripts').childFile('warn.sh').existsSync(),
+        root
+            .childDirectory('hooks')
+            .childDirectory('scripts')
+            .childFile('warn.sh')
+            .existsSync(),
         isTrue,
       );
     });

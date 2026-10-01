@@ -83,12 +83,12 @@ void main() {
       });
     });
 
-    test('reports that hooks are Claude-only', () {
+    test('reports that it has nowhere to run the hooks', () {
       final fs = MemoryFileSystem.test();
 
       expect(
         translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains('OpenCode gets none for now'),
+        contains('OpenCode has no hooks system'),
       );
     });
   });

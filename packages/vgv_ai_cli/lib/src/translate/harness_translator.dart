@@ -39,18 +39,24 @@ abstract class HarnessTranslator {
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
-  /// Everything in [assets] this harness cannot express.
+  /// The hooks fragment merged into this harness's own hooks file, or null
+  /// for a harness that runs none of them, whose brick folder then has no
+  /// hooks file.
   ///
-  /// The plugins' hook scripts read Claude Code's payload, which no other
-  /// harness sends, so a hook wired in elsewhere would run and do nothing.
-  /// They are left out until the scripts are harness-aware.
+  /// [hooksRoot] is where the brick writes this harness's hook helper
+  /// scripts, for a translator whose commands have to name one.
+  String? hooks(PluginAssets assets, {required String hooksRoot}) => null;
+
+  /// What the user needs to know about [assets] for this harness: what it
+  /// cannot express, and what it will not do until they act.
+  ///
+  /// A hook is a shell command the harness runs at a lifecycle point, so a
+  /// harness with no hooks system of its own has nowhere to put one.
   List<TranslationNote> notes(PluginAssets assets) => [
     if (assets.hooks.isNotEmpty)
       TranslationNote(
         subject: '${assets.hooks.length} hook(s)',
-        reason:
-            'the plugin hook scripts only understand Claude Code, so '
-            '${harness.displayName} gets none for now',
+        reason: '${harness.displayName} has no hooks system to run them from',
       ),
   ];
 }

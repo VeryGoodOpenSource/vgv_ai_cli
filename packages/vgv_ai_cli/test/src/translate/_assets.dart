@@ -36,7 +36,7 @@ AgentAsset agentAsset(
 HookAsset hookAsset(
   FileSystem fs, {
   String event = 'PostToolUse',
-  String? matcher = 'Edit|Write',
+  String? matcher,
   List<HookCommand> commands = const [
     HookCommand(
       type: 'command',
@@ -45,16 +45,16 @@ HookAsset hookAsset(
     ),
   ],
 }) {
-  final directory = fs.directory('/plugins/vgv-wingspan/hooks')
+  final root = fs.directory('/plugins/vgv-wingspan')
     ..createSync(recursive: true);
-  directory.childDirectory('scripts').childFile('analyze.sh')
+  root.childDirectory('hooks').childDirectory('scripts').childFile('analyze.sh')
     ..createSync(recursive: true)
     ..writeAsStringSync('#!/bin/bash\necho hi\n');
   return HookAsset(
     event: event,
     matcher: matcher,
     commands: commands,
-    directory: directory,
+    pluginRoot: root,
   );
 }
 

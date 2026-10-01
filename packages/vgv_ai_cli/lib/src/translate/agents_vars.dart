@@ -1,3 +1,4 @@
+import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
@@ -15,8 +16,8 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// Where the shared skills are written.
-  required final String skillsRoot,
+  /// The directory every harness is configured under.
+  required final Directory home,
 }) {
   /// The vars, keyed as the brick reads them.
   ///
@@ -34,6 +35,12 @@ class const AgentsVars({
         harness.name: translators.any((t) => t.harness == harness),
       for (final translator in translators)
         '${translator.harness.name}_settings': ?translator.settings(assets),
+      for (final translator in translators)
+        '${translator.harness.name}_hooks': ?translator.hooks(
+          assets,
+          hooksRoot: harnessHooksRoot(translator.harness.configDirectory(home))
+              .path,
+        ),
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
       'index': {
@@ -52,7 +59,10 @@ class const AgentsVars({
   }
 
   Map<String, Object?> _agent(AgentAsset agent) {
-    final instructions = agentInstructions(agent, skillsRoot: skillsRoot);
+    final instructions = agentInstructions(
+      agent,
+      skillsRoot: agentsSkillsRoot(home).path,
+    );
     return {
       'name': agent.name,
       'instructions': instructions,

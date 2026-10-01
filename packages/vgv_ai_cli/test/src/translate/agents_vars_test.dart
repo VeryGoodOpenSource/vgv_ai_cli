@@ -16,7 +16,7 @@ void main() {
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      skillsRoot: '/skills',
+      home: fs.directory('/home/dev'),
     ).toMap();
 
     test('flags every harness, true only for those selected', () {
@@ -40,6 +40,22 @@ void main() {
       expect(vars, contains('gemini_settings'));
       expect(vars, isNot(contains('pi_settings')));
       expect(vars, isNot(contains('codex_settings')));
+    });
+
+    test('carries hooks only for selected harnesses that run some', () {
+      final vars = varsFor(const [
+        CodexTranslator(),
+        PiTranslator(),
+      ], assets: pluginAssets(hooks: [hookAsset(fs)]));
+
+      expect(vars, contains('codex_hooks'));
+      expect(vars, isNot(contains('pi_hooks')));
+    });
+
+    test('leaves out hooks for a harness the plugins give none', () {
+      final vars = varsFor(const [CodexTranslator()]);
+
+      expect(vars, isNot(contains('codex_hooks')));
     });
 
     test('leaves out agents and commands when there are none', () {
@@ -66,7 +82,7 @@ void main() {
       final agent = (vars['agents']! as List).single as Map<String, Object?>;
 
       expect(agent['name'], 'review');
-      expect(agent['instructions'], contains('`/skills`'));
+      expect(agent['instructions'], contains('`/home/dev/.agents/skills`'));
       expect(agent['opencode'], contains('frontmatter'));
       expect(agent['pi'], isEmpty);
     });
