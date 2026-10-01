@@ -4,8 +4,9 @@ import 'package:file/file.dart';
 /// A skill resolved from a plugin, in a harness-neutral shape.
 ///
 /// Every field is portable: whatever only a parser's harness understands is
-/// already interpreted ([userInvocable], [allowedTools]) or filtered out
-/// ([portableFrontmatter]). [directory] is where it was read from, for copying.
+/// already interpreted ([description], [userInvocable], [allowedTools]) or
+/// filtered out ([portableFrontmatter]). [directory] is where it was read
+/// from, for copying.
 /// {@endtemplate}
 class const SkillAsset({
   required final String name,
