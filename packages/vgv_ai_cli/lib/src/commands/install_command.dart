@@ -6,12 +6,12 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
-import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template install_command}
 /// Configures Very Good AI tooling across the detected coding-agent harnesses.

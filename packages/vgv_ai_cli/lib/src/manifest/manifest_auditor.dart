@@ -214,8 +214,10 @@ class const ManifestAuditor({
     required Map<String, dynamic> to,
     required bool force,
   }) {
-    final withdrawn = TomlText(original)
-        .withdraw(existing: from, remaining: to);
+    final withdrawn = TomlText(
+      original,
+      codec: codec,
+    ).withdraw(existing: from, remaining: to);
     return (withdrawn ?? (force ? TomlText.encode(to) : null))?.source;
   }
 

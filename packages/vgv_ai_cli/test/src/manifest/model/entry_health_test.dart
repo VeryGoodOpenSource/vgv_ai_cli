@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/manifest/model/model.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {

@@ -9,11 +9,11 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
-import 'package:vgv_ai_cli/src/commands/install_command.dart';
-import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
+import 'package:vgv_ai_cli/src/commands/commands.dart';
+import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;

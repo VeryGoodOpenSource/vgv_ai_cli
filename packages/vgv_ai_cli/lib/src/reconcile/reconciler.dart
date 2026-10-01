@@ -277,8 +277,10 @@ class _Run {
     required Map<String, dynamic> existing,
     required DeepMerge merge,
   }) {
-    final edited = TomlText(original)
-        .edit(existing: existing, merged: merge.merged, added: merge.added);
+    final edited = TomlText(
+      original,
+      codec: codec,
+    ).edit(existing: existing, merged: merge.merged, added: merge.added);
     return (edited ?? (force ? TomlText.encode(merge.merged) : null))?.source;
   }
 

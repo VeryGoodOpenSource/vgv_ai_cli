@@ -1,6 +1,6 @@
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/model/harness.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
   group('Harness', () {
