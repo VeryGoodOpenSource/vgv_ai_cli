@@ -311,18 +311,27 @@ class InstallCommand extends Command<int> {
     List<AppliedChange> applied, {
     required bool dryRun,
   }) {
-    String ownerName(Harness? harness) => harness?.displayName ?? 'Shared';
+    _reportNotes(plan);
+    _reportOutcomes(applied, dryRun: dryRun);
+    _reportKept(applied);
+    _reportWritten(applied, dryRun: dryRun);
+  }
 
+  /// Warns about everything that could not be translated, per owner.
+  void _reportNotes(TranslationPlan plan) {
     for (final note in plan.shared?.notes ?? const <TranslationNote>[]) {
-      _logger.warn('${ownerName(null)}: $note');
+      _logger.warn('${_ownerName(null)}: $note');
     }
     for (final MapEntry(key: harness, value: result)
         in plan.harnesses.entries) {
       for (final note in result.notes) {
-        _logger.warn('${ownerName(harness)}: $note');
+        _logger.warn('${_ownerName(harness)}: $note');
       }
     }
+  }
 
+  /// Reports each file that failed, could not be parsed, or was written.
+  void _reportOutcomes(List<AppliedChange> applied, {required bool dryRun}) {
     for (final AppliedChange(:change, :outcome, :error) in applied) {
       final path = change.file.path;
       switch (outcome) {
@@ -342,7 +351,10 @@ class InstallCommand extends Command<int> {
         case _:
       }
     }
+  }
 
+  /// Warns about each file where the user's values were kept over VGV's.
+  void _reportKept(List<AppliedChange> applied) {
     final kept = applied.where(
       (change) => _keptUserValues.contains(change.outcome),
     );
@@ -352,7 +364,11 @@ class InstallCommand extends Command<int> {
     if (kept.isNotEmpty) {
       _logger.info("Pass ${lightCyan.wrap('--force')} to take VGV's.");
     }
+  }
 
+  /// Summarizes how many files were written per owner, or that nothing
+  /// needed to be.
+  void _reportWritten(List<AppliedChange> applied, {required bool dryRun}) {
     final written = applied
         .where((change) => _wrote.contains(change.outcome))
         .groupListsBy((change) => change.change.harness);
@@ -367,7 +383,7 @@ class InstallCommand extends Command<int> {
     }
 
     for (final MapEntry(key: harness, value: changes) in written.entries) {
-      _logger.info('  ${ownerName(harness)}: ${changes.length} file(s)');
+      _logger.info('  ${_ownerName(harness)}: ${changes.length} file(s)');
     }
 
     _logger.info(
@@ -377,3 +393,6 @@ class InstallCommand extends Command<int> {
     );
   }
 }
+
+/// How [harness] is named in the report, with the shared skills as `Shared`.
+String _ownerName(Harness? harness) => harness?.displayName ?? 'Shared';

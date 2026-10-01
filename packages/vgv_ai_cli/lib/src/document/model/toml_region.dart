@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:vgv_ai_cli/src/document/model/toml_statement.dart';
 
 /// {@template toml_region}
@@ -9,4 +10,9 @@ class const TomlRegion({
 
   /// Every statement after [header] up to the next header.
   required final List<TomlStatement> body,
-});
+}) {
+  /// The statement that sets [key] in this table, if any.
+  TomlStatement? statementOf(String key) => body.firstWhereOrNull(
+    (s) => s.declares(TomlStatementKind.keyValue, [key]),
+  );
+}

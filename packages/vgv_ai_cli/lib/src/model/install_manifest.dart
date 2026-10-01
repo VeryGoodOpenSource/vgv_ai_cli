@@ -41,43 +41,63 @@ sealed class ManifestEntry extends Equatable {
   /// The mode is read back by the same name [toJson] writes it with, so the
   /// two cannot drift apart.
   static ManifestEntry? fromJson(Object? json) {
-    if (json case {
-      'path': final String path,
-      'owner': final String? owner,
-      'mode': final String mode,
-    }) {
+    if (json
+        case final Map<dynamic, dynamic> entry &&
+            {
+              'path': final String path,
+              'owner': final String? owner,
+              'mode': final String mode,
+            }) {
       final harness = Harness.values.asNameMap()[owner];
       if (owner != null && harness == null) return null;
 
-      final changeMode = ChangeMode.values.asNameMap()[mode];
-      if (json case {'sha256': final String sha256}
-          when changeMode == ChangeMode.own) {
-        return OwnedFile(path: path, owner: harness, sha256: sha256);
-      }
-      final format = changeMode?.format;
-      if (json case {'contribution': final Map<String, dynamic> contribution}
-          when format != null) {
-        return MergedDocument(
-          path: path,
-          owner: harness,
-          format: format,
-          contribution: Contribution(contribution),
-        );
-      }
-      if (json case {'sections': final Map<String, dynamic> sections}
-          when changeMode == ChangeMode.mergeMarkdown) {
-        return MarkdownSections(
-          path: path,
-          owner: harness,
-          sections: {
-            for (final MapEntry(:key, :value) in sections.entries)
-              if (value is String) key: value,
-          },
-        );
-      }
+      return _decode(
+        entry,
+        path: path,
+        owner: harness,
+        mode: ChangeMode.values.asNameMap()[mode],
+      );
     }
     return null;
   }
+
+  /// Decodes the fields of [json] that [mode] writes, or null when [mode] is
+  /// unknown or its fields are missing.
+  static ManifestEntry? _decode(
+    Map<dynamic, dynamic> json, {
+    required String path,
+    required Harness? owner,
+    required ChangeMode? mode,
+  }) => switch ((mode, json)) {
+    (ChangeMode.own, {'sha256': final String sha256}) => OwnedFile(
+      path: path,
+      owner: owner,
+      sha256: sha256,
+    ),
+    (
+      ChangeMode(:final format?),
+      {'contribution': final Map<String, dynamic> contribution},
+    ) =>
+      MergedDocument(
+        path: path,
+        owner: owner,
+        format: format,
+        contribution: Contribution(contribution),
+      ),
+    (
+      ChangeMode.mergeMarkdown,
+      {'sections': final Map<String, dynamic> sections},
+    ) =>
+      MarkdownSections(
+        path: path,
+        owner: owner,
+        sections: {
+          for (final MapEntry(:key, :value) in sections.entries)
+            if (value is String) key: value,
+        },
+      ),
+    _ => null,
+  };
 }
 
 /// {@template owned_file}

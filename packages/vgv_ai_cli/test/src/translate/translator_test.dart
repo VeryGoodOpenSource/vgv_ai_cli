@@ -340,19 +340,24 @@ void main() {
       });
 
       test('writes JSON and TOML that parse', () {
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          if (path.endsWith('.json')) {
-            expect(() => jsonDecode(contents), returnsNormally, reason: path);
-          }
-          if (path.endsWith('.toml')) {
-            expect(
-              () => TomlDocument.parse(contents),
-              returnsNormally,
-              reason: path,
-            );
-          }
+        final structured = files.entries.where(
+          (file) => file.key.endsWith('.json') || file.key.endsWith('.toml'),
+        );
+
+        expect(structured, isNotEmpty);
+        for (final MapEntry(key: path, value: contents) in structured) {
+          expect(
+            () => _parseStructured(path, contents),
+            returnsNormally,
+            reason: path,
+          );
         }
       });
     });
   });
 }
+
+/// Parses [contents] as the JSON or TOML that [path] names.
+Object? _parseStructured(String path, String contents) => path.endsWith('.json')
+    ? jsonDecode(contents)
+    : TomlDocument.parse(contents);

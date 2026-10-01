@@ -17,6 +17,28 @@ void main() {
       expect(const Contribution({'a': 1}).toJson(), {'a': 1});
     });
 
+    test('is within a table only what it contributed to that table', () {
+      const managed = Contribution({
+        'mcp': {'dart': 'vgv'},
+        'theme': 'vgv',
+      });
+
+      expect(managed.within('mcp').keys, {'dart': 'vgv'});
+      expect(managed.within('theme'), Contribution.none);
+      expect(managed.within('model'), Contribution.none);
+    });
+
+    test('has appended to a list only the entries it contributed', () {
+      const managed = Contribution({
+        'args': ['--vgv'],
+        'theme': 'vgv',
+      });
+
+      expect(managed.appendedTo('args'), ['--vgv']);
+      expect(managed.appendedTo('theme'), isEmpty);
+      expect(managed.appendedTo('model'), isEmpty);
+    });
+
     group('of', () {
       test('owns every key that is new', () {
         expect(
