@@ -424,14 +424,14 @@ void main() {
       });
 
       test('keeps a file of the user where VGV owns one', () async {
-        homeFile('.codex/prompts/plan.md')
+        homeFile('.codex/agents/review.toml')
           ..createSync(recursive: true)
           ..writeAsStringSync('mine');
         translator.plan = TranslationPlan(
           harnesses: {
             Harness.codex: TranslationResult(
               changes: [
-                ownChange(Harness.codex, '.codex/prompts/plan.md', 'vgv'),
+                ownChange(Harness.codex, '.codex/agents/review.toml', 'vgv'),
               ],
             ),
           },
@@ -439,10 +439,13 @@ void main() {
 
         await runInstall(['--only', 'codex']);
 
-        expect(homeFile('.codex/prompts/plan.md').readAsStringSync(), 'mine');
+        expect(
+          homeFile('.codex/agents/review.toml').readAsStringSync(),
+          'mine',
+        );
         verify(
           () => logger.warn(
-            'Kept your values in ${homeFile('.codex/prompts/plan.md').path}',
+            'Kept your values in ${homeFile('.codex/agents/review.toml').path}',
           ),
         ).called(1);
       });
@@ -527,6 +530,29 @@ void main() {
           () => logger.err(
             'Installed nothing, because ${ManifestStore.unreadable}: '
             '${manifestFile().path}',
+          ),
+        ).called(1);
+      });
+
+      test('installs nothing when it cannot be read', () async {
+        planOne();
+        manifestFile()
+          ..createSync(recursive: true)
+          ..writeAsBytesSync([0xff, 0xfe]);
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(translator.selected, isNull);
+        expect(homeFile('.claude/a.md').existsSync(), isFalse);
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Installed nothing, because ${manifestFile().path} could not '
+                'be read: ',
+              ),
+            ),
           ),
         ).called(1);
       });

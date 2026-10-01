@@ -96,6 +96,16 @@ void main() {
       ]);
     });
 
+    test('folds when_to_use into the description', () {
+      final testing = assets.skills.firstWhere((s) => s.name == 'testing');
+
+      expect(
+        testing.description,
+        'Best practices for Dart unit tests. Second line folds away. - '
+        'Use when writing or reviewing tests.',
+      );
+    });
+
     test('falls back to the directory name when frontmatter has none', () {
       // The fixture skill's SKILL.md declares no name, so the only way it can
       // be called 'unnamed-skill' is the directory-name fallback.
@@ -128,6 +138,24 @@ void main() {
           contains('allowed-tools'),
           contains('compatibility'),
         ),
+      );
+    });
+
+    test('carries the folded description, so triggers survive', () {
+      expect(
+        testing.portableFrontmatter['description'],
+        endsWith(' - Use when writing or reviewing tests.'),
+      );
+    });
+
+    test('leaves the description of a skill without when_to_use alone', () {
+      final animations = assets.skills.firstWhere(
+        (s) => s.name == 'animations',
+      );
+
+      expect(
+        animations.portableFrontmatter['description'],
+        'Flutter animation practices.',
       );
     });
 
@@ -527,6 +555,61 @@ void main() {
       );
 
       expect(portable.keys, unorderedEquals(SkillAsset.portableKeys));
+    });
+
+    test('portableFrontmatterOf folds the triggers into the description', () {
+      final portable = ClaudePluginParser.portableFrontmatterOf(
+        fm('description: What it does.\nwhen_to_use: Use when asked.'),
+      );
+
+      expect(portable['description'], 'What it does. - Use when asked.');
+    });
+
+    test('portableFrontmatterOf writes a description with no triggers as '
+        'the plugin wrote it', () {
+      // Byte-identical output for a plugin that folds its triggers into the
+      // description already: a block scalar stays a block scalar.
+      final portable = ClaudePluginParser.portableFrontmatterOf(
+        fm('description: |\n  First line.\n  Second line.'),
+      );
+
+      expect(portable['description'], 'First line.\nSecond line.\n');
+    });
+
+    test('portableFrontmatterOf folds in place, keeping key order', () {
+      final portable = ClaudePluginParser.portableFrontmatterOf(
+        fm('name: a\ndescription: b\nwhen_to_use: c\nlicense: MIT'),
+      );
+
+      expect(portable.keys, ['name', 'description', 'license']);
+    });
+
+    group('descriptionOf', () {
+      test('appends when_to_use, flattened, the way Claude Code joins it', () {
+        expect(
+          ClaudePluginParser.descriptionOf(
+            fm(
+              'description: What it does.\n'
+              'when_to_use: >\n  Use when\n  asked.',
+            ),
+          ),
+          'What it does. - Use when asked.',
+        );
+      });
+
+      test('is the description alone when when_to_use is absent', () {
+        expect(
+          ClaudePluginParser.descriptionOf(fm('description: What it does.')),
+          'What it does.',
+        );
+      });
+
+      test('is the triggers alone when the description is absent', () {
+        expect(
+          ClaudePluginParser.descriptionOf(fm('when_to_use: Use when asked.')),
+          'Use when asked.',
+        );
+      });
     });
 
     group('userInvocableOf', () {

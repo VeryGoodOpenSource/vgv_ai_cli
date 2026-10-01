@@ -1,4 +1,5 @@
-/// Keeping, checking and taking back the record of what VGV wrote.
+/// Checking and taking back what the install manifest records, and keeping
+/// the manifest on disk.
 library;
 
 export 'manifest_auditor.dart';

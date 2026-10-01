@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/document/codec.dart';
 import 'package:vgv_ai_cli/src/document/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
@@ -46,7 +45,9 @@ class const TomlText(
 
     return edits()
         .map((edit) => TomlText(restore(edit)))
-        .firstWhereOrNull((edit) => deepEquality.equals(edit.decode(), merged));
+        .firstWhereOrNull(
+          (edit) => _codec.deepEquality.equals(edit.decode(), merged),
+        );
   }
 
   /// This text with [existing], what it decodes to, taken down to
@@ -66,7 +67,7 @@ class const TomlText(
         ._rewrite(existing: existing, target: remaining)
         .source;
     final withdrawn = TomlText(restore('${edited.trimRight()}\n'));
-    return deepEquality.equals(withdrawn.decode(), remaining)
+    return _codec.deepEquality.equals(withdrawn.decode(), remaining)
         ? withdrawn
         : null;
   }
@@ -170,7 +171,7 @@ class const TomlText(
           target: value,
           table: [...table, key],
         );
-      } else if (!deepEquality.equals(before, value)) {
+      } else if (!_codec.deepEquality.equals(before, value)) {
         edited = edited.upsert(table: table, key: key, value: value);
       }
     }
@@ -399,3 +400,5 @@ class _LineScanner {
     return index + delimiter.length;
   }
 }
+
+const _codec = DocumentCodec();

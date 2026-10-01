@@ -1,4 +1,4 @@
-import 'package:collection/collection.dart';
+import 'package:vgv_ai_cli/src/model/document_codec.dart';
 import 'package:vgv_ai_cli/src/model/drift.dart';
 import 'package:vgv_ai_cli/src/model/subtraction.dart';
 
@@ -37,7 +37,7 @@ extension type const Contribution(Map<String, dynamic> keys) {
 
   /// Whether VGV contributed [key] whole, as [current], and it is untouched.
   bool owns(String key, Object? current) =>
-      keys.containsKey(key) && _deep.equals(keys[key], current);
+      keys.containsKey(key) && _codec.deepEquality.equals(keys[key], current);
 
   /// What of this [current] no longer holds, and what it holds changed.
   ///
@@ -66,10 +66,11 @@ extension type const Contribution(Map<String, dynamic> keys) {
           ):
             compare(ours, now, keyPath);
           case (final List<dynamic> ours, final List<dynamic> now):
-            if (!ours.every((item) => _contains(now, item))) {
+            if (!ours.every((item) => _codec.listContains(now, item))) {
               missing.add(keyPath.join('.'));
             }
-          case (final ours, final now) when !_deep.equals(ours, now):
+          case (final ours, final now)
+              when !_codec.deepEquality.equals(ours, now):
             drifted.add(keyPath.join('.'));
         }
       }
@@ -103,11 +104,7 @@ extension type const Contribution(Map<String, dynamic> keys) {
   }
 }
 
-const _deep = DeepCollectionEquality();
-
-/// Whether [list] holds a value structurally equal to [item].
-bool _contains(List<dynamic> list, Object? item) =>
-    list.any((entry) => _deep.equals(entry, item));
+const _codec = DocumentCodec();
 
 Map<String, dynamic> _of(
   Map<String, dynamic> before,
@@ -132,8 +129,8 @@ Map<String, dynamic> _of(
         ),
       (final List<dynamic> prior, final List<dynamic> value) => [
         for (final item in value)
-          if (!_contains(prior, item) ||
-              (mine is List && _contains(mine, item)))
+          if (!_codec.listContains(prior, item) ||
+              (mine is List && _codec.listContains(mine, item)))
             item,
       ],
       _ => null,
@@ -159,14 +156,12 @@ _Subtracted _subtract(Object? now, Object? ours, {required bool force}) =>
       (final List<dynamic> now, final List<dynamic> ours) => _Subtracted(
         remaining: [
           for (final item in now)
-            if (!_contains(ours, item)) item,
+            if (!_codec.listContains(ours, item)) item,
         ],
         kept: false,
       ),
-      _ when force || _deep.equals(now, ours) => const _Subtracted(
-        remaining: null,
-        kept: false,
-      ),
+      _ when force || _codec.deepEquality.equals(now, ours) =>
+        const _Subtracted(remaining: null, kept: false),
       _ => _Subtracted(remaining: now, kept: true),
     };
 

@@ -1,3 +1,9 @@
+# 0.3.0+1
+
+- fix: drop `codex/prompts/`. Codex removed custom prompts in 0.117.0, so the
+  folder was inert, and the skills it duplicated are already shared under
+  `~/.agents/skills`.
+
 # 0.2.0+1
 
 - refactor: own the per-harness layout. Agents, commands and prompts are

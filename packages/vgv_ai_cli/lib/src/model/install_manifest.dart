@@ -50,38 +50,31 @@ sealed class ManifestEntry extends Equatable {
       if (owner != null && harness == null) return null;
 
       final changeMode = ChangeMode.values.asNameMap()[mode];
-      return switch ((changeMode, changeMode?.format, json)) {
-        (ChangeMode.own, _, {'sha256': final String sha256}) => OwnedFile(
+      if (json case {'sha256': final String sha256}
+          when changeMode == ChangeMode.own) {
+        return OwnedFile(path: path, owner: harness, sha256: sha256);
+      }
+      final format = changeMode?.format;
+      if (json case {'contribution': final Map<String, dynamic> contribution}
+          when format != null) {
+        return MergedDocument(
           path: path,
           owner: harness,
-          sha256: sha256,
-        ),
-        (
-          _,
-          final format?,
-          {'contribution': final Map<String, dynamic> contribution},
-        ) =>
-          MergedDocument(
-            path: path,
-            owner: harness,
-            format: format,
-            contribution: Contribution(contribution),
-          ),
-        (
-          ChangeMode.mergeMarkdown,
-          _,
-          {'sections': final Map<String, dynamic> sections},
-        ) =>
-          MarkdownSections(
-            path: path,
-            owner: harness,
-            sections: {
-              for (final MapEntry(:key, :value) in sections.entries)
-                if (value is String) key: value,
-            },
-          ),
-        _ => null,
-      };
+          format: format,
+          contribution: Contribution(contribution),
+        );
+      }
+      if (json case {'sections': final Map<String, dynamic> sections}
+          when changeMode == ChangeMode.mergeMarkdown) {
+        return MarkdownSections(
+          path: path,
+          owner: harness,
+          sections: {
+            for (final MapEntry(:key, :value) in sections.entries)
+              if (value is String) key: value,
+          },
+        );
+      }
     }
     return null;
   }
@@ -223,13 +216,13 @@ class InstallManifest extends Equatable {
   /// [item] with its path resolved against [home], or null when the path
   /// is absolute or leads out of [home].
   static Object? _resolved(Object? item, {required String home}) {
-    if (item
-        case {'path': final String relative} && final Map<String, dynamic> json
-        when p.isRelative(relative)) {
-      final path = p.normalize(p.join(home, relative));
-      if (p.isWithin(home, path)) return {...json, 'path': path};
-    }
-    return null;
+    if (item is! Map<String, dynamic>) return null;
+
+    final relative = item['path'];
+    if (relative is! String || p.isAbsolute(relative)) return null;
+
+    final path = p.normalize(p.join(home, relative));
+    return p.isWithin(home, path) ? {...item, 'path': path} : null;
   }
 
   /// The format [encode] writes.

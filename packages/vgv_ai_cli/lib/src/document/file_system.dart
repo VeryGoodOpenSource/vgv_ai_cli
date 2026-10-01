@@ -30,11 +30,19 @@ extension SharedFile on File {
   ///
   /// [writeAtomically] writes through a symlink, so what VGV wrote is in the
   /// file it links to. Deleting only the link would leave that behind, and
-  /// deleting only the target would leave the link dangling.
+  /// deleting only the target would leave the link dangling. A symlinked
+  /// directory above this file is not the file's own link, so it is left.
   void deleteThrough() {
-    final target = fileSystem.file(resolveSymbolicLinksSync())..deleteSync();
-    if (target.path != path) fileSystem.link(path).deleteSync();
+    if (fileSystem.isLinkSync(path)) {
+      fileSystem.file(resolveSymbolicLinksSync()).deleteSync();
+    }
+    deleteHere();
   }
+
+  /// Deletes this path alone: the link when it is one, and never what it
+  /// links to.
+  void deleteHere() =>
+      (fileSystem.isLinkSync(path) ? fileSystem.link(path) : this).deleteSync();
 }
 
 /// Reporting a file error to the user.

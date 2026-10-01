@@ -11,6 +11,8 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
+import '../document/_markdown_file.dart';
+
 void main() {
   const auditor = ManifestAuditor();
   const reconciler = Reconciler();
@@ -204,11 +206,10 @@ void main() {
         expect(verify(target).status, EntryStatus.intact);
 
         target.writeAsStringSync(
-          upsertSection(
-            removeSection(target.readAsStringSync(), 'a'),
-            'b',
-            'x',
-          ),
+          MarkdownText(target.readAsStringSync())
+              .removeSection('a')
+              .upsertSection('b', 'x')
+              .source,
         );
         final health = verify(target);
 
@@ -262,6 +263,29 @@ void main() {
 
           expect(reverseOne(force: true), ReverseOutcome.removed);
           expect(target.existsSync(), isFalse);
+        });
+
+        test('deletes an untouched file through its symlink', () {
+          final real = seed('dotfiles/SKILL.md', 'body');
+          final target = file('.agents/skills/a/SKILL.md');
+          fs.link(target.path).createSync(real.path, recursive: true);
+          install([owned(target, 'body')]);
+
+          expect(reverseOne(), ReverseOutcome.removed);
+          expect(fs.isLinkSync(target.path), isFalse);
+          expect(real.existsSync(), isFalse);
+        });
+
+        test('deletes only the link the user put in its place, forced', () {
+          final target = file('.agents/skills/a/SKILL.md');
+          install([owned(target, 'body')]);
+          final theirs = seed('dotfiles/SKILL.md', 'theirs');
+          target.deleteSync();
+          fs.link(target.path).createSync(theirs.path);
+
+          expect(reverseOne(force: true), ReverseOutcome.removed);
+          expect(fs.isLinkSync(target.path), isFalse);
+          expect(theirs.readAsStringSync(), 'theirs');
         });
 
         test('reports a file that is already gone as missing', () {
@@ -487,21 +511,32 @@ void main() {
             markdown(target, '# A\n'),
             markdown(target, '# B\n', name: 'b'),
           ]);
-          target.writeAsStringSync(
-            upsertSection(target.readAsStringSync(), 'b', 'edited'),
-          );
+          target.editSection('b', 'edited');
 
           expect(reverseOne(), ReverseOutcome.partial);
-          expect(sectionBody(target.readAsStringSync(), 'a'), isNull);
-          expect(sectionBody(target.readAsStringSync(), 'b'), 'edited');
+          expect(target.sectionBody('a'), isNull);
+          expect(target.sectionBody('b'), 'edited');
+          expect((entryFor(target) as MarkdownSections).sections.keys, ['b']);
+        });
+
+        test('keeps recording an edited section it kept, for install', () {
+          final target = seed('.gemini/AGENTS.md', 'Mine.\n');
+          install([
+            markdown(target, '# A\n'),
+            markdown(target, '# B\n', name: 'b'),
+          ]);
+          target.editSection('b', 'edited');
+          reverse();
+
+          install([markdown(target, '# B\n', name: 'b')]);
+
+          expect(target.sectionBody('b'), 'edited');
         });
 
         test('skips a file whose only section the user edited', () {
           final target = seed('.gemini/AGENTS.md', 'Mine.\n');
           install([markdown(target, '# A\n')]);
-          target.writeAsStringSync(
-            upsertSection(target.readAsStringSync(), 'a', 'edited'),
-          );
+          target.editSection('a', 'edited');
 
           expect(reverseOne(), ReverseOutcome.skipped);
           expect(reverseOne(force: true), ReverseOutcome.removed);

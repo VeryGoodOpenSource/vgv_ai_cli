@@ -135,14 +135,8 @@ class InstallCommand extends Command<int> {
     // Loaded before anything is resolved, since a manifest this version
     // cannot read means nothing can be installed.
     final store = ManifestStore(home);
-    final manifest = store.load();
-    if (manifest == null) {
-      _logger.err(
-        'Installed nothing, because ${ManifestStore.unreadable}: '
-        '${store.file.path}',
-      );
-      return ExitCode.ioError.code;
-    }
+    final manifest = _load(store);
+    if (manifest == null) return ExitCode.ioError.code;
 
     final assets = await _resolveAssets(
       _pluginSource ?? LocalCachePluginSource(home: home),
@@ -166,10 +160,33 @@ class InstallCommand extends Command<int> {
     _report(plan, applied, dryRun: dryRun);
     final recorded =
         dryRun || _record(store, from: manifest, to: reconciliation.manifest);
-    return !recorded ||
-            applied.any((change) => change.outcome == ChangeOutcome.failed)
+    final anyChangeFailed = applied.any(
+      (change) => change.outcome == ChangeOutcome.failed,
+    );
+    return !recorded || anyChangeFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
+  }
+
+  /// The manifest in [store], or null, having said why, when it cannot be
+  /// read or was written by another version.
+  InstallManifest? _load(ManifestStore store) {
+    try {
+      final manifest = store.load();
+      if (manifest == null) {
+        _logger.err(
+          'Installed nothing, because ${ManifestStore.unreadable}: '
+          '${store.file.path}',
+        );
+      }
+      return manifest;
+    } on FileSystemException catch (error) {
+      _logger.err(
+        'Installed nothing, because ${store.file.path} could not be read: '
+        '${error.description}',
+      );
+      return null;
+    }
   }
 
   /// Saves [to] in [store] unless it records nothing [from] does not, and

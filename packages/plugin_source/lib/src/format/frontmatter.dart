@@ -61,11 +61,8 @@ class const Frontmatter({
   /// The declared `name`, or `null` when absent.
   String? get name => config.string('name');
 
-  /// The declared `description`, flattened onto one line.
-  ///
-  /// The plugins write descriptions as folded and literal block scalars, which
-  /// carry newlines no index table or harness manifest wants.
-  String get description => _oneLine(config.string('description') ?? '');
+  /// The declared `description`, flattened onto one line, or `''` when absent.
+  String get description => oneLine('description') ?? '';
 
   /// Skills the asset expects to have loaded.
   ///
@@ -73,8 +70,14 @@ class const Frontmatter({
   /// plugins, so both parse to the same list.
   List<String> get skills => config.stringList('skills');
 
-  static String _oneLine(String value) =>
-      value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  /// The value under [key], flattened onto one line, or `null` when absent.
+  ///
+  /// The plugins write their prose keys as folded and literal block scalars,
+  /// which carry newlines no index table or harness manifest wants.
+  String? oneLine(String key) =>
+      config.string(key)?.replaceAll(_whitespace, ' ').trim();
+
+  static final _whitespace = RegExp(r'\s+');
 
   /// Renders [values] as a fenced YAML frontmatter block, closing newline
   /// included. An empty [values] renders an empty string rather than an empty

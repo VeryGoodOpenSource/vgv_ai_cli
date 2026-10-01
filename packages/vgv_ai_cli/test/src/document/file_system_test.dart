@@ -73,6 +73,39 @@ void main() {
       expect(fileSystem.isLinkSync(link.path), isFalse);
       expect(real.existsSync(), isFalse);
     });
+
+    test('deletes a file under a symlinked directory and keeps the link', () {
+      final real = fileSystem.file('/dotfiles/claude/settings.json')
+        ..createSync(recursive: true);
+      final link = fileSystem.link('/home/.claude')
+        ..createSync(real.parent.path, recursive: true);
+
+      fileSystem.file('${link.path}/settings.json').deleteThrough();
+
+      expect(real.existsSync(), isFalse);
+      expect(fileSystem.isLinkSync(link.path), isTrue);
+    });
+  });
+
+  group('deleteHere', () {
+    test('deletes a file', () {
+      final file = fileSystem.file('/settings.json')
+        ..createSync()
+        ..deleteHere();
+
+      expect(file.existsSync(), isFalse);
+    });
+
+    test('deletes a symlink and keeps the file it links to', () {
+      final real = fileSystem.file('/dotfiles/settings.json')
+        ..createSync(recursive: true);
+      final link = fileSystem.link('/settings.json')..createSync(real.path);
+
+      fileSystem.file(link.path).deleteHere();
+
+      expect(fileSystem.isLinkSync(link.path), isFalse);
+      expect(real.existsSync(), isTrue);
+    });
   });
 
   group('description', () {

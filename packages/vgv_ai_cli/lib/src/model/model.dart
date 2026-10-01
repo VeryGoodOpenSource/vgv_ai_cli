@@ -3,6 +3,7 @@
 library;
 
 export 'contribution.dart';
+export 'document_codec.dart';
 export 'drift.dart';
 export 'harness.dart';
 export 'install_manifest.dart';

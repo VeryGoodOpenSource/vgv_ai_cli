@@ -12,6 +12,8 @@ import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
+import '../document/_markdown_file.dart';
+
 /// The hex SHA-256 the manifest records for [text].
 String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
 
@@ -93,12 +95,12 @@ void main() {
       });
 
       test('keeps a file of the user at a path it owns', () {
-        final target = seed('.codex/prompts/plan.md', 'my own plan prompt');
+        final target = seed('.codex/agents/review.toml', 'my own agent');
 
         final applied = applyOne(change(target, 'vgv', ChangeMode.own));
 
         expect(applied.outcome, ChangeOutcome.skipped);
-        expect(target.readAsStringSync(), 'my own plan prompt');
+        expect(target.readAsStringSync(), 'my own agent');
       });
 
       test('keeps a file it wrote once the user has edited it', () {
@@ -113,7 +115,7 @@ void main() {
       });
 
       test("takes the user's file when forced, and owns it after", () {
-        final target = seed('.codex/prompts/plan.md', 'mine');
+        final target = seed('.codex/agents/review.toml', 'mine');
 
         final forced = applyOne(
           change(target, 'vgv', ChangeMode.own),
@@ -722,8 +724,8 @@ void main() {
     });
 
     group('mergeMarkdown', () {
-      final start = sectionStart('instructions');
-      final end = sectionEnd('instructions');
+      final start = MarkdownText.sectionStart('instructions');
+      final end = MarkdownText.sectionEnd('instructions');
 
       AppliedChange apply(
         File target,
@@ -783,7 +785,8 @@ void main() {
         expect(
           target.readAsStringSync(),
           '$start\n# Instructions v2\n$end\n\n'
-          '${sectionStart('persona')}\n# Persona\n${sectionEnd('persona')}\n',
+          '${MarkdownText.sectionStart('persona')}\n# Persona\n'
+          '${MarkdownText.sectionEnd('persona')}\n',
         );
       });
 
@@ -798,12 +801,8 @@ void main() {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
         final before = entryFor<MarkdownSections>(target);
-        final edited = upsertSection(
-          target.readAsStringSync(),
-          'instructions',
-          '# Mine now',
-        );
-        target.writeAsStringSync(edited);
+        target.editSection('instructions', '# Mine now');
+        final edited = target.readAsStringSync();
 
         final applied = apply(target, '# VGV v2\n');
 
@@ -819,9 +818,7 @@ void main() {
       test('writes over an edited section when forced', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        target.writeAsStringSync(
-          upsertSection(target.readAsStringSync(), 'instructions', 'Mine'),
-        );
+        target.editSection('instructions', 'Mine');
 
         final applied = applyOne(
           PlannedChange.markdown(
@@ -834,18 +831,13 @@ void main() {
         );
 
         expect(applied.outcome, ChangeOutcome.updated);
-        expect(
-          sectionBody(target.readAsStringSync(), 'instructions'),
-          '# VGV v2',
-        );
+        expect(target.sectionBody('instructions'), '# VGV v2');
       });
 
       test('takes an edited section that already matches as unchanged', () {
         final target = file('.gemini/AGENTS.md');
         apply(target, '# VGV\n');
-        target.writeAsStringSync(
-          upsertSection(target.readAsStringSync(), 'instructions', '# VGV v2'),
-        );
+        target.editSection('instructions', '# VGV v2');
 
         expect(apply(target, '# VGV v2\n').outcome, ChangeOutcome.unchanged);
         expect(entryFor<MarkdownSections>(target).sections, {
