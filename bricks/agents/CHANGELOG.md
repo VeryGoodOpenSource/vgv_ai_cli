@@ -1,3 +1,9 @@
+# 0.4.0+1
+
+- feat: render `codex/hooks.json` and `codex/hooks/claude-payload.sh`, so the
+  plugins' hooks reach Codex. Both are rendered only when the CLI supplies
+  hooks for Codex to run.
+
 # 0.3.0+1
 
 - fix: drop `codex/prompts/`. Codex removed custom prompts in 0.117.0, so the

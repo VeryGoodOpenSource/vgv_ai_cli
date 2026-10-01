@@ -142,39 +142,28 @@ void main() {
         expect((commands.single! as Map)['command'], isNot(contains(r'$')));
         expect(
           (commands.single! as Map)['command'],
-          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
+          endsWith("'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh'"),
         );
       });
 
-      test('run a file-edit command through the payload script', () {
-        // Codex sends a patch where Claude sent tool_input.file_path, so an
-        // edit hook goes through the script that fills the field back in.
-        final registrations =
-            events([hookAsset(fs, matcher: 'Edit|Write')])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
+      test('run every command through the payload script', () {
+        // Codex spells a file edit as a patch, so each script reads the
+        // payload through the one that hands it Claude Code's shape.
+        for (final matcher in ['Edit|Write', 'Bash']) {
+          final registrations =
+              events([
+                    hookAsset(fs, event: 'PreToolUse', matcher: matcher),
+                  ])['PreToolUse']!
+                  as List<Object?>;
+          final commands =
+              (registrations.single! as Map)['hooks']! as List<Object?>;
 
-        expect(
-          (commands.single! as Map)['command'],
-          "bash '/home/.codex/hooks/${CodexTranslator.payloadScript}' "
-          "'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh'",
-        );
-      });
-
-      test('leave a command that edits no file unwrapped', () {
-        final registrations =
-            events([
-                  hookAsset(fs, event: 'PreToolUse', matcher: 'Bash'),
-                ])['PreToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
-        expect(
-          (commands.single! as Map)['command'],
-          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
-        );
+          expect(
+            (commands.single! as Map)['command'],
+            "bash '/home/.codex/hooks/${CodexTranslator.payloadScript}' "
+            "'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh'",
+          );
+        }
       });
 
       test('quote a plugin path that holds a quote', () {

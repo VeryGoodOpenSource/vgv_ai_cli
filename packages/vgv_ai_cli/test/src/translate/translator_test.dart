@@ -88,7 +88,7 @@ void main() {
           'agents/review.toml',
           'config.toml',
           'hooks.json',
-          'hooks/apply-patch-payload.sh',
+          'hooks/claude-payload.sh',
         ]);
       });
 
@@ -269,7 +269,9 @@ void main() {
                     {
                       'type': 'command',
                       'command':
-                          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
+                          "bash '/home/dev/.codex/hooks/claude-payload.sh'"
+                          " 'bash"
+                          " /plugins/vgv-wingspan/hooks/scripts/analyze.sh'",
                       'timeout': 30,
                     },
                   ],

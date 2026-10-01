@@ -1,0 +1,61 @@
+# Runs a hook script written for Claude Code against a Codex payload.
+#
+# Most of the payload already matches: Codex sends the same session_id, cwd,
+# hook_event_name, tool_name and tool_input.command, and names its shell tool
+# Bash and its MCP tools mcp__<server>__<tool> exactly as Claude Code does.
+# A file edit is where the two part ways. Claude Code sends one Edit or Write
+# per file, naming it in tool_input.file_path. Codex sends one apply_patch for
+# the whole change, with the patch text in tool_input.command and no file named
+# anywhere a script can read it.
+#
+# So this translates that one case: it reads the files out of the patch
+# headers and runs the script once per file, as the Edit or Write Claude Code
+# would have sent. Every other payload is passed through as it came.
+#
+# Usage: bash claude-payload.sh '<the command to run>'
+#
+# Written by `vgv_ai install`. Edits here are overwritten on the next run.
+
+set -uo pipefail
+
+wrapped=$1
+payload=$(cat)
+
+run() {
+  printf '%s' "$1" | sh -c "$wrapped"
+}
+
+# Without jq there is nothing to translate with, so the script gets the payload
+# as it came. Every VGV hook script already skips itself when jq is missing.
+if ! command -v jq > /dev/null 2>&1; then
+  run "$payload"
+  exit $?
+fi
+
+# Each file this payload is about, as the tool Claude Code would have named for
+# it: an added file is a Write, a changed or renamed one an Edit. A payload
+# that already names a file keeps its own tool name. The regex uses a character
+# class so it holds no backslash, which keeps it intact through the template
+# that renders this file.
+edits=$(printf '%s' "$payload" | jq -r '[(if .tool_input.file_path then {name: .tool_name, path: .tool_input.file_path} else empty end), ((.tool_input.command // "") | scan("(?m)^[*][*][*] (Add File|Update File|Move to): (.+)$") | {name: (if .[0] == "Add File" then "Write" else "Edit" end), path: .[1]})] | unique_by(.path) | .[] | "\(.name)\t\(.path)"' 2>/dev/null)
+
+status=0
+ran=0
+while IFS=$'\t' read -r name path; do
+  # A deleted file, or the old name of a renamed one, is no longer there to
+  # analyze or format, so it drops out here rather than failing the script.
+  if [ -n "$path" ] && [ -f "$path" ]; then
+    ran=1
+    edit=$(printf '%s' "$payload" | jq --arg name "$name" --arg path "$path" '.tool_name = $name | .tool_input.file_path = $path')
+    run "$edit" || status=$?
+  fi
+done <<EOF
+$edits
+EOF
+
+# This payload is about no file that exists, so it needs no translating.
+if [ "$ran" -eq 0 ]; then
+  run "$payload" || status=$?
+fi
+
+exit $status
