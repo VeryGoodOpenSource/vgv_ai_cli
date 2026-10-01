@@ -1,11 +1,10 @@
-/// The values the reconcile layer passes between its steps.
+/// What the reconcile layer returns, and the values it passes between its
+/// steps.
 library;
 
+export 'applied_change.dart';
 export 'deep_merge.dart';
 export 'held_back.dart';
-export 'normalized_text.dart';
-export 'section_span.dart';
+export 'reconciliation.dart';
 export 'text_merge.dart';
-export 'toml_region.dart';
-export 'toml_statement.dart';
 export 'write_decision.dart';

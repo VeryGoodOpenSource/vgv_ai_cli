@@ -125,4 +125,51 @@ void main() {
       expect(change.mode, ChangeMode.own);
     });
   });
+
+  group('ChangeMode', () {
+    test('has the format of each document merge, and of nothing else', () {
+      expect(ChangeMode.mergeJson.format, DocumentFormat.json);
+      expect(ChangeMode.mergeToml.format, DocumentFormat.toml);
+      expect(ChangeMode.own.format, isNull);
+      expect(ChangeMode.mergeMarkdown.format, isNull);
+    });
+  });
+
+  group('DocumentFormat', () {
+    test('has the mode that merges into it', () {
+      expect(DocumentFormat.json.mode, ChangeMode.mergeJson);
+      expect(DocumentFormat.toml.mode, ChangeMode.mergeToml);
+    });
+
+    test('decodes and encodes its own format', () {
+      expect(DocumentFormat.json.decode('{"a": [1]}'), {
+        'a': [1],
+      });
+      expect(DocumentFormat.json.encode({'a': 1}), '{\n  "a": 1\n}\n');
+      expect(DocumentFormat.toml.decode('[mcp.dart]\ncommand = "dart"\n'), {
+        'mcp': {
+          'dart': {'command': 'dart'},
+        },
+      });
+      expect(DocumentFormat.toml.encode({'a': 1}), 'a = 1\n');
+    });
+
+    test('decodes null for malformed JSON or anything but an object', () {
+      expect(DocumentFormat.json.decode('{ "a": 1, // mine\n}'), isNull);
+      expect(DocumentFormat.json.decode('[1]'), isNull);
+    });
+
+    test('decodes null for TOML it cannot parse or that redefines a key', () {
+      expect(DocumentFormat.toml.decode('[unclosed'), isNull);
+      expect(DocumentFormat.toml.decode('a = 1\na = 2\n'), isNull);
+    });
+
+    test('encodes TOML with a single trailing newline', () {
+      final encoded = DocumentFormat.toml.encode({'model': 'gpt'});
+
+      expect(encoded, endsWith('\n'));
+      expect(encoded, isNot(endsWith('\n\n')));
+      expect(DocumentFormat.toml.decode(encoded), {'model': 'gpt'});
+    });
+  });
 }

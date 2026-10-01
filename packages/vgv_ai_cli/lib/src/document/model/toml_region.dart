@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/reconcile/model/toml_statement.dart';
+import 'package:vgv_ai_cli/src/document/model/toml_statement.dart';
 
 /// {@template toml_region}
 /// The statements of one table of a TOML document.

@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template change_outcome}
 /// What applying a [PlannedChange] did.
@@ -11,9 +11,8 @@ enum ChangeOutcome {
   updated,
 
   /// The file existed and was written, but kept the user's value for at
-  /// least one key VGV also sets. Forcing takes VGV's.
-  ///
-  /// The one outcome that both wrote the file and kept a user value.
+  /// least one key VGV also sets. The only outcome that both writes the file
+  /// and keeps a user value. Forcing takes VGV's.
   partial,
 
   /// The file was left alone because every difference was the user's:

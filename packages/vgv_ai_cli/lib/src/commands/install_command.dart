@@ -6,8 +6,10 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/harness/harness_detector.dart';
 import 'package:vgv_ai_cli/src/harness/translate/translate.dart';
+import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
@@ -130,6 +132,12 @@ class InstallCommand extends Command<int> {
       return ExitCode.usage.code;
     }
 
+    // Loaded before anything is resolved, since a manifest this version
+    // cannot read means nothing can be installed.
+    final store = ManifestStore(home);
+    final manifest = _load(store);
+    if (manifest == null) return ExitCode.ioError.code;
+
     final assets = await _resolveAssets(
       _pluginSource ?? LocalCachePluginSource(home: home),
     );
@@ -141,17 +149,69 @@ class InstallCommand extends Command<int> {
       selected: selected,
     );
 
-    final applied = _reconciler.apply(
+    final reconciliation = _reconciler.apply(
       plan.changes,
-      manifest: installManifest(home),
+      manifest: manifest,
       force: force,
       dryRun: dryRun,
     );
+    final applied = reconciliation.changes;
 
     _report(plan, applied, dryRun: dryRun);
-    return applied.any((change) => change.outcome == ChangeOutcome.failed)
+    final recorded =
+        dryRun || _record(store, from: manifest, to: reconciliation.manifest);
+    final anyChangeFailed = applied.any(
+      (change) => change.outcome == ChangeOutcome.failed,
+    );
+    return !recorded || anyChangeFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
+  }
+
+  /// The manifest in [store], or null, having said why, when it cannot be
+  /// read or was written by another version.
+  InstallManifest? _load(ManifestStore store) {
+    try {
+      final manifest = store.load();
+      if (manifest == null) {
+        _logger.err(
+          'Installed nothing, because ${ManifestStore.unreadable}: '
+          '${store.file.path}',
+        );
+      }
+      return manifest;
+    } on FileSystemException catch (error) {
+      _logger.err(
+        'Installed nothing, because ${store.file.path} could not be read: '
+        '${error.description}',
+      );
+      return null;
+    }
+  }
+
+  /// Saves [to] in [store] unless it records nothing [from] does not, and
+  /// returns whether it could.
+  ///
+  /// A manifest that could not be saved still holds its old entries, so the
+  /// files this run wrote count as the user's until a later run records
+  /// them.
+  bool _record(
+    ManifestStore store, {
+    required InstallManifest from,
+    required InstallManifest to,
+  }) {
+    if (to == from) return true;
+
+    try {
+      store.save(to);
+      return true;
+    } on FileSystemException catch (error) {
+      _logger.err(
+        'Could not record what was written in ${store.file.path}: '
+        '${error.description}',
+      );
+      return false;
+    }
   }
 
   /// Resolves which harnesses to configure.

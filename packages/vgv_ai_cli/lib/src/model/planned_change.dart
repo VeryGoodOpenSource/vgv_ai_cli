@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file/file.dart';
+import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template change_mode}
@@ -38,7 +39,64 @@ enum ChangeMode {
   /// rewritten on its own, so several can share one file. Only
   /// [PlannedChange.markdown] makes a change in this mode, since it is the
   /// one that names the section.
-  mergeMarkdown,
+  mergeMarkdown;
+
+  /// The format this mode merges into, or null when it does not merge into
+  /// a document.
+  DocumentFormat? get format => switch (this) {
+    mergeJson => DocumentFormat.json,
+    mergeToml => DocumentFormat.toml,
+    own || mergeMarkdown => null,
+  };
+}
+
+/// {@template document_format}
+/// A structured document VGV merges keys into, and how it is read and
+/// written.
+/// {@endtemplate}
+enum DocumentFormat {
+  /// A JSON object.
+  json,
+
+  /// A TOML document.
+  toml;
+
+  /// The mode that merges into this format.
+  ChangeMode get mode => switch (this) {
+    json => ChangeMode.mergeJson,
+    toml => ChangeMode.mergeToml,
+  };
+
+  /// Decodes [source], or returns null when it is malformed, or is JSON
+  /// that is not an object.
+  ///
+  /// Gemini and OpenCode accept comments in their JSON settings, and a file
+  /// that has them lands here as malformed. Rewriting it would drop the
+  /// comments, so it is reported as unparseable for the user to edit by hand.
+  Map<String, dynamic>? decode(String source) {
+    try {
+      return switch (this) {
+        json => switch (jsonDecode(source)) {
+          final Map<dynamic, dynamic> decoded =>
+            decoded.cast<String, dynamic>(),
+          _ => null,
+        },
+        toml => TomlDocument.parse(source).toMap(),
+      };
+    } on FormatException {
+      return null;
+    } on TomlException {
+      return null;
+    }
+  }
+
+  /// Encodes [document] back to canonical text with a trailing newline.
+  String encode(Map<String, dynamic> document) => switch (this) {
+    json => '${_jsonEncoder.convert(document)}\n',
+    toml => '${TomlDocument.fromMap(document).toString().trim()}\n',
+  };
+
+  static const _jsonEncoder = JsonEncoder.withIndent('  ');
 }
 
 /// {@template planned_change}

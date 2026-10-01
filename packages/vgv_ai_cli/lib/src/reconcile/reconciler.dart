@@ -1,92 +1,63 @@
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
-import 'package:crypto/crypto.dart';
 import 'package:file/file.dart';
-import 'package:path/path.dart' as p;
-import 'package:vgv_ai_cli/src/model/planned_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/applied_change.dart';
-import 'package:vgv_ai_cli/src/reconcile/markdown_sections.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
-import 'package:vgv_ai_cli/src/reconcile/toml_text.dart';
-
-/// Where the reconciler records the files VGV owns under [home].
-File installManifest(Directory home) =>
-    home.fileSystem.file(p.join(home.path, '.vgv_ai', 'manifest.json'));
 
 /// {@template reconciler}
 /// Applies [PlannedChange]s to disk according to their [ChangeMode].
 ///
 /// Without `force`, a merge never replaces a value the user set, a TOML
 /// merge never re-serializes the user's file, and an owned file is never
-/// written over a file VGV did not write or the user has since edited. With
-/// `dryRun`, nothing is written, but the outcomes are the same.
+/// written over a file VGV did not write or the user has since edited. What
+/// VGV wrote before and the user left alone is VGV's, so it is updated
+/// freely. With `dryRun`, nothing is written, but the outcomes are the same.
 /// {@endtemplate}
-class const Reconciler() {
-  /// Applies every one of [changes] and returns what each did.
+class const Reconciler({
+  /// Decodes and compares what is on disk with what VGV writes.
+  final DocumentCodec codec = const DocumentCodec(),
+}) {
+  /// Applies every one of [changes] against [manifest], and returns what
+  /// each did and the manifest updated with what they wrote.
   ///
-  /// [manifest] records a hash of every owned file this writes, which is how
-  /// a later run tells VGV's files from the user's. A change that fails to
-  /// read or write is reported as [ChangeOutcome.failed] and the rest still
-  /// apply. A manifest that cannot be read fails the whole call, since owned
-  /// files could not be checked against it.
-  List<AppliedChange> apply(
+  /// [manifest] is how this tells VGV's files and keys from the user's.
+  /// Keeping it is the caller's job. A change that fails to read or write is
+  /// reported as [ChangeOutcome.failed] and the rest still apply.
+  Reconciliation apply(
     List<PlannedChange> changes, {
-    required File manifest,
+    required InstallManifest manifest,
     bool force = false,
     bool dryRun = false,
   }) {
-    final bool existed;
-    final Map<String, String> loaded;
-    try {
-      existed = manifest.existsSync();
-      loaded = _loadManifest(manifest, existed: existed);
-    } on FileSystemException catch (error) {
-      // Without the manifest VGV's files cannot be told from the user's, so
-      // nothing is applied.
-      return [_manifestFailed(manifest, error)];
-    }
-    final run = _Run(force: force, dryRun: dryRun, hashes: {...loaded});
-
-    final applied = [for (final change in changes) run.guarded(change)];
-    if (dryRun || _hashesEquality.equals(loaded, run.hashes)) return applied;
-
-    // The manifest is VGV's alone, so it is written outright.
-    final contents = _encodeJson(run.hashes);
-    try {
-      _write(manifest, utf8.encode(contents), existed: existed);
-      return applied;
-    } on FileSystemException catch (error) {
-      return [...applied, _manifestFailed(manifest, error)];
-    }
-  }
-
-  Map<String, String> _loadManifest(File manifest, {required bool existed}) {
-    final decoded = existed ? _decodeJson(manifest.readAsStringSync()) : null;
-    return {
-      for (final MapEntry(:key, :value) in (decoded ?? const {}).entries)
-        if (value is String) key: value,
-    };
+    final run = _Run(
+      codec: codec,
+      force: force,
+      dryRun: dryRun,
+      manifest: manifest,
+    );
+    return Reconciliation(
+      changes: [for (final change in changes) run.guarded(change)],
+      manifest: run.manifest,
+    );
   }
 }
 
-const _encoder = JsonEncoder.withIndent('  ');
-
-const _deepEquality = DeepCollectionEquality();
-
-const _bytesEquality = ListEquality<int>();
-
-const _hashesEquality = MapEquality<String, String>();
-
 /// One [Reconciler.apply] call's settings, and the manifest it updates.
 class _Run {
-  new({required this.force, required this.dryRun, required this.hashes});
+  new({
+    required this.codec,
+    required this.force,
+    required this.dryRun,
+    required this.manifest,
+  });
 
+  final DocumentCodec codec;
   final bool force;
   final bool dryRun;
 
-  /// Owned file paths to the hash of what VGV last wrote there.
-  final Map<String, String> hashes;
+  /// What VGV has written, updated as each change lands.
+  InstallManifest manifest;
 
   /// Applies [change], reporting a filesystem error rather than throwing it.
   AppliedChange guarded(PlannedChange change) {
@@ -102,18 +73,21 @@ class _Run {
     final existed = file.existsSync();
     final original = existed ? file.readAsBytesSync() : const <int>[];
 
-    final WriteDecision(:bytes, :held) = switch (change.mode) {
+    final WriteDecision(:bytes, :held, :entry) = switch (change.mode) {
       ChangeMode.own => _own(change, existed ? original : null),
       _ => _mergeText(change, original),
     };
 
-    final changed = !_bytesEquality.equals(bytes, original);
+    final changed = !codec.bytesEquality.equals(bytes, original);
     if (changed && !dryRun) {
-      _write(file, bytes, existed: existed, source: change.source);
+      file.writeAtomically(bytes, existed: existed, source: change.source);
     }
-    if (change.mode == ChangeMode.own && held == HeldBack.nothing) {
-      hashes[file.path] = _hash(bytes);
-    }
+    manifest = switch (entry) {
+      null => manifest,
+      MergedDocument(:final contribution) when contribution.isEmpty =>
+        manifest.without([entry.path]),
+      _ => manifest.record(entry),
+    };
 
     return AppliedChange(
       change: change,
@@ -139,92 +113,160 @@ class _Run {
     final ours =
         original == null ||
         force ||
-        _bytesEquality.equals(original, change.bytes) ||
-        hashes[change.file.path] == _hash(original);
-    return ours
-        ? WriteDecision(bytes: change.bytes, held: HeldBack.nothing)
-        : WriteDecision(bytes: original, held: HeldBack.userValue);
+        codec.bytesEquality.equals(original, change.bytes) ||
+        (manifest.entryOf<OwnedFile>(change.file.path)?.isUntouched(original) ??
+            false);
+    if (!ours) return WriteDecision(bytes: original, held: HeldBack.userValue);
+
+    return WriteDecision(
+      bytes: change.bytes,
+      held: HeldBack.nothing,
+      entry: OwnedFile.of(
+        path: change.file.path,
+        owner: change.harness,
+        bytes: change.bytes,
+      ),
+    );
   }
 
   /// Merges [change] into the text of [original] in its mode's format.
   WriteDecision _mergeText(PlannedChange change, List<int> original) {
-    final String text;
-    try {
-      text = utf8.decode(original);
-    } on FormatException {
-      return WriteDecision(bytes: original, held: HeldBack.unparseable);
-    }
-
-    final incoming = change.contents;
-    // Only a markdown merge names a section, and PlannedChange makes every
-    // markdown merge name one.
-    final merge = switch (change) {
-      PlannedChange(:final section?) => TextMerge(
-        contents: upsertSection(text, section, incoming),
-        held: HeldBack.nothing,
-      ),
-      PlannedChange(mode: ChangeMode.mergeToml) => _mergeDocument(
-        text,
-        incoming,
-        decode: (source) => TomlText(source).decode(),
-        encode: (map) => TomlText.encode(map).source,
-        rewrite: _rewriteToml,
-      ),
-      _ => _mergeDocument(
-        text,
-        incoming,
-        decode: _decodeJson,
-        encode: _encodeJson,
-        rewrite: (_, {required existing, required merge}) =>
-            _encodeJson(merge.merged),
-      ),
+    return switch ((codec.decodeUtf8(original), change.mode.format)) {
+      (null, _) => WriteDecision(bytes: original, held: HeldBack.unparseable),
+      (final text?, final format?) => _mergeInto(format, change, text),
+      (final text?, null) => _mergeSection(change, text, original),
     };
-    return WriteDecision(bytes: utf8.encode(merge.contents), held: merge.held);
   }
 
-  /// Merges [incoming] into [original] using one format's codec.
+  /// Writes [change]'s section into [text], the file's [original] contents.
   ///
-  /// [rewrite] turns the merged document back into the file's contents, or
-  /// returns null when it cannot do so without losing what the user wrote.
+  /// A section VGV recorded and the user has edited since is theirs, as it
+  /// is on reverse, so it is kept unless forced.
+  WriteDecision _mergeSection(
+    PlannedChange change,
+    String text,
+    List<int> original,
+  ) {
+    final path = change.file.path;
+    final recorded = manifest.entryOf<MarkdownSections>(path);
+    // Only a markdown merge has no document format, and PlannedChange makes
+    // every markdown merge name its section.
+    final section = change.section!;
+    final body = change.contents.trimRight();
+
+    final markdown = MarkdownText(text);
+    final edited = switch ((recorded, markdown.sectionBody(section))) {
+      (final recorded?, final current?)
+          when recorded.sections.containsKey(section) =>
+        current != body && !recorded.isUntouched(section, current),
+      _ => false,
+    };
+    if (edited && !force) {
+      return WriteDecision(bytes: original, held: HeldBack.userValue);
+    }
+
+    return WriteDecision(
+      bytes: utf8.encode(markdown.upsertSection(section, body).source),
+      held: HeldBack.nothing,
+      entry: MarkdownSections(
+        path: path,
+        owner: change.harness,
+        sections: recorded?.sections ?? const {},
+      ).recording(section, body),
+    );
+  }
+
+  /// Merges [change] into [text], a document in [format].
+  WriteDecision _mergeInto(
+    DocumentFormat format,
+    PlannedChange change,
+    String text,
+  ) {
+    final path = change.file.path;
+    final merge = _mergeDocument(
+      text,
+      change.contents,
+      format: format,
+      managed:
+          manifest.entryOf<MergedDocument>(path)?.contribution ??
+          Contribution.none,
+    );
+
+    return WriteDecision(
+      bytes: utf8.encode(merge.contents),
+      held: merge.held,
+      entry: switch (merge.contribution) {
+        final contribution? => MergedDocument(
+          path: path,
+          owner: change.harness,
+          format: format,
+          contribution: contribution,
+        ),
+        null => null,
+      },
+    );
+  }
+
+  /// Merges [incoming] into [original], both documents in [format].
+  ///
+  /// [managed] is what VGV contributed last time. The merged document is
+  /// kept as [original] when it cannot be written back without losing what
+  /// the user wrote. The contribution returned is what of the written
+  /// document is VGV's, and null when nothing could be parsed.
   TextMerge _mergeDocument(
     String original,
     String incoming, {
-    required Map<String, dynamic>? Function(String) decode,
-    required String Function(Map<String, dynamic>) encode,
-    required String? Function(
-      String original, {
-      required Map<String, dynamic> existing,
-      required DeepMerge merge,
-    })
-    rewrite,
+    required DocumentFormat format,
+    required Contribution managed,
   }) {
-    final addition = decode(incoming);
+    final addition = format.decode(incoming);
     if (addition == null) {
       return TextMerge(contents: original, held: HeldBack.unparseable);
     }
 
     if (original.trim().isEmpty) {
-      return TextMerge(contents: encode(addition), held: HeldBack.nothing);
+      return TextMerge(
+        contents: format.encode(addition),
+        held: HeldBack.nothing,
+        contribution: Contribution(addition),
+      );
     }
 
-    final existing = decode(original);
+    final existing = format.decode(original);
     if (existing == null) {
       return TextMerge(contents: original, held: HeldBack.unparseable);
     }
 
-    final deepMerged = _deepMerge(existing, addition);
+    final deepMerged = _deepMerge(existing, addition, managed);
+    final merged = deepMerged.merged;
+    final kept = Contribution.of(existing, existing, managed);
     final held = deepMerged.declined ? HeldBack.userValue : HeldBack.nothing;
 
-    if (_deepEquality.equals(existing, deepMerged.merged)) {
-      return TextMerge(contents: original, held: held);
+    if (codec.deepEquality.equals(existing, merged)) {
+      return TextMerge(contents: original, held: held, contribution: kept);
     }
 
-    final contents = rewrite(original, existing: existing, merge: deepMerged);
-    if (contents == null) {
-      return TextMerge(contents: original, held: HeldBack.userValue);
+    final rewritten = switch (format) {
+      DocumentFormat.json => DocumentFormat.json.encode(merged),
+      DocumentFormat.toml => _rewriteToml(
+        original,
+        existing: existing,
+        merge: deepMerged,
+      ),
+    };
+    if (rewritten == null) {
+      return TextMerge(
+        contents: original,
+        held: HeldBack.userValue,
+        contribution: kept,
+      );
     }
 
-    return TextMerge(contents: contents, held: held);
+    return TextMerge(
+      contents: rewritten,
+      held: held,
+      contribution: Contribution.of(existing, merged, managed),
+    );
   }
 
   /// Writes [merge] into [original] as TOML text, so the user's comments,
@@ -240,11 +282,13 @@ class _Run {
     return (edited ?? (force ? TomlText.encode(merge.merged) : null))?.source;
   }
 
-  /// Merges [addition] into [base], and collects what the merge added:
-  /// every key [base] lacks, and the entries a list gained.
+  /// Merges [addition] into [base], where [managed] is what VGV contributed
+  /// last time, and collects what the merge added: every key [base] lacks,
+  /// and the entries a list gained.
   DeepMerge _deepMerge(
     Map<String, dynamic> base,
     Map<String, dynamic> addition,
+    Contribution managed,
   ) {
     final result = Map<String, dynamic>.from(base);
     final added = <String, dynamic>{};
@@ -253,15 +297,15 @@ class _Run {
     for (final MapEntry(:key, :value) in addition.entries) {
       final existing = result[key];
 
-      if (!result.containsKey(key)) {
-        result[key] = added[key] = value;
-        continue;
-      }
-
+      // A table is merged key by key even when VGV wrote all of it, so a
+      // key a plugin stops writing stays until uninstall, whether or not
+      // the user has added keys beside it.
       if (existing is Map && value is Map) {
+        final mine = managed.keys[key];
         final merged = _deepMerge(
           existing.cast<String, dynamic>(),
           value.cast<String, dynamic>(),
+          mine is Map<String, dynamic> ? Contribution(mine) : Contribution.none,
         );
         result[key] = merged.merged;
         if (merged.added.isNotEmpty) added[key] = merged.added;
@@ -269,9 +313,20 @@ class _Run {
         continue;
       }
 
+      if (!result.containsKey(key)) {
+        result[key] = added[key] = value;
+        continue;
+      }
+
+      // VGV's own and untouched since: VGV's to write.
+      if (managed.owns(key, existing)) {
+        result[key] = value;
+        continue;
+      }
+
       if (existing is List && value is List) {
         final gained = value
-            .where((v) => !existing.any((e) => _deepEquality.equals(e, v)))
+            .where((v) => !codec.listContains(existing, v))
             .toList();
         result[key] = <dynamic>[...existing, ...gained];
         if (gained.isNotEmpty) added[key] = gained;
@@ -290,60 +345,10 @@ class _Run {
   }
 }
 
-/// Writes [bytes] to [file], through a symlink and keeping its permissions.
-///
-/// The bytes go to a temporary file beside the target and are published by
-/// rename, so an interrupted run cannot leave a half-written config behind.
-/// The temporary file starts as a copy of the target, or of [source] when
-/// there is no target yet, because a copy carries the file mode across.
-void _write(File file, List<int> bytes, {required bool existed, File? source}) {
-  final target = existed
-      ? file.fileSystem.file(file.resolveSymbolicLinksSync())
-      : file;
-  target.parent.createSync(recursive: true);
-  final temp = target.fileSystem.file('${target.path}.vgv-tmp');
-
-  try {
-    (existed ? target : source)?.copySync(temp.path);
-    temp
-      ..writeAsBytesSync(bytes, flush: true)
-      ..renameSync(target.path);
-  } on FileSystemException {
-    if (temp.existsSync()) temp.deleteSync();
-    rethrow;
-  }
-}
-
 /// Reports [change] as failed with [error], rather than throwing it.
 AppliedChange _failed(PlannedChange change, FileSystemException error) =>
     AppliedChange(
       change: change,
       outcome: ChangeOutcome.failed,
-      error: [error.message, ?error.osError?.message].join(': '),
+      error: error.description,
     );
-
-/// Reports [manifest] as failed with [error].
-AppliedChange _manifestFailed(File manifest, FileSystemException error) =>
-    _failed(
-      PlannedChange.text(file: manifest, contents: '', harness: null),
-      error,
-    );
-
-String _hash(List<int> bytes) => sha256.convert(bytes).toString();
-
-/// Decodes a JSON object, or null when it is malformed or not an object.
-///
-/// Gemini and OpenCode accept comments in their JSON settings, and a file
-/// that has them lands here as malformed. Rewriting it would drop the
-/// comments, so it is reported as unparseable for the user to edit by hand.
-Map<String, dynamic>? _decodeJson(String source) {
-  try {
-    final decoded = jsonDecode(source);
-    return decoded is Map ? decoded.cast<String, dynamic>() : null;
-  } on FormatException catch (_) {
-    return null;
-  }
-}
-
-/// Encodes a decoded map back to canonical JSON with a trailing newline.
-String _encodeJson(Map<String, dynamic> map) => '${_encoder.convert(map)}\n';
