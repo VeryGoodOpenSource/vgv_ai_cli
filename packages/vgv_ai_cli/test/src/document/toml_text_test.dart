@@ -1,6 +1,8 @@
+import 'package:collection/collection.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
   String upsert(
@@ -426,6 +428,25 @@ void main() {
           remaining: {'model': 'gpt'},
         ),
         '# mine\r\nmodel = "gpt"\r\n',
+      );
+    });
+
+    test('compares values with the codec it was given', () {
+      const original = 'args = ["b", "a"]\n';
+      const remaining = {
+        'args': ['a', 'b'],
+      };
+      const unordered = DocumentCodec(
+        deepEquality: DeepCollectionEquality.unordered(),
+      );
+
+      expect(withdraw(original, remaining: remaining), "args = ['a', 'b']\n");
+      expect(
+        const TomlText(
+          original,
+          codec: unordered,
+        ).withdraw(existing: parse(original), remaining: remaining)?.source,
+        original,
       );
     });
 

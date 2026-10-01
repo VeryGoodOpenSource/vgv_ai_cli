@@ -13,12 +13,18 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// {@endtemplate}
 class const TomlText(
   /// The document's text, as written.
-  final String source,
-) {
+  final String source, {
+
+  /// Compares what an edit decodes to with what it meant to produce.
+  final DocumentCodec codec = const DocumentCodec(),
+}) {
   /// {@macro toml_text}
   ///
   /// [map] encoded as canonical TOML with a trailing newline.
-  new encode(Map<String, dynamic> map) : this(DocumentFormat.toml.encode(map));
+  new encode(
+    Map<String, dynamic> map, {
+    DocumentCodec codec = const DocumentCodec(),
+  }) : this(DocumentFormat.toml.encode(map), codec: codec);
 
   /// What [source] decodes to, or null when it is malformed.
   Map<String, dynamic>? decode() => DocumentFormat.toml.decode(source);
@@ -40,13 +46,15 @@ class const TomlText(
 
     Iterable<String> edits() sync* {
       yield '${text.trimRight()}\n\n${TomlText.encode(added).source}';
-      yield TomlText(text)._rewrite(existing: existing, target: merged).source;
+      yield _withSource(text)
+          ._rewrite(existing: existing, target: merged)
+          .source;
     }
 
     return edits()
-        .map((edit) => TomlText(restore(edit)))
+        .map((edit) => _withSource(restore(edit)))
         .firstWhereOrNull(
-          (edit) => _codec.deepEquality.equals(edit.decode(), merged),
+          (edit) => codec.deepEquality.equals(edit.decode(), merged),
         );
   }
 
@@ -63,11 +71,11 @@ class const TomlText(
     required Map<String, dynamic> remaining,
   }) {
     final NormalizedText(:text, :restore) = NormalizedText.from(source);
-    final edited = TomlText(text)
+    final edited = _withSource(text)
         ._rewrite(existing: existing, target: remaining)
         .source;
-    final withdrawn = TomlText(restore('${edited.trimRight()}\n'));
-    return _codec.deepEquality.equals(withdrawn.decode(), remaining)
+    final withdrawn = _withSource(restore('${edited.trimRight()}\n'));
+    return codec.deepEquality.equals(withdrawn.decode(), remaining)
         ? withdrawn
         : null;
   }
@@ -100,7 +108,9 @@ class const TomlText(
         key: value,
       }, (inner, segment) => {segment: inner});
       final kept = source.trimRight();
-      return TomlText('${kept.isEmpty ? '' : '$kept\n\n'}${_encode(nested)}\n');
+      return _withSource(
+        '${kept.isEmpty ? '' : '$kept\n\n'}${_encode(nested)}\n',
+      );
     }
 
     final statement = _encode({key: value});
@@ -116,7 +126,7 @@ class const TomlText(
       final anchor = keys.lastOrNull ?? region.header;
       lines.insert(anchor == null ? 0 : anchor.end + 1, statement);
     }
-    return TomlText(lines.join('\n'));
+    return _withSource(lines.join('\n'));
   }
 
   /// This text without the statement that sets [key] in [table], and
@@ -128,7 +138,7 @@ class const TomlText(
     if (current == null) return this;
 
     lines.removeRange(current.start, current.end + 1);
-    return TomlText(lines.join('\n'));
+    return _withSource(lines.join('\n'));
   }
 
   /// This text without the `[table]` header and the blank lines under it,
@@ -151,8 +161,11 @@ class const TomlText(
     final last = kept == 0 ? header : body[kept - 1];
 
     lines.removeRange(header.start, last.end + 1);
-    return TomlText(lines.join('\n'));
+    return _withSource(lines.join('\n'));
   }
+
+  /// [source] as a [TomlText] that compares with this one's [codec].
+  TomlText _withSource(String source) => TomlText(source, codec: codec);
 
   /// This text edited so it holds [target] where it held [existing], its
   /// decoded form at [table]: every value that differs upserted, and every
@@ -171,7 +184,7 @@ class const TomlText(
           target: value,
           table: [...table, key],
         );
-      } else if (!_codec.deepEquality.equals(before, value)) {
+      } else if (!codec.deepEquality.equals(before, value)) {
         edited = edited.upsert(table: table, key: key, value: value);
       }
     }
@@ -400,5 +413,3 @@ class _LineScanner {
     return index + delimiter.length;
   }
 }
-
-const _codec = DocumentCodec();
