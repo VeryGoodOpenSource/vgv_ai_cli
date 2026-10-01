@@ -104,8 +104,9 @@ class InstallCommand extends Command<int> {
   }
 
   /// The directory install configures, or null when it cannot be found.
-  Directory? get home =>
-      _home ?? userHome(_environment ?? Platform.environment);
+  Directory? get home {
+    return _home ?? userHome(_environment ?? Platform.environment);
+  }
 
   @override
   Future<int> run() async {

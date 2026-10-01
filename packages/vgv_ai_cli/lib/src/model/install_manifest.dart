@@ -254,8 +254,9 @@ class InstallManifest extends Equatable {
   Iterable<ManifestEntry> get entries => _entries.values;
 
   /// The entries [owner] owns, where null is the shared skills.
-  Iterable<ManifestEntry> entriesFor(Harness? owner) =>
-      entries.where((entry) => entry.owner == owner);
+  Iterable<ManifestEntry> entriesFor(Harness? owner) {
+    return entries.where((entry) => entry.owner == owner);
+  }
 
   /// The entry for [path], or null when VGV has not recorded it.
   ManifestEntry? operator [](String path) => _entries[path];
@@ -267,8 +268,9 @@ class InstallManifest extends Equatable {
   };
 
   /// This manifest with [entry] in place of any entry for its path.
-  InstallManifest record(ManifestEntry entry) =>
-      InstallManifest([..._entries.values, entry]);
+  InstallManifest record(ManifestEntry entry) {
+    return InstallManifest([..._entries.values, entry]);
+  }
 
   /// This manifest without the entries for [paths].
   InstallManifest without(Iterable<String> paths) {
