@@ -78,7 +78,7 @@ void main() {
       );
     });
 
-    test('spells no command, since a prompt is the skill body as written', () {
+    test('spells no command, since Codex reads no custom prompts', () {
       final fs = MemoryFileSystem.test();
 
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());

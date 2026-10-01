@@ -82,15 +82,12 @@ void main() {
         ]);
       });
 
-      test('Codex gets config, instructions, agents and prompts', () async {
+      test('Codex gets config, instructions and agents, no commands', () async {
         expect(await tree(Harness.codex), [
           'AGENTS.md',
           'agents/planner.toml',
           'agents/review.toml',
           'config.toml',
-          'prompts/plan.md',
-          'prompts/review.md',
-          'prompts/testing.md',
         ]);
       });
 
@@ -228,13 +225,9 @@ void main() {
         expect(command, '---\ndescription: "what it does"\n---\n\n# Body\n');
       });
 
-      test(
-        'a Codex prompt and a Pi prompt are the skill body as written',
-        () async {
-          expect(await contents(Harness.codex, 'prompts/plan.md'), '# Body\n');
-          expect(await contents(Harness.pi, 'prompts/plan.md'), '# Body\n');
-        },
-      );
+      test('a Pi prompt is the skill body as written', () async {
+        expect(await contents(Harness.pi, 'prompts/plan.md'), '# Body\n');
+      });
 
       test(
         'Codex agents and Gemini commands are the TOML they were given',

@@ -7,8 +7,8 @@ import 'package:vgv_ai_cli/src/model/harness.dart';
 /// {@template codex_translator}
 /// Configures Codex.
 ///
-/// Codex reads `~/.agents/skills` natively and keeps Claude's `$ARGUMENTS`, so
-/// its prompts are the skill bodies as written. Its agents are TOML.
+/// Codex reads `~/.agents/skills` natively, and removed custom prompts in
+/// 0.117.0, so it has no command surface of its own. Its agents are TOML.
 /// {@endtemplate}
 class const CodexTranslator() extends HarnessTranslator {
   @override
