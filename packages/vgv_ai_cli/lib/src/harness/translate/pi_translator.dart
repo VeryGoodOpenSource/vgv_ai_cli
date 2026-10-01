@@ -1,6 +1,6 @@
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template pi_translator}

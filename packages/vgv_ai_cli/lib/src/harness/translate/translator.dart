@@ -8,11 +8,11 @@ import 'package:vgv_ai_cli/src/harness/translate/codex_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/harness/translate/opencode_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/pi_translator.dart';
 import 'package:vgv_ai_cli/src/harness/translate/rendered_change.dart';
 import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// Every harness translator, in reporting order.
@@ -33,8 +33,8 @@ class const Translator({
   final SkillsTranslator skills = const SkillsTranslator(),
 }) {
   /// The changes and notes for each of [selected], plus the shared skills
-  /// under a null key when any of them reads them.
-  Future<Map<Harness?, TranslationResult>> translate({
+  /// when any of them reads them.
+  Future<TranslationPlan> translate({
     required PluginAssets assets,
     required Directory home,
     required Set<Harness> selected,
@@ -54,14 +54,17 @@ class const Translator({
         renderedChange(path, contents: contents, home: home),
     ].groupListsBy((change) => change.harness);
 
-    return {
-      if (chosen.any((translator) => translator.readsSharedSkills))
-        null: skills.translate(assets: assets, home: home),
-      for (final translator in chosen)
-        translator.harness: TranslationResult(
-          changes: changes[translator.harness] ?? const [],
-          notes: translator.notes(assets),
-        ),
-    };
+    return TranslationPlan(
+      shared: chosen.any((translator) => translator.readsSharedSkills)
+          ? skills.translate(assets: assets, home: home)
+          : null,
+      harnesses: {
+        for (final translator in chosen)
+          translator.harness: TranslationResult(
+            changes: changes[translator.harness] ?? const [],
+            notes: translator.notes(assets),
+          ),
+      },
+    );
   }
 }

@@ -3,8 +3,8 @@ import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/harness/translate/skills_translator.dart';
-import 'package:vgv_ai_cli/src/harness/translate/translation_result.dart';
 import 'package:vgv_ai_cli/src/model/planned_change.dart';
 
 void main() {

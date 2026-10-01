@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
-import 'package:vgv_ai_cli/src/harness/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template gemini_translator}
@@ -29,8 +29,7 @@ class const GeminiTranslator() extends HarnessTranslator {
   @override
   String settings(PluginAssets assets) => jsonEncode({
     'mcpServers': {
-      for (final server in assets.mcpServers)
-        server.name: mcpServerEntry(server, headersKey: 'headers'),
+      for (final server in assets.mcpServers) server.name: server.toJson(),
     },
     'context': {
       'fileName': ['AGENTS.md', 'GEMINI.md'],
@@ -38,23 +37,21 @@ class const GeminiTranslator() extends HarnessTranslator {
   });
 
   @override
-  Map<String, Object?> agent(
-    AgentAsset agent, {
-    required String instructions,
-  }) => {
-    'frontmatter': Frontmatter.render({
-      'name': agent.name,
-      'description': agent.description,
-    }),
-  };
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      HarnessFields(
+        frontmatter: Frontmatter.render({
+          'name': agent.name,
+          'description': agent.description,
+        }),
+      );
 
   /// Gemini's schema is strict: `prompt` is required, `description` optional,
   /// and nothing else is accepted.
   @override
-  Map<String, Object?> command(SkillAsset skill) => {
-    'toml': TomlDocument.fromMap({
+  HarnessFields command(SkillAsset skill) => HarnessFields(
+    toml: TomlDocument.fromMap({
       'description': skill.description,
       'prompt': skill.body.replaceAll(_arguments, '{{args}}'),
     }).toString(),
-  };
+  );
 }

@@ -49,17 +49,17 @@ class _ThrowingParser implements PluginParser {
       throw const PluginParseException('/plugin/agents/a.md', 'bad name');
 }
 
-/// A [Translator] whose results are supplied per test, and which records
+/// A [Translator] whose plan is supplied per test, and which records
 /// what it was asked to translate.
 class _FakeTranslator extends Fake implements Translator {
-  Map<Harness?, TranslationResult> results = const {};
+  TranslationPlan plan = const TranslationPlan();
 
   Set<Harness>? selected;
   PluginAssets? assets;
   Directory? home;
 
   @override
-  Future<Map<Harness?, TranslationResult>> translate({
+  Future<TranslationPlan> translate({
     required PluginAssets assets,
     required Directory home,
     required Set<Harness> selected,
@@ -67,7 +67,7 @@ class _FakeTranslator extends Fake implements Translator {
     this.assets = assets;
     this.home = home;
     this.selected = selected;
-    return results;
+    return plan;
   }
 }
 
@@ -296,16 +296,18 @@ void main() {
 
     group('report', () {
       test('warns with every note, labelled by its owner', () async {
-        translator.results = {
-          null: const TranslationResult(
+        translator.plan = const TranslationPlan(
+          shared: TranslationResult(
             changes: [],
             notes: [TranslationNote(subject: 'a', reason: 'shared reason')],
           ),
-          Harness.pi: const TranslationResult(
-            changes: [],
-            notes: [TranslationNote(subject: 'b', reason: 'pi reason')],
-          ),
-        };
+          harnesses: {
+            Harness.pi: TranslationResult(
+              changes: [],
+              notes: [TranslationNote(subject: 'b', reason: 'pi reason')],
+            ),
+          },
+        );
 
         await runInstall(['--only', 'pi']);
 
@@ -314,17 +316,19 @@ void main() {
       });
 
       test('writes every change and counts them per owner', () async {
-        translator.results = {
-          null: TranslationResult(
+        translator.plan = TranslationPlan(
+          shared: TranslationResult(
             changes: [ownChange(null, '.agents/skills/a/SKILL.md', 'a')],
           ),
-          Harness.codex: TranslationResult(
-            changes: [
-              ownChange(Harness.codex, '.codex/agents/a.toml', 'a'),
-              ownChange(Harness.codex, '.codex/agents/b.toml', 'b'),
-            ],
-          ),
-        };
+          harnesses: {
+            Harness.codex: TranslationResult(
+              changes: [
+                ownChange(Harness.codex, '.codex/agents/a.toml', 'a'),
+                ownChange(Harness.codex, '.codex/agents/b.toml', 'b'),
+              ],
+            ),
+          },
+        );
 
         final exitCode = await runInstall(['--only', 'codex']);
 
@@ -343,11 +347,13 @@ void main() {
       });
 
       test('--check writes nothing', () async {
-        translator.results = {
-          Harness.claude: TranslationResult(
-            changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
-          ),
-        };
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+            ),
+          },
+        );
 
         final exitCode = await runInstall(['--only', 'claude', '--check']);
 
@@ -363,11 +369,13 @@ void main() {
 
       test('exits with an I/O error when a file cannot be written', () async {
         fs.directory(homeFile('.claude/a.md').path).createSync(recursive: true);
-        translator.results = {
-          Harness.claude: TranslationResult(
-            changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
-          ),
-        };
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+            ),
+          },
+        );
 
         final exitCode = await runInstall(['--only', 'claude']);
 
@@ -388,18 +396,20 @@ void main() {
         homeFile('.gemini/settings.json')
           ..createSync(recursive: true)
           ..writeAsStringSync('{ // mine\n}');
-        translator.results = {
-          Harness.gemini: TranslationResult(
-            changes: [
-              PlannedChange.text(
-                file: homeFile('.gemini/settings.json'),
-                contents: '{"a": 1}',
-                harness: Harness.gemini,
-                mode: ChangeMode.mergeJson,
-              ),
-            ],
-          ),
-        };
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.gemini: TranslationResult(
+              changes: [
+                PlannedChange.text(
+                  file: homeFile('.gemini/settings.json'),
+                  contents: '{"a": 1}',
+                  harness: Harness.gemini,
+                  mode: ChangeMode.mergeJson,
+                ),
+              ],
+            ),
+          },
+        );
 
         final exitCode = await runInstall(['--only', 'gemini']);
 
@@ -416,13 +426,15 @@ void main() {
         homeFile('.codex/prompts/plan.md')
           ..createSync(recursive: true)
           ..writeAsStringSync('mine');
-        translator.results = {
-          Harness.codex: TranslationResult(
-            changes: [
-              ownChange(Harness.codex, '.codex/prompts/plan.md', 'vgv'),
-            ],
-          ),
-        };
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.codex: TranslationResult(
+              changes: [
+                ownChange(Harness.codex, '.codex/prompts/plan.md', 'vgv'),
+              ],
+            ),
+          },
+        );
 
         await runInstall(['--only', 'codex']);
 
@@ -438,11 +450,13 @@ void main() {
         homeFile('.claude/a.md')
           ..createSync(recursive: true)
           ..writeAsStringSync('same');
-        translator.results = {
-          Harness.claude: TranslationResult(
-            changes: [ownChange(Harness.claude, '.claude/a.md', 'same')],
-          ),
-        };
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'same')],
+            ),
+          },
+        );
 
         await runInstall(['--only', 'claude']);
 

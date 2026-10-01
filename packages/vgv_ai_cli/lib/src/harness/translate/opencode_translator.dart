@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/harness/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
 /// {@template opencode_translator}
@@ -37,18 +38,16 @@ class const OpenCodeTranslator() extends HarnessTranslator {
   });
 
   @override
-  Map<String, Object?> agent(
-    AgentAsset agent, {
-    required String instructions,
-  }) => {
-    'frontmatter': Frontmatter.render({
-      'description': agent.description,
-      'mode': 'subagent',
-    }),
-  };
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      HarnessFields(
+        frontmatter: Frontmatter.render({
+          'description': agent.description,
+          'mode': 'subagent',
+        }),
+      );
 
   @override
-  Map<String, Object?> command(SkillAsset skill) => {
-    'frontmatter': Frontmatter.render({'description': skill.description}),
-  };
+  HarnessFields command(SkillAsset skill) => HarnessFields(
+    frontmatter: Frontmatter.render({'description': skill.description}),
+  );
 }

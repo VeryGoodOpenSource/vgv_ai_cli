@@ -10,7 +10,7 @@ void main() {
   group('AgentsVars', () {
     final fs = MemoryFileSystem.test();
 
-    Map<String, dynamic> varsFor(
+    Map<String, Object?> varsFor(
       List<HarnessTranslator> translators, {
       PluginAssets? assets,
     }) => AgentsVars(
@@ -63,7 +63,7 @@ void main() {
           ],
         ),
       );
-      final agent = (vars['agents'] as List).single as Map<String, Object?>;
+      final agent = (vars['agents']! as List).single as Map<String, Object?>;
 
       expect(agent['name'], 'review');
       expect(agent['instructions'], contains('`/skills`'));
@@ -81,7 +81,7 @@ void main() {
           ],
         ),
       );
-      final commands = vars['commands'] as List;
+      final commands = vars['commands']! as List;
 
       expect(commands.map((c) => (c as Map)['name']), ['plan']);
       expect((commands.single as Map)['codex'], isEmpty);

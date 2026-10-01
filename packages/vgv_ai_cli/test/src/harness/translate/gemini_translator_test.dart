@@ -86,7 +86,7 @@ void main() {
         instructions: 'x',
       );
 
-      expect(frontmatterValues(fields['frontmatter']), {
+      expect(frontmatterValues(fields.frontmatter), {
         'name': 'reviewer',
         'description': 'reviews: code',
       });
@@ -94,11 +94,9 @@ void main() {
 
     group('commands', () {
       test('are TOML that parses back', () {
-        final toml =
-            translator.command(
-                  skillAsset(fs, 'plan', body: 'Say "hi" to `you` \\n\n'),
-                )['toml']!
-                as String;
+        final toml = translator
+            .command(skillAsset(fs, 'plan', body: 'Say "hi" to `you` \\n\n'))
+            .toml!;
 
         expect(TomlDocument.parse(toml).toMap(), {
           'description': 'what it does',
@@ -107,11 +105,9 @@ void main() {
       });
 
       test('spell the argument placeholder the Gemini way', () {
-        final toml =
-            translator.command(
-                  skillAsset(fs, 'plan', body: r'Plan $ARGUMENTS now.'),
-                )['toml']!
-                as String;
+        final toml = translator
+            .command(skillAsset(fs, 'plan', body: r'Plan $ARGUMENTS now.'))
+            .toml!;
 
         expect(
           TomlDocument.parse(toml).toMap()['prompt'],

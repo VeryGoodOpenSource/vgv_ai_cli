@@ -1,6 +1,7 @@
 import 'package:file/memory.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
+import 'package:vgv_ai_cli/src/harness/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/harness/translate/pi_translator.dart';
 import 'package:vgv_ai_cli/src/model/harness.dart';
 
@@ -23,9 +24,9 @@ void main() {
 
       expect(
         translator.agent(agentAsset('reviewer'), instructions: 'x'),
-        isEmpty,
+        const HarnessFields(),
       );
-      expect(translator.command(skillAsset(fs, 'plan')), isEmpty);
+      expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
     test('reports that hooks are Claude-only', () {
