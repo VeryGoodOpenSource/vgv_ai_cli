@@ -95,12 +95,12 @@ void main() {
       });
 
       test('keeps a file of the user at a path it owns', () {
-        final target = seed('.codex/prompts/plan.md', 'my own plan prompt');
+        final target = seed('.codex/agents/review.toml', 'my own agent');
 
         final applied = applyOne(change(target, 'vgv', ChangeMode.own));
 
         expect(applied.outcome, ChangeOutcome.skipped);
-        expect(target.readAsStringSync(), 'my own plan prompt');
+        expect(target.readAsStringSync(), 'my own agent');
       });
 
       test('keeps a file it wrote once the user has edited it', () {
@@ -115,7 +115,7 @@ void main() {
       });
 
       test("takes the user's file when forced, and owns it after", () {
-        final target = seed('.codex/prompts/plan.md', 'mine');
+        final target = seed('.codex/agents/review.toml', 'mine');
 
         final forced = applyOne(
           change(target, 'vgv', ChangeMode.own),

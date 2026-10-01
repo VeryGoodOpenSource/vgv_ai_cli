@@ -17,7 +17,7 @@ out of agents and settings.
 | -------- | --------------- | ----------- | --------------- | ------------------ |
 | claude   | `settings.json` |             |                 |                    |
 | gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |
-| codex    | `config.toml`   | yes         | `agents/*.toml` | `prompts/*.md`     |
+| codex    | `config.toml`   | yes         | `agents/*.toml` |                    |
 | opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |
 | pi       |                 | yes         |                 | `prompts/*.md`     |
 

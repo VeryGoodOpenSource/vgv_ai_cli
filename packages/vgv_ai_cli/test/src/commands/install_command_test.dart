@@ -424,14 +424,14 @@ void main() {
       });
 
       test('keeps a file of the user where VGV owns one', () async {
-        homeFile('.codex/prompts/plan.md')
+        homeFile('.codex/agents/review.toml')
           ..createSync(recursive: true)
           ..writeAsStringSync('mine');
         translator.plan = TranslationPlan(
           harnesses: {
             Harness.codex: TranslationResult(
               changes: [
-                ownChange(Harness.codex, '.codex/prompts/plan.md', 'vgv'),
+                ownChange(Harness.codex, '.codex/agents/review.toml', 'vgv'),
               ],
             ),
           },
@@ -439,10 +439,13 @@ void main() {
 
         await runInstall(['--only', 'codex']);
 
-        expect(homeFile('.codex/prompts/plan.md').readAsStringSync(), 'mine');
+        expect(
+          homeFile('.codex/agents/review.toml').readAsStringSync(),
+          'mine',
+        );
         verify(
           () => logger.warn(
-            'Kept your values in ${homeFile('.codex/prompts/plan.md').path}',
+            'Kept your values in ${homeFile('.codex/agents/review.toml').path}',
           ),
         ).called(1);
       });
