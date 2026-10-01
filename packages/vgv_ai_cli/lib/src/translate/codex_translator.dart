@@ -49,12 +49,10 @@ class const CodexTranslator() extends HarnessTranslator {
   /// The plugins' hooks, as `~/.codex/hooks.json` spells them.
   ///
   /// Codex's hooks file has the same shape as Claude's, down to `timeout`
-  /// being seconds, and its payload carries the `tool_name` and
-  /// `tool_input.command` the plugin scripts read. So the scripts run as
-  /// written and only three things need translating: the plugin root their
-  /// commands point at, the tool names their matchers name, and the
-  /// `tool_input.file_path` Codex does not send, which [payloadScript] fills
-  /// in for the hooks that need it.
+  /// being seconds, so the plugins' scripts run as written. Three things are
+  /// spelled differently: the plugin root their commands point at, the tool
+  /// names their matchers name, and the payload itself, which every command
+  /// goes through [payloadScript] to read as Claude Code's.
   ///
   /// Codex runs no hook it has not been told to trust, however, so writing
   /// this file is half of it and [notes] says the other half.
@@ -110,20 +108,13 @@ class const CodexTranslator() extends HarnessTranslator {
     _ => true,
   };
 
-  /// The helper the brick writes into the harness's own hooks folder.
+  /// The script the brick writes into the harness's own hooks folder, which
+  /// hands a plugin script the Codex payload as Claude Code's.
   ///
-  /// Written whenever Codex gets any hooks at all, which is one file more than
-  /// strictly needed for the rare set that edits no file.
-  static const payloadScript = 'apply-patch-payload.sh';
-
-  /// The tool names whose Codex payload carries no `tool_input.file_path`.
-  ///
-  /// A captured `PostToolUse` payload names the tool `apply_patch` and puts
-  /// the whole patch in `tool_input.command`, where Claude would have sent the
-  /// one file it edited. A script written against Claude's payload fires and
-  /// finds nothing, so these commands run through [payloadScript], which reads
-  /// the files out of the patch and hands the script one at a time.
-  static const _patchedTools = {'Edit', 'Write'};
+  /// Every command runs through it rather than only the ones that edit a
+  /// file, so the payload a script reads is Claude's whatever fired it, and
+  /// nothing here has to track which field each script happens to read.
+  static const payloadScript = 'claude-payload.sh';
 
   /// What [command] runs as, once it names a real script and a real payload.
   ///
@@ -138,19 +129,12 @@ class const CodexTranslator() extends HarnessTranslator {
       HookCommand.pluginRoot,
       hook.pluginRoot.path,
     );
-    if (!_claudeTools(hook.matcher).any(_patchedTools.contains)) {
-      return expanded;
-    }
     final script = _quoted(p.join(hooksRoot, payloadScript));
     return 'bash $script ${_quoted(expanded)}';
   }
 
   /// [value] as one single-quoted shell word.
   static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
-
-  /// The tool names [matcher] fires for, as Claude named them.
-  static List<String> _claudeTools(String? matcher) =>
-      matcher?.split('|') ?? const [];
 
   /// Claude's tool names, as Codex spells them.
   ///

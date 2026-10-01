@@ -13,16 +13,20 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           |
-| -------- | --------------- | ----------- | --------------- | ------------------ |
-| claude   | `settings.json` |             |                 |                    |
-| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |
-| codex    | `config.toml`   | yes         | `agents/*.toml` |                    |
-| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |
-| pi       |                 | yes         |                 | `prompts/*.md`     |
+| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           | Hooks         |
+| -------- | --------------- | ----------- | --------------- | ------------------ | ------------- |
+| claude   | `settings.json` |             |                 |                    |               |
+| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |               |
+| codex    | `config.toml`   | yes         | `agents/*.toml` |                    | `hooks.json`  |
+| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |               |
+| pi       |                 | yes         |                 | `prompts/*.md`     |               |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
+
+Codex's `hooks.json` comes with `hooks/claude-payload.sh`, which hands a
+plugin's hook script the Codex payload in the shape Claude Code sends. Both
+are rendered only when there are hooks Codex can run.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a
