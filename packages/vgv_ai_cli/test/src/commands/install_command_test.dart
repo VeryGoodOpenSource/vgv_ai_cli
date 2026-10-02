@@ -521,10 +521,24 @@ void main() {
 
         await runInstall(['--only', 'claude']);
 
-        expect(
-          ManifestStore(home).load()![homeFile('.claude/a.md').path],
-          isA<OwnedFile>(),
-        );
+        final manifest = ManifestStore(home).load()!;
+        expect(manifest[homeFile('.claude/a.md').path], isA<OwnedFile>());
+        expect(manifest.plugins, {
+          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        });
+      });
+
+      test('records the pinned versions when only they changed', () async {
+        planOne();
+        await runInstall(['--only', 'claude']);
+        final store = ManifestStore(home);
+        store.save(store.load()!.withPlugins(const {'vgv-wingspan': '0.0.1'}));
+
+        await runInstall(['--only', 'claude']);
+
+        expect(store.load()!.plugins, {
+          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        });
       });
 
       test('is not rewritten when nothing it records changed', () async {

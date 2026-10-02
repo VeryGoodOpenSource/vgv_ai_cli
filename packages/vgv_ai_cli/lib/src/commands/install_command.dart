@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
@@ -138,11 +137,11 @@ class InstallCommand extends Command<int> {
     final manifest = _load(store);
     if (manifest == null) return ExitCode.ioError.code;
 
-    final assets = await _resolveAssets(home);
-    if (assets == null) return ExitCode.unavailable.code;
+    final resolved = await _resolveAssets(home);
+    if (resolved == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
-      assets: assets,
+      assets: resolved.assets,
       home: home,
       selected: selected,
     );
@@ -157,7 +156,14 @@ class InstallCommand extends Command<int> {
 
     _report(plan, applied, dryRun: dryRun);
     final recorded =
-        dryRun || _record(store, from: manifest, to: reconciliation.manifest);
+        dryRun ||
+        _record(
+          store,
+          from: manifest,
+          to: reconciliation.manifest.withPlugins({
+            for (final plugin in resolved.plugins) plugin.name: plugin.version,
+          }),
+        );
     final anyChangeFailed = applied.any(
       (change) => change.outcome == ChangeOutcome.failed,
     );
@@ -265,16 +271,16 @@ class InstallCommand extends Command<int> {
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
-  Future<PluginAssets?> _resolveAssets(Directory home) async {
+  Future<ResolvedAssets?> _resolveAssets(Directory home) async {
     final progress = _logger.progress('Resolving plugins');
 
     switch (await _resolver.resolve(home)) {
-      case ResolvedAssets(:final assets):
+      case final ResolvedAssets resolved:
         progress.complete(
-          'Resolved ${assets.skills.length} skills and '
-          '${assets.agents.length} agents',
+          'Resolved ${resolved.assets.skills.length} skills and '
+          '${resolved.assets.agents.length} agents',
         );
-        return assets;
+        return resolved;
       case UnavailableAssets(:final plugin, :final reasons):
         progress.fail('Could not resolve $plugin');
         for (final reason in reasons) {
