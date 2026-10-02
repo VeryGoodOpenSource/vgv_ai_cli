@@ -16,6 +16,9 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
+  @override
+  bool get runsHooks => true;
+
   /// The keys Codex spells differently from `.mcp.json`.
   static const _renamedKeys = {'headers': 'http_headers'};
 
@@ -83,6 +86,7 @@ class const CodexTranslator() extends HarnessTranslator {
   /// The hooks Codex will not run, and the trust step that starts the rest.
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
+    ...super.notes(assets),
     for (final hook in assets.hooks)
       if (!_runs(hook))
         TranslationNote(

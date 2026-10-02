@@ -83,12 +83,12 @@ void main() {
       });
     });
 
-    test('reports that it has nowhere to run the hooks', () {
+    test('reports that nothing in its config runs a shell command', () {
       final fs = MemoryFileSystem.test();
 
       expect(
         translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains('OpenCode has no hooks system'),
+        contains("nothing in OpenCode's config runs one"),
       );
     });
   });

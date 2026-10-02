@@ -28,12 +28,16 @@ void main() {
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
-    test('reports that it has nowhere to run the hooks', () {
+    test('runs none of the hooks', () {
+      expect(translator.runsHooks, isFalse);
+    });
+
+    test('reports that nothing in its config runs a shell command', () {
       final fs = MemoryFileSystem.test();
 
       expect(
         translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains('Pi has no hooks system'),
+        contains("nothing in Pi's config runs one"),
       );
     });
 
