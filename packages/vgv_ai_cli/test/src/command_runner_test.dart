@@ -15,6 +15,21 @@ class _MockProgress extends Mock implements Progress;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
 
+class _FlagCommand extends Command<int> {
+  new() {
+    argParser.addFlag('flag', negatable: false);
+  }
+
+  @override
+  String get description => 'A command with one flag';
+
+  @override
+  String get name => 'flagged';
+
+  @override
+  Future<int> run() async => ExitCode.success.code;
+}
+
 const latestVersion = '0.0.0';
 
 final updatePrompt =
@@ -160,19 +175,20 @@ void main() {
       });
 
       test('enables verbose logging for sub commands', () async {
+        commandRunner.addCommand(_FlagCommand());
         final result = await commandRunner.run([
           '--verbose',
-          'sample',
-          '--cyan',
+          'flagged',
+          '--flag',
         ]);
         expect(result, equals(ExitCode.success.code));
 
         verify(() => logger.detail('Argument information:')).called(1);
         verify(() => logger.detail('  Top level options:')).called(1);
         verify(() => logger.detail('  - verbose: true')).called(1);
-        verify(() => logger.detail('  Command: sample')).called(1);
+        verify(() => logger.detail('  Command: flagged')).called(1);
         verify(() => logger.detail('    Command options:')).called(1);
-        verify(() => logger.detail('    - cyan: true')).called(1);
+        verify(() => logger.detail('    - flag: true')).called(1);
       });
     });
   });
