@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
@@ -255,6 +256,10 @@ void main() {
       test(
         "Codex's hooks merge into the ones the user already keeps",
         () async {
+          final codexPayloadScript = p.join(
+            harnessHooksRoot(Harness.codex.configDirectory(home)).path,
+            CodexTranslator.payloadScript,
+          );
           final plan = await translate({Harness.codex});
           final hooks = plan.harnesses[Harness.codex]!.changes.singleWhere(
             (change) => change.file.path.endsWith('hooks.json'),
@@ -269,7 +274,7 @@ void main() {
                     {
                       'type': 'command',
                       'command':
-                          "bash '/home/dev/.codex/hooks/claude-payload.sh'"
+                          "bash '$codexPayloadScript'"
                           " 'bash"
                           " /plugins/vgv-wingspan/hooks/scripts/analyze.sh'",
                       'timeout': 30,
@@ -281,6 +286,21 @@ void main() {
           });
         },
       );
+
+      test('the hook payload script survives the brick untouched', () async {
+        // It is a shell script rendered through mustache, so a backslash
+        // before a newline would be stripped and a `{{` would be read as a
+        // tag. Its regex is written in character classes to avoid the first;
+        // this catches an edit that reintroduces either.
+        final script = await contents(
+          Harness.codex,
+          p.join('hooks', CodexTranslator.payloadScript),
+        );
+
+        expect(script, isNot(contains('\\\n')));
+        expect(script, isNot(contains('{{')));
+        expect(script, contains('[*][*][*] (Add File|Update File|Move to)'));
+      });
 
       test('AGENTS.md indexes every skill and agent', () async {
         final instructions = await contents(Harness.gemini, 'AGENTS.md');

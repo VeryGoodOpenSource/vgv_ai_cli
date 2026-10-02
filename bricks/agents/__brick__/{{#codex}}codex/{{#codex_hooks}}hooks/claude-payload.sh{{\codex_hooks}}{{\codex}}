@@ -32,12 +32,38 @@ if ! command -v jq > /dev/null 2>&1; then
   exit $?
 fi
 
-# Each file this payload is about, as the tool Claude Code would have named for
-# it: an added file is a Write, a changed or renamed one an Edit. A payload
-# that already names a file keeps its own tool name. The regex uses a character
-# class so it holds no backslash, which keeps it intact through the template
-# that renders this file.
-edits=$(printf '%s' "$payload" | jq -r '[(if .tool_input.file_path then {name: .tool_name, path: .tool_input.file_path} else empty end), ((.tool_input.command // "") | scan("(?m)^[*][*][*] (Add File|Update File|Move to): (.+)$") | {name: (if .[0] == "Add File" then "Write" else "Edit" end), path: .[1]})] | unique_by(.path) | .[] | "\(.name)\t\(.path)"' 2>/dev/null)
+# Each file this payload is about, as the tool Claude Code would have named
+# for it: an added file is a Write, a changed or renamed one an Edit. A
+# payload that already names a file keeps its own tool name.
+#
+# A patch header names a file relative to the session root when the model
+# wrote it that way, so each path is resolved against the payload's own cwd
+# rather than wherever this process happens to be running.
+#
+# The regexes use character classes so this holds no backslash before a
+# newline, which mason would strip when it renders the file.
+edits=$(printf '%s' "$payload" | jq -r '
+  . as $payload
+  | (($payload.cwd // ".") | rtrimstr("/")) as $cwd
+  | def absolute: if startswith("/") then . else $cwd + "/" + . end;
+    [
+      (if $payload.tool_input.file_path
+         then {
+           name: $payload.tool_name,
+           path: ($payload.tool_input.file_path | absolute),
+         }
+         else empty end),
+      (($payload.tool_input.command // "")
+        | scan("(?m)^[*][*][*] (Add File|Update File|Move to): (.+)$")
+        | {
+          name: (if .[0] == "Add File" then "Write" else "Edit" end),
+          path: (.[1] | absolute),
+        })
+    ]
+  | unique_by(.path)
+  | .[]
+  | "\(.name)\t\(.path)"
+' 2>/dev/null)
 
 status=0
 ran=0
@@ -49,9 +75,7 @@ while IFS=$'\t' read -r name path; do
     edit=$(printf '%s' "$payload" | jq --arg name "$name" --arg path "$path" '.tool_name = $name | .tool_input.file_path = $path')
     run "$edit" || status=$?
   fi
-done <<EOF
-$edits
-EOF
+done <<< "$edits"
 
 # This payload is about no file that exists, so it needs no translating.
 if [ "$ran" -eq 0 ]; then
