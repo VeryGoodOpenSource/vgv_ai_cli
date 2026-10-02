@@ -5,11 +5,17 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// {@template harness_translator}
 /// How one harness spells what the plugins contribute.
 ///
-/// A translator changes spelling, never semantics. It supplies what the
-/// `agents` brick cannot produce itself, the settings fragment and any
-/// frontmatter or TOML, and the brick decides which files exist. A feature the
-/// harness lacks has no folder in the brick, so there is nothing here to
-/// imitate it with.
+/// The plugins are written for Claude Code and stay that way. Every
+/// difference another harness has is answered here and never there, so a
+/// plugin never carries a branch for a harness it was not written for. That
+/// holds for what a hook script is handed at run time as much as for the
+/// config files, which is why a translator may ship a helper script of its
+/// own rather than ask the plugins to understand a second payload.
+///
+/// A translator supplies what the `agents` brick cannot produce itself, the
+/// settings fragment and any frontmatter or TOML, and the brick decides which
+/// files exist. A feature the harness lacks has no folder in the brick, so
+/// there is nothing here to imitate it with.
 ///
 /// One implementation per harness, and none depends on another translator.
 /// See `Harness` for every step of adding a harness.
