@@ -136,29 +136,12 @@ class const CodexTranslator() extends HarnessTranslator {
   /// [value] as one single-quoted shell word.
   static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
 
-  /// Claude's tool names, as Codex spells them.
-  ///
-  /// A captured payload names the file-edit tool `apply_patch`, so `Edit` and
-  /// `Write` alone would never match. Each keeps its own name as well, because
-  /// Codex documents all three as interchangeable here and a matcher costs
-  /// nothing. Codex reads files through the shell, so `Read`, `Glob` and
-  /// `Grep` name no tool it has. Every other name carries over: a captured
-  /// payload names the shell tool `Bash`, and the `mcp__<server>__<tool>` form
-  /// the MCP matchers are written in is Codex's own.
-  static const _toolNames = <String, List<String>>{
-    'Edit': ['Edit', 'apply_patch'],
-    'Write': ['Write', 'apply_patch'],
-    'Read': [],
-    'Glob': [],
-    'Grep': [],
-  };
-
   /// The tools [matcher] fires for, as Codex names them.
   ///
-  /// A matcher is an alternation of tool names, so each alternative is
-  /// translated on its own. One Codex has no name for drops out, which is how
-  /// a matcher naming nothing it has comes back empty.
-  static List<String> _codexTools(String matcher) => {
-    for (final name in matcher.split('|')) ...(_toolNames[name] ?? [name]),
-  }.toList();
+  /// A matcher is an alternation of tool names, so each alternative goes
+  /// through [CodexTool] on its own. One Codex has no name for drops out,
+  /// which is how a matcher naming nothing it has comes back empty.
+  static List<String> _codexTools(String matcher) =>
+      {for (final name in matcher.split('|')) ...CodexTool.codexNamesOf(name)}
+          .toList();
 }
