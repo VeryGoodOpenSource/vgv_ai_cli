@@ -10,10 +10,11 @@ import 'package:collection/collection.dart';
 /// returns for a name no entry claims.
 /// {@endtemplate}
 enum CodexTool {
-  /// A captured payload names Codex's file-edit tool `apply_patch`, so
-  /// `Edit` alone would never match. It keeps its own name as well, because
-  /// Codex documents all three as interchangeable here and an extra
-  /// alternative costs nothing.
+  /// Codex answers to `Edit` in a matcher, so this adds a name rather than
+  /// fixing a miss. It is Codex's own: a file edit arrives as `apply_patch`
+  /// and reports `tool_name: apply_patch`, so without it the file names only
+  /// tools Codex never reports, and the matcher rests on an alias it
+  /// documents but need not keep.
   edit(claude: 'Edit', codex: ['Edit', 'apply_patch']),
 
   /// {@macro codex_tool}
