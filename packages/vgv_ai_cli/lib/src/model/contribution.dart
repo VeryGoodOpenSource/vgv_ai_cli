@@ -39,6 +39,20 @@ extension type const Contribution(Map<String, dynamic> keys) {
   bool owns(String key, Object? current) =>
       keys.containsKey(key) && _codec.deepEquality.equals(keys[key], current);
 
+  /// What VGV contributed inside the table at [key], or [none] when [key]
+  /// is not a table VGV contributed to.
+  Contribution within(String key) => switch (keys[key]) {
+    final Map<String, dynamic> table => Contribution(table),
+    _ => none,
+  };
+
+  /// The entries VGV appended to the list at [key], or empty when [key] is
+  /// not a list VGV appended to.
+  List<dynamic> appendedTo(String key) => switch (keys[key]) {
+    final List<dynamic> entries => entries,
+    _ => const [],
+  };
+
   /// What of this [current] no longer holds, and what it holds changed.
   ///
   /// A list is missing when any entry VGV appended is gone. Entries the user
@@ -113,34 +127,52 @@ Map<String, dynamic> _of(
 ) {
   final owned = <String, dynamic>{};
   for (final MapEntry(:key, :value) in written.entries) {
-    final prior = before[key];
-    final mine = managed.keys[key];
-    if (!before.containsKey(key) || managed.owns(key, prior)) {
+    if (!before.containsKey(key) || managed.owns(key, before[key])) {
       owned[key] = value;
       continue;
     }
 
-    final part = switch ((prior, value)) {
-      (final Map<String, dynamic> prior, final Map<String, dynamic> value) =>
-        _of(
-          prior,
-          value,
-          mine is Map<String, dynamic> ? Contribution(mine) : Contribution.none,
-        ),
-      (final List<dynamic> prior, final List<dynamic> value) => [
-        for (final item in value)
-          if (!_codec.listContains(prior, item) ||
-              (mine is List && _codec.listContains(mine, item)))
-            item,
-      ],
-      _ => null,
-    };
+    final part = _partOf(
+      prior: before[key],
+      value: value,
+      within: managed.within(key),
+      appended: managed.appendedTo(key),
+    );
     if (part case Map(isNotEmpty: true) || List(isNotEmpty: true)) {
       owned[key] = part;
     }
   }
   return owned;
 }
+
+/// What of [value], written over the user's [prior], is VGV's: what it owns
+/// inside a table, given VGV last contributed [within] it, and the entries
+/// it added to a list, given VGV last [appended] those.
+Object? _partOf({
+  required Object? prior,
+  required Object? value,
+  required Contribution within,
+  required List<dynamic> appended,
+}) {
+  if (prior is Map<String, dynamic> && value is Map<String, dynamic>) {
+    return _of(prior, value, within);
+  }
+  if (prior is List<dynamic> && value is List<dynamic>) {
+    return [
+      for (final item in value)
+        if (_isOwnedEntry(item, prior: prior, appended: appended)) item,
+    ];
+  }
+  return null;
+}
+
+/// Whether [item] is VGV's: the user's [prior] list lacks it, or VGV
+/// [appended] it last time.
+bool _isOwnedEntry(
+  Object? item, {
+  required List<dynamic> prior,
+  required List<dynamic> appended,
+}) => !_codec.listContains(prior, item) || _codec.listContains(appended, item);
 
 /// What is left of [now] once [ours] is taken out of it, or null when
 /// nothing is.

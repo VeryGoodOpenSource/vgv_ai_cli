@@ -43,8 +43,9 @@ class HarnessDetector {
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
 
   /// Harnesses banner to either stream, so both are searched.
-  static String _banner(ProcessResult result) =>
-      '${result.stdout}${result.stderr}';
+  static String _banner(ProcessResult result) {
+    return '${result.stdout}${result.stderr}';
+  }
 
   final RunProcess _runProcess;
   final Duration _timeout;

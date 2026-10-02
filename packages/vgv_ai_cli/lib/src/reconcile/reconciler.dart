@@ -292,58 +292,55 @@ class _Run {
     Map<String, dynamic> addition,
     Contribution managed,
   ) {
-    final result = Map<String, dynamic>.from(base);
-    final added = <String, dynamic>{};
-    var declined = false;
+    final merges = {
+      for (final MapEntry(:key, :value) in addition.entries)
+        key: _mergeOneKey(base, key, value, managed),
+    };
+    return DeepMerge(
+      merged: {
+        ...base,
+        for (final MapEntry(:key, value: merge) in merges.entries)
+          if (merge.writes) key: merge.value,
+      },
+      added: {
+        for (final MapEntry(:key, value: merge) in merges.entries)
+          if (merge.adds) key: merge.added,
+      },
+      declined: merges.values.any((merge) => merge.declined),
+    );
+  }
 
-    for (final MapEntry(:key, :value) in addition.entries) {
-      final existing = result[key];
-
+  /// Merges [value] into [base] at [key], as [_deepMerge] does for each of
+  /// its keys.
+  KeyMerge _mergeOneKey(
+    Map<String, dynamic> base,
+    String key,
+    Object? value,
+    Contribution managed,
+  ) {
+    final existing = base[key];
+    return switch ((existing, value)) {
       // A table is merged key by key even when VGV wrote all of it, so a
       // key a plugin stops writing stays until uninstall, whether or not
       // the user has added keys beside it.
-      if (existing is Map && value is Map) {
-        final mine = managed.keys[key];
-        final merged = _deepMerge(
-          existing.cast<String, dynamic>(),
-          value.cast<String, dynamic>(),
-          mine is Map<String, dynamic> ? Contribution(mine) : Contribution.none,
-        );
-        result[key] = merged.merged;
-        if (merged.added.isNotEmpty) added[key] = merged.added;
-        declined = declined || merged.declined;
-        continue;
-      }
-
-      if (!result.containsKey(key)) {
-        result[key] = added[key] = value;
-        continue;
-      }
-
+      (
+        final Map<dynamic, dynamic> existing,
+        final Map<dynamic, dynamic> value,
+      ) =>
+        KeyMerge.table(
+          _deepMerge(existing.cast(), value.cast(), managed.within(key)),
+        ),
+      _ when !base.containsKey(key) => KeyMerge.added(value),
       // VGV's own and untouched since: VGV's to write.
-      if (managed.owns(key, existing)) {
-        result[key] = value;
-        continue;
-      }
-
-      if (existing is List && value is List) {
-        final gained = value
-            .where((v) => !codec.listContains(existing, v))
-            .toList();
-        result[key] = <dynamic>[...existing, ...gained];
-        if (gained.isNotEmpty) added[key] = gained;
-        continue;
-      }
-
-      if (force) {
-        result[key] = value;
-        continue;
-      }
-
-      declined = declined || existing != value;
-    }
-
-    return DeepMerge(merged: result, added: added, declined: declined);
+      _ when managed.owns(key, existing) => KeyMerge.replaced(value),
+      (final List<dynamic> existing, final List<dynamic> value) =>
+        KeyMerge.union(existing, [
+          for (final item in value)
+            if (!codec.listContains(existing, item)) item,
+        ]),
+      _ when force => KeyMerge.replaced(value),
+      _ => KeyMerge.kept(declined: existing != value),
+    };
   }
 }
 

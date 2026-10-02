@@ -41,40 +41,57 @@ sealed class ManifestEntry extends Equatable {
   /// The mode is read back by the same name [toJson] writes it with, so the
   /// two cannot drift apart.
   static ManifestEntry? fromJson(Object? json) {
-    if (json case {
-      'path': final String path,
-      'owner': final String? owner,
-      'mode': final String mode,
-    }) {
+    if (json
+        case final Map<dynamic, dynamic> entry &&
+            {
+              'path': final String path,
+              'owner': final String? owner,
+              'mode': final String mode,
+            }) {
       final harness = Harness.values.asNameMap()[owner];
       if (owner != null && harness == null) return null;
 
-      final changeMode = ChangeMode.values.asNameMap()[mode];
-      if (json case {'sha256': final String sha256}
-          when changeMode == ChangeMode.own) {
-        return OwnedFile(path: path, owner: harness, sha256: sha256);
-      }
-      final format = changeMode?.format;
-      if (json case {'contribution': final Map<String, dynamic> contribution}
-          when format != null) {
-        return MergedDocument(
-          path: path,
-          owner: harness,
-          format: format,
-          contribution: Contribution(contribution),
-        );
-      }
-      if (json case {'sections': final Map<String, dynamic> sections}
-          when changeMode == ChangeMode.mergeMarkdown) {
-        return MarkdownSections(
-          path: path,
-          owner: harness,
-          sections: {
-            for (final MapEntry(:key, :value) in sections.entries)
-              if (value is String) key: value,
-          },
-        );
-      }
+      return _decode(
+        entry,
+        path: path,
+        owner: harness,
+        mode: ChangeMode.values.asNameMap()[mode],
+      );
+    }
+    return null;
+  }
+
+  /// Decodes the fields of [json] that [mode] writes, or null when [mode] is
+  /// unknown or its fields are missing.
+  static ManifestEntry? _decode(
+    Map<dynamic, dynamic> json, {
+    required String path,
+    required Harness? owner,
+    required ChangeMode? mode,
+  }) {
+    final format = mode?.format;
+    if (json case {'sha256': final String sha256} when mode == ChangeMode.own) {
+      return OwnedFile(path: path, owner: owner, sha256: sha256);
+    }
+    if (json case {'contribution': final Map<String, dynamic> contribution}
+        when format != null) {
+      return MergedDocument(
+        path: path,
+        owner: owner,
+        format: format,
+        contribution: Contribution(contribution),
+      );
+    }
+    if (json case {'sections': final Map<String, dynamic> sections}
+        when mode == ChangeMode.mergeMarkdown) {
+      return MarkdownSections(
+        path: path,
+        owner: owner,
+        sections: {
+          for (final MapEntry(:key, :value) in sections.entries)
+            if (value is String) key: value,
+        },
+      );
     }
     return null;
   }
@@ -234,8 +251,9 @@ class InstallManifest extends Equatable {
   Iterable<ManifestEntry> get entries => _entries.values;
 
   /// The entries [owner] owns, where null is the shared skills.
-  Iterable<ManifestEntry> entriesFor(Harness? owner) =>
-      entries.where((entry) => entry.owner == owner);
+  Iterable<ManifestEntry> entriesFor(Harness? owner) {
+    return entries.where((entry) => entry.owner == owner);
+  }
 
   /// The entry for [path], or null when VGV has not recorded it.
   ManifestEntry? operator [](String path) => _entries[path];
@@ -247,8 +265,9 @@ class InstallManifest extends Equatable {
   };
 
   /// This manifest with [entry] in place of any entry for its path.
-  InstallManifest record(ManifestEntry entry) =>
-      InstallManifest([..._entries.values, entry]);
+  InstallManifest record(ManifestEntry entry) {
+    return InstallManifest([..._entries.values, entry]);
+  }
 
   /// This manifest without the entries for [paths].
   InstallManifest without(Iterable<String> paths) {

@@ -1,3 +1,5 @@
+import 'package:collection/collection.dart';
+
 /// {@template toml_statement_kind}
 /// What a statement of a TOML document is.
 /// {@endtemplate}
@@ -42,4 +44,8 @@ class const TomlStatement({
   /// Whether the statement opens a table or an array of tables.
   bool get isHeader =>
       kind == TomlStatementKind.table || kind == TomlStatementKind.arrayTable;
+
+  /// Whether the statement is a [kind] statement for exactly [path].
+  bool declares(TomlStatementKind kind, List<String> path) =>
+      this.kind == kind && const ListEquality<String>().equals(this.path, path);
 }
