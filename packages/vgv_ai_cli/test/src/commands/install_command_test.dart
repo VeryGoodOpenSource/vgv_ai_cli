@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -13,6 +13,7 @@ import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
@@ -23,15 +24,6 @@ class _MockProgress extends Mock implements Progress;
 class _MockDetector extends Mock implements HarnessDetector;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
-
-class _FakeSource extends PluginSource {
-  const new(this.resolution);
-
-  final PluginResolution resolution;
-
-  @override
-  Future<PluginResolution> resolve(PluginRef ref) async => resolution;
-}
 
 class _FakeParser implements PluginParser {
   const new(this.assets);
@@ -122,6 +114,17 @@ void main() {
           .thenAnswer((_) async => packageVersion);
     });
 
+    /// Clones every plugin by creating its target, since there is no
+    /// Claude Code cache under [home].
+    Future<ProcessResult> clone(
+      String executable,
+      List<String> arguments, {
+      bool runInShell = false,
+    }) async {
+      fs.directory(arguments.last).createSync(recursive: true);
+      return ProcessResult(0, 0, '', '');
+    }
+
     Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
         VgvAiCliCommandRunner(
           logger: logger,
@@ -131,7 +134,7 @@ void main() {
 
     Future<int> runInstall(
       List<String> args, {
-      PluginSource? source,
+      RunProcess? runProcess,
       PluginParser? parser,
       Translator? using,
     }) => runThroughRunner(
@@ -139,9 +142,10 @@ void main() {
         logger: logger,
         home: home,
         detector: detector,
-        pluginSource:
-            source ?? _FakeSource(ResolvedPlugin(fs.directory('/plugin'))),
-        parser: parser ?? _FakeParser(_assets(fs)),
+        resolver: PluginResolver(
+          runProcess: runProcess ?? clone,
+          parser: parser ?? _FakeParser(_assets(fs)),
+        ),
         translator: using ?? translator,
       ),
       args,
@@ -249,22 +253,53 @@ void main() {
     });
 
     group('resolution', () {
+      test('clones the plugins when there is no Claude Code cache', () async {
+        final cloned = <List<String>>[];
+
+        final exitCode = await runInstall(
+          ['--only', 'codex'],
+          runProcess: (executable, arguments, {runInShell = false}) {
+            cloned.add([executable, ...arguments.take(2)]);
+            return clone(executable, arguments);
+          },
+        );
+
+        expect(exitCode, ExitCode.success.code);
+        expect(home.childDirectory('.claude').existsSync(), isFalse);
+        expect(cloned, [
+          for (final _ in vgvPlugins) ['git', 'clone', '--depth'],
+        ]);
+      });
+
       test(
         'aborts with unavailable when a plugin cannot be resolved',
         () async {
+          translator.plan = TranslationPlan(
+            harnesses: {
+              Harness.claude: TranslationResult(
+                changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+              ),
+            },
+          );
+
           final exitCode = await runInstall(
             ['--only', 'claude'],
-            source: const _FakeSource(
-              UnavailablePlugin(['no cache', 'no git']),
-            ),
+            runProcess: (executable, arguments, {runInShell = false}) =>
+                throw ProcessException(executable, arguments),
           );
 
           expect(exitCode, ExitCode.unavailable.code);
           expect(translator.selected, isNull);
-          verify(() => progress.fail(any(that: contains('Could not resolve'))))
+          expect(homeFile('.claude/a.md').existsSync(), isFalse);
+          expect(ManifestStore(home).file.existsSync(), isFalse);
+          verify(() => progress.fail('Could not resolve ${vgvPlugins.first}'))
               .called(1);
-          verify(() => logger.err('  - no cache')).called(1);
-          verify(() => logger.err('  - no git')).called(1);
+          verify(
+            () => logger.err(any(that: startsWith('  - No Claude Code cache'))),
+          ).called(1);
+          verify(
+            () => logger.err(any(that: startsWith('  - git is not installed'))),
+          ).called(1);
         },
       );
 
@@ -671,17 +706,26 @@ void main() {
       });
 
       test('plugins resolve from the Claude Code cache under home', () async {
+        // A complete cache, so the default resolver never runs a real git.
+        for (final plugin in vgvPlugins) {
+          homeFile(
+            fs.path.join(
+              '.claude/plugins/cache/$vgvMarketplaceName',
+              plugin.name,
+              plugin.version,
+              '.claude-plugin/plugin.json',
+            ),
+          ).createSync(recursive: true);
+        }
+
         final exitCode = await runThroughRunner(
           InstallCommand(logger: logger, home: home),
-          ['--only', 'claude'],
+          ['--only', 'claude', '--check'],
         );
 
-        expect(exitCode, ExitCode.unavailable.code);
-        verify(
-          () => logger.err(
-            any(that: contains(fs.path.join(home.path, '.claude'))),
-          ),
-        ).called(1);
+        expect(exitCode, ExitCode.success.code);
+        verify(() => progress.complete('Resolved 0 skills and 0 agents'))
+            .called(1);
       });
     });
   });

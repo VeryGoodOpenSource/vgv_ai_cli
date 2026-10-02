@@ -11,6 +11,7 @@ import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template install_command}
@@ -28,8 +29,7 @@ class InstallCommand extends Command<int> {
     required this._logger,
     this._home,
     this._environment,
-    this._pluginSource,
-    this._parser = const ClaudePluginParser(),
+    this._resolver = const PluginResolver(),
     this._detector = const HarnessDetector(),
     this._translator = const Translator(),
     this._reconciler = const Reconciler(),
@@ -69,8 +69,7 @@ class InstallCommand extends Command<int> {
   final Logger _logger;
   final Directory? _home;
   final Map<String, String>? _environment;
-  final PluginSource? _pluginSource;
-  final PluginParser _parser;
+  final PluginResolver _resolver;
   final HarnessDetector _detector;
   final Translator _translator;
   final Reconciler _reconciler;
@@ -139,9 +138,7 @@ class InstallCommand extends Command<int> {
     final manifest = _load(store);
     if (manifest == null) return ExitCode.ioError.code;
 
-    final assets = await _resolveAssets(
-      _pluginSource ?? LocalCachePluginSource(home: home),
-    );
+    final assets = await _resolveAssets(home);
     if (assets == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
@@ -266,43 +263,29 @@ class InstallCommand extends Command<int> {
 
   /// Resolves and parses every pinned VGV plugin into one asset bundle.
   ///
-  /// Returns `null` when any plugin cannot be resolved: a half-configured
-  /// harness is worse than an unconfigured one, so the first failure aborts.
-  Future<PluginAssets?> _resolveAssets(PluginSource pluginSource) async {
+  /// Returns `null`, having said why, when any plugin cannot be resolved or
+  /// parsed.
+  Future<PluginAssets?> _resolveAssets(Directory home) async {
     final progress = _logger.progress('Resolving plugins');
-    final parsed = <PluginAssets>[];
 
-    for (final ref in vgvPlugins) {
-      final resolution = await pluginSource.resolve(ref);
-
-      switch (resolution) {
-        case ResolvedPlugin(:final directory):
-          try {
-            parsed.add(_parser.parse(directory));
-          } on PluginParseException catch (error) {
-            progress.fail('Could not parse $ref');
-            _logger.err('  - $error');
-            return null;
-          }
-        case UnavailablePlugin(:final reasons):
-          progress.fail('Could not resolve $ref');
-          for (final reason in reasons) {
-            _logger.err('  - $reason');
-          }
-          _logger.err(
-            'Install Claude Code and its VGV plugins so they are cached, then '
-            'run install again.',
-          );
-          return null;
-      }
+    switch (await _resolver.resolve(home)) {
+      case ResolvedAssets(:final assets):
+        progress.complete(
+          'Resolved ${assets.skills.length} skills and '
+          '${assets.agents.length} agents',
+        );
+        return assets;
+      case UnavailableAssets(:final plugin, :final reasons):
+        progress.fail('Could not resolve $plugin');
+        for (final reason in reasons) {
+          _logger.err('  - $reason');
+        }
+        return null;
+      case UnparseableAssets(:final plugin, :final error):
+        progress.fail('Could not parse $plugin');
+        _logger.err('  - $error');
+        return null;
     }
-
-    final assets = PluginAssets.merge(parsed);
-    progress.complete(
-      'Resolved ${assets.skills.length} skills and '
-      '${assets.agents.length} agents',
-    );
-    return assets;
   }
 
   /// Prints what could not be translated, the files that could not be
