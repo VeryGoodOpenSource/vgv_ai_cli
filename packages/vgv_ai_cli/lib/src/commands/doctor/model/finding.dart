@@ -11,6 +11,13 @@ enum FindingKind {
   /// Something is wrong that `install` cannot fix, so [Finding.step] says
   /// what to do instead.
   manual,
+
+  /// Something worth knowing that is not wrong, and that `install` does not
+  /// change.
+  warning,
+
+  /// Something `install` would add, that is not wrong without it.
+  suggestion,
 }
 
 /// {@template finding}
@@ -44,6 +51,27 @@ class const Finding._({
   /// it by hand.
   const new manual(String message, {required String step})
     : this._(kind: FindingKind.manual, message: message, step: step);
+
+  /// {@macro finding}
+  ///
+  /// [message] is worth knowing, but nothing is wrong.
+  const new warning(String message)
+    : this._(kind: FindingKind.warning, message: message);
+
+  /// {@macro finding}
+  ///
+  /// [message] names something `install` would add.
+  const new suggestion(String message)
+    : this._(kind: FindingKind.suggestion, message: message);
+
+  /// Whether this is wrong, rather than worth knowing.
+  bool get isProblem => _problems.contains(kind);
+
+  static const Set<FindingKind> _problems = {
+    FindingKind.missing,
+    FindingKind.drifted,
+    FindingKind.manual,
+  };
 
   /// Whether `install` needs `--force` to fix this.
   bool get needsForce => kind == FindingKind.drifted;

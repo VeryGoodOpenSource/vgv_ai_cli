@@ -20,9 +20,12 @@ class const HarnessReport({
   String get title => owner?.displayName ?? 'Shared';
 
   /// Whether anything was found that is wrong.
-  bool get hasProblems => findings.isNotEmpty;
+  bool get hasProblems => findings.any((finding) => finding.isProblem);
 
-  /// The `install` command that fixes [finding].
-  FixCommand fixFor(Finding finding) =>
-      FixCommand(harnesses: installs, force: finding.needsForce);
+  /// The `install` command that fixes [finding], or null when `install`
+  /// does not change it.
+  FixCommand? fixFor(Finding finding) => switch (finding.kind) {
+    FindingKind.manual || FindingKind.warning => null,
+    _ => FixCommand(harnesses: installs, force: finding.needsForce),
+  };
 }

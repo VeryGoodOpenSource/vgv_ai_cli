@@ -27,5 +27,21 @@ void main() {
       expect(finding.step, 'Fix it.');
       expect(finding.needsForce, isFalse);
     });
+
+    test('warning and suggestion are not problems', () {
+      const warning = Finding.warning('not installed');
+      const suggestion = Finding.suggestion('not configured');
+
+      expect(warning.kind, FindingKind.warning);
+      expect(suggestion.kind, FindingKind.suggestion);
+      expect(warning.isProblem, isFalse);
+      expect(suggestion.isProblem, isFalse);
+    });
+
+    test('missing, drifted and manual are problems', () {
+      expect(const Finding.missing('a').isProblem, isTrue);
+      expect(const Finding.drifted('a').isProblem, isTrue);
+      expect(const Finding.manual('a', step: 'b').isProblem, isTrue);
+    });
   });
 }

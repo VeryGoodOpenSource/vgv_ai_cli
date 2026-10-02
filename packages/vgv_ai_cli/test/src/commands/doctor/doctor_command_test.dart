@@ -8,6 +8,7 @@ import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
+import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
@@ -16,6 +17,8 @@ import 'package:vgv_ai_cli/src/version.dart';
 class _MockLogger extends Mock implements Logger;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
+
+class _MockDetector extends Mock implements HarnessDetector;
 
 /// A [ManifestAuditor] that reports [unreadable] as unreadable, and verifies
 /// everything else for real.
@@ -32,12 +35,28 @@ class _LockedAuditor extends ManifestAuditor {
 }
 
 void main() {
+  setUpAll(() => registerFallbackValue(Harness.claude));
+
   group('doctor', () {
     late Logger logger;
     late PubUpdater pubUpdater;
     late FileSystem fs;
     late Directory home;
     late ManifestStore store;
+    late HarnessDetector detector;
+
+    /// Detects exactly [installed], or, when null, the harnesses the
+    /// manifest configures.
+    void detect([Iterable<Harness>? installed]) {
+      when(() => detector.detect(any())).thenAnswer((invocation) async {
+        final harnesses =
+            installed ??
+            [for (final entry in store.load()!.entries) ?entry.owner];
+        return harnesses.contains(invocation.positionalArguments.single)
+            ? const HarnessDetection.detected(version: '1.0.0')
+            : const HarnessDetection.missing();
+      });
+    }
 
     setUp(() {
       logger = _MockLogger();
@@ -45,6 +64,8 @@ void main() {
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
+      detector = _MockDetector();
+      detect();
 
       when(() => pubUpdater.getLatestVersion(any()))
           .thenAnswer((_) async => packageVersion);
@@ -57,13 +78,17 @@ void main() {
           doctorCommand: command,
         ).run(['doctor', ...args]);
 
-    Future<int> runDoctor({ManifestAuditor? auditor}) => runThroughRunner(
+    Future<int> runDoctor({
+      List<String> args = const [],
+      ManifestAuditor? auditor,
+    }) => runThroughRunner(
       DoctorCommand(
         logger: logger,
         home: home,
+        detector: detector,
         auditor: auditor ?? const ManifestAuditor(),
       ),
-      const [],
+      args,
     );
 
     File homeFile(String relative) =>
@@ -224,6 +249,122 @@ void main() {
       expect(snapshot(), before);
     });
 
+    group('detection', () {
+      void installCodex() => install([
+        owned('.agents/skills/a/SKILL.md'),
+        owned('.codex/agents/a.toml', harness: Harness.codex),
+      ]);
+
+      test('suggests configuring a harness VGV has not, and exits 0', () async {
+        installCodex();
+        detect(const [Harness.codex, Harness.gemini]);
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('! Gemini');
+        verifyInfo("    installed, but VGV hasn't configured it");
+        verifyInfo('      vgv_ai install --only gemini');
+        verifyInfo('✓ Codex');
+        verifyNever(() => logger.info(any(that: endsWith('OpenCode'))));
+      });
+
+      test(
+        'suggests configuring a harness when nothing is installed',
+        () async {
+          detect(const [Harness.pi]);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verify(
+            () => logger.info(any(that: startsWith("VGV hasn't installed"))),
+          ).called(1);
+          verifyInfo('! Pi');
+          verifyInfo('      vgv_ai install --only pi');
+        },
+      );
+
+      test('leaves out the shared skills when no configured harness in '
+          'scope reads them', () async {
+        installCodex();
+        detect(const [Harness.codex, Harness.pi]);
+
+        final exitCode = await runDoctor(args: ['--only', 'pi']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('! Pi');
+        verifyNever(() => logger.info('✓ Shared'));
+      });
+
+      test(
+        'warns about a configured harness that is gone, and exits 0',
+        () async {
+          installCodex();
+          detect(const []);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo('! Codex');
+          verifyInfo(
+            '    not installed on this machine, but VGV configured it',
+          );
+          verifyNever(() => logger.info(any(that: startsWith('      '))));
+        },
+      );
+
+      test('still fails on a problem beside a warning', () async {
+        installCodex();
+        detect(const []);
+        homeFile('.codex/agents/a.toml').deleteSync();
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('✗ Codex');
+      });
+
+      test('--only limits the report to the named harnesses', () async {
+        installCodex();
+        install([owned('.claude/a.md', harness: Harness.claude)]);
+        detect(Harness.values);
+
+        final exitCode = await runDoctor(args: ['--only', 'claude']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('✓ Claude Code');
+        verifyNever(() => logger.info('✓ Codex'));
+        verifyNever(() => logger.info('✓ Shared'));
+        verifyNever(() => logger.info('! Gemini'));
+        verifyNever(() => detector.detect(Harness.codex));
+      });
+
+      test('--no-<harness> drops one', () async {
+        installCodex();
+        detect(const [Harness.codex, Harness.gemini]);
+
+        final exitCode = await runDoctor(args: ['--no-codex']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('! Gemini');
+        verifyNever(() => logger.info('✓ Codex'));
+        verifyNever(() => detector.detect(Harness.codex));
+      });
+
+      test('--only cannot be combined with a harness flag', () async {
+        final exitCode = await runDoctor(
+          args: ['--only', 'codex', '--no-gemini'],
+        );
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(
+          () => logger.err('--only cannot be combined with --[no-]gemini.'),
+        ).called(1);
+        verifyNever(() => detector.detect(any()));
+      });
+    });
+
     group('the manifest', () {
       test('from another version exits 70 with a manual step', () async {
         final newer = jsonEncode({'version': InstallManifest.version + 1});
@@ -275,6 +416,7 @@ void main() {
           DoctorCommand(
             logger: logger,
             environment: {'HOME': '/nowhere/${DateTime.now().microsecond}'},
+            detector: detector,
           ),
           const [],
         );

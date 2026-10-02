@@ -6,6 +6,7 @@ import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -15,20 +16,27 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// Reports, per harness, what VGV installed that is missing or was changed
 /// since, and the `install` command that fixes it.
 ///
-/// Never writes harness config or the manifest.
+/// It also suggests configuring a harness that is installed but that VGV
+/// has not configured, and warns about one VGV configured that is no longer
+/// installed. `--only` and `--no-<harness>` narrow the report as they
+/// narrow `install`. Never writes harness config or the manifest.
 /// {@endtemplate}
-class DoctorCommand extends Command<int> {
+class DoctorCommand extends Command<int> with HarnessSelection {
   /// {@macro doctor_command}
   new({
     required this._logger,
     this._home,
     this._environment,
+    this._detector = const HarnessDetector(),
     this._auditor = const ManifestAuditor(),
-  });
+  }) {
+    addHarnessOptions('Check');
+  }
 
   final Logger _logger;
   final Directory? _home;
   final Map<String, String>? _environment;
+  final HarnessDetector _detector;
   final ManifestAuditor _auditor;
 
   static const String commandName = 'doctor';
@@ -66,10 +74,15 @@ class DoctorCommand extends Command<int> {
         "VGV hasn't installed anything here yet. Run "
         "${lightCyan.wrap('vgv_ai install')} to set it up.",
       );
-      return ExitCode.success.code;
     }
 
-    final reports = _verify(manifest, home)..forEach(_report);
+    final scope = onlyHarnesses ?? Harness.values.where(isEnabled).toSet();
+    final reports = _verify(
+      manifest,
+      home,
+      scope: scope,
+      detected: await _detect(scope),
+    )..forEach(_report);
     return reports.any((report) => report.hasProblems)
         ? ExitCode.software.code
         : ExitCode.success.code;
@@ -103,20 +116,57 @@ class DoctorCommand extends Command<int> {
     }
   }
 
-  /// One report per owner [manifest] records, shared skills first.
-  List<HarnessReport> _verify(InstallManifest manifest, Directory home) {
+  /// The harnesses of [scope] that are installed on this machine.
+  Future<Set<Harness>> _detect(Set<Harness> scope) async {
+    final detections = await Future.wait(scope.map(_detector.detect));
+    return {
+      for (final (index, harness) in scope.indexed)
+        if (detections[index].installed) harness,
+    };
+  }
+
+  /// One report for the shared skills, when a configured harness in [scope]
+  /// reads them, and one per harness in [scope] that is configured or
+  /// [detected].
+  List<HarnessReport> _verify(
+    InstallManifest manifest,
+    Directory home, {
+    required Set<Harness> scope,
+    required Set<Harness> detected,
+  }) {
     final configured = {for (final entry in manifest.entries) ?entry.owner};
+    final readsShared = configured
+        .intersection(scope)
+        .intersection(_readShared);
+
+    List<Finding> verifyEntries(Harness? owner) => [
+      for (final entry in manifest.entriesFor(owner))
+        ?_finding(_auditor.verify(entry, home.fileSystem), home),
+    ];
+
     return [
-      for (final owner in <Harness?>[null, ...Harness.values])
-        if (manifest.entriesFor(owner).isNotEmpty)
+      if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
+        HarnessReport(
+          owner: null,
+          installs: readsShared,
+          findings: verifyEntries(null),
+        ),
+      for (final harness in Harness.values)
+        if (scope.contains(harness) &&
+            (configured.contains(harness) || detected.contains(harness)))
           HarnessReport(
-            owner: owner,
-            installs: owner == null
-                ? configured.intersection(_readShared)
-                : {owner},
+            owner: harness,
+            installs: {harness},
             findings: [
-              for (final entry in manifest.entriesFor(owner))
-                ?_finding(_auditor.verify(entry, home.fileSystem), home),
+              if (!detected.contains(harness))
+                const Finding.warning(
+                  'not installed on this machine, but VGV configured it',
+                ),
+              if (!configured.contains(harness))
+                const Finding.suggestion(
+                  "installed, but VGV hasn't configured it",
+                ),
+              ...verifyEntries(harness),
             ],
           ),
     ];
@@ -146,17 +196,18 @@ class DoctorCommand extends Command<int> {
 
   /// Prints [report]'s owner, and each finding with how to fix it.
   void _report(HarnessReport report) {
-    if (!report.hasProblems) {
-      _logger.info('${lightGreen.wrap('✓')} ${report.title}');
-      return;
-    }
+    final mark = switch (report) {
+      HarnessReport(hasProblems: true) => lightRed.wrap('✗'),
+      HarnessReport(findings: List(isNotEmpty: true)) => lightYellow.wrap('!'),
+      _ => lightGreen.wrap('✓'),
+    };
+    _logger.info('$mark ${report.title}');
 
-    _logger.info('${lightRed.wrap('✗')} ${report.title}');
     for (final finding in report.findings) {
-      final fix = finding.step ?? lightCyan.wrap('${report.fixFor(finding)}');
-      _logger
-        ..info('    ${finding.message}')
-        ..info('      $fix');
+      _logger.info('    ${finding.message}');
+      final fix =
+          finding.step ?? lightCyan.wrap(report.fixFor(finding)?.toString());
+      if (fix != null) _logger.info('      $fix');
     }
   }
 

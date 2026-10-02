@@ -19,12 +19,20 @@ void main() {
       );
     });
 
-    test('has problems only when something was found', () {
+    test('has problems only when something wrong was found', () {
       expect(
         const HarnessReport(
           owner: null,
           installs: {},
           findings: [],
+        ).hasProblems,
+        isFalse,
+      );
+      expect(
+        const HarnessReport(
+          owner: null,
+          installs: {},
+          findings: [Finding.warning('a'), Finding.suggestion('b')],
         ).hasProblems,
         isFalse,
       );
@@ -53,6 +61,21 @@ void main() {
         report.fixFor(const Finding.drifted('changed ~/a')).toString(),
         'vgv_ai install --only gemini --only codex --force',
       );
+      expect(
+        report.fixFor(const Finding.suggestion('a')).toString(),
+        'vgv_ai install --only gemini --only codex',
+      );
+    });
+
+    test('has no install fix for a manual step or a warning', () {
+      const report = HarnessReport(
+        owner: Harness.codex,
+        installs: {Harness.codex},
+        findings: [],
+      );
+
+      expect(report.fixFor(const Finding.manual('a', step: 'b')), isNull);
+      expect(report.fixFor(const Finding.warning('a')), isNull);
     });
   });
 }
