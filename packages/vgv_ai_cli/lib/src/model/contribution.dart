@@ -153,18 +153,18 @@ Object? _partOf({
   required Object? value,
   required Contribution within,
   required List<dynamic> appended,
-}) => switch ((prior, value)) {
-  (final Map<String, dynamic> prior, final Map<String, dynamic> value) => _of(
-    prior,
-    value,
-    within,
-  ),
-  (final List<dynamic> prior, final List<dynamic> value) => [
-    for (final item in value)
-      if (_isOwnedEntry(item, prior: prior, appended: appended)) item,
-  ],
-  _ => null,
-};
+}) {
+  if (prior is Map<String, dynamic> && value is Map<String, dynamic>) {
+    return _of(prior, value, within);
+  }
+  if (prior is List<dynamic> && value is List<dynamic>) {
+    return [
+      for (final item in value)
+        if (_isOwnedEntry(item, prior: prior, appended: appended)) item,
+    ];
+  }
+  return null;
+}
 
 /// Whether [item] is VGV's: the user's [prior] list lacks it, or VGV
 /// [appended] it last time.

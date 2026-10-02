@@ -101,7 +101,7 @@ class const TomlText(
     required Object? value,
   }) {
     final lines = source.split('\n');
-    final region = scanTomlRegion(lines, table: table);
+    final region = TomlScanner(lines).region(table: table);
 
     if (region == null) {
       final nested = table.reversed.fold<Map<String, dynamic>>({
@@ -133,7 +133,7 @@ class const TomlText(
   /// unchanged when there is none.
   TomlText remove({required List<String> table, required String key}) {
     final lines = source.split('\n');
-    final current = scanTomlRegion(lines, table: table)?.statementOf(key);
+    final current = TomlScanner(lines).region(table: table)?.statementOf(key);
     if (current == null) return this;
 
     lines.removeRange(current.start, current.end + 1);
@@ -148,7 +148,7 @@ class const TomlText(
   /// one.
   TomlText removeTable(List<String> table) {
     final lines = source.split('\n');
-    final region = scanTomlRegion(lines, table: table);
+    final region = TomlScanner(lines).region(table: table);
     final header = region?.header;
     if (header == null) return this;
 

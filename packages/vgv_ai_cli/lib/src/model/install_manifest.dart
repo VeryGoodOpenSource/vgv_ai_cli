@@ -68,36 +68,33 @@ sealed class ManifestEntry extends Equatable {
     required String path,
     required Harness? owner,
     required ChangeMode? mode,
-  }) => switch ((mode, json)) {
-    (ChangeMode.own, {'sha256': final String sha256}) => OwnedFile(
-      path: path,
-      owner: owner,
-      sha256: sha256,
-    ),
-    (
-      ChangeMode(:final format?),
-      {'contribution': final Map<String, dynamic> contribution},
-    ) =>
-      MergedDocument(
+  }) {
+    final format = mode?.format;
+    if (json case {'sha256': final String sha256} when mode == ChangeMode.own) {
+      return OwnedFile(path: path, owner: owner, sha256: sha256);
+    }
+    if (json case {'contribution': final Map<String, dynamic> contribution}
+        when format != null) {
+      return MergedDocument(
         path: path,
         owner: owner,
         format: format,
         contribution: Contribution(contribution),
-      ),
-    (
-      ChangeMode.mergeMarkdown,
-      {'sections': final Map<String, dynamic> sections},
-    ) =>
-      MarkdownSections(
+      );
+    }
+    if (json case {'sections': final Map<String, dynamic> sections}
+        when mode == ChangeMode.mergeMarkdown) {
+      return MarkdownSections(
         path: path,
         owner: owner,
         sections: {
           for (final MapEntry(:key, :value) in sections.entries)
             if (value is String) key: value,
         },
-      ),
-    _ => null,
-  };
+      );
+    }
+    return null;
+  }
 }
 
 /// {@template owned_file}

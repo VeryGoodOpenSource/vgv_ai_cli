@@ -17,10 +17,10 @@ Matcher _statement(
     .having((s) => s.hasInnerComment, 'hasInnerComment', hasInnerComment);
 
 List<TomlStatement> _topLevel(List<String> lines) =>
-    scanTomlRegion(lines, table: const [])!.body;
+    TomlScanner(lines).region(table: const [])!.body;
 
 void main() {
-  group('scanTomlRegion', () {
+  group('TomlScanner', () {
     const lines = [
       'model = "o3"',
       '',
@@ -33,7 +33,7 @@ void main() {
     ];
 
     test('is the statements before the first header for the top level', () {
-      final region = scanTomlRegion(lines, table: const [])!;
+      final region = TomlScanner(lines).region(table: const [])!;
 
       expect(region.header, isNull);
       expect(region.body, [
@@ -48,7 +48,7 @@ void main() {
     });
 
     test('is a table up to the next header, a multiline value as one', () {
-      final region = scanTomlRegion(lines, table: const ['mcp'])!;
+      final region = TomlScanner(lines).region(table: const ['mcp'])!;
 
       expect(
         region.header,
@@ -66,11 +66,11 @@ void main() {
     });
 
     test('does not let an array-of-tables header stand in for a table', () {
-      expect(scanTomlRegion(lines, table: const ['agents']), isNull);
+      expect(TomlScanner(lines).region(table: const ['agents']), isNull);
     });
 
     test('is null for a table that appears nowhere in the document', () {
-      expect(scanTomlRegion(lines, table: const ['theme']), isNull);
+      expect(TomlScanner(lines).region(table: const ['theme']), isNull);
     });
 
     test('reads quoted keys whose quotes hold the terminator', () {
@@ -85,7 +85,7 @@ void main() {
         ),
       ]);
       expect(
-        scanTomlRegion(quoted, table: const ['x]y'])?.header,
+        TomlScanner(quoted).region(table: const ['x]y'])?.header,
         _statement(TomlStatementKind.table, path: ['x]y'], start: 1, end: 1),
       );
     });
