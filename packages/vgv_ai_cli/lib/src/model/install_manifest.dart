@@ -184,7 +184,8 @@ final class MarkdownSections extends ManifestEntry {
 }
 
 /// {@template install_manifest}
-/// Everything VGV wrote under a home directory, by file.
+/// Everything VGV wrote under a home directory, by file, and the plugin
+/// versions it was written from.
 ///
 /// `install` writes it, and `doctor` and `uninstall` read it, so this is the
 /// one place ownership is defined. It is persisted rather than recomputed
@@ -197,7 +198,7 @@ final class MarkdownSections extends ManifestEntry {
 /// {@endtemplate}
 class InstallManifest extends Equatable {
   /// {@macro install_manifest}
-  new([Iterable<ManifestEntry> entries = const []])
+  new([Iterable<ManifestEntry> entries = const [], this.plugins = const {}])
     : _entries = {for (final entry in entries) entry.path: entry};
 
   /// Decodes [source], with its paths resolved against [home], keeping
@@ -221,10 +222,17 @@ class InstallManifest extends Equatable {
         'version': InstallManifest.version,
         'entries': final List<dynamic> list,
       } =>
-        InstallManifest([
-          for (final item in list)
-            ?ManifestEntry.fromJson(_resolved(item, home: home)),
-        ]),
+        InstallManifest(
+          [
+            for (final item in list)
+              ?ManifestEntry.fromJson(_resolved(item, home: home)),
+          ],
+          {
+            if (json['plugins'] case final Map<String, dynamic> plugins)
+              for (final MapEntry(:key, :value) in plugins.entries)
+                if (value is String) key: value,
+          },
+        ),
       {'version': final int other} when other != version => null,
       _ => InstallManifest(),
     };
@@ -243,9 +251,12 @@ class InstallManifest extends Equatable {
   }
 
   /// The format [encode] writes.
-  static const version = 1;
+  static const version = 2;
 
   final Map<String, ManifestEntry> _entries;
+
+  /// Each plugin's name to the version VGV's files were written from.
+  final Map<String, String> plugins;
 
   /// Every entry, in the order they were recorded.
   Iterable<ManifestEntry> get entries => _entries.values;
@@ -266,13 +277,21 @@ class InstallManifest extends Equatable {
 
   /// This manifest with [entry] in place of any entry for its path.
   InstallManifest record(ManifestEntry entry) {
-    return InstallManifest([..._entries.values, entry]);
+    return InstallManifest([..._entries.values, entry], plugins);
   }
 
   /// This manifest without the entries for [paths].
   InstallManifest without(Iterable<String> paths) {
     final dropped = paths.toSet();
-    return InstallManifest(entries.where((e) => !dropped.contains(e.path)));
+    return InstallManifest(
+      entries.where((e) => !dropped.contains(e.path)),
+      plugins,
+    );
+  }
+
+  /// This manifest with [plugins] as the versions it was written from.
+  InstallManifest withPlugins(Map<String, String> plugins) {
+    return InstallManifest(entries, plugins);
   }
 
   /// The manifest as the JSON [InstallManifest.decode] reads, with its
@@ -280,6 +299,7 @@ class InstallManifest extends Equatable {
   String encode({required String home}) {
     final json = {
       'version': version,
+      'plugins': plugins,
       'entries': [
         for (final entry in entries)
           {...entry.toJson(), 'path': p.relative(entry.path, from: home)},
@@ -289,7 +309,7 @@ class InstallManifest extends Equatable {
   }
 
   @override
-  List<Object?> get props => [entries.toList()];
+  List<Object?> get props => [entries.toList(), plugins];
 }
 
 /// The SHA-256 of [bytes], as hex.

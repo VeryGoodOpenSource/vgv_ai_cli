@@ -618,6 +618,15 @@ void main() {
           expect(manifest.file.readAsStringSync(), before);
         });
 
+        test('keeps the plugin versions it records', () {
+          final result = auditor.reverse(
+            InstallManifest(const [], const {'vgv-wingspan': '0.0.5'}),
+            fs,
+          );
+
+          expect(result.manifest.plugins, {'vgv-wingspan': '0.0.5'});
+        });
+
         test('does nothing with an empty manifest', () {
           final result = auditor.reverse(InstallManifest(), fs);
 

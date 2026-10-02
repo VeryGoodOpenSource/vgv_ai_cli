@@ -78,7 +78,7 @@ class const ManifestAuditor({
       manifest: InstallManifest([
         ...manifest.without(settled).entries,
         ...narrowed,
-      ]),
+      ], manifest.plugins),
     );
   }
 
