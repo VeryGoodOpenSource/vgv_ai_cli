@@ -117,13 +117,16 @@ void main() {
     });
 
     group('notes', () {
-      test('report that it has nowhere to run the hooks, once', () {
+      test('report that nothing in its config runs a shell command, once', () {
         final notes = translator.notes(
           pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
         );
 
         expect(notes.single.subject, '2 hook(s)');
-        expect(notes.single.reason, contains('Gemini has no hooks system'));
+        expect(
+          notes.single.reason,
+          contains("nothing in Gemini's config runs one"),
+        );
       });
 
       test('are empty when everything translates', () {

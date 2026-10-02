@@ -17,6 +17,10 @@ void main() {
       expect(translator.harness, Harness.codex);
     });
 
+    test('declares that it runs the hooks, which the notes read', () {
+      expect(translator.runsHooks, isTrue);
+    });
+
     test('declares MCP servers as TOML tables, headers as http_headers', () {
       final toml = translator.settings(
         pluginAssets(

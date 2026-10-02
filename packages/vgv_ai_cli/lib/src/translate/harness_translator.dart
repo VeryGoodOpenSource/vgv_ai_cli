@@ -31,6 +31,14 @@ abstract class HarnessTranslator {
   /// `~/.agents/skills`.
   bool get readsSharedSkills => true;
 
+  /// Whether this harness runs the plugins' hooks.
+  ///
+  /// Declared rather than read off [hooks], because [notes] has to say why a
+  /// harness gets none and cannot call [hooks] without the paths it takes.
+  /// Overriding one without the other would write a harness its hooks and
+  /// tell it in the same breath that it has none, so both are read from here.
+  bool get runsHooks => false;
+
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
@@ -46,23 +54,29 @@ abstract class HarnessTranslator {
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
   /// The hooks fragment merged into this harness's own hooks file, or null
-  /// for a harness that runs none of them, whose brick folder then has no
-  /// hooks file.
+  /// when there is nothing it can run, whose brick folder then has no hooks
+  /// file.
   ///
-  /// [hooksRoot] is where the brick writes this harness's hook helper
-  /// scripts, for a translator whose commands have to name one.
+  /// Only called when [runsHooks] is set. [hooksRoot] is where the brick
+  /// writes this harness's hook helper scripts, for a translator whose
+  /// commands have to name one.
   String? hooks(PluginAssets assets, {required String hooksRoot}) => null;
 
   /// What the user needs to know about [assets] for this harness: what it
   /// cannot express, and what it will not do until they act.
   ///
-  /// A hook is a shell command the harness runs at a lifecycle point, so a
-  /// harness with no hooks system of its own has nowhere to put one.
+  /// The plugins declare a hook as a shell command to run at a lifecycle
+  /// point. A harness that cannot be configured to run one gets none, which
+  /// is about its config rather than whether it has hooks at all: OpenCode
+  /// has lifecycle hooks, but they are TypeScript callbacks a plugin
+  /// registers, not a command named in a file.
   List<TranslationNote> notes(PluginAssets assets) => [
-    if (assets.hooks.isNotEmpty)
+    if (!runsHooks && assets.hooks.isNotEmpty)
       TranslationNote(
         subject: '${assets.hooks.length} hook(s)',
-        reason: '${harness.displayName} has no hooks system to run them from',
+        reason:
+            'the plugins ship them as shell commands, and nothing in '
+            "${harness.displayName}'s config runs one",
       ),
   ];
 }
