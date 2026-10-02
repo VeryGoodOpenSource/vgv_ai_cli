@@ -2,13 +2,6 @@ import 'dart:io';
 
 import 'package:vgv_ai_cli/src/model/model.dart';
 
-/// Signature of [Process.run], narrowed to what detection needs.
-typedef RunProcess = Future<ProcessResult> Function(
-  String executable,
-  List<String> arguments, {
-  bool runInShell,
-});
-
 /// {@template harness_detection}
 /// The result of probing for a single [Harness].
 /// {@endtemplate}
