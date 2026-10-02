@@ -21,9 +21,11 @@ class const AgentsVars({
 }) {
   /// The vars, keyed as the brick reads them.
   ///
-  /// `agents` and `commands` are the only top-level lists, and each is left
-  /// out when empty. Mason renders a path loop once for every combination of
-  /// every top-level list, and renders an empty one as a file with no name.
+  /// `agents` and `commands` are the only top-level lists, and an empty one
+  /// is left out rather than passed through as `[]`. A brick file path loops
+  /// over a list to decide how many files to render, and an empty list still
+  /// renders one file, with nothing where its name should be: a stray `.md`
+  /// in the user's config directory.
   Map<String, Object?> toMap() {
     final agents = [for (final agent in assets.agents) _agent(agent)];
     final commands = [
