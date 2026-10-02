@@ -1,4 +1,4 @@
-/// The values the translate layer passes between its steps.
+/// The types the translate feature defines.
 library;
 
 export 'codex_tool.dart';

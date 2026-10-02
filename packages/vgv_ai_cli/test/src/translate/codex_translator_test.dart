@@ -170,6 +170,25 @@ void main() {
         }
       });
 
+      test('leave a handler that runs no shell command unwrapped', () {
+        // Codex takes an mcp_tool handler and Claude a prompt one. Neither
+        // runs a shell command, so neither has a payload to translate.
+        final registrations =
+            events([
+                  hookAsset(
+                    fs,
+                    commands: const [
+                      HookCommand(type: 'prompt', command: 'say-hello'),
+                    ],
+                  ),
+                ])['PostToolUse']!
+                as List<Object?>;
+        final commands =
+            (registrations.single! as Map)['hooks']! as List<Object?>;
+
+        expect((commands.single! as Map)['command'], 'say-hello');
+      });
+
       test('quote a plugin path that holds a quote', () {
         final registrations =
             events([
@@ -206,6 +225,7 @@ void main() {
         expect(commands.first! as Map, containsPair('type', 'command'));
         expect(commands.first! as Map, containsPair('timeout', 5));
         expect(commands.last! as Map, containsPair('type', 'prompt'));
+        expect(commands.last! as Map, containsPair('command', 'b.sh'));
         expect(commands.last! as Map, isNot(contains('timeout')));
       });
 
