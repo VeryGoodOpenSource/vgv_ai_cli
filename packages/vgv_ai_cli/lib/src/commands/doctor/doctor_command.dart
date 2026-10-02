@@ -5,7 +5,7 @@ import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
-import 'package:vgv_ai_cli/src/commands/install_command.dart';
+import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -49,8 +49,7 @@ class DoctorCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final home =
-        _home ?? InstallCommand.userHome(_environment ?? Platform.environment);
+    final home = _home ?? userHome(_environment ?? Platform.environment);
     if (home == null) {
       _logger.err(
         'Could not find your home directory. Set HOME and run doctor again.',

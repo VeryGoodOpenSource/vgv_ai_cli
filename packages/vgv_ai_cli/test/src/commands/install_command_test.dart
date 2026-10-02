@@ -10,6 +10,7 @@ import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
+import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -701,7 +702,7 @@ void main() {
 
       test('the home falls back to USERPROFILE', () {
         expect(
-          InstallCommand.userHome(const {'USERPROFILE': r'C:\Users\dev'})?.path,
+          userHome(const {'USERPROFILE': r'C:\Users\dev'})?.path,
           r'C:\Users\dev',
         );
       });
