@@ -66,10 +66,7 @@ class const CodexTranslator() extends HarnessTranslator {
     final events = <String, List<Object?>>{};
     for (final hook in assets.hooks.where(_runs)) {
       events.putIfAbsent(hook.event, () => []).add({
-        'matcher': ?switch (hook.matcher) {
-          final declared? => _codexTools(declared).join('|'),
-          _ => null,
-        },
+        'matcher': ?_matcher(hook),
         'hooks': [
           for (final command in hook.commands)
             {
@@ -88,9 +85,9 @@ class const CodexTranslator() extends HarnessTranslator {
   List<TranslationNote> notes(PluginAssets assets) => [
     ...super.notes(assets),
     for (final hook in assets.hooks)
-      if (!_runs(hook))
+      if (hook.matcher case final matcher? when !_runs(hook))
         TranslationNote(
-          subject: '${hook.event} ${hook.matcher}',
+          subject: '${hook.event} $matcher',
           reason: 'Codex has none of those tools, so the hook could never fire',
         ),
     if (assets.hooks.any(_runs))
@@ -102,15 +99,20 @@ class const CodexTranslator() extends HarnessTranslator {
       ),
   ];
 
+  /// [hook]'s matcher as Codex spells it, and null when it declares none,
+  /// which is how both harnesses spell a hook that fires for every tool.
+  static String? _matcher(HookAsset hook) => switch (hook.matcher) {
+    final declared? => _codexTools(declared).join('|'),
+    _ => null,
+  };
+
   /// Whether Codex can run [hook].
   ///
   /// A hook with no matcher fires for every tool, so it always can. One whose
-  /// matcher names only tools Codex does not have could never fire, so it is
-  /// left out of [hooks] and reported by [notes] instead.
-  static bool _runs(HookAsset hook) => switch (hook.matcher) {
-    final declared? => _codexTools(declared).isNotEmpty,
-    _ => true,
-  };
+  /// matcher names only tools Codex does not have translates to an empty
+  /// matcher and could never fire, so it is left out of [hooks] and reported
+  /// by [notes] instead.
+  static bool _runs(HookAsset hook) => _matcher(hook)?.isNotEmpty ?? true;
 
   /// The script the brick writes into the harness's own hooks folder, which
   /// hands a plugin script the Codex payload as Claude Code's.
@@ -119,6 +121,12 @@ class const CodexTranslator() extends HarnessTranslator {
   /// file, so the payload a script reads is Claude's whatever fired it, and
   /// nothing here has to track which field each script happens to read.
   static const payloadScript = 'claude-payload.sh';
+
+  /// The handler type whose `command` is a shell command.
+  ///
+  /// Codex also takes an `mcp_tool` handler, and Claude a `prompt` one.
+  /// Neither runs a shell command, so neither has a payload to translate.
+  static const _commandType = 'command';
 
   /// What [command] runs as, once it names a real script and a real payload.
   ///
@@ -133,6 +141,8 @@ class const CodexTranslator() extends HarnessTranslator {
       HookCommand.pluginRoot,
       hook.pluginRoot.path,
     );
+    if (command.type != _commandType) return expanded;
+
     final script = _quoted(p.join(hooksRoot, payloadScript));
     return 'bash $script ${_quoted(expanded)}';
   }
