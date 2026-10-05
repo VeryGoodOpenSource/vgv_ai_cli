@@ -801,7 +801,7 @@ void main() {
     });
 
     group('the manifest', () {
-      test('from another version exits 70 with a manual step', () async {
+      test('from a newer version exits 70 with a manual step', () async {
         final newer = jsonEncode({'version': InstallManifest.version + 1});
         store.file
           ..createSync(recursive: true)
@@ -813,12 +813,10 @@ void main() {
         expect(store.file.readAsStringSync(), newer);
         verify(
           () => logger.err(
-            '${store.file.path} was written by another version of vgv_ai.',
+            '${store.file.path} was written by a newer version of vgv_ai.',
           ),
         ).called(1);
-        verifyInfo(
-          'Run vgv_ai update, or move it aside and run vgv_ai install.',
-        );
+        verifyInfo('Run vgv_ai update, then run doctor again.');
         verifyNever(
           () => logger.info(any(that: endsWith('fix everything install can.'))),
         );

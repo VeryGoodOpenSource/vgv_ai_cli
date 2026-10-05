@@ -563,7 +563,7 @@ void main() {
         expect(manifestFile().existsSync(), isFalse);
       });
 
-      test('installs nothing over one from another version', () async {
+      test('installs nothing over one from a newer version', () async {
         planOne();
         final newer = jsonEncode({'version': InstallManifest.version + 1});
         manifestFile()

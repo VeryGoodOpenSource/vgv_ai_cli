@@ -138,7 +138,7 @@ void main() {
       );
     });
 
-    test('is null when another version wrote it', () {
+    test('is null when a newer version wrote it', () {
       expect(
         InstallManifest.decode(
           jsonEncode({
@@ -149,20 +149,26 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('is empty for a version it never wrote', () {
       expect(
-        InstallManifest.decode(jsonEncode({'version': 0}), home: home),
-        isNull,
+        InstallManifest.decode(jsonEncode({'version': 0}), home: home)!.entries,
+        isEmpty,
       );
     });
 
-    test('is null for a version 1 manifest, which recorded no plugins', () {
-      expect(
-        InstallManifest.decode(
-          jsonEncode({'version': 1, 'entries': <Object>[]}),
-          home: home,
-        ),
-        isNull,
-      );
+    test('reads a version 1 manifest as one with no plugin versions', () {
+      final manifest = InstallManifest.decode(
+        jsonEncode({
+          'version': 1,
+          'entries': [onDisk(owned)],
+        }),
+        home: home,
+      )!;
+
+      expect(manifest.entries.map((e) => e.path), [owned.path]);
+      expect(manifest.plugins, isEmpty);
     });
 
     test('skips entries it does not understand', () {

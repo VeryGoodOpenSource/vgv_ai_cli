@@ -118,7 +118,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
   }
 
   /// The manifest in [store], or null, having said what to do, when it
-  /// cannot be read or was written by another version.
+  /// cannot be read or was written by a newer version.
   InstallManifest? _load(ManifestStore store) {
     final path = store.file.path;
     try {
@@ -126,10 +126,10 @@ class DoctorCommand extends Command<int> with HarnessSelection {
       if (manifest == null) {
         _manual(
           Finding.manual(
-            '$path was written by another version of vgv_ai.',
+            '$path was written by a newer version of vgv_ai.',
             step:
-                'Run ${lightCyan.wrap('vgv_ai update')}, or move it aside '
-                'and run ${lightCyan.wrap('vgv_ai install')}.',
+                'Run ${lightCyan.wrap('vgv_ai update')}, then run doctor '
+                'again.',
           ),
         );
       }

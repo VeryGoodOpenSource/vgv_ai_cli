@@ -202,12 +202,13 @@ class InstallManifest extends Equatable {
     : _entries = {for (final entry in entries) entry.path: entry};
 
   /// Decodes [source], with its paths resolved against [home], keeping
-  /// every entry it understands, or returns null when another version of
+  /// every entry it understands, or returns null when a newer version of
   /// vgv_ai wrote it.
   ///
   /// A malformed manifest is empty: an unrecorded file is the user's, which
   /// is the safe way to be wrong. So is an entry whose path is absolute or
-  /// leads out of [home]. One from another version is null, because writing
+  /// leads out of [home]. A version 1 manifest is read as one that records
+  /// no plugin versions. One from a newer version is null, because writing
   /// over it would lose everything it records.
   static InstallManifest? decode(String source, {required String home}) {
     final Object? json;
@@ -219,7 +220,7 @@ class InstallManifest extends Equatable {
 
     return switch (json) {
       {
-        'version': InstallManifest.version,
+        'version': 1 || InstallManifest.version,
         'entries': final List<dynamic> list,
       } =>
         InstallManifest(
@@ -233,7 +234,7 @@ class InstallManifest extends Equatable {
                 if (value is String) key: value,
           },
         ),
-      {'version': final int other} when other != version => null,
+      {'version': final int other} when other > version => null,
       _ => InstallManifest(),
     };
   }
