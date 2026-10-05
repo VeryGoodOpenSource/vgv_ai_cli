@@ -442,6 +442,109 @@ void main() {
       });
     });
 
+    group('changes of the user', () {
+      late File skill;
+      late File settings;
+      late File instructions;
+
+      final forceHint = 'Pass ${lightCyan.wrap('--force')} to remove them too.';
+
+      setUp(() {
+        skill = homeFile('.agents/skills/a/SKILL.md');
+        settings = seed('.claude/settings.json', '{"theme":"dark"}');
+        instructions = homeFile('.gemini/GEMINI.md');
+        install([
+          owned(null, '.agents/skills/a/SKILL.md'),
+          json(Harness.claude, '.claude/settings.json', {'vgv': true}),
+          PlannedChange.markdown(
+            file: instructions,
+            contents: 'vgv',
+            harness: Harness.gemini,
+            section: 'vgv',
+          ),
+        ]);
+        skill.writeAsStringSync('edited');
+        settings.writeAsStringSync('{"theme":"dark","vgv":false}');
+        instructions.writeAsStringSync(
+          instructions.readAsStringSync().replaceFirst('vgv\n', 'mine\n'),
+        );
+      });
+
+      test('are kept and named without --force', () async {
+        final edited = instructions.readAsStringSync();
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(skill.readAsStringSync(), 'edited');
+        expect(readJson(settings), {'theme': 'dark', 'vgv': false});
+        expect(instructions.readAsStringSync(), edited);
+        for (final file in [skill, settings, instructions]) {
+          verify(() => logger.warn('Kept your changes in ${file.path}'))
+              .called(1);
+        }
+        verify(() => logger.info(forceHint)).called(1);
+        expect(store.load()!.entries, hasLength(3));
+      });
+
+      test('are removed with --force', () async {
+        final exitCode = await runUninstall(['--force']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(skill.existsSync(), isFalse);
+        expect(readJson(settings), {'theme': 'dark'});
+        expect(instructions.existsSync(), isFalse);
+        expect(store.file.existsSync(), isFalse);
+        verifyNever(() => logger.warn(any()));
+        verifyNever(() => logger.info(forceHint));
+      });
+
+      test('--check --force lists what --force would remove', () async {
+        await runUninstall(['--check', '--force']);
+
+        for (final file in [skill, settings, instructions]) {
+          verify(() => logger.info('Would remove ${file.path}')).called(1);
+          expect(file.existsSync(), isTrue);
+        }
+      });
+    });
+
+    group('outcomes', () {
+      test('warns about a file it cannot parse and exits cleanly', () async {
+        final settings = seed('.claude/settings.json', '{}');
+        install([
+          json(Harness.claude, '.claude/settings.json', {'vgv': true}),
+        ]);
+        settings.writeAsStringSync('{not json');
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(settings.readAsStringSync(), '{not json');
+        expect(store.load()!.entries, hasLength(1));
+        verify(
+          () => logger.warn(
+            'Left ${settings.path} alone because it could not be parsed.',
+          ),
+        ).called(1);
+      });
+
+      test('forgets a file that is already gone', () async {
+        install([owned(Harness.codex, '.codex/AGENTS.md')]);
+        homeFile('.codex/AGENTS.md').deleteSync();
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(store.file.existsSync(), isFalse);
+        verify(
+          () => logger.detail(
+            '${homeFile('.codex/AGENTS.md').path} was already gone',
+          ),
+        ).called(1);
+      });
+    });
+
     group('manifest', () {
       test('keeps what is left to remove', () async {
         install([

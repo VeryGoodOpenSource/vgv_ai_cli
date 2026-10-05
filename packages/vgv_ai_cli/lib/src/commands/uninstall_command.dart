@@ -17,6 +17,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// that was uninstalled since can still be cleaned up.
 ///
 /// * `--check` prints what would be removed without removing anything.
+/// * `--force` also removes what VGV wrote that you have changed since.
 /// * `--only` removes just the named harnesses.
 /// * `--no-<harness>` keeps one harness. It cannot be combined with `--only`.
 ///
@@ -31,11 +32,17 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     this._environment,
     this._auditor = const ManifestAuditor(),
   }) {
-    argParser.addFlag(
-      'check',
-      help: 'Print what would be removed without removing anything.',
-      negatable: false,
-    );
+    argParser
+      ..addFlag(
+        'check',
+        help: 'Print what would be removed without removing anything.',
+        negatable: false,
+      )
+      ..addFlag(
+        'force',
+        help: 'Also remove what install wrote that you have changed since.',
+        negatable: false,
+      );
     addHarnessOptions('Remove', only: 'just these harnesses.');
   }
 
@@ -45,6 +52,12 @@ class UninstallCommand extends Command<int> with HarnessSelection {
   final ManifestAuditor _auditor;
 
   static const String commandName = 'uninstall';
+
+  /// The outcomes where something the user changed was kept.
+  static const Set<ReverseOutcome> _kept = {
+    ReverseOutcome.partial,
+    ReverseOutcome.skipped,
+  };
 
   /// The outcomes that take something of VGV's out of a file.
   static const Set<ReverseOutcome> _changed = {
@@ -62,6 +75,7 @@ class UninstallCommand extends Command<int> with HarnessSelection {
   @override
   Future<int> run() async {
     final dryRun = argResults!['check'] == true;
+    final force = argResults!['force'] == true;
     final only = onlyHarnesses;
     final selected = only ?? Harness.values.where(isEnabled).toSet();
 
@@ -108,6 +122,7 @@ class UninstallCommand extends Command<int> with HarnessSelection {
       manifest,
       home.fileSystem,
       owners: owners,
+      force: force,
       dryRun: dryRun,
     );
     _report(reversal.entries, dryRun: dryRun);
@@ -212,16 +227,28 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     for (final ReversedEntry(:entry, :outcome, :error) in entries) {
       final path = entry.path;
       switch (outcome) {
-        // A dry run exists to show what would be removed, so its paths are
-        // always printed.
-        case ReverseOutcome.removed when dryRun:
-          _logger.info('Would remove $path');
-        case ReverseOutcome.removed:
-          _logger.detail('Removed $path');
         case ReverseOutcome.failed:
           _logger.err('Could not update $path: $error');
+        case ReverseOutcome.unparseable:
+          _logger.warn('Left $path alone because it could not be parsed.');
+        case ReverseOutcome.missing:
+          _logger.detail('$path was already gone');
+        // A dry run exists to show what would be removed, so its paths are
+        // always printed.
+        case _ when _changed.contains(outcome) && dryRun:
+          _logger.info('Would remove $path');
+        case _ when _changed.contains(outcome):
+          _logger.detail('Removed $path');
         case _:
       }
+    }
+
+    final kept = entries.where((entry) => _kept.contains(entry.outcome));
+    for (final ReversedEntry(:entry) in kept) {
+      _logger.warn('Kept your changes in ${entry.path}');
+    }
+    if (kept.isNotEmpty) {
+      _logger.info('Pass ${lightCyan.wrap('--force')} to remove them too.');
     }
   }
 }
