@@ -4,6 +4,7 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
@@ -94,9 +95,18 @@ void main() {
     File homeFile(String relative) =>
         fs.file(fs.path.join(home.path, relative));
 
-    /// Installs [changes] with the real reconciler, as `install` does.
+    /// Every pinned plugin, at its pinned version.
+    final pinned = {
+      for (final plugin in vgvPlugins) plugin.name: plugin.version,
+    };
+
+    /// Installs [changes] with the real reconciler, recording the pinned
+    /// plugin versions, as `install` does.
     void install(List<PlannedChange> changes) => store.save(
-      const Reconciler().apply(changes, manifest: store.load()!).manifest,
+      const Reconciler()
+          .apply(changes, manifest: store.load()!)
+          .manifest
+          .withPlugins(pinned),
     );
 
     PlannedChange owned(String relative, {Harness? harness}) =>
@@ -133,6 +143,10 @@ void main() {
       final exitCode = await runDoctor();
 
       expect(exitCode, ExitCode.success.code);
+      verifyInfo('✓ Plugins');
+      for (final plugin in vgvPlugins) {
+        verifyInfo('    ${plugin.name} ${plugin.version}');
+      }
       verifyInfo('✓ Shared');
       verifyInfo('✓ Codex');
     });
@@ -364,6 +378,81 @@ void main() {
           () => logger.err('--only cannot be combined with --[no-]gemini.'),
         ).called(1);
         verifyNever(() => detector.detect(any()));
+      });
+    });
+
+    group('plugin versions', () {
+      final wingspan = vgvPlugins.first;
+
+      void installWith(Map<String, String> plugins) {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        store.save(store.load()!.withPlugins(plugins));
+      }
+
+      test('an older recorded version exits 70 with the install fix', () async {
+        installWith({...pinned, wingspan.name: '0.0.1'});
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('✗ Plugins');
+        verifyInfo(
+          '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
+        );
+        verifyInfo('      vgv_ai install --only codex');
+      });
+
+      test('a newer recorded version is stale, with the same fix', () async {
+        installWith({...pinned, wingspan.name: '99.0.0'});
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo(
+          '    ${wingspan.name} 99.0.0 installed, newer than the pinned '
+          '${wingspan.version}',
+        );
+        verifyInfo('      vgv_ai install --only codex');
+      });
+
+      test('a pinned plugin that was never recorded exits 70', () async {
+        installWith({});
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo(
+          '    ${wingspan.name} not recorded, ${wingspan.version} pinned',
+        );
+      });
+
+      test(
+        'are fixed by installing every configured harness in scope',
+        () async {
+          install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.gemini/agents/a.md', harness: Harness.gemini),
+            owned('.pi/agent/a.md', harness: Harness.pi),
+          ]);
+          store.save(store.load()!.withPlugins({}));
+
+          await runDoctor(args: ['--no-pi']);
+
+          verify(
+            () =>
+                logger.info('      vgv_ai install --only gemini --only codex'),
+          ).called(vgvPlugins.length);
+        },
+      );
+
+      test('are not reported when nothing in scope is configured', () async {
+        installWith({});
+        detect(const [Harness.codex, Harness.pi]);
+
+        final exitCode = await runDoctor(args: ['--only', 'pi']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyNever(() => logger.info(any(that: endsWith('Plugins'))));
       });
     });
 

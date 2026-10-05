@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
+import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
@@ -125,8 +126,9 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     };
   }
 
-  /// One report for the shared skills, when a configured harness in [scope]
-  /// reads them, and one per harness in [scope] that is configured or
+  /// The sections of the report: the plugin versions when a harness in
+  /// [scope] is configured, the shared skills when a configured harness in
+  /// [scope] reads them, and each harness in [scope] that is configured or
   /// [detected].
   List<ReportSection> _verify(
     InstallManifest manifest,
@@ -135,6 +137,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     required Set<Harness> detected,
   }) {
     final configured = {for (final entry in manifest.entries) ?entry.owner};
+    final installed = configured.intersection(scope);
     final readsShared = configured
         .intersection(scope)
         .intersection(_readShared);
@@ -145,6 +148,18 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     ];
 
     return [
+      if (installed.isNotEmpty)
+        ReportSection(
+          title: 'Plugins',
+          installs: installed,
+          findings: [
+            for (final plugin in vgvPlugins)
+              PluginVersion.of(
+                plugin,
+                installed: manifest.plugins[plugin.name],
+              ).finding,
+          ],
+        ),
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
         ReportSection(
           title: 'Shared',
@@ -198,7 +213,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
   void _report(ReportSection report) {
     final mark = switch (report) {
       ReportSection(hasProblems: true) => lightRed.wrap('✗'),
-      ReportSection(findings: List(isNotEmpty: true)) => lightYellow.wrap('!'),
+      ReportSection(hasNotices: true) => lightYellow.wrap('!'),
       _ => lightGreen.wrap('✓'),
     };
     _logger.info('$mark ${report.title}');
