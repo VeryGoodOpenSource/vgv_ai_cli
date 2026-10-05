@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';

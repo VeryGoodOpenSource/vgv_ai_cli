@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';

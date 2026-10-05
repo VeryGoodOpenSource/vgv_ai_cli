@@ -1,13 +1,5 @@
 import 'package:args/command_runner.dart';
-import 'package:file/file.dart';
-import 'package:file/local.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-
-/// The home directory [environment] names, or null when it names none.
-Directory? userHome(Map<String, String> environment) {
-  final home = environment['HOME'] ?? environment['USERPROFILE'];
-  return home == null ? null : const LocalFileSystem().directory(home);
-}
 
 /// {@template harness_selection}
 /// The `--only` and `--[no-]<harness>` options of a command that works on a
