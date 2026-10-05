@@ -160,6 +160,123 @@ void main() {
       });
     });
 
+    group('selection', () {
+      const sharedSkill = '.agents/skills/a/SKILL.md';
+      const codexFile = '.codex/AGENTS.md';
+      const piFile = '.pi/agent/AGENTS.md';
+
+      final sharedStillPresent =
+          'The shared skills VGV AI CLI installed are still in '
+          '/home/dev/.agents/skills. Run ${lightCyan.wrap('vgv_ai uninstall')} '
+          'with no flags to remove them.';
+
+      setUp(
+        () => install([
+          owned(null, sharedSkill),
+          owned(Harness.codex, codexFile),
+          owned(Harness.pi, piFile),
+        ]),
+      );
+
+      Set<Harness?> recordedOwners() => {
+        for (final entry in store.load()!.entries) entry.owner,
+      };
+
+      test('--only removes just the named harnesses', () async {
+        final exitCode = await runUninstall(['--only', 'codex']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(codexFile).existsSync(), isFalse);
+        expect(homeFile(piFile).existsSync(), isTrue);
+        expect(homeFile(sharedSkill).existsSync(), isTrue);
+        expect(recordedOwners(), {null, Harness.pi});
+        verify(() => logger.info(sharedStillPresent)).called(1);
+      });
+
+      test('--no-<harness> removes every other harness', () async {
+        final exitCode = await runUninstall(['--no-codex']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(codexFile).existsSync(), isTrue);
+        expect(homeFile(piFile).existsSync(), isFalse);
+        expect(homeFile(sharedSkill).existsSync(), isTrue);
+        expect(recordedOwners(), {null, Harness.codex});
+        verify(() => logger.info(sharedStillPresent)).called(1);
+      });
+
+      test('removes the shared skills with every recorded harness', () async {
+        final exitCode = await runUninstall([
+          '--only',
+          'codex',
+          '--only',
+          'pi',
+        ]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(sharedSkill).existsSync(), isFalse);
+        expect(store.file.existsSync(), isFalse);
+        verifyNever(() => logger.info(sharedStillPresent));
+      });
+
+      test('--only cannot be combined with a harness flag', () async {
+        final exitCode = await runUninstall(['--only', 'codex', '--no-pi']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(homeFile(codexFile).existsSync(), isTrue);
+        verify(() => logger.err('--only cannot be combined with --[no-]pi.'))
+            .called(1);
+      });
+
+      test('says when --only names a harness with nothing recorded', () async {
+        final recorded = store.file.readAsStringSync();
+
+        final exitCode = await runUninstall(['--only', 'gemini']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(sharedSkill).existsSync(), isTrue);
+        expect(store.file.readAsStringSync(), recorded);
+        verify(
+          () => logger.info(
+            'Nothing to remove for Gemini: VGV AI CLI has not configured it.',
+          ),
+        ).called(1);
+        verify(() => logger.info(sharedStillPresent)).called(1);
+        verifyNever(
+          () => logger.info('Nothing to remove for the selected harnesses.'),
+        );
+      });
+
+      test('says when no recorded harness is selected', () async {
+        final exitCode = await runUninstall(['--no-codex', '--no-pi']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(codexFile).existsSync(), isTrue);
+        verify(
+          () => logger.info('Nothing to remove for the selected harnesses.'),
+        ).called(1);
+      });
+
+      test('removes the shared skills when only they are recorded', () async {
+        store.save(InstallManifest(store.load()!.entriesFor(null)));
+
+        final exitCode = await runUninstall(['--no-codex']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile(sharedSkill).existsSync(), isFalse);
+        expect(store.file.existsSync(), isFalse);
+      });
+
+      test('--only help does not mention detection', () {
+        final command = UninstallCommand(logger: logger);
+
+        expect(
+          command.argParser.options['only']!.help,
+          'Remove just these '
+          'harnesses.',
+        );
+      });
+    });
+
     group('manifest', () {
       test('keeps what is left to remove', () async {
         install([
