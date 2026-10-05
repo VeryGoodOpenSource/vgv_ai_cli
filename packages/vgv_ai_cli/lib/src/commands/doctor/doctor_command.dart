@@ -71,7 +71,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
 
     if (manifest.entries.isEmpty) {
       _logger.info(
-        "VGV hasn't installed anything here yet. Run "
+        "VGV AI CLI hasn't installed anything here yet. Run "
         "${lightCyan.wrap('vgv_ai install')} to set it up.",
       );
     }
@@ -160,11 +160,11 @@ class DoctorCommand extends Command<int> with HarnessSelection {
             findings: [
               if (!detected.contains(harness))
                 const Finding.warning(
-                  'not installed on this machine, but VGV configured it',
+                  'not installed on this machine, but VGV AI CLI configured it',
                 ),
               if (!configured.contains(harness))
                 const Finding.suggestion(
-                  "installed, but VGV hasn't configured it",
+                  "installed, but VGV AI CLI hasn't configured it",
                 ),
               ...verifyEntries(harness),
             ],

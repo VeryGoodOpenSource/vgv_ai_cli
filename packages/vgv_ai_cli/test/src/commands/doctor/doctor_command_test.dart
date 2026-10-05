@@ -143,8 +143,8 @@ void main() {
       expect(exitCode, ExitCode.success.code);
       expect(store.file.existsSync(), isFalse);
       verifyInfo(
-        "VGV hasn't installed anything here yet. Run vgv_ai install to set "
-        'it up.',
+        "VGV AI CLI hasn't installed anything here yet. Run vgv_ai install "
+        'to set it up.',
       );
     });
 
@@ -263,7 +263,7 @@ void main() {
 
         expect(exitCode, ExitCode.success.code);
         verifyInfo('! Gemini');
-        verifyInfo("    installed, but VGV hasn't configured it");
+        verifyInfo("    installed, but VGV AI CLI hasn't configured it");
         verifyInfo('      vgv_ai install --only gemini');
         verifyInfo('✓ Codex');
         verifyNever(() => logger.info(any(that: endsWith('OpenCode'))));
@@ -278,7 +278,9 @@ void main() {
 
           expect(exitCode, ExitCode.success.code);
           verify(
-            () => logger.info(any(that: startsWith("VGV hasn't installed"))),
+            () => logger.info(
+              any(that: startsWith("VGV AI CLI hasn't installed")),
+            ),
           ).called(1);
           verifyInfo('! Pi');
           verifyInfo('      vgv_ai install --only pi');
@@ -308,7 +310,7 @@ void main() {
           expect(exitCode, ExitCode.success.code);
           verifyInfo('! Codex');
           verifyInfo(
-            '    not installed on this machine, but VGV configured it',
+            '    not installed on this machine, but VGV AI CLI configured it',
           );
           verifyNever(() => logger.info(any(that: startsWith('      '))));
         },
@@ -423,8 +425,8 @@ void main() {
 
         expect(exitCode, ExitCode.success.code);
         verifyInfo(
-          "VGV hasn't installed anything here yet. Run vgv_ai install to "
-          'set it up.',
+          "VGV AI CLI hasn't installed anything here yet. Run vgv_ai "
+          'install to set it up.',
         );
       });
 
