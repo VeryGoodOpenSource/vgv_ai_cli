@@ -41,7 +41,7 @@ class ContentPlan {
 
   /// Whether this version no longer installs [entry].
   bool orphans(ManifestEntry entry) =>
-      !(_byPath?.containsKey(entry.path) ?? true);
+      _byPath != null && !_byPath.containsKey(entry.path);
 
   /// Whether `install` would write to [path].
   bool writes(String path) => _writes.contains(_byPath?[path]?.outcome);

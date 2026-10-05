@@ -24,8 +24,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// Whether a file is current comes from a dry run of `install` against the
 /// resolved plugins. When they cannot be resolved, that check is skipped and
 /// the rest of the report still runs. Resolving them may clone the plugins
-/// into `~/.vgv_ai/plugins`, the cache `install` reads them from too. The report ends with one `install`
-/// command that fixes everything `install` can.
+/// into `~/.vgv_ai/plugins`, the cache `install` reads them from too. The
+/// report ends with one `install` command that fixes everything `install`
+/// can.
 ///
 /// It also suggests configuring a harness that is installed but that VGV
 /// has not configured, and warns about one VGV configured that is no longer
@@ -167,10 +168,6 @@ class DoctorCommand extends Command<int> with HarnessSelection {
       : 'Nothing to check: no selected harness is installed on this '
             'machine or configured by VGV AI CLI.';
 
-  /// What to do when the plugins cannot be resolved or parsed.
-  static const String _fixResolving =
-      'Fix what Resolving plugins listed, then run doctor again.';
-
   /// What a dry run of `install` for [selected] would do, or an unchecked
   /// plan, having said why, when the plugins cannot be resolved.
   Future<ContentPlan> _plan(
@@ -193,26 +190,29 @@ class DoctorCommand extends Command<int> with HarnessSelection {
               .changes,
         );
       case UnavailableAssets(:final plugin, :final reasons):
-        progress.fail('Could not resolve $plugin, so content was not checked');
-        for (final reason in reasons) {
-          _logger.info('  - $reason');
-        }
-        return ContentPlan.unchecked(
-          Finding.manual(
-            'content not checked: could not resolve $plugin',
-            step: _fixResolving,
-          ),
-        );
+        return _unchecked(progress, 'resolve $plugin', reasons);
       case UnparseableAssets(:final plugin, :final error):
-        progress.fail('Could not parse $plugin, so content was not checked');
-        _logger.info('  - $error');
-        return ContentPlan.unchecked(
-          Finding.manual(
-            'content not checked: could not parse $plugin',
-            step: _fixResolving,
-          ),
-        );
+        return _unchecked(progress, 'parse $plugin', ['$error']);
     }
+  }
+
+  /// An unchecked plan, having failed [progress] and listed [reasons] for
+  /// why the CLI could not do [problem], such as `resolve <plugin>`.
+  ContentPlan _unchecked(
+    Progress progress,
+    String problem,
+    List<String> reasons,
+  ) {
+    progress.fail('Could not $problem, so content was not checked');
+    for (final reason in reasons) {
+      _logger.info('  - $reason');
+    }
+    return ContentPlan.unchecked(
+      Finding.manual(
+        'content not checked: could not $problem',
+        step: 'Fix what Resolving plugins listed, then run doctor again.',
+      ),
+    );
   }
 
   /// The sections of the report: the plugin versions, and why content was
@@ -303,25 +303,23 @@ class DoctorCommand extends Command<int> with HarnessSelection {
 
   /// What [health] says is wrong with the file at [path], or null when
   /// nothing is.
-  Finding? _finding(EntryHealth health, String path) {
-    return switch (health.status) {
-      EntryStatus.intact => null,
-      EntryStatus.missing => Finding.missing(
-        'missing $path${_keys(health.missing)}',
-      ),
-      EntryStatus.drifted => Finding.drifted(
-        'changed $path${_keys(health.drifted)}',
-      ),
-      EntryStatus.unparseable => Finding.manual(
-        'cannot parse $path',
-        step: 'Fix its syntax, then run ${lightCyan.wrap('vgv_ai install')}.',
-      ),
-      EntryStatus.unreadable => Finding.manual(
-        'cannot read $path: ${health.error}',
-        step: 'Check that you can read it, then run doctor again.',
-      ),
-    };
-  }
+  Finding? _finding(EntryHealth health, String path) => switch (health.status) {
+    EntryStatus.intact => null,
+    EntryStatus.missing => Finding.missing(
+      'missing $path${_keys(health.missing)}',
+    ),
+    EntryStatus.drifted => Finding.drifted(
+      'changed $path${_keys(health.drifted)}',
+    ),
+    EntryStatus.unparseable => Finding.manual(
+      'cannot parse $path',
+      step: 'Fix its syntax, then run ${lightCyan.wrap('vgv_ai install')}.',
+    ),
+    EntryStatus.unreadable => Finding.manual(
+      'cannot read $path: ${health.error}',
+      step: 'Check that you can read it, then run doctor again.',
+    ),
+  };
 
   /// Prints [report]'s title, each finding with any manual step, and the
   /// one `install` command that fixes the rest.
