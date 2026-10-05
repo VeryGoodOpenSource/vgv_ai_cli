@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io' show ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
@@ -11,11 +13,23 @@ import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
+
+class _MockProgress extends Mock implements Progress;
+
+class _FakeParser implements PluginParser {
+  const new(this.assets);
+
+  final PluginAssets assets;
+
+  @override
+  PluginAssets parse(Directory root) => assets;
+}
 
 /// A [ManifestAuditor] that fails to reverse every entry it is given.
 class _FailingAuditor extends ManifestAuditor {
@@ -618,6 +632,120 @@ void main() {
             ),
           ),
         ).called(1);
+      });
+    });
+
+    group('after install', () {
+      /// Every file under home but the CLI's own, with its contents.
+      Map<String, String> userFiles() => {
+        for (final file in home.listSync(recursive: true).whereType<File>())
+          if (!fs.path.isWithin(store.file.parent.path, file.path))
+            file.path: file.readAsStringSync(),
+      };
+
+      /// Installs one skill and one agent for every harness with the real
+      /// translator and reconciler.
+      Future<void> installEverything() async {
+        when(() => logger.progress(any())).thenReturn(_MockProgress());
+        final skill = fs.directory('/plugin/skills/green-gate');
+        fs.file(fs.path.join(skill.path, 'references', 'guide.md'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('guide');
+        final assets = PluginAssets(
+          skills: [
+            SkillAsset(
+              name: 'green-gate',
+              description: 'Enforces the green gate.',
+              body: 'body',
+              userInvocable: true,
+              allowedTools: const [],
+              portableFrontmatter: const {'name': 'green-gate'},
+              directory: skill,
+            ),
+          ],
+          agents: const [
+            AgentAsset(
+              name: 'reviewer',
+              description: 'Reviews code.',
+              body: 'body',
+              skills: [],
+            ),
+          ],
+          mcpServers: const [],
+        );
+
+        Future<ProcessResult> clone(
+          String executable,
+          List<String> arguments, {
+          bool runInShell = false,
+        }) async {
+          fs.directory(arguments.last).createSync(recursive: true);
+          return ProcessResult(0, 0, '', '');
+        }
+
+        final exitCode =
+            await VgvAiCliCommandRunner(
+              logger: logger,
+              pubUpdater: pubUpdater,
+              installCommand: InstallCommand(
+                logger: logger,
+                home: home,
+                resolver: PluginResolver(
+                  runProcess: clone,
+                  parser: _FakeParser(assets),
+                ),
+              ),
+            ).run([
+              'install',
+              for (final harness in Harness.values) ...['--only', harness.name],
+            ]);
+        expect(exitCode, ExitCode.success.code);
+      }
+
+      test('uninstall leaves only what was there before', () async {
+        // JSON has no comments to keep, so VGV writes it back in one format,
+        // which the user's files are already in here.
+        void seedJson(String relativePath, Map<String, Object?> value) =>
+            seed(relativePath, DocumentFormat.json.encode(value));
+
+        seed('.agents/skills/mine/SKILL.md', 'my skill');
+        seedJson('.claude/settings.json', {
+          'theme': 'dark',
+          'enabledPlugins': {'mine@local': true},
+        });
+        seedJson('.gemini/settings.json', {
+          'ui': {'theme': 'GitHub'},
+        });
+        seedJson('.config/opencode/opencode.json', {'model': 'mine'});
+        seed(
+          '.codex/config.toml',
+          '# My settings\nmodel = "o3"\n\n[profiles.fast]\nmodel = "mini"\n',
+        );
+        seed('.codex/AGENTS.md', '# Mine\n\nMy own notes.\n');
+        final before = userFiles();
+
+        await installEverything();
+        expect(userFiles(), isNot(before));
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(userFiles(), before);
+        expect(store.file.existsSync(), isFalse);
+        for (final created in [
+          '.agents/skills/green-gate',
+          '.gemini/agents',
+          '.gemini/commands',
+          '.codex/agents',
+          '.config/opencode/agent',
+          '.config/opencode/command',
+          '.pi/agent/prompts',
+        ]) {
+          expect(
+            fs.directory(fs.path.join(home.path, created)).existsSync(),
+            isFalse,
+            reason: created,
+          );
+        }
       });
     });
 
