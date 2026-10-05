@@ -31,7 +31,10 @@ enum Harness {
   ),
 
   /// Pi.
-  pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent');
+  pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent'),
+
+  /// GitHub Copilot CLI.
+  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot');
 
   /// {@macro harness}
   new({

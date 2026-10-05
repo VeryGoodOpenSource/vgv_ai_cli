@@ -6,6 +6,7 @@ import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
+import 'package:vgv_ai_cli/src/translate/copilot_translator.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
@@ -22,6 +23,7 @@ const harnessTranslators = <HarnessTranslator>[
   CodexTranslator(),
   OpenCodeTranslator(),
   PiTranslator(),
+  CopilotTranslator(),
 ];
 
 /// {@template translator}
