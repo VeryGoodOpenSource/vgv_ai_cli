@@ -13,6 +13,8 @@ import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+import 'package:vgv_ai_cli/src/resolve/resolve.dart';
+import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 class _MockLogger extends Mock implements Logger;
@@ -20,6 +22,41 @@ class _MockLogger extends Mock implements Logger;
 class _MockPubUpdater extends Mock implements PubUpdater;
 
 class _MockDetector extends Mock implements HarnessDetector;
+
+class _MockProgress extends Mock implements Progress;
+
+/// A [PluginResolver] that answers with [resolution], and counts its calls.
+class _FakeResolver extends Fake implements PluginResolver {
+  AssetResolution resolution = const ResolvedAssets(
+    assets: PluginAssets(skills: [], agents: [], mcpServers: []),
+    plugins: vgvPlugins,
+  );
+
+  int calls = 0;
+
+  @override
+  Future<AssetResolution> resolve(Directory home) async {
+    calls++;
+    return resolution;
+  }
+}
+
+/// A [Translator] that plans [changes], and records what it was asked for.
+class _FakeTranslator extends Fake implements Translator {
+  final changes = <PlannedChange>[];
+
+  Set<Harness>? selected;
+
+  @override
+  Future<TranslationPlan> translate({
+    required PluginAssets assets,
+    required Directory home,
+    required Set<Harness> selected,
+  }) async {
+    this.selected = selected;
+    return TranslationPlan(shared: TranslationResult(changes: changes));
+  }
+}
 
 /// A [ManifestAuditor] that reports [unreadable] as unreadable, and verifies
 /// everything else for real.
@@ -45,6 +82,9 @@ void main() {
     late Directory home;
     late ManifestStore store;
     late HarnessDetector detector;
+    late Progress progress;
+    late _FakeResolver resolver;
+    late _FakeTranslator translator;
 
     /// Detects exactly [installed], or, when null, the harnesses the
     /// manifest configures.
@@ -67,6 +107,10 @@ void main() {
       store = ManifestStore(home);
       detector = _MockDetector();
       detect();
+      progress = _MockProgress();
+      when(() => logger.progress(any())).thenReturn(progress);
+      resolver = _FakeResolver();
+      translator = _FakeTranslator();
 
       when(() => pubUpdater.getLatestVersion(any()))
           .thenAnswer((_) async => packageVersion);
@@ -88,6 +132,8 @@ void main() {
         home: home,
         detector: detector,
         auditor: auditor ?? const ManifestAuditor(),
+        resolver: resolver,
+        translator: translator,
       ),
       args,
     );
@@ -101,13 +147,17 @@ void main() {
     };
 
     /// Installs [changes] with the real reconciler, recording the pinned
-    /// plugin versions, as `install` does.
-    void install(List<PlannedChange> changes) => store.save(
-      const Reconciler()
-          .apply(changes, manifest: store.load()!)
-          .manifest
-          .withPlugins(pinned),
-    );
+    /// plugin versions, as `install` does, and plans them again, so they
+    /// are current unless a test changes the plan.
+    void install(List<PlannedChange> changes) {
+      store.save(
+        const Reconciler()
+            .apply(changes, manifest: store.load()!)
+            .manifest
+            .withPlugins(pinned),
+      );
+      translator.changes.addAll(changes);
+    }
 
     PlannedChange owned(String relative, {Harness? harness}) =>
         PlannedChange.text(
@@ -272,6 +322,16 @@ void main() {
       homeFile('.agents/skills/a/SKILL.md').deleteSync();
       homeFile('.codex/agents/a.toml').writeAsStringSync('mine');
       homeFile('.gemini/settings.json').writeAsStringSync('{ not json');
+      translator.changes
+        ..removeWhere((change) => change.harness == null)
+        ..add(owned('.agents/skills/b/SKILL.md'))
+        ..add(
+          PlannedChange.text(
+            file: homeFile('.codex/agents/a.toml'),
+            contents: 'vgv, newer',
+            harness: Harness.codex,
+          ),
+        );
       final before = snapshot();
 
       await runDoctor();
@@ -394,6 +454,170 @@ void main() {
           () => logger.err('--only cannot be combined with --[no-]gemini.'),
         ).called(1);
         verifyNever(() => detector.detect(any()));
+      });
+    });
+
+    group('content', () {
+      PlannedChange rewritten(String relative, {Harness? harness}) =>
+          PlannedChange.text(
+            file: homeFile(relative),
+            contents: 'vgv, newer',
+            harness: harness,
+          );
+
+      void replan(List<PlannedChange> changes) => translator.changes
+        ..clear()
+        ..addAll(changes);
+
+      test(
+        'checks the configured harnesses in scope against a dry run',
+        () async {
+          install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.pi/agent/a.md', harness: Harness.pi),
+          ]);
+
+          final exitCode = await runDoctor(args: ['--no-pi']);
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.selected, {Harness.codex});
+          verify(() => logger.progress('Resolving plugins')).called(1);
+          verify(() => progress.complete('Resolved plugins')).called(1);
+        },
+      );
+
+      test('reports a file install would rewrite as outdated', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        replan([rewritten('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('✗ Codex');
+        verifyInfo('    outdated ~/.codex/agents/a.toml');
+        verifyInfo('    Run vgv_ai install --only codex');
+      });
+
+      test('reports a changed file as changed, not also outdated', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        homeFile('.codex/agents/a.toml').writeAsStringSync('mine');
+        replan([rewritten('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('    changed ~/.codex/agents/a.toml');
+        verifyNever(() => logger.info(any(that: contains('outdated'))));
+      });
+
+      test('reports a file this version adds as new', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        translator.changes.add(
+          owned('.codex/agents/b.toml', harness: Harness.codex),
+        );
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('    new ~/.codex/agents/b.toml');
+        verifyInfo('    Run vgv_ai install --only codex');
+      });
+
+      test(
+        'warns about a file this version no longer installs, and exits 0',
+        () async {
+          install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.codex/agents/b.toml', harness: Harness.codex),
+          ]);
+          homeFile('.codex/agents/b.toml').deleteSync();
+          replan([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo('! Codex');
+          verifyInfo(
+            '    orphaned ~/.codex/agents/b.toml: no longer installed by this '
+            'version of VGV AI CLI',
+          );
+          verifyNever(() => logger.info(any(that: startsWith('    Run '))));
+        },
+      );
+
+      test('is not checked when nothing in scope is configured', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        detect(const [Harness.pi]);
+
+        await runDoctor(args: ['--only', 'pi']);
+
+        expect(resolver.calls, 0);
+        expect(translator.selected, isNull);
+      });
+
+      group('when the plugins cannot be resolved', () {
+        setUp(() {
+          resolver.resolution = UnavailableAssets(vgvPlugins.first, const [
+            'no cache',
+            'git is not installed',
+          ]);
+        });
+
+        test('is skipped with a git suggestion, and exits 0', () async {
+          install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+          replan([]);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.selected, isNull);
+          verify(
+            () => progress.fail(
+              'Could not resolve ${vgvPlugins.first}, so content was not '
+              'checked',
+            ),
+          ).called(1);
+          verify(() => logger.info('  - no cache')).called(1);
+          verify(() => logger.info('  - git is not installed')).called(1);
+          verifyInfo('Install git for a full report.');
+          verifyInfo('✓ Codex');
+        });
+
+        test('still reports what the manifest answers', () async {
+          install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.codex/agents/b.toml', harness: Harness.codex),
+          ]);
+          homeFile('.codex/agents/a.toml').deleteSync();
+          homeFile('.codex/agents/b.toml').writeAsStringSync('mine');
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('    missing ~/.codex/agents/a.toml');
+          verifyInfo('    changed ~/.codex/agents/b.toml');
+        });
+      });
+
+      test('is skipped when a plugin cannot be parsed', () async {
+        resolver.resolution = UnparseableAssets(
+          vgvPlugins.first,
+          const PluginParseException('/plugin/agents/a.md', 'bad name'),
+        );
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.success.code);
+        verify(
+          () => progress.fail(
+            'Could not parse ${vgvPlugins.first}, so content was not checked',
+          ),
+        ).called(1);
+        verify(
+          () =>
+              logger.info('  - Could not parse /plugin/agents/a.md: bad name'),
+        ).called(1);
       });
     });
 

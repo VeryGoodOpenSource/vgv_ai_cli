@@ -11,11 +11,18 @@ import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
+import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template doctor_command}
-/// Reports, per harness, what VGV installed that is missing or was changed
-/// since, and the `install` command that fixes it.
+/// Reports, per harness, what VGV installed that is missing, was changed
+/// since, or is not what this version would install, and the `install`
+/// command that fixes it.
+///
+/// Whether a file is current comes from a dry run of `install` against the
+/// resolved plugins. When they cannot be resolved, that check is skipped and
+/// the rest of the report still runs.
 ///
 /// It also suggests configuring a harness that is installed but that VGV
 /// has not configured, and warns about one VGV configured that is no longer
@@ -30,6 +37,9 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     this._environment,
     this._detector = const HarnessDetector(),
     this._auditor = const ManifestAuditor(),
+    this._resolver = const PluginResolver(),
+    this._translator = const Translator(),
+    this._reconciler = const Reconciler(),
   }) {
     addHarnessOptions('Check');
   }
@@ -39,6 +49,9 @@ class DoctorCommand extends Command<int> with HarnessSelection {
   final Map<String, String>? _environment;
   final HarnessDetector _detector;
   final ManifestAuditor _auditor;
+  final PluginResolver _resolver;
+  final Translator _translator;
+  final Reconciler _reconciler;
 
   static const String commandName = 'doctor';
 
@@ -78,11 +91,18 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     }
 
     final scope = onlyHarnesses ?? Harness.values.where(isEnabled).toSet();
+    final detected = await _detect(scope);
+    final configured = {for (final entry in manifest.entries) ?entry.owner};
+    final checked = configured.intersection(scope);
     final reports = _verify(
       manifest,
       home,
       scope: scope,
-      detected: await _detect(scope),
+      configured: configured,
+      detected: detected,
+      plan: checked.isEmpty
+          ? ContentPlan.none()
+          : await _plan(manifest, home, checked),
     )..forEach(_report);
     return reports.any((report) => report.hasProblems)
         ? ExitCode.software.code
@@ -126,6 +146,41 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     };
   }
 
+  /// What a dry run of `install` for [selected] would do, or no plan,
+  /// having said why, when the plugins cannot be resolved.
+  Future<ContentPlan> _plan(
+    InstallManifest manifest,
+    Directory home,
+    Set<Harness> selected,
+  ) async {
+    final progress = _logger.progress('Resolving plugins');
+    switch (await _resolver.resolve(home)) {
+      case ResolvedAssets(:final assets):
+        progress.complete('Resolved plugins');
+        final translation = await _translator.translate(
+          assets: assets,
+          home: home,
+          selected: selected,
+        );
+        return ContentPlan(
+          _reconciler
+              .apply(translation.changes, manifest: manifest, dryRun: true)
+              .changes,
+        );
+      case UnavailableAssets(:final plugin, :final reasons):
+        progress.fail('Could not resolve $plugin, so content was not checked');
+        for (final reason in reasons) {
+          _logger.info('  - $reason');
+        }
+        _logger.info('Install git for a full report.');
+        return ContentPlan.none();
+      case UnparseableAssets(:final plugin, :final error):
+        progress.fail('Could not parse $plugin, so content was not checked');
+        _logger.info('  - $error');
+        return ContentPlan.none();
+    }
+  }
+
   /// The sections of the report: the plugin versions when a harness in
   /// [scope] is configured, the shared skills when a configured harness in
   /// [scope] reads them, and each harness in [scope] that is configured or
@@ -134,17 +189,18 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     InstallManifest manifest,
     Directory home, {
     required Set<Harness> scope,
+    required Set<Harness> configured,
     required Set<Harness> detected,
+    required ContentPlan plan,
   }) {
-    final configured = {for (final entry in manifest.entries) ?entry.owner};
     final installed = configured.intersection(scope);
-    final readsShared = configured
-        .intersection(scope)
-        .intersection(_readShared);
+    final readsShared = installed.intersection(_readShared);
 
     List<Finding> verifyEntries(Harness? owner) => [
       for (final entry in manifest.entriesFor(owner))
-        ?_finding(_auditor.verify(entry, home.fileSystem), home),
+        ?_entryFinding(entry, home, plan),
+      for (final path in plan.additions(owner, manifest))
+        Finding.stale('new ${_display(path, home)}'),
     ];
 
     return [
@@ -187,9 +243,32 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     ];
   }
 
-  /// What [health] says is wrong, or null when nothing is.
-  Finding? _finding(EntryHealth health, Directory home) {
-    final path = _display(health.entry.path, home);
+  /// What is wrong with [entry], or null when nothing is.
+  ///
+  /// An entry [plan] no longer installs is only worth a warning, since
+  /// `install` would not put it back. One that is intact but that `install`
+  /// would rewrite is stale. Otherwise its health says.
+  Finding? _entryFinding(
+    ManifestEntry entry,
+    Directory home,
+    ContentPlan plan,
+  ) {
+    final path = _display(entry.path, home);
+    if (plan.orphans(entry)) {
+      return Finding.warning(
+        'orphaned $path: no longer installed by this version of VGV AI CLI',
+      );
+    }
+
+    final health = _auditor.verify(entry, home.fileSystem);
+    return health.status == EntryStatus.intact && plan.writes(entry.path)
+        ? Finding.stale('outdated $path')
+        : _finding(health, path);
+  }
+
+  /// What [health] says is wrong with the file at [path], or null when
+  /// nothing is.
+  Finding? _finding(EntryHealth health, String path) {
     return switch (health.status) {
       EntryStatus.intact => null,
       EntryStatus.missing => Finding.missing(
