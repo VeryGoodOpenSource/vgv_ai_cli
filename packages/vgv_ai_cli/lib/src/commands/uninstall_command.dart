@@ -111,9 +111,11 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     // only with the last of them.
     final full = selected.containsAll(recorded);
     final owners = {...recorded.intersection(selected), if (full) null};
-    if (full && manifest.entriesFor(null).isNotEmpty) {
+    final hasSharedSkills = manifest.entriesFor(null).isNotEmpty;
+    final skillsRoot = agentsSkillsRoot(home);
+    if (full && hasSharedSkills) {
       _logger.info(
-        'The skills in ${agentsSkillsRoot(home).path} were installed by VGV '
+        'The skills in ${skillsRoot.path} were installed by VGV '
         'AI CLI and are shared by all your coding agents, so they '
         '${dryRun ? 'would be' : 'are being'} removed.',
       );
@@ -130,10 +132,10 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     if (reversal.entries.isEmpty && only == null) {
       _logger.info('Nothing to remove for the selected harnesses.');
     }
-    if (!full && manifest.entriesFor(null).isNotEmpty) {
+    if (!full && hasSharedSkills) {
       _logger.info(
         'The shared skills VGV AI CLI installed are still in '
-        '${agentsSkillsRoot(home).path}. Run '
+        '${skillsRoot.path}. Run '
         "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.",
       );
     }
@@ -235,11 +237,12 @@ class UninstallCommand extends Command<int> with HarnessSelection {
           _logger.detail('$path was already gone');
         // A dry run exists to show what would be removed, so its paths are
         // always printed.
-        case _ when _changed.contains(outcome) && dryRun:
+        case ReverseOutcome.removed || ReverseOutcome.partial when dryRun:
           _logger.info('Would remove $path');
-        case _ when _changed.contains(outcome):
+        case ReverseOutcome.removed || ReverseOutcome.partial:
           _logger.detail('Removed $path');
-        case _:
+        // Reported with the other kept changes below.
+        case ReverseOutcome.skipped:
       }
     }
 
