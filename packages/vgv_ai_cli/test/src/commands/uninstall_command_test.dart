@@ -754,7 +754,7 @@ void main() {
         final exitCode = await runThroughRunner(
           UninstallCommand(
             logger: logger,
-            environment: {'HOME': '/nowhere/${DateTime.now().microsecond}'},
+            environment: const {'HOME': '/vgv-ai-cli-test-missing-home'},
           ),
           const [],
         );
