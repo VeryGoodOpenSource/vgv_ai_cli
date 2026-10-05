@@ -16,6 +16,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// The harnesses come from the manifest, never from detection, so a harness
 /// that was uninstalled since can still be cleaned up.
 ///
+/// * `--check` prints what would be removed without removing anything.
 /// * `--only` removes just the named harnesses.
 /// * `--no-<harness>` keeps one harness. It cannot be combined with `--only`.
 ///
@@ -30,6 +31,11 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     this._environment,
     this._auditor = const ManifestAuditor(),
   }) {
+    argParser.addFlag(
+      'check',
+      help: 'Print what would be removed without removing anything.',
+      negatable: false,
+    );
     addHarnessOptions('Remove', only: 'just these harnesses.');
   }
 
@@ -40,6 +46,12 @@ class UninstallCommand extends Command<int> with HarnessSelection {
 
   static const String commandName = 'uninstall';
 
+  /// The outcomes that take something of VGV's out of a file.
+  static const Set<ReverseOutcome> _changed = {
+    ReverseOutcome.removed,
+    ReverseOutcome.partial,
+  };
+
   @override
   String get description =>
       'Remove the Very Good AI tooling installed for your coding agents.';
@@ -49,6 +61,7 @@ class UninstallCommand extends Command<int> with HarnessSelection {
 
   @override
   Future<int> run() async {
+    final dryRun = argResults!['check'] == true;
     final only = onlyHarnesses;
     final selected = only ?? Harness.values.where(isEnabled).toSet();
 
@@ -87,17 +100,18 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     if (full && manifest.entriesFor(null).isNotEmpty) {
       _logger.info(
         'The skills in ${agentsSkillsRoot(home).path} were installed by VGV '
-        'AI CLI and are shared by all your coding agents, so they are being '
-        'removed.',
+        'AI CLI and are shared by all your coding agents, so they '
+        '${dryRun ? 'would be' : 'are being'} removed.',
       );
     }
     final reversal = _auditor.reverse(
       manifest,
       home.fileSystem,
       owners: owners,
+      dryRun: dryRun,
     );
-    _report(reversal.entries);
-    _deleteEmptyDirectories(reversal.entries, home);
+    _report(reversal.entries, dryRun: dryRun);
+    if (!dryRun) _deleteEmptyDirectories(reversal.entries, home);
     if (reversal.entries.isEmpty && only == null) {
       _logger.info('Nothing to remove for the selected harnesses.');
     }
@@ -108,8 +122,16 @@ class UninstallCommand extends Command<int> with HarnessSelection {
         "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.",
       );
     }
+    if (reversal.entries.any((entry) => _changed.contains(entry.outcome))) {
+      _logger.info(
+        dryRun
+            ? '\n${lightYellow.wrap('--check')} so nothing was removed.'
+            : '\nRestart your coding agents to pick up the changes.',
+      );
+    }
 
-    final saved = _record(store, from: manifest, to: reversal.manifest);
+    final saved =
+        dryRun || _record(store, from: manifest, to: reversal.manifest);
     final anyFailed = reversal.entries.any(
       (entry) => entry.outcome == ReverseOutcome.failed,
     );
@@ -184,11 +206,16 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     }
   }
 
-  /// Reports what reversing each of [entries] did.
-  void _report(List<ReversedEntry> entries) {
+  /// Reports what reversing each of [entries] did, and what [dryRun] means
+  /// for the files.
+  void _report(List<ReversedEntry> entries, {required bool dryRun}) {
     for (final ReversedEntry(:entry, :outcome, :error) in entries) {
       final path = entry.path;
       switch (outcome) {
+        // A dry run exists to show what would be removed, so its paths are
+        // always printed.
+        case ReverseOutcome.removed when dryRun:
+          _logger.info('Would remove $path');
         case ReverseOutcome.removed:
           _logger.detail('Removed $path');
         case ReverseOutcome.failed:

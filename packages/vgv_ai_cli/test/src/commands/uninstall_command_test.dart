@@ -135,6 +135,11 @@ void main() {
         expect(readJson(settings), {'theme': 'dark'});
         expect(store.file.existsSync(), isFalse);
         verify(() => logger.detail('Removed ${settings.path}')).called(1);
+        verify(
+          () => logger.info(
+            '\nRestart your coding agents to pick up the changes.',
+          ),
+        ).called(1);
       });
 
       test(
@@ -371,6 +376,69 @@ void main() {
             '${homeFile('.agents/skills/a/SKILL.md').path}: Cannot delete',
           ),
         ).called(1);
+      });
+    });
+
+    group('--check', () {
+      /// Every path under the root, with the contents of each file.
+      Map<String, String> snapshot() => {
+        for (final entity in fs.directory('/').listSync(recursive: true))
+          entity.path: entity is File ? entity.readAsStringSync() : '',
+      };
+
+      setUp(
+        () => install([
+          owned(null, '.agents/skills/a/SKILL.md'),
+          owned(Harness.codex, '.codex/agents/a.toml'),
+          owned(Harness.pi, '.pi/agent/AGENTS.md'),
+        ]),
+      );
+
+      test('removes nothing, not even from the manifest', () async {
+        final before = snapshot();
+
+        final exitCode = await runUninstall(['--check']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(snapshot(), before);
+      });
+
+      test('lists what would be removed and ends with a note', () async {
+        await runUninstall(['--check']);
+
+        verifyInOrder([
+          () => logger.info(
+            'The skills in /home/dev/.agents/skills were installed by VGV AI '
+            'CLI and are shared by all your coding agents, so they would be '
+            'removed.',
+          ),
+          () => logger.info(
+            'Would remove ${homeFile('.agents/skills/a/SKILL.md').path}',
+          ),
+          () => logger.info(
+            'Would remove ${homeFile('.codex/agents/a.toml').path}',
+          ),
+          () => logger.info(
+            'Would remove ${homeFile('.pi/agent/AGENTS.md').path}',
+          ),
+          () => logger.info(
+            '\n${lightYellow.wrap('--check')} so nothing was removed.',
+          ),
+        ]);
+      });
+
+      test('lists only what a selection would remove', () async {
+        await runUninstall(['--check', '--only', 'codex']);
+
+        verify(
+          () => logger.info(
+            'Would remove ${homeFile('.codex/agents/a.toml').path}',
+          ),
+        ).called(1);
+        verifyNever(
+          () => logger.info(any(that: contains('.pi/agent/AGENTS.md'))),
+        );
+        verifyNever(() => logger.info(any(that: contains('a/SKILL.md'))));
       });
     });
 
