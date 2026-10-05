@@ -12,7 +12,9 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// Gemini reads `~/.agents/skills` natively. Its agents are markdown with a
 /// `name` its loader validates against a pattern the parser's name rule
 /// already satisfies, and its commands are TOML with their own
-/// argument placeholder.
+/// argument placeholder. The brick namespaces the commands under `vgv/`,
+/// so they load as `/vgv:plan` rather than colliding with Gemini's built-in
+/// `/plan`.
 /// {@endtemplate}
 class const GeminiTranslator() extends HarnessTranslator {
   /// Gemini's argument placeholder. Codex, OpenCode and Pi all keep Claude's

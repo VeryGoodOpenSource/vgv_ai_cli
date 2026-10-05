@@ -1,22 +1,6 @@
-# 0.3.0+1
+# 0.4.0+1
 
-- fix: drop `codex/prompts/`. Codex removed custom prompts in 0.117.0, so the
-  folder was inert, and the skills it duplicated are already shared under
-  `~/.agents/skills`.
+- fix: namespace Gemini commands under `commands/vgv/`, so they load as
+  `/vgv:plan`, `/vgv:build` and so on. Gemini CLI renames any custom command
+  whose name matches a built-in, and `/plan` already does.
 
-# 0.2.0+1
-
-- refactor: own the per-harness layout. Agents, commands and prompts are
-  rendered into each harness's own directories, and a directory a harness
-  lacks is simply absent from its tree.
-- refactor: take finished settings strings from the CLI and drop the
-  `pre_gen` hook and its models.
-- feat: render `AGENTS.md` for Pi, which reads it from `~/.pi/agent`. It
-  indexes the skills only, since Pi has no subagents to delegate to.
-- fix: drop `pi/settings.json`. Pi reads `~/.agents/skills` natively, so its
-  only entry was redundant.
-
-# 0.1.0+1
-
-- feat: initial brick generating staging output for Claude Code, Gemini CLI,
-  Codex, OpenCode and Pi.

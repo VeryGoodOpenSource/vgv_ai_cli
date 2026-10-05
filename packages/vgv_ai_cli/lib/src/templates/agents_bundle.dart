@@ -37,7 +37,7 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
       "type": "text",
     },
     {
-      "path": "{{#gemini}}gemini/commands/{{#commands}}{{{name}}}.toml{{/commands}}{{/gemini}}",
+      "path": "{{#gemini}}gemini/commands/vgv/{{#commands}}{{{name}}}.toml{{/commands}}{{/gemini}}",
       "data": "e3sjY29tbWFuZHN9fXt7I2dlbWluaX19e3t7dG9tbH19fXt7L2dlbWluaX19e3svY29tbWFuZHN9fQ==",
       "type": "text",
     },
@@ -97,7 +97,7 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
   "name": "agents",
   "description":
       "The files each coding agent harness reads to use the VGV plugins.",
-  "version": "0.3.0+1",
+  "version": "0.4.0+1",
   "environment": {"mason": "^0.1.0"},
   "publish_to": "none",
   "readme": {
@@ -107,7 +107,7 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
   },
   "changelog": {
     "path": "CHANGELOG.md",
-    "data": "IyAwLjMuMCsxCgotIGZpeDogZHJvcCBgY29kZXgvcHJvbXB0cy9gLiBDb2RleCByZW1vdmVkIGN1c3RvbSBwcm9tcHRzIGluIDAuMTE3LjAsIHNvIHRoZQogIGZvbGRlciB3YXMgaW5lcnQsIGFuZCB0aGUgc2tpbGxzIGl0IGR1cGxpY2F0ZWQgYXJlIGFscmVhZHkgc2hhcmVkIHVuZGVyCiAgYH4vLmFnZW50cy9za2lsbHNgLgoKIyAwLjIuMCsxCgotIHJlZmFjdG9yOiBvd24gdGhlIHBlci1oYXJuZXNzIGxheW91dC4gQWdlbnRzLCBjb21tYW5kcyBhbmQgcHJvbXB0cyBhcmUKICByZW5kZXJlZCBpbnRvIGVhY2ggaGFybmVzcydzIG93biBkaXJlY3RvcmllcywgYW5kIGEgZGlyZWN0b3J5IGEgaGFybmVzcwogIGxhY2tzIGlzIHNpbXBseSBhYnNlbnQgZnJvbSBpdHMgdHJlZS4KLSByZWZhY3RvcjogdGFrZSBmaW5pc2hlZCBzZXR0aW5ncyBzdHJpbmdzIGZyb20gdGhlIENMSSBhbmQgZHJvcCB0aGUKICBgcHJlX2dlbmAgaG9vayBhbmQgaXRzIG1vZGVscy4KLSBmZWF0OiByZW5kZXIgYEFHRU5UUy5tZGAgZm9yIFBpLCB3aGljaCByZWFkcyBpdCBmcm9tIGB+Ly5waS9hZ2VudGAuIEl0CiAgaW5kZXhlcyB0aGUgc2tpbGxzIG9ubHksIHNpbmNlIFBpIGhhcyBubyBzdWJhZ2VudHMgdG8gZGVsZWdhdGUgdG8uCi0gZml4OiBkcm9wIGBwaS9zZXR0aW5ncy5qc29uYC4gUGkgcmVhZHMgYH4vLmFnZW50cy9za2lsbHNgIG5hdGl2ZWx5LCBzbyBpdHMKICBvbmx5IGVudHJ5IHdhcyByZWR1bmRhbnQuCgojIDAuMS4wKzEKCi0gZmVhdDogaW5pdGlhbCBicmljayBnZW5lcmF0aW5nIHN0YWdpbmcgb3V0cHV0IGZvciBDbGF1ZGUgQ29kZSwgR2VtaW5pIENMSSwKICBDb2RleCwgT3BlbkNvZGUgYW5kIFBpLgo=",
+    "data": "IyAwLjQuMCsxCgotIGZpeDogbmFtZXNwYWNlIEdlbWluaSBjb21tYW5kcyB1bmRlciBgY29tbWFuZHMvdmd2L2AsIHNvIHRoZXkgbG9hZCBhcwogIGAvdmd2OnBsYW5gLCBgL3ZndjpidWlsZGAgYW5kIHNvIG9uLiBHZW1pbmkgQ0xJIHJlbmFtZXMgYW55IGN1c3RvbSBjb21tYW5kCiAgd2hvc2UgbmFtZSBtYXRjaGVzIGEgYnVpbHQtaW4sIGFuZCBgL3BsYW5gIGFscmVhZHkgZG9lcy4KCg==",
     "type": "text",
   },
   "vars": {

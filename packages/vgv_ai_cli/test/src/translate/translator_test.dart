@@ -74,9 +74,9 @@ void main() {
           'AGENTS.md',
           'agents/planner.md',
           'agents/review.md',
-          'commands/plan.toml',
-          'commands/review.toml',
-          'commands/testing.toml',
+          'commands/vgv/plan.toml',
+          'commands/vgv/review.toml',
+          'commands/vgv/testing.toml',
           'settings.json',
         ]);
       });
@@ -232,7 +232,10 @@ void main() {
         'Codex agents and Gemini commands are the TOML they were given',
         () async {
           final agent = await contents(Harness.codex, 'agents/planner.toml');
-          final command = await contents(Harness.gemini, 'commands/plan.toml');
+          final command = await contents(
+            Harness.gemini,
+            'commands/vgv/plan.toml',
+          );
 
           expect(TomlDocument.parse(agent).toMap()['name'], 'planner');
           expect(TomlDocument.parse(command).toMap()['prompt'], '# Body\n');
