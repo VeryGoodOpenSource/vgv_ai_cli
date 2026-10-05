@@ -66,17 +66,22 @@ it finds a problem, including when it cannot resolve the plugins to check conten
 finds only suggestions or warnings.
 
 `uninstall` removes only what `~/.vgv_ai/manifest.json` records the VGV AI CLI wrote, so your own
-files, keys, comments, and sections stay. The harnesses come from the manifest, not from what is
-installed, so you can clean up an agent you've already removed. `--only` and `--no-<harness>`
-narrow the run as they do for `install`, and you can't combine them. The skills in
-`~/.agents/skills` are shared by every agent, so they're removed only when every harness the
-manifest records is, and `uninstall` says so. A partial run keeps them and tells you how to remove
-them. Without `--force`, a file, key, or section you changed since install is kept, and a warning
-names it. Empty directories left behind are removed, but `~/.agents/skills` and each harness's
-config directory, such as `~/.codex`, stay. The manifest keeps whatever is left to remove, and it's
-deleted once nothing is. `--check` changes nothing, not even the manifest. `uninstall` exits with
-`74` when a file or the manifest can't be read or written, and `0` when it only warns, for example
-about a file it can't parse.
+files, keys, comments, and sections stay.
+
+- **Selection:** the harnesses come from the manifest, not from what is installed, so you can clean
+  up an agent you've already removed. `--only` and `--no-<harness>` narrow the run as they do for
+  `install`, and you can't combine them.
+- **Shared skills:** the skills in `~/.agents/skills` are shared by every agent, so they're removed
+  only when every harness the manifest records is, and `uninstall` says so. A partial run keeps
+  them and tells you how to remove them.
+- **Your changes:** without `--force`, a file, key, or section you changed since install is kept,
+  and a warning names it.
+- **Directories:** empty directories left behind are removed, but `~/.agents/skills` and each
+  harness's config directory, such as `~/.codex`, stay.
+- **Manifest:** it keeps whatever is left to remove, and it's deleted once nothing is. `--check`
+  changes nothing, not even the manifest.
+- **Exit codes:** `74` when a file or the manifest can't be read or written, and `0` when it only
+  warns, for example about a file it can't parse.
 
 ## Running Tests with coverage 🧪
 
