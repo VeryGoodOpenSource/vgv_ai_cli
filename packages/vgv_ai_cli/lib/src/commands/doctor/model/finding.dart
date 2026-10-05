@@ -8,6 +8,10 @@ enum FindingKind {
   /// Something VGV wrote was changed since. `install --force` restores it.
   drifted,
 
+  /// Something is not what this version of the CLI installs. `install`
+  /// brings it up to date.
+  stale,
+
   /// Something is wrong that `install` cannot fix, so [Finding.step] says
   /// what to do instead.
   manual,
@@ -18,6 +22,9 @@ enum FindingKind {
 
   /// Something `install` would add, that is not wrong without it.
   suggestion,
+
+  /// Something that is as it should be, printed for reference.
+  current,
 }
 
 /// {@template finding}
@@ -47,6 +54,12 @@ class const Finding._({
 
   /// {@macro finding}
   ///
+  /// [message] names something that is not what this version installs.
+  const new stale(String message)
+    : this._(kind: FindingKind.stale, message: message);
+
+  /// {@macro finding}
+  ///
   /// [message] names a problem `install` cannot fix, and [step] how to fix
   /// it by hand.
   const new manual(String message, {required String step})
@@ -64,14 +77,25 @@ class const Finding._({
   const new suggestion(String message)
     : this._(kind: FindingKind.suggestion, message: message);
 
+  /// {@macro finding}
+  ///
+  /// [message] names something that is as it should be.
+  const new current(String message)
+    : this._(kind: FindingKind.current, message: message);
+
   /// Whether this is wrong, rather than worth knowing.
   bool get isProblem => _problems.contains(kind);
 
   static const Set<FindingKind> _problems = {
     FindingKind.missing,
     FindingKind.drifted,
+    FindingKind.stale,
     FindingKind.manual,
   };
+
+  /// Whether this is worth knowing, though nothing is wrong.
+  bool get isNotice =>
+      kind == FindingKind.warning || kind == FindingKind.suggestion;
 
   /// Whether `install` needs `--force` to fix this.
   bool get needsForce => kind == FindingKind.drifted;

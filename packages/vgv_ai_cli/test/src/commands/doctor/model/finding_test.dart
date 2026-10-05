@@ -38,10 +38,33 @@ void main() {
       expect(suggestion.isProblem, isFalse);
     });
 
-    test('missing, drifted and manual are problems', () {
+    test('missing, drifted, stale and manual are problems', () {
       expect(const Finding.missing('a').isProblem, isTrue);
       expect(const Finding.drifted('a').isProblem, isTrue);
+      expect(const Finding.stale('a').isProblem, isTrue);
       expect(const Finding.manual('a', step: 'b').isProblem, isTrue);
+    });
+
+    test('stale is fixed by install, without --force', () {
+      const finding = Finding.stale('a 1.0.0 installed, 2.0.0 pinned');
+
+      expect(finding.kind, FindingKind.stale);
+      expect(finding.needsForce, isFalse);
+      expect(finding.isNotice, isFalse);
+    });
+
+    test('only warnings and suggestions are notices', () {
+      expect(const Finding.warning('a').isNotice, isTrue);
+      expect(const Finding.suggestion('a').isNotice, isTrue);
+      expect(const Finding.current('a').isNotice, isFalse);
+      expect(const Finding.missing('a').isNotice, isFalse);
+    });
+
+    test('current is neither a problem nor a notice', () {
+      const finding = Finding.current('a 1.0.0');
+
+      expect(finding.kind, FindingKind.current);
+      expect(finding.isProblem, isFalse);
     });
   });
 }

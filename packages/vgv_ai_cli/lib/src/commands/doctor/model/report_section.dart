@@ -19,10 +19,13 @@ class const ReportSection({
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
 
+  /// Whether anything was found that is worth knowing, though not wrong.
+  bool get hasNotices => findings.any((finding) => finding.isNotice);
+
   /// The `install` command that fixes [finding], or null when `install`
   /// does not change it.
   FixCommand? fixFor(Finding finding) => switch (finding.kind) {
-    FindingKind.manual || FindingKind.warning => null,
+    FindingKind.manual || FindingKind.warning || FindingKind.current => null,
     _ => FixCommand(harnesses: installs, force: finding.needsForce),
   };
 }

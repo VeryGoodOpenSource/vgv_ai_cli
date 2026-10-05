@@ -52,6 +52,38 @@ void main() {
       );
     });
 
+    test('has notices only when a warning or suggestion was found', () {
+      expect(
+        const ReportSection(
+          title: 'Codex',
+          installs: {},
+          findings: [Finding.current('a'), Finding.missing('b')],
+        ).hasNotices,
+        isFalse,
+      );
+      expect(
+        const ReportSection(
+          title: 'Codex',
+          installs: {},
+          findings: [Finding.suggestion('a')],
+        ).hasNotices,
+        isTrue,
+      );
+    });
+
+    test('fixes a stale finding by installing its harnesses', () {
+      const report = ReportSection(
+        title: 'Plugins',
+        installs: {Harness.codex},
+        findings: [],
+      );
+
+      expect(
+        report.fixFor(const Finding.stale('a')).toString(),
+        'vgv_ai install --only codex',
+      );
+    });
+
     test('has no install fix for a manual step or a warning', () {
       const report = ReportSection(
         title: 'Codex',
@@ -61,6 +93,7 @@ void main() {
 
       expect(report.fixFor(const Finding.manual('a', step: 'b')), isNull);
       expect(report.fixFor(const Finding.warning('a')), isNull);
+      expect(report.fixFor(const Finding.current('a')), isNull);
     });
   });
 }
