@@ -84,12 +84,20 @@ class UninstallCommand extends Command<int> with HarnessSelection {
     // only with the last of them.
     final full = selected.containsAll(recorded);
     final owners = {...recorded.intersection(selected), if (full) null};
+    if (full && manifest.entriesFor(null).isNotEmpty) {
+      _logger.info(
+        'The skills in ${agentsSkillsRoot(home).path} were installed by VGV '
+        'AI CLI and are shared by all your coding agents, so they are being '
+        'removed.',
+      );
+    }
     final reversal = _auditor.reverse(
       manifest,
       home.fileSystem,
       owners: owners,
     );
     _report(reversal.entries);
+    _deleteEmptyDirectories(reversal.entries, home);
     if (reversal.entries.isEmpty && only == null) {
       _logger.info('Nothing to remove for the selected harnesses.');
     }
@@ -146,6 +154,33 @@ class UninstallCommand extends Command<int> with HarnessSelection {
         '${error.description}',
       );
       return false;
+    }
+  }
+
+  /// Deletes the directories each removed entry of [entries] left empty, up
+  /// to the skills root for the shared skills and the harness's config
+  /// directory for the rest, which are never deleted.
+  ///
+  /// The files are already gone by now, so a directory that cannot be
+  /// deleted is only warned about.
+  void _deleteEmptyDirectories(List<ReversedEntry> entries, Directory home) {
+    final fileSystem = home.fileSystem;
+    for (final ReversedEntry(:entry, :outcome) in entries) {
+      if (outcome != ReverseOutcome.removed) continue;
+
+      try {
+        fileSystem
+            .file(entry.path)
+            .parent
+            .deleteEmptyUpTo(
+              entry.owner?.configDirectory(home) ?? agentsSkillsRoot(home),
+            );
+      } on FileSystemException catch (error) {
+        _logger.warn(
+          'Could not delete the empty directories above ${entry.path}: '
+          '${error.description}',
+        );
+      }
     }
   }
 

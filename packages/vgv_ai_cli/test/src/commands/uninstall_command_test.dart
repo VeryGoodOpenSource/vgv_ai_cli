@@ -45,10 +45,20 @@ void main() {
     late Directory home;
     late ManifestStore store;
 
+    /// A directory that cannot be deleted, or null when every one can.
+    String? undeletable;
+
     setUp(() {
       logger = _MockLogger();
       pubUpdater = _MockPubUpdater();
-      fs = MemoryFileSystem.test();
+      undeletable = null;
+      fs = MemoryFileSystem.test(
+        opHandle: (path, operation) {
+          if (path == undeletable && operation == FileSystemOp.delete) {
+            throw FileSystemException('Cannot delete', path);
+          }
+        },
+      );
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
 
@@ -274,6 +284,93 @@ void main() {
           'Remove just these '
           'harnesses.',
         );
+      });
+    });
+
+    group('shared skills and empty directories', () {
+      const sharedRemoved =
+          'The skills in /home/dev/.agents/skills were installed by VGV AI CLI '
+          'and are shared by all your coding agents, so they are being '
+          'removed.';
+
+      Directory homeDirectory(String relativePath) =>
+          fs.directory(fs.path.join(home.path, relativePath));
+
+      test('a full uninstall removes the skill directories', () async {
+        install([
+          owned(null, '.agents/skills/a/SKILL.md'),
+          owned(null, '.agents/skills/a/references/guide.md'),
+          owned(null, '.agents/skills/b/scripts/run.sh'),
+        ]);
+
+        await runUninstall();
+
+        expect(homeDirectory('.agents/skills').listSync(), isEmpty);
+        verify(() => logger.info(sharedRemoved)).called(1);
+      });
+
+      test(
+        'says nothing of the shared skills when none are recorded',
+        () async {
+          install([owned(Harness.codex, '.codex/AGENTS.md')]);
+
+          await runUninstall();
+
+          verifyNever(() => logger.info(sharedRemoved));
+        },
+      );
+
+      test('removes the harness directories it empties, not the config '
+          'root', () async {
+        seed('.gemini/settings.json', '{}');
+        install([
+          owned(Harness.gemini, '.gemini/commands/vgv/a.toml'),
+          owned(Harness.pi, '.pi/agent/prompts/a.md'),
+        ]);
+
+        await runUninstall();
+
+        expect(homeDirectory('.gemini/commands').existsSync(), isFalse);
+        expect(homeDirectory('.gemini').existsSync(), isTrue);
+        expect(homeDirectory('.pi/agent/prompts').existsSync(), isFalse);
+        expect(homeDirectory('.pi/agent').existsSync(), isTrue);
+      });
+
+      test('keeps a directory that still holds a file of the user', () async {
+        install([owned(null, '.agents/skills/a/SKILL.md')]);
+        final notes = seed('.agents/skills/a/notes.md', 'mine');
+
+        await runUninstall();
+
+        expect(notes.existsSync(), isTrue);
+      });
+
+      test(
+        'keeps the directory of a file that was only partly removed',
+        () async {
+          install([owned(null, '.agents/skills/a/SKILL.md')]);
+          homeFile('.agents/skills/a/SKILL.md').writeAsStringSync('edited');
+
+          await runUninstall();
+
+          expect(homeFile('.agents/skills/a/SKILL.md').existsSync(), isTrue);
+        },
+      );
+
+      test('warns when an empty directory cannot be deleted', () async {
+        install([owned(null, '.agents/skills/a/SKILL.md')]);
+        undeletable = homeDirectory('.agents/skills/a').path;
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(homeFile('.agents/skills/a/SKILL.md').existsSync(), isFalse);
+        verify(
+          () => logger.warn(
+            'Could not delete the empty directories above '
+            '${homeFile('.agents/skills/a/SKILL.md').path}: Cannot delete',
+          ),
+        ).called(1);
       });
     });
 
