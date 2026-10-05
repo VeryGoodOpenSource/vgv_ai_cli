@@ -44,7 +44,10 @@ enum Harness({
   ),
 
   /// Pi.
-  pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent');
+  pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent'),
+
+  /// GitHub Copilot CLI.
+  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot');
 
   /// The directory this harness reads its user-level config from.
   Directory configDirectory(Directory home) => home.fileSystem.directory(

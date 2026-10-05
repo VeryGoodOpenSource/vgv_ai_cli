@@ -11,6 +11,7 @@ export 'agents_vars.dart';
 export 'claude_translator.dart';
 export 'codex_compat.dart';
 export 'codex_translator.dart';
+export 'copilot_translator.dart';
 export 'format/format.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';

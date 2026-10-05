@@ -115,6 +115,15 @@ void main() {
           'prompts/testing.md',
         ]);
       });
+
+      test('Copilot gets MCP config, instructions and agents', () async {
+        expect(await tree(Harness.copilot), [
+          'agents/planner.agent.md',
+          'agents/review.agent.md',
+          'copilot-instructions.md',
+          'mcp-config.json',
+        ]);
+      });
     });
 
     test('renders no nameless file when there are no agents or commands', () {
@@ -141,6 +150,17 @@ void main() {
         containsPair('.claude/settings.json', ChangeMode.mergeJson),
       );
       expect(modes, containsPair('.codex/config.toml', ChangeMode.mergeToml));
+      expect(
+        modes,
+        containsPair('.copilot/mcp-config.json', ChangeMode.mergeJson),
+      );
+      expect(
+        modes,
+        containsPair(
+          '.copilot/copilot-instructions.md',
+          ChangeMode.mergeMarkdown,
+        ),
+      );
       expect(
         modes,
         containsPair('.gemini/AGENTS.md', ChangeMode.mergeMarkdown),
