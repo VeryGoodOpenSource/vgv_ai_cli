@@ -18,6 +18,34 @@ void main() {
       );
     });
 
+    group('combine', () {
+      test('installs every harness any fix names', () {
+        expect(
+          FixCommand.combine(const [
+            FixCommand(harnesses: {Harness.codex}),
+            null,
+            FixCommand(harnesses: {Harness.gemini, Harness.codex}),
+          ]).toString(),
+          'vgv_ai install --only gemini --only codex',
+        );
+      });
+
+      test('forces when any fix forces', () {
+        expect(
+          FixCommand.combine(const [
+            FixCommand(harnesses: {Harness.codex}),
+            FixCommand(harnesses: {Harness.pi}, force: true),
+          ]).toString(),
+          'vgv_ai install --only codex --only pi --force',
+        );
+      });
+
+      test('is null when there is nothing to fix', () {
+        expect(FixCommand.combine(const []), isNull);
+        expect(FixCommand.combine(const [null, null]), isNull);
+      });
+    });
+
     test('installs every detected harness when it names none', () {
       expect(const FixCommand(harnesses: {}).toString(), 'vgv_ai install');
     });

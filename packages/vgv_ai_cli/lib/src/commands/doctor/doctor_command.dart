@@ -22,7 +22,8 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 ///
 /// Whether a file is current comes from a dry run of `install` against the
 /// resolved plugins. When they cannot be resolved, that check is skipped and
-/// the rest of the report still runs.
+/// the rest of the report still runs. The report ends with one `install`
+/// command that fixes everything `install` can.
 ///
 /// It also suggests configuring a harness that is installed but that VGV
 /// has not configured, and warns about one VGV configured that is no longer
@@ -104,6 +105,13 @@ class DoctorCommand extends Command<int> with HarnessSelection {
           ? ContentPlan.none()
           : await _plan(manifest, home, checked),
     )..forEach(_report);
+
+    final fix = FixCommand.combine(reports.map((report) => report.fix));
+    if (fix != null) {
+      _logger
+        ..info('')
+        ..info('Run ${lightCyan.wrap('$fix')} to fix everything install can.');
+    }
     return reports.any((report) => report.hasProblems)
         ? ExitCode.software.code
         : ExitCode.success.code;

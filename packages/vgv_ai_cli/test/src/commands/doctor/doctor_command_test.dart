@@ -693,6 +693,113 @@ void main() {
       });
     });
 
+    group('the combined fix', () {
+      String combined(String command) =>
+          'Run $command to fix everything install can.';
+
+      void verifyNoCombined() => verifyNever(
+        () =>
+            logger.info(any(that: endsWith('to fix everything install can.'))),
+      );
+
+      test('installs every harness with a problem', () async {
+        install([
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        homeFile('.codex/agents/a.toml').deleteSync();
+        translator.changes.add(
+          PlannedChange.text(
+            file: homeFile('.gemini/agents/a.md'),
+            contents: 'vgv, newer',
+            harness: Harness.gemini,
+          ),
+        );
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo(combined('vgv_ai install --only gemini --only codex'));
+      });
+
+      test('forces when anything drifted', () async {
+        install([
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        homeFile('.codex/agents/a.toml').deleteSync();
+        homeFile('.gemini/agents/a.md').writeAsStringSync('mine');
+
+        await runDoctor();
+
+        verifyInfo(
+          combined('vgv_ai install --only gemini --only codex --force'),
+        );
+      });
+
+      test('maps shared problems to the harnesses that read them', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.claude/a.md', harness: Harness.claude),
+          owned('.pi/agent/a.md', harness: Harness.pi),
+        ]);
+        homeFile('.agents/skills/a/SKILL.md').deleteSync();
+
+        await runDoctor();
+
+        verifyInfo(combined('vgv_ai install --only pi'));
+      });
+
+      test('includes a suggested harness', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+        detect(const [Harness.codex, Harness.pi]);
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo(combined('vgv_ai install --only pi'));
+      });
+
+      test('is left out of a healthy install', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        await runDoctor();
+
+        verifyNoCombined();
+      });
+
+      test('leaves out what install cannot fix', () async {
+        install([
+          json('.gemini/settings.json', {'theme': 'vgv'}, Harness.gemini),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.pi/agent/a.md', harness: Harness.pi),
+        ]);
+        homeFile('.gemini/settings.json').writeAsStringSync('{ not json');
+        homeFile('.pi/agent/a.md').deleteSync();
+
+        final exitCode = await runDoctor(
+          auditor: _LockedAuditor(homeFile('.codex/agents/a.toml').path),
+        );
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('      Fix its syntax, then run vgv_ai install.');
+        verifyInfo('      Check that you can read it, then run doctor again.');
+        verifyInfo(combined('vgv_ai install --only pi'));
+      });
+
+      test('is left out when only manual steps remain', () async {
+        install([
+          json('.gemini/settings.json', {'theme': 'vgv'}, Harness.gemini),
+        ]);
+        homeFile('.gemini/settings.json').writeAsStringSync('{ not json');
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyNoCombined();
+      });
+    });
+
     group('the manifest', () {
       test('from another version exits 70 with a manual step', () async {
         final newer = jsonEncode({'version': InstallManifest.version + 1});
@@ -711,6 +818,9 @@ void main() {
         ).called(1);
         verifyInfo(
           'Run vgv_ai update, or move it aside and run vgv_ai install.',
+        );
+        verifyNever(
+          () => logger.info(any(that: endsWith('fix everything install can.'))),
         );
       });
 

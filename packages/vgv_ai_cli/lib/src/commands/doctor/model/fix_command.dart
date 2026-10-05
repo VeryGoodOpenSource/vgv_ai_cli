@@ -10,6 +10,17 @@ class const FixCommand({
   /// Whether VGV's values must replace ones changed since install.
   final bool force = false,
 }) {
+  /// One command that does what every one of [fixes] does, or null when
+  /// there are none.
+  static FixCommand? combine(Iterable<FixCommand?> fixes) {
+    final all = fixes.nonNulls;
+    if (all.isEmpty) return null;
+    return FixCommand(
+      harnesses: {for (final fix in all) ...fix.harnesses},
+      force: all.any((fix) => fix.force),
+    );
+  }
+
   @override
   String toString() => [
     'vgv_ai install',
