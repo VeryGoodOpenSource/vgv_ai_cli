@@ -22,10 +22,12 @@ class const ReportSection({
   /// Whether anything was found that is worth knowing, though not wrong.
   bool get hasNotices => findings.any((finding) => finding.isNotice);
 
-  /// The `install` command that fixes [finding], or null when `install`
-  /// does not change it.
-  FixCommand? fixFor(Finding finding) => switch (finding.kind) {
-    FindingKind.manual || FindingKind.warning || FindingKind.current => null,
-    _ => FixCommand(harnesses: installs, force: finding.needsForce),
-  };
+  /// The one `install` command that fixes every finding `install` can fix,
+  /// or null when there are none.
+  FixCommand? get fix => findings.any((finding) => finding.needsInstall)
+      ? FixCommand(
+          harnesses: installs,
+          force: findings.any((finding) => finding.needsForce),
+        )
+      : null;
 }

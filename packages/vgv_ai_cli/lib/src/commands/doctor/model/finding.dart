@@ -99,4 +99,14 @@ class const Finding._({
 
   /// Whether `install` needs `--force` to fix this.
   bool get needsForce => kind == FindingKind.drifted;
+
+  /// Whether running `install` fixes this.
+  bool get needsInstall => _installs.contains(kind);
+
+  static const Set<FindingKind> _installs = {
+    FindingKind.missing,
+    FindingKind.drifted,
+    FindingKind.stale,
+    FindingKind.suggestion,
+  };
 }

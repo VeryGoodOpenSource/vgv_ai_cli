@@ -209,7 +209,8 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     };
   }
 
-  /// Prints [report]'s title, and each finding with how to fix it.
+  /// Prints [report]'s title, each finding with any manual step, and the
+  /// one `install` command that fixes the rest.
   void _report(ReportSection report) {
     final mark = switch (report) {
       ReportSection(hasProblems: true) => lightRed.wrap('✗'),
@@ -218,12 +219,13 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     };
     _logger.info('$mark ${report.title}');
 
-    for (final finding in report.findings) {
-      _logger.info('    ${finding.message}');
-      final fix =
-          finding.step ?? lightCyan.wrap(report.fixFor(finding)?.toString());
-      if (fix != null) _logger.info('      $fix');
+    for (final Finding(:message, :step) in report.findings) {
+      _logger.info('    $message');
+      if (step != null) _logger.info('      $step');
     }
+
+    final fix = report.fix;
+    if (fix != null) _logger.info('    Run ${lightCyan.wrap('$fix')}');
   }
 
   /// Prints a [Finding.manual] that is not about any one harness.

@@ -60,6 +60,16 @@ void main() {
       expect(const Finding.missing('a').isNotice, isFalse);
     });
 
+    test('needs install unless it is manual, a warning or current', () {
+      expect(const Finding.missing('a').needsInstall, isTrue);
+      expect(const Finding.drifted('a').needsInstall, isTrue);
+      expect(const Finding.stale('a').needsInstall, isTrue);
+      expect(const Finding.suggestion('a').needsInstall, isTrue);
+      expect(const Finding.manual('a', step: 'b').needsInstall, isFalse);
+      expect(const Finding.warning('a').needsInstall, isFalse);
+      expect(const Finding.current('a').needsInstall, isFalse);
+    });
+
     test('current is neither a problem nor a notice', () {
       const finding = Finding.current('a 1.0.0');
 

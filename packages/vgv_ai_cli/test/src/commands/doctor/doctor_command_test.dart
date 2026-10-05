@@ -171,7 +171,7 @@ void main() {
       expect(exitCode, ExitCode.software.code);
       verifyInfo('✗ Codex');
       verifyInfo('    missing ~/.codex/agents/a.toml');
-      verifyInfo('      vgv_ai install --only codex');
+      verifyInfo('    Run vgv_ai install --only codex');
     });
 
     test('reports a changed file with its forced install fix', () async {
@@ -182,7 +182,23 @@ void main() {
 
       expect(exitCode, ExitCode.software.code);
       verifyInfo('    changed ~/.codex/agents/a.toml');
-      verifyInfo('      vgv_ai install --only codex --force');
+      verifyInfo('    Run vgv_ai install --only codex --force');
+    });
+
+    test('prints one fix per section, forced when anything changed', () async {
+      install([
+        owned('.codex/agents/a.toml', harness: Harness.codex),
+        owned('.codex/agents/b.toml', harness: Harness.codex),
+      ]);
+      homeFile('.codex/agents/a.toml').deleteSync();
+      homeFile('.codex/agents/b.toml').writeAsStringSync('mine');
+
+      await runDoctor();
+
+      verifyInfo('    missing ~/.codex/agents/a.toml');
+      verifyInfo('    changed ~/.codex/agents/b.toml');
+      verifyInfo('    Run vgv_ai install --only codex --force');
+      verifyNever(() => logger.info('    Run vgv_ai install --only codex'));
     });
 
     test('names the keys that are missing or changed', () async {
@@ -242,7 +258,7 @@ void main() {
         expect(exitCode, ExitCode.software.code);
         verifyInfo('✗ Shared');
         verifyInfo('    missing ~/.agents/skills/a/SKILL.md');
-        verifyInfo('      vgv_ai install --only gemini --only codex');
+        verifyInfo('    Run vgv_ai install --only gemini --only codex');
         verifyInfo('✓ Claude Code');
       },
     );
@@ -278,7 +294,7 @@ void main() {
         expect(exitCode, ExitCode.success.code);
         verifyInfo('! Gemini');
         verifyInfo("    installed, but VGV AI CLI hasn't configured it");
-        verifyInfo('      vgv_ai install --only gemini');
+        verifyInfo('    Run vgv_ai install --only gemini');
         verifyInfo('✓ Codex');
         verifyNever(() => logger.info(any(that: endsWith('OpenCode'))));
       });
@@ -297,7 +313,7 @@ void main() {
             ),
           ).called(1);
           verifyInfo('! Pi');
-          verifyInfo('      vgv_ai install --only pi');
+          verifyInfo('    Run vgv_ai install --only pi');
         },
       );
 
@@ -326,7 +342,7 @@ void main() {
           verifyInfo(
             '    not installed on this machine, but VGV AI CLI configured it',
           );
-          verifyNever(() => logger.info(any(that: startsWith('      '))));
+          verifyNever(() => logger.info(any(that: startsWith('    Run '))));
         },
       );
 
@@ -399,7 +415,7 @@ void main() {
         verifyInfo(
           '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
         );
-        verifyInfo('      vgv_ai install --only codex');
+        verifyInfo('    Run vgv_ai install --only codex');
       });
 
       test('a newer recorded version is stale, with the same fix', () async {
@@ -412,7 +428,7 @@ void main() {
           '    ${wingspan.name} 99.0.0 installed, newer than the pinned '
           '${wingspan.version}',
         );
-        verifyInfo('      vgv_ai install --only codex');
+        verifyInfo('    Run vgv_ai install --only codex');
       });
 
       test('a pinned plugin that was never recorded exits 70', () async {
@@ -438,10 +454,7 @@ void main() {
 
           await runDoctor(args: ['--no-pi']);
 
-          verify(
-            () =>
-                logger.info('      vgv_ai install --only gemini --only codex'),
-          ).called(vgvPlugins.length);
+          verifyInfo('    Run vgv_ai install --only gemini --only codex');
         },
       );
 

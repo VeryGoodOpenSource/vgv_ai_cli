@@ -31,27 +31,6 @@ void main() {
       );
     });
 
-    test('fixes a finding by installing its harnesses', () {
-      const report = ReportSection(
-        title: 'Shared',
-        installs: {Harness.codex, Harness.gemini},
-        findings: [],
-      );
-
-      expect(
-        report.fixFor(const Finding.missing('missing ~/a')).toString(),
-        'vgv_ai install --only gemini --only codex',
-      );
-      expect(
-        report.fixFor(const Finding.drifted('changed ~/a')).toString(),
-        'vgv_ai install --only gemini --only codex --force',
-      );
-      expect(
-        report.fixFor(const Finding.suggestion('a')).toString(),
-        'vgv_ai install --only gemini --only codex',
-      );
-    });
-
     test('has notices only when a warning or suggestion was found', () {
       expect(
         const ReportSection(
@@ -71,29 +50,41 @@ void main() {
       );
     });
 
-    test('fixes a stale finding by installing its harnesses', () {
-      const report = ReportSection(
-        title: 'Plugins',
-        installs: {Harness.codex},
-        findings: [],
-      );
+    ReportSection section(List<Finding> findings) => ReportSection(
+      title: 'Shared',
+      installs: const {Harness.codex, Harness.gemini},
+      findings: findings,
+    );
 
+    test('fixes everything install can fix with one command', () {
       expect(
-        report.fixFor(const Finding.stale('a')).toString(),
-        'vgv_ai install --only codex',
+        section(const [
+          Finding.missing('a'),
+          Finding.stale('b'),
+          Finding.suggestion('c'),
+        ]).fix.toString(),
+        'vgv_ai install --only gemini --only codex',
       );
     });
 
-    test('has no install fix for a manual step or a warning', () {
-      const report = ReportSection(
-        title: 'Codex',
-        installs: {Harness.codex},
-        findings: [],
+    test('forces the fix when anything drifted', () {
+      expect(
+        section(const [Finding.missing('a'), Finding.drifted('b')]).fix
+            .toString(),
+        'vgv_ai install --only gemini --only codex --force',
       );
+    });
 
-      expect(report.fixFor(const Finding.manual('a', step: 'b')), isNull);
-      expect(report.fixFor(const Finding.warning('a')), isNull);
-      expect(report.fixFor(const Finding.current('a')), isNull);
+    test('has no fix when install changes nothing it found', () {
+      expect(section(const []).fix, isNull);
+      expect(
+        section(const [
+          Finding.manual('a', step: 'b'),
+          Finding.warning('c'),
+          Finding.current('d'),
+        ]).fix,
+        isNull,
+      );
     });
   });
 }
