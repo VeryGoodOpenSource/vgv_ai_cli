@@ -34,6 +34,19 @@ $ vgv_ai doctor
 $ vgv_ai doctor --only codex --only gemini
 $ vgv_ai doctor --no-claude
 
+# Remove what the VGV AI CLI installed
+$ vgv_ai uninstall
+
+# Preview what would be removed, without removing anything
+$ vgv_ai uninstall --check
+
+# Remove only some harnesses, or keep one
+$ vgv_ai uninstall --only codex --only gemini
+$ vgv_ai uninstall --no-claude
+
+# Also remove what you changed since install
+$ vgv_ai uninstall --force
+
 # Show CLI version
 $ vgv_ai --version
 
@@ -51,6 +64,19 @@ ends with one command that fixes everything `install` can, for example
 need restoring, and then `--force` applies to every harness it names. `doctor` exits with `70` when
 it finds a problem, including when it cannot resolve the plugins to check content, and `0` when it
 finds only suggestions or warnings.
+
+`uninstall` removes only what `~/.vgv_ai/manifest.json` records the VGV AI CLI wrote, so your own
+files, keys, comments, and sections stay. The harnesses come from the manifest, not from what is
+installed, so you can clean up an agent you've already removed. `--only` and `--no-<harness>`
+narrow the run as they do for `install`, and you can't combine them. The skills in
+`~/.agents/skills` are shared by every agent, so they're removed only when every harness the
+manifest records is, and `uninstall` says so. A partial run keeps them and tells you how to remove
+them. Without `--force`, a file, key, or section you changed since install is kept, and a warning
+names it. Empty directories left behind are removed, but `~/.agents/skills` and each harness's
+config directory, such as `~/.codex`, stay. The manifest keeps whatever is left to remove, and it's
+deleted once nothing is. `--check` changes nothing, not even the manifest. `uninstall` exits with
+`74` when a file or the manifest can't be read or written, and `0` when it only warns, for example
+about a file it can't parse.
 
 ## Running Tests with coverage 🧪
 
