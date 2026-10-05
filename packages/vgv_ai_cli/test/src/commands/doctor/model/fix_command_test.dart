@@ -45,9 +45,5 @@ void main() {
         expect(FixCommand.combine(const [null, null]), isNull);
       });
     });
-
-    test('installs every detected harness when it names none', () {
-      expect(const FixCommand(harnesses: {}).toString(), 'vgv_ai install');
-    });
   });
 }

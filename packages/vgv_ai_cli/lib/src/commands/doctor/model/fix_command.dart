@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// The `install` command that fixes what `doctor` found in [harnesses].
 /// {@endtemplate}
 class const FixCommand({
-  /// The harnesses to install, or every detected one when empty.
+  /// The harnesses to install.
   required final Set<Harness> harnesses,
 
   /// Whether VGV's values must replace ones changed since install.

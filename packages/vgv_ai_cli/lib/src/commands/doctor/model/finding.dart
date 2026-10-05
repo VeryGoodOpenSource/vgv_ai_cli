@@ -94,8 +94,12 @@ class const Finding._({
   };
 
   /// Whether this is worth knowing, though nothing is wrong.
-  bool get isNotice =>
-      kind == FindingKind.warning || kind == FindingKind.suggestion;
+  bool get isNotice => _notices.contains(kind);
+
+  static const Set<FindingKind> _notices = {
+    FindingKind.warning,
+    FindingKind.suggestion,
+  };
 
   /// Whether `install` needs `--force` to fix this.
   bool get needsForce => kind == FindingKind.drifted;

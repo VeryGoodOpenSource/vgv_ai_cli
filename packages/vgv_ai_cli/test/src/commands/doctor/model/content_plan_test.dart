@@ -80,6 +80,21 @@ void main() {
       expect(plan.writes('/a'), isFalse);
       expect(plan.orphans(entry('/a')), isFalse);
       expect(plan.additions(null, InstallManifest()), isEmpty);
+      expect(plan.skipped, isNull);
+    });
+
+    test('unchecked, writes, orphans and adds nothing, and says why', () {
+      const why = Finding.manual('content not checked', step: 'fix it');
+      final plan = ContentPlan.unchecked(why);
+
+      expect(plan.writes('/a'), isFalse);
+      expect(plan.orphans(entry('/a')), isFalse);
+      expect(plan.additions(null, InstallManifest()), isEmpty);
+      expect(plan.skipped, why);
+    });
+
+    test('from a dry run, has nothing skipped', () {
+      expect(ContentPlan(const []).skipped, isNull);
     });
   });
 }

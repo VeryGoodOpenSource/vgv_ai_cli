@@ -212,6 +212,19 @@ void main() {
       );
     });
 
+    test('says when nothing selected is installed or configured', () async {
+      install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+      detect(const []);
+
+      final exitCode = await runDoctor(args: ['--only', 'pi']);
+
+      expect(exitCode, ExitCode.success.code);
+      verifyInfo(
+        'Nothing to check: no selected harness is installed on this machine '
+        'or configured by VGV AI CLI.',
+      );
+    });
+
     test('reports a missing file with its install fix', () async {
       install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
       homeFile('.codex/agents/a.toml').deleteSync();
@@ -367,11 +380,6 @@ void main() {
           final exitCode = await runDoctor();
 
           expect(exitCode, ExitCode.success.code);
-          verify(
-            () => logger.info(
-              any(that: startsWith("VGV AI CLI hasn't installed")),
-            ),
-          ).called(1);
           verifyInfo('! Pi');
           verifyInfo('    Run vgv_ai install --only pi');
         },
@@ -563,13 +571,13 @@ void main() {
           ]);
         });
 
-        test('is skipped with a git suggestion, and exits 0', () async {
+        test('is skipped with the reasons, and exits 70', () async {
           install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
           replan([]);
 
           final exitCode = await runDoctor();
 
-          expect(exitCode, ExitCode.success.code);
+          expect(exitCode, ExitCode.software.code);
           expect(translator.selected, isNull);
           verify(
             () => progress.fail(
@@ -579,7 +587,13 @@ void main() {
           ).called(1);
           verify(() => logger.info('  - no cache')).called(1);
           verify(() => logger.info('  - git is not installed')).called(1);
-          verifyInfo('Install git for a full report.');
+          verifyInfo('✗ Plugins');
+          verifyInfo(
+            '    content not checked: could not resolve ${vgvPlugins.first}',
+          );
+          verifyInfo(
+            '      Fix what Resolving plugins listed, then run doctor again.',
+          );
           verifyInfo('✓ Codex');
         });
 
@@ -599,7 +613,7 @@ void main() {
         });
       });
 
-      test('is skipped when a plugin cannot be parsed', () async {
+      test('is skipped and exits 70 when a plugin cannot be parsed', () async {
         resolver.resolution = UnparseableAssets(
           vgvPlugins.first,
           const PluginParseException('/plugin/agents/a.md', 'bad name'),
@@ -608,7 +622,10 @@ void main() {
 
         final exitCode = await runDoctor();
 
-        expect(exitCode, ExitCode.success.code);
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo(
+          '    content not checked: could not parse ${vgvPlugins.first}',
+        );
         verify(
           () => progress.fail(
             'Could not parse ${vgvPlugins.first}, so content was not checked',
@@ -697,6 +714,10 @@ void main() {
       String combined(String command) =>
           'Run $command to fix everything install can.';
 
+      const forceNote =
+          '--force applies to every harness listed, replacing your values '
+          "wherever they conflict with VGV's.";
+
       void verifyNoCombined() => verifyNever(
         () =>
             logger.info(any(that: endsWith('to fix everything install can.'))),
@@ -720,6 +741,7 @@ void main() {
 
         expect(exitCode, ExitCode.software.code);
         verifyInfo(combined('vgv_ai install --only gemini --only codex'));
+        verifyNever(() => logger.info(forceNote));
       });
 
       test('forces when anything drifted', () async {
@@ -735,6 +757,7 @@ void main() {
         verifyInfo(
           combined('vgv_ai install --only gemini --only codex --force'),
         );
+        verifyInfo(forceNote);
       });
 
       test('maps shared problems to the harnesses that read them', () async {

@@ -23,7 +23,8 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 ///
 /// Whether a file is current comes from a dry run of `install` against the
 /// resolved plugins. When they cannot be resolved, that check is skipped and
-/// the rest of the report still runs. The report ends with one `install`
+/// the rest of the report still runs. Resolving them may clone the plugins
+/// into `~/.vgv_ai/plugins`, the cache `install` reads them from too. The report ends with one `install`
 /// command that fixes everything `install` can.
 ///
 /// It also suggests configuring a harness that is installed but that VGV
@@ -85,33 +86,33 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     final manifest = _load(store);
     if (manifest == null) return ExitCode.software.code;
 
-    if (manifest.entries.isEmpty) {
-      _logger.info(
-        "VGV AI CLI hasn't installed anything here yet. Run "
-        "${lightCyan.wrap('vgv_ai install')} to set it up.",
-      );
-    }
-
     final scope = onlyHarnesses ?? Harness.values.where(isEnabled).toSet();
     final detected = await _detect(scope);
     final configured = {for (final entry in manifest.entries) ?entry.owner};
-    final checked = configured.intersection(scope);
+    final installed = configured.intersection(scope);
     final reports = _verify(
       manifest,
       home,
-      scope: scope,
-      configured: configured,
+      installed: installed,
       detected: detected,
-      plan: checked.isEmpty
+      plan: installed.isEmpty
           ? ContentPlan.none()
-          : await _plan(manifest, home, checked),
+          : await _plan(manifest, home, installed),
     )..forEach(_report);
+
+    if (reports.isEmpty) _logger.info(_nothingToCheck(manifest));
 
     final fix = FixCommand.combine(reports.map((report) => report.fix));
     if (fix != null) {
       _logger
         ..info('')
         ..info('Run ${lightCyan.wrap('$fix')} to fix everything install can.');
+      if (fix.force) {
+        _logger.info(
+          '--force applies to every harness listed, replacing your values '
+          "wherever they conflict with VGV's.",
+        );
+      }
     }
     return reports.any((report) => report.hasProblems)
         ? ExitCode.software.code
@@ -148,15 +149,30 @@ class DoctorCommand extends Command<int> with HarnessSelection {
 
   /// The harnesses of [scope] that are installed on this machine.
   Future<Set<Harness>> _detect(Set<Harness> scope) async {
-    final detections = await Future.wait(scope.map(_detector.detect));
+    final detections = await Future.wait([
+      for (final harness in scope)
+        _detector.detect(harness).then((found) => (harness, found)),
+    ]);
     return {
-      for (final (index, harness) in scope.indexed)
-        if (detections[index].installed) harness,
+      for (final (harness, detection) in detections)
+        if (detection.installed) harness,
     };
   }
 
-  /// What a dry run of `install` for [selected] would do, or no plan,
-  /// having said why, when the plugins cannot be resolved.
+  /// Why the report has no sections: nothing is installed yet, or nothing
+  /// in scope is configured or detected.
+  String _nothingToCheck(InstallManifest manifest) => manifest.entries.isEmpty
+      ? "VGV AI CLI hasn't installed anything here yet. Run "
+            "${lightCyan.wrap('vgv_ai install')} to set it up."
+      : 'Nothing to check: no selected harness is installed on this '
+            'machine or configured by VGV AI CLI.';
+
+  /// What to do when the plugins cannot be resolved or parsed.
+  static const String _fixResolving =
+      'Fix what Resolving plugins listed, then run doctor again.';
+
+  /// What a dry run of `install` for [selected] would do, or an unchecked
+  /// plan, having said why, when the plugins cannot be resolved.
   Future<ContentPlan> _plan(
     InstallManifest manifest,
     Directory home,
@@ -181,28 +197,38 @@ class DoctorCommand extends Command<int> with HarnessSelection {
         for (final reason in reasons) {
           _logger.info('  - $reason');
         }
-        _logger.info('Install git for a full report.');
-        return ContentPlan.none();
+        return ContentPlan.unchecked(
+          Finding.manual(
+            'content not checked: could not resolve $plugin',
+            step: _fixResolving,
+          ),
+        );
       case UnparseableAssets(:final plugin, :final error):
         progress.fail('Could not parse $plugin, so content was not checked');
         _logger.info('  - $error');
-        return ContentPlan.none();
+        return ContentPlan.unchecked(
+          Finding.manual(
+            'content not checked: could not parse $plugin',
+            step: _fixResolving,
+          ),
+        );
     }
   }
 
-  /// The sections of the report: the plugin versions when a harness in
-  /// [scope] is configured, the shared skills when a configured harness in
-  /// [scope] reads them, and each harness in [scope] that is configured or
-  /// [detected].
+  /// The sections of the report: the plugin versions, and why content was
+  /// not checked if it was not, when a harness is [installed], the shared
+  /// skills when an [installed] harness reads them, and each harness that
+  /// is [installed] or [detected].
+  ///
+  /// [installed] are the harnesses of the selected scope VGV configured, and
+  /// [detected] those of it on this machine.
   List<ReportSection> _verify(
     InstallManifest manifest,
     Directory home, {
-    required Set<Harness> scope,
-    required Set<Harness> configured,
+    required Set<Harness> installed,
     required Set<Harness> detected,
     required ContentPlan plan,
   }) {
-    final installed = configured.intersection(scope);
     final readsShared = installed.intersection(_readShared);
 
     List<Finding> verifyEntries(Harness? owner) => [
@@ -223,6 +249,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
                 plugin,
                 installed: manifest.plugins[plugin.name],
               ).finding,
+            ?plan.skipped,
           ],
         ),
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
@@ -232,8 +259,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
           findings: verifyEntries(null),
         ),
       for (final harness in Harness.values)
-        if (scope.contains(harness) &&
-            (configured.contains(harness) || detected.contains(harness)))
+        if (installed.contains(harness) || detected.contains(harness))
           ReportSection(
             title: harness.displayName,
             installs: {harness},
@@ -242,7 +268,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
                 const Finding.warning(
                   'not installed on this machine, but VGV AI CLI configured it',
                 ),
-              if (!configured.contains(harness))
+              if (!installed.contains(harness))
                 const Finding.suggestion(
                   "installed, but VGV AI CLI hasn't configured it",
                 ),
