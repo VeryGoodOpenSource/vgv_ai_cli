@@ -45,6 +45,34 @@ extension SharedFile on File {
       (fileSystem.isLinkSync(path) ? fileSystem.link(path) : this).deleteSync();
 }
 
+/// Cleaning up the directories VGV's files leave empty once they are gone.
+extension EmptyDirectory on Directory {
+  /// Deletes this directory and each ancestor below [boundary] that is
+  /// empty, stopping at the first that is not.
+  ///
+  /// [boundary] itself is never deleted, and nothing is when this directory
+  /// is not inside it, or is reached through a symlink below it, since what
+  /// a link leads to is not VGV's to clean up.
+  void deleteEmptyUpTo(Directory boundary) {
+    final context = fileSystem.path;
+    final chain = [
+      for (
+        var path = this.path;
+        context.isWithin(boundary.path, path);
+        path = context.dirname(path)
+      )
+        path,
+    ];
+    if (chain.any(fileSystem.isLinkSync)) return;
+
+    for (final directory in chain.map(fileSystem.directory)) {
+      if (!directory.existsSync()) continue;
+      if (directory.listSync().isNotEmpty) return;
+      directory.deleteSync();
+    }
+  }
+}
+
 /// Reporting a file error to the user.
 extension DescribedFileSystemException on FileSystemException {
   /// Why this happened, as one line.
