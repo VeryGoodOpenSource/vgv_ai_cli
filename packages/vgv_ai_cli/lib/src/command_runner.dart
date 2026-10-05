@@ -48,7 +48,6 @@ class VgvAiCliCommandRunner extends CompletionCommandRunner<int> {
     // Add sub commands
     addCommand(doctorCommand ?? DoctorCommand(logger: _logger));
     addCommand(installCommand ?? InstallCommand(logger: _logger));
-    addCommand(SampleCommand(logger: _logger));
     addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
   }
 
