@@ -27,12 +27,6 @@ dart pub global activate --source=path <path to this package>
 ## Usage
 
 ```sh
-# Sample command
-$ vgv_ai sample
-
-# Sample command option
-$ vgv_ai sample --cyan
-
 # Show CLI version
 $ vgv_ai --version
 
@@ -45,8 +39,8 @@ $ vgv_ai --help
 Run a single test file or a single test by name:
 
 ```sh
-$ dart run test test/src/commands/sample_command_test.dart
-$ dart run test --plain-name 'tells a joke'
+$ dart run test test/src/commands/update_command_test.dart
+$ dart run test --plain-name 'updates when newer version exists'
 ```
 
 The full 100%-coverage run goes through Very Good CLI:

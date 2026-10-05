@@ -45,11 +45,11 @@ dart format --set-exit-if-changed .
 dart analyze --fatal-infos --fatal-warnings lib test
 
 # Run a single test file
-dart run test test/src/commands/sample_command_test.dart
+dart run test test/src/commands/update_command_test.dart
 
 # Run tests by name (--plain-name matches substrings, so this runs both
-# 'tells a joke' and 'tells a joke in cyan')
-dart run test --plain-name 'tells a joke'
+# 'handles pub update errors' and 'handles pub update process errors')
+dart run test --plain-name 'handles pub update'
 
 # Verify the generated version file is in sync (tagged, skipped by default)
 dart run test --run-skipped -t version-verify
@@ -108,14 +108,14 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 ## Code Conventions
 
 - Linting: `very_good_analysis` ^11.0.0, with `public_member_api_docs` disabled. Public classes still carry `/// {@template name}` / `/// {@macro name}` doc comments.
-- The codebase uses **Dart 3.13 syntax**. Unnamed constructors are declared with the `new` keyword — `new({required this._logger})`, not `SampleCommand({...})`. Empty class bodies use a semicolon — `class _MockLogger extends Mock implements Logger;`.
+- The codebase uses **Dart 3.13 syntax**. Unnamed constructors are declared with the `new` keyword — `new({required this._logger})`, not `UpdateCommand({...})`. Empty class bodies use a semicolon — `class _MockLogger extends Mock implements Logger;`.
 - Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Testing
 
 - **100% test coverage required.** New code needs tests covering success, failure, and usage-error paths.
 - Mocking with `mocktail`.
-- Tests exercise commands **through** `VgvAiCliCommandRunner.run(['sample'])` rather than instantiating the `Command` directly, so argument parsing and the runner's error handling are covered too.
+- Tests exercise commands **through** `VgvAiCliCommandRunner.run(['update'])` rather than instantiating the `Command` directly, so argument parsing and the runner's error handling are covered too.
 - Assertions verify logger calls (`verify(() => logger.info(...)).called(1)`) alongside the exit code.
 
 ## Agent tooling
