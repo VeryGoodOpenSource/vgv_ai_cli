@@ -2,12 +2,12 @@ import 'package:vgv_ai_cli/src/commands/doctor/model/finding.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/fix_command.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
-/// {@template harness_report}
-/// What `doctor` found for one [owner].
+/// {@template report_section}
+/// What `doctor` found about one thing, such as a harness, under [title].
 /// {@endtemplate}
-class const HarnessReport({
-  /// The harness reported on, or null for the shared skills.
-  required final Harness? owner,
+class const ReportSection({
+  /// What the section is about, such as `Codex` or `Shared`.
+  required final String title,
 
   /// The harnesses whose `install` fixes what was found, which for the
   /// shared skills are every configured harness that reads them.
@@ -16,9 +16,6 @@ class const HarnessReport({
   /// What was found, in the order it was found.
   required final List<Finding> findings,
 }) {
-  /// How [owner] is named in the report.
-  String get title => owner?.displayName ?? 'Shared';
-
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
 

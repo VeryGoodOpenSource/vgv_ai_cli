@@ -3,42 +3,27 @@ import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('HarnessReport', () {
-    test('is titled by its harness, or Shared', () {
-      expect(
-        const HarnessReport(
-          owner: Harness.codex,
-          installs: {Harness.codex},
-          findings: [],
-        ).title,
-        'Codex',
-      );
-      expect(
-        const HarnessReport(owner: null, installs: {}, findings: []).title,
-        'Shared',
-      );
-    });
-
+  group('ReportSection', () {
     test('has problems only when something wrong was found', () {
       expect(
-        const HarnessReport(
-          owner: null,
+        const ReportSection(
+          title: 'Shared',
           installs: {},
           findings: [],
         ).hasProblems,
         isFalse,
       );
       expect(
-        const HarnessReport(
-          owner: null,
+        const ReportSection(
+          title: 'Shared',
           installs: {},
           findings: [Finding.warning('a'), Finding.suggestion('b')],
         ).hasProblems,
         isFalse,
       );
       expect(
-        const HarnessReport(
-          owner: null,
+        const ReportSection(
+          title: 'Shared',
           installs: {},
           findings: [Finding.missing('missing ~/a')],
         ).hasProblems,
@@ -47,8 +32,8 @@ void main() {
     });
 
     test('fixes a finding by installing its harnesses', () {
-      const report = HarnessReport(
-        owner: null,
+      const report = ReportSection(
+        title: 'Shared',
         installs: {Harness.codex, Harness.gemini},
         findings: [],
       );
@@ -68,8 +53,8 @@ void main() {
     });
 
     test('has no install fix for a manual step or a warning', () {
-      const report = HarnessReport(
-        owner: Harness.codex,
+      const report = ReportSection(
+        title: 'Codex',
         installs: {Harness.codex},
         findings: [],
       );

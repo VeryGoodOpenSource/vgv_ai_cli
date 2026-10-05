@@ -128,7 +128,7 @@ class DoctorCommand extends Command<int> with HarnessSelection {
   /// One report for the shared skills, when a configured harness in [scope]
   /// reads them, and one per harness in [scope] that is configured or
   /// [detected].
-  List<HarnessReport> _verify(
+  List<ReportSection> _verify(
     InstallManifest manifest,
     Directory home, {
     required Set<Harness> scope,
@@ -146,16 +146,16 @@ class DoctorCommand extends Command<int> with HarnessSelection {
 
     return [
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
-        HarnessReport(
-          owner: null,
+        ReportSection(
+          title: 'Shared',
           installs: readsShared,
           findings: verifyEntries(null),
         ),
       for (final harness in Harness.values)
         if (scope.contains(harness) &&
             (configured.contains(harness) || detected.contains(harness)))
-          HarnessReport(
-            owner: harness,
+          ReportSection(
+            title: harness.displayName,
             installs: {harness},
             findings: [
               if (!detected.contains(harness))
@@ -194,11 +194,11 @@ class DoctorCommand extends Command<int> with HarnessSelection {
     };
   }
 
-  /// Prints [report]'s owner, and each finding with how to fix it.
-  void _report(HarnessReport report) {
+  /// Prints [report]'s title, and each finding with how to fix it.
+  void _report(ReportSection report) {
     final mark = switch (report) {
-      HarnessReport(hasProblems: true) => lightRed.wrap('✗'),
-      HarnessReport(findings: List(isNotEmpty: true)) => lightYellow.wrap('!'),
+      ReportSection(hasProblems: true) => lightRed.wrap('✗'),
+      ReportSection(findings: List(isNotEmpty: true)) => lightYellow.wrap('!'),
       _ => lightGreen.wrap('✓'),
     };
     _logger.info('$mark ${report.title}');
