@@ -96,10 +96,7 @@ void main() {
 
       /// The registrations [hooks] translates to, under their event.
       Map<String, Object?> events(List<HookAsset> hooks) {
-        final json = translator.hooks(
-          pluginAssets(hooks: hooks),
-          hooksRoot: '/home/.codex/hooks',
-        )!;
+        final json = translator.hooks(pluginAssets(hooks: hooks))!;
         return (jsonDecode(json) as Map<String, Object?>)['hooks']!
             as Map<String, Object?>;
       }
@@ -143,40 +140,66 @@ void main() {
         final commands =
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
-        expect((commands.single! as Map)['command'], isNot(contains(r'$')));
         expect(
           (commands.single! as Map)['command'],
-          endsWith("'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh'"),
+          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
         );
       });
 
-      test('run every command through the payload script', () {
-        // Codex spells a file edit as a patch, so each script reads the
-        // payload through the one that hands it Claude Code's shape.
-        for (final matcher in ['Edit|Write', 'Bash']) {
-          final registrations =
-              events([
-                    hookAsset(fs, event: 'PreToolUse', matcher: matcher),
-                  ])['PreToolUse']!
-                  as List<Object?>;
+      test('hand a script that watches edits the patched files', () {
+        // Codex reports an edit as apply_patch and names the files it touched
+        // in the response, not in a file_path, so the script gets them as
+        // arguments instead. xargs turns the script's exit 2 into 123, which
+        // is mapped back so the analyzer's output still blocks.
+        final registrations =
+            events([hookAsset(fs, matcher: 'Edit|Write')])['PostToolUse']!
+                as List<Object?>;
+        final commands =
+            (registrations.single! as Map)['hooks']! as List<Object?>;
+
+        const patchedFiles =
+            r'(.cwd // ".") as $cwd | .tool_response | strings'
+            r' | scan("(?m)^[AM] (.+)$") | .[0]'
+            r' | if startswith("/") then . else $cwd + "/" + . end';
+
+        expect(
+          (commands.single! as Map)['command'],
+          "jq -r '$patchedFiles' | tr '\\n' '\\0' | xargs -0"
+          ' bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh || exit 2',
+        );
+      });
+
+      test('leave a script the payload names no files for alone', () {
+        // Before the tool runs nothing has been edited yet, and a shell call
+        // carries its command in the payload the same way on both harnesses.
+        final before =
+            events([
+                  hookAsset(fs, event: 'PreToolUse', matcher: 'Edit|Write'),
+                ])['PreToolUse']!
+                as List<Object?>;
+        final shell =
+            events([hookAsset(fs, matcher: 'Bash')])['PostToolUse']!
+                as List<Object?>;
+
+        for (final registrations in [before, shell]) {
           final commands =
               (registrations.single! as Map)['hooks']! as List<Object?>;
 
           expect(
             (commands.single! as Map)['command'],
-            "bash '/home/.codex/hooks/${CodexTranslator.payloadScript}' "
-            "'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh'",
+            'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
           );
         }
       });
 
-      test('leave a handler that runs no shell command unwrapped', () {
+      test('leave a handler that runs no shell command alone', () {
         // Codex takes an mcp_tool handler and Claude a prompt one. Neither
-        // runs a shell command, so neither has a payload to translate.
+        // runs a shell command, so neither can take the files.
         final registrations =
             events([
                   hookAsset(
                     fs,
+                    matcher: 'Edit',
                     commands: const [
                       HookCommand(type: 'prompt', command: 'say-hello'),
                     ],
@@ -187,24 +210,6 @@ void main() {
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
         expect((commands.single! as Map)['command'], 'say-hello');
-      });
-
-      test('quote a plugin path that holds a quote', () {
-        final registrations =
-            events([
-                  hookAsset(
-                    fs,
-                    matcher: 'Edit',
-                    commands: const [
-                      HookCommand(type: 'command', command: "a'b.sh"),
-                    ],
-                  ),
-                ])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
-        expect((commands.single! as Map)['command'], endsWith(r"'a'\''b.sh'"));
       });
 
       test('carry the type and the timeout, and leave an absent one out', () {
@@ -241,10 +246,7 @@ void main() {
       });
 
       test('are null when the plugins ship none', () {
-        expect(
-          translator.hooks(pluginAssets(), hooksRoot: '/home/.codex/hooks'),
-          isNull,
-        );
+        expect(translator.hooks(pluginAssets()), isNull);
       });
 
       test('are null when no hook names a tool Codex has', () {
@@ -253,7 +255,6 @@ void main() {
         expect(
           translator.hooks(
             pluginAssets(hooks: [hookAsset(fs, matcher: 'Read|Glob|Grep')]),
-            hooksRoot: '/home/.codex/hooks',
           ),
           isNull,
         );
