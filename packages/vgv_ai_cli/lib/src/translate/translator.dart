@@ -6,6 +6,7 @@ import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
+import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -56,7 +57,15 @@ class const Translator({
       harnesses: {
         for (final translator in chosen)
           translator.harness: TranslationResult(
-            changes: changes[translator.harness] ?? const [],
+            changes: [
+              ...?changes[translator.harness],
+              ...translator.hookFiles(
+                assets,
+                hooksRoot: harnessHooksRoot(
+                  translator.harness.configDirectory(home),
+                ),
+              ),
+            ],
             notes: translator.notes(assets),
           ),
       },

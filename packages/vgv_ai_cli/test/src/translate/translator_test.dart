@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
@@ -88,6 +89,8 @@ void main() {
           'agents/review.toml',
           'config.toml',
           'hooks.json',
+          'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
       });
 
@@ -254,6 +257,10 @@ void main() {
       test(
         "Codex's hooks merge into the ones the user already keeps",
         () async {
+          final script = p.join(
+            harnessHooksRoot(Harness.codex.configDirectory(home)).path,
+            'vgv-wingspan/hooks/scripts/analyze.sh',
+          );
           final plan = await translate({Harness.codex});
           final hooks = plan.harnesses[Harness.codex]!.changes.singleWhere(
             (change) => change.file.path.endsWith('hooks.json'),
@@ -267,8 +274,7 @@ void main() {
                   'hooks': [
                     {
                       'type': 'command',
-                      'command':
-                          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
+                      'command': 'bash $script',
                       'timeout': 30,
                     },
                   ],

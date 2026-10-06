@@ -25,12 +25,15 @@ class const HookCommand({
 ///
 /// [event] is the lifecycle point, carried as the source harness names it.
 /// [matcher] narrows which tools it fires for. [pluginRoot] is the directory
-/// [HookCommand.pluginRoot] stands for, carried per hook because merging
-/// combines several plugins.
+/// [HookCommand.pluginRoot] stands for, and [plugin] names the plugin it
+/// belongs to, both carried per hook because merging combines several
+/// plugins. A harness that keeps its own copy of a plugin's scripts files it
+/// under [plugin].
 /// {@endtemplate}
 class const HookAsset({
   required final String event,
   required final List<HookCommand> commands,
+  required final String plugin,
   required final Directory pluginRoot,
   final String? matcher,
 });
