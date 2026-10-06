@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -54,15 +53,15 @@ class const CodexTranslator() extends HarnessTranslator {
   /// Codex's hooks file has the same shape as Claude's, down to `timeout`
   /// being seconds, so the plugins' scripts run as written. Three things are
   /// spelled differently: the plugin root their commands point at, the tool
-  /// names their matchers name, and the payload itself, which every command
-  /// goes through [payloadScript] to read as Claude Code's.
+  /// names their matchers name, and which file an edit touched, which
+  /// [_command] reads out of Codex's payload for the scripts that need it.
   ///
   /// Codex runs no hook it has not been told to trust, however, so writing
   /// this file is half of it and [notes] says the other half.
   ///
   /// See https://developers.openai.com/codex/hooks.
   @override
-  String? hooks(PluginAssets assets, {required String hooksRoot}) {
+  String? hooks(PluginAssets assets) {
     final events = <String, List<Object?>>{};
     for (final hook in assets.hooks.where(_runs)) {
       events.putIfAbsent(hook.event, () => []).add({
@@ -71,7 +70,7 @@ class const CodexTranslator() extends HarnessTranslator {
           for (final command in hook.commands)
             {
               'type': command.type,
-              'command': _command(command, hook, hooksRoot: hooksRoot),
+              'command': _command(command, hook),
               'timeout': ?command.timeout,
             },
         ],
@@ -114,41 +113,63 @@ class const CodexTranslator() extends HarnessTranslator {
   /// by [notes] instead.
   static bool _runs(HookAsset hook) => _matcher(hook)?.isNotEmpty ?? true;
 
-  /// The script the brick writes into the harness's own hooks folder, which
-  /// hands a plugin script the Codex payload as Claude Code's.
-  ///
-  /// Every command runs through it rather than only the ones that edit a
-  /// file, so the payload a script reads is Claude's whatever fired it, and
-  /// nothing here has to track which field each script happens to read.
-  static const payloadScript = 'claude-payload.sh';
-
   /// The handler type whose `command` is a shell command.
   ///
   /// Codex also takes an `mcp_tool` handler, and Claude a `prompt` one.
-  /// Neither runs a shell command, so neither has a payload to translate.
+  /// Neither runs a shell command, so neither is handed anything.
   static const _commandType = 'command';
 
-  /// What [command] runs as, once it names a real script and a real payload.
+  /// The event whose payload says which files a tool touched.
+  static const _afterTool = 'PostToolUse';
+
+  /// A jq program printing each file an `apply_patch` call added or changed,
+  /// one per line, as an absolute path.
   ///
-  /// Both arguments are quoted, because a plugin resolved from a cache under
-  /// the user's home sits at a path that may hold spaces.
-  static String _command(
-    HookCommand command,
-    HookAsset hook, {
-    required String hooksRoot,
-  }) {
+  /// Codex reports an edit as `apply_patch` with the patch itself as the
+  /// input, and no `file_path`. The files it touched are in the response
+  /// instead, one `A path`, `M path` or `D path` line each, as the model
+  /// spelled them, so a relative one is resolved against the payload's own
+  /// `cwd`. A deleted file is left out, there being nothing left to check,
+  /// and a rename reports its new name under `M`.
+  ///
+  /// `strings` makes the program print nothing for any other shape of
+  /// response, so a script fired by something other than a patch is handed
+  /// no files rather than a jq error.
+  static const _patchedFiles =
+      r'(.cwd // ".") as $cwd'
+      ' | .tool_response | strings'
+      r' | scan("(?m)^[AM] (.+)$") | .[0]'
+      r' | if startswith("/") then . else $cwd + "/" + . end';
+
+  /// What [command] runs as, once it names a real plugin root and, for a
+  /// script that watches file edits, the files that were edited.
+  ///
+  /// The plugins read the edited file from `tool_input.file_path`, which is
+  /// Claude Code's spelling, and take the files as arguments otherwise. A
+  /// shell command on [_afterTool] for a file-editing tool gets them that
+  /// way: [_patchedFiles] reads them out of the payload and `xargs` passes
+  /// them on, NUL-separated so a path may hold a space.
+  ///
+  /// `xargs` reports a failing command as 123, where Codex, like Claude,
+  /// reads 2 as "block, and show the model what went wrong on stderr". The
+  /// scripts exit with nothing but 0 or 2, so any failure is mapped back to
+  /// 2 and the analyzer's output reaches the model as it does on Claude.
+  static String _command(HookCommand command, HookAsset hook) {
     final expanded = command.command.replaceAll(
       HookCommand.pluginRoot,
       hook.pluginRoot.path,
     );
-    if (command.type != _commandType) return expanded;
+    if (command.type != _commandType || !_editsFiles(hook)) return expanded;
 
-    final script = _quoted(p.join(hooksRoot, payloadScript));
-    return 'bash $script ${_quoted(expanded)}';
+    return "jq -r '$_patchedFiles' | tr '\\n' '\\0' | xargs -0 $expanded"
+        ' || exit 2';
   }
 
-  /// [value] as one single-quoted shell word.
-  static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
+  /// Whether [hook] runs after a tool that edits files, which is when the
+  /// payload names them.
+  static bool _editsFiles(HookAsset hook) =>
+      hook.event == _afterTool &&
+      (_matcher(hook)?.split('|').contains(CodexTool.applyPatch) ?? false);
 
   /// The tools [matcher] fires for, as Codex names them.
   ///

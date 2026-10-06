@@ -9,8 +9,8 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// difference another harness has is answered here and never there, so a
 /// plugin never carries a branch for a harness it was not written for. That
 /// holds for what a hook script is handed at run time as much as for the
-/// config files, which is why a translator may ship a helper script of its
-/// own rather than ask the plugins to understand a second payload.
+/// config files, which is why a translator rewrites the command a harness
+/// runs rather than ask the plugins to understand a second payload.
 ///
 /// A translator supplies what the `agents` brick cannot produce itself, the
 /// settings fragment and any frontmatter or TOML, and the brick decides which
@@ -57,10 +57,8 @@ abstract class HarnessTranslator {
   /// when there is nothing it can run, whose brick folder then has no hooks
   /// file.
   ///
-  /// Only called when [runsHooks] is set. [hooksRoot] is where the brick
-  /// writes this harness's hook helper scripts, for a translator whose
-  /// commands have to name one.
-  String? hooks(PluginAssets assets, {required String hooksRoot}) => null;
+  /// Only called when [runsHooks] is set.
+  String? hooks(PluginAssets assets) => null;
 
   /// What the user needs to know about [assets] for this harness: what it
   /// cannot express, and what it will not do until they act.

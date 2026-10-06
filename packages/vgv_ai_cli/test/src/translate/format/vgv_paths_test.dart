@@ -10,12 +10,4 @@ void main() {
       expect(agentsSkillsRoot(home).path, '/home/dev/.agents/skills');
     });
   });
-
-  group('harnessHooksRoot', () {
-    test('is the hooks folder inside the harness config directory', () {
-      final config = MemoryFileSystem.test().directory('/home/dev/.codex');
-
-      expect(harnessHooksRoot(config).path, '/home/dev/.codex/hooks');
-    });
-  });
 }
