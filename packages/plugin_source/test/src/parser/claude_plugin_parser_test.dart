@@ -385,6 +385,27 @@ void main() {
       );
     });
 
+    test('names the plugin from its manifest', () {
+      // The cache files a plugin under its version, so the directory name
+      // would say 0.0.5 where a translator needs vgv-wingspan.
+      expect(hookFor('SessionStart').plugin, 'fixture-plugin');
+    });
+
+    test('names a plugin without a manifest after its directory', () {
+      final fs = MemoryFileSystem.test();
+      final root = fs.directory('/cache/bare')..createSync(recursive: true);
+      root.childDirectory('hooks').childFile('hooks.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
+        );
+
+      expect(
+        const ClaudePluginParser().parse(root).hooks.single.plugin,
+        'bare',
+      );
+    });
+
     test('skips an event whose value is not a list', () {
       expect(assets.hooks.map((h) => h.event), isNot(contains('Malformed')));
     });

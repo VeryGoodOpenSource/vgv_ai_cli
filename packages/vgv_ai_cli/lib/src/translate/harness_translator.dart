@@ -1,3 +1,4 @@
+import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -9,8 +10,9 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// difference another harness has is answered here and never there, so a
 /// plugin never carries a branch for a harness it was not written for. That
 /// holds for what a hook script is handed at run time as much as for the
-/// config files, which is why a translator rewrites the command a harness
-/// runs rather than ask the plugins to understand a second payload.
+/// config files, which is why a translator keeps its own copy of a script
+/// with a preamble on top rather than ask the plugins to understand a second
+/// payload.
 ///
 /// A translator supplies what the `agents` brick cannot produce itself, the
 /// settings fragment and any frontmatter or TOML, and the brick decides which
@@ -54,8 +56,20 @@ abstract class const HarnessTranslator() {
   /// when there is nothing it can run, whose brick folder then has no hooks
   /// file.
   ///
-  /// Only called when [runsHooks] is set.
-  String? hooks(PluginAssets assets) => null;
+  /// Only called when [runsHooks] is set. [hooksRoot] is the folder under
+  /// this harness's config directory that [hookFiles] writes to, for a
+  /// translator whose commands point there.
+  String? hooks(PluginAssets assets, {required Directory hooksRoot}) => null;
+
+  /// The files this harness needs beside [hooks] to run them, under
+  /// [hooksRoot], such as its own copy of the plugins' scripts.
+  ///
+  /// Planned here rather than rendered by the brick because a copy of a
+  /// script keeps the source file's mode, which a rendered file cannot.
+  List<PlannedChange> hookFiles(
+    PluginAssets assets, {
+    required Directory hooksRoot,
+  }) => const [];
 
   /// What the user needs to know about [assets] for this harness: what it
   /// cannot express, and what it will not do until they act.

@@ -184,6 +184,7 @@ class const ClaudePluginParser() implements PluginParser {
     final events = _readJsonObject(file).child('hooks');
     if (events == null) return const [];
 
+    final plugin = _pluginName(root);
     final assets = <HookAsset>[];
     for (final event in events.entries) {
       for (final registration in ConfigMap.maps(event.value)) {
@@ -198,12 +199,28 @@ class const ClaudePluginParser() implements PluginParser {
             event: event.key,
             matcher: matcher is String ? matcher : null,
             commands: commands,
+            plugin: plugin,
             pluginRoot: root,
           ),
         );
       }
     }
     return assets;
+  }
+
+  /// The plugin's declared name, from its manifest.
+  ///
+  /// Claude Code caches a plugin under `<marketplace>/<name>/<version>`, so
+  /// the directory's own name is a version number and says nothing. A plugin
+  /// shipping no manifest, or none that names it, goes by its directory.
+  String _pluginName(Directory root) {
+    final manifest = root
+        .childDirectory('.claude-plugin')
+        .childFile('plugin.json');
+    final declared = manifest.existsSync()
+        ? _readJsonObject(manifest).string('name')
+        : null;
+    return declared ?? p.basename(root.path);
   }
 
   List<HookCommand> _readHookCommands(Object? raw) {

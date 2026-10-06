@@ -17,3 +17,8 @@ import 'package:path/path.dart' as p;
 /// - Pi: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
+
+/// Where [harnessConfig] keeps the harness's own copy of the plugins' hook
+/// scripts, which its hooks file points at.
+Directory harnessHooksRoot(Directory harnessConfig) =>
+    harnessConfig.fileSystem.directory(p.join(harnessConfig.path, 'hooks'));

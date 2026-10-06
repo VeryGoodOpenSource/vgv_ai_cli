@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
+import 'package:file/file.dart';
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -51,17 +54,18 @@ class const CodexTranslator() extends HarnessTranslator {
   /// The plugins' hooks, as `~/.codex/hooks.json` spells them.
   ///
   /// Codex's hooks file has the same shape as Claude's, down to `timeout`
-  /// being seconds, so the plugins' scripts run as written. Three things are
-  /// spelled differently: the plugin root their commands point at, the tool
-  /// names their matchers name, and which file an edit touched, which
-  /// [_command] reads out of Codex's payload for the scripts that need it.
+  /// being seconds. Two things are spelled differently here: the tool names
+  /// the matchers name, and the plugin root the commands point at, which is
+  /// Codex's own copy of each plugin's scripts under [hooksRoot], the one
+  /// [hookFiles] writes. The copy is where the third difference, the payload,
+  /// is answered.
   ///
   /// Codex runs no hook it has not been told to trust, however, so writing
   /// this file is half of it and [notes] says the other half.
   ///
   /// See https://developers.openai.com/codex/hooks.
   @override
-  String? hooks(PluginAssets assets) {
+  String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final events = <String, List<Object?>>{};
     for (final hook in assets.hooks.where(_runs)) {
       events.putIfAbsent(hook.event, () => []).add({
@@ -70,13 +74,68 @@ class const CodexTranslator() extends HarnessTranslator {
           for (final command in hook.commands)
             {
               'type': command.type,
-              'command': _command(command, hook),
+              'command': command.command.replaceAll(
+                HookCommand.pluginRoot,
+                _copyRoot(hook, hooksRoot).path,
+              ),
               'timeout': ?command.timeout,
             },
         ],
       });
     }
     return events.isEmpty ? null : jsonEncode({'hooks': events});
+  }
+
+  /// Codex's own copy of each plugin's `hooks` folder, under [hooksRoot] and
+  /// the plugin's name, with [preamble] at the top of every script a hook
+  /// runs.
+  ///
+  /// The whole folder comes along, because a script sources its neighbours
+  /// and reads files beside it by its own location. The one exception is the
+  /// plugin's `hooks.json`, which is what [hooks] translated, so a copy of it
+  /// would only mislead. A file is copied from its source so it keeps its
+  /// mode, which matters for a hook that runs its script directly.
+  ///
+  /// A plugin whose `hooks` folder has gone away, as a cache cleared between
+  /// resolution and translation does, gets no copy; [hooks] still names the
+  /// scripts, and Codex reports the missing file when one fires.
+  @override
+  List<PlannedChange> hookFiles(
+    PluginAssets assets, {
+    required Directory hooksRoot,
+  }) {
+    final changes = <PlannedChange>[];
+    final byPlugin = assets.hooks.where(_runs).groupListsBy((h) => h.plugin);
+
+    for (final hooks in byPlugin.values) {
+      final pluginRoot = hooks.first.pluginRoot;
+      final source = pluginRoot.childDirectory(_hooksFolder);
+      if (!source.existsSync()) continue;
+
+      final target = _copyRoot(hooks.first, hooksRoot);
+      final scripts = {for (final hook in hooks) ..._scriptsOf(hook)};
+      final entities = source.listSync(recursive: true, followLinks: false);
+
+      for (final entity in entities) {
+        if (entity is! File) continue;
+
+        final relative = p.relative(entity.path, from: pluginRoot.path);
+        if (relative == _registry) continue;
+
+        final bytes = entity.readAsBytesSync();
+        changes.add(
+          PlannedChange(
+            file: target.fileSystem.file(p.join(target.path, relative)),
+            bytes: scripts.contains(relative)
+                ? _withPreamble(bytes, pluginRoot)
+                : bytes,
+            harness: harness,
+            source: entity,
+          ),
+        );
+      }
+    }
+    return changes;
   }
 
   /// The hooks Codex will not run, and the trust step that starts the rest.
@@ -98,6 +157,103 @@ class const CodexTranslator() extends HarnessTranslator {
       ),
   ];
 
+  /// What goes at the top of Codex's copy of a hook script, below any
+  /// shebang, so a script written for Claude Code runs as written.
+  ///
+  /// It answers the two things Codex hands a script differently. It sets
+  /// `CLAUDE_PLUGIN_ROOT`, which Codex does not and which a script may read
+  /// to find the plugin's other files, to the plugin's real location. And it
+  /// rewrites a file edit: Claude Code sends one `Edit` or `Write` per file,
+  /// naming it in `tool_input.file_path`, where Codex sends one `apply_patch`
+  /// holding the patch text and names no file. So the preamble reads the
+  /// files out of the patch headers and runs the script once per file that
+  /// still exists, each time with the payload Claude Code would have sent,
+  /// then exits with the first failure. Any other payload, and every payload
+  /// when jq is missing, reaches the script as it came.
+  ///
+  /// `__ROOT__` is replaced with the plugin root as one shell word.
+  static const preamble = r'''
+# Added by vgv_ai install so this script, written for Claude Code, runs under
+# Codex. Edits here are overwritten on the next run.
+#
+# Codex sets no CLAUDE_PLUGIN_ROOT, so it is set to the plugin's real files.
+# And Codex reports a file edit as one apply_patch holding the patch text,
+# where Claude Code sends an Edit or Write per file, naming it in
+# tool_input.file_path. So the script below runs once per file the patch
+# touches, each time with the payload Claude Code would have sent. Any other
+# payload reaches it as it came, and so does every payload when jq is missing.
+export CLAUDE_PLUGIN_ROOT=__ROOT__
+if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ] && command -v jq > /dev/null 2>&1; then
+  vgv_payload=$(cat)
+  # One line per file: the tool Claude Code would have named, a tab, and the
+  # path resolved against the payload's own cwd, since a patch header names a
+  # file relative to the session root when the model wrote it that way.
+  vgv_edits=$(printf '%s' "$vgv_payload" | jq -r '
+    ((.cwd // ".") | rtrimstr("/")) as $cwd
+    | .tool_input.command // ""
+    | scan("(?m)^\\*\\*\\* (Add File|Update File|Move to): (.+)$")
+    | (if .[0] == "Add File" then "Write" else "Edit" end)
+      + "\t" + (.[1] | if startswith("/") then . else $cwd + "/" + . end)
+  ' 2> /dev/null)
+  vgv_status=0
+  vgv_ran=0
+  while IFS=$'\t' read -r vgv_tool vgv_file; do
+    # A deleted file, or the old name of a renamed one, is no longer there.
+    [ -n "$vgv_file" ] && [ -f "$vgv_file" ] || continue
+    vgv_ran=1
+    printf '%s' "$vgv_payload" \
+      | jq --arg tool "$vgv_tool" --arg file "$vgv_file" \
+        '.tool_name = $tool | .tool_input.file_path = $file' \
+      | VGV_CLAUDE_PAYLOAD=1 bash "$0" || vgv_status=$?
+  done <<< "$vgv_edits"
+  if [ "$vgv_ran" -eq 1 ]; then exit "$vgv_status"; fi
+  exec < <(printf '%s' "$vgv_payload")
+fi
+''';
+
+  /// The folder a Claude Code plugin keeps its hooks in.
+  static const _hooksFolder = 'hooks';
+
+  /// The plugin's own hook registry, relative to its root.
+  static final String _registry = p.join(_hooksFolder, 'hooks.json');
+
+  /// The handler type whose `command` is a shell command.
+  ///
+  /// Codex also takes an `mcp_tool` handler, and Claude a `prompt` one.
+  /// Neither runs a script, so neither names one to copy.
+  static const _commandType = 'command';
+
+  /// A plugin file a command names, relative to the plugin root.
+  static final _pluginFile = RegExp(
+    '${RegExp.escape(HookCommand.pluginRoot)}/(\\S+)',
+  );
+
+  /// Where Codex's copy of [hook]'s plugin goes under [hooksRoot].
+  static Directory _copyRoot(HookAsset hook, Directory hooksRoot) =>
+      hooksRoot.childDirectory(hook.plugin);
+
+  /// The plugin files [hook]'s shell commands name, relative to the plugin
+  /// root, which are the scripts that get the [preamble].
+  static Iterable<String> _scriptsOf(HookAsset hook) => [
+    for (final command in hook.commands)
+      if (command.type == _commandType)
+        for (final match in _pluginFile.allMatches(command.command)) match[1]!,
+  ];
+
+  /// [bytes] with the [preamble] inserted below the shebang line, or at the
+  /// top when there is none.
+  static List<int> _withPreamble(List<int> bytes, Directory pluginRoot) {
+    final script = utf8.decode(bytes);
+    final body = preamble.replaceAll('__ROOT__', _quoted(pluginRoot.path));
+    final shebang = script.startsWith('#!') ? script.indexOf('\n') + 1 : 0;
+    return utf8.encode(
+      '${script.substring(0, shebang)}$body${script.substring(shebang)}',
+    );
+  }
+
+  /// [value] as one single-quoted shell word.
+  static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
+
   /// [hook]'s matcher as Codex spells it, and null when it declares none,
   /// which is how both harnesses spell a hook that fires for every tool.
   static String? _matcher(HookAsset hook) => switch (hook.matcher) {
@@ -112,64 +268,6 @@ class const CodexTranslator() extends HarnessTranslator {
   /// matcher and could never fire, so it is left out of [hooks] and reported
   /// by [notes] instead.
   static bool _runs(HookAsset hook) => _matcher(hook)?.isNotEmpty ?? true;
-
-  /// The handler type whose `command` is a shell command.
-  ///
-  /// Codex also takes an `mcp_tool` handler, and Claude a `prompt` one.
-  /// Neither runs a shell command, so neither is handed anything.
-  static const _commandType = 'command';
-
-  /// The event whose payload says which files a tool touched.
-  static const _afterTool = 'PostToolUse';
-
-  /// A jq program printing each file an `apply_patch` call added or changed,
-  /// one per line, as an absolute path.
-  ///
-  /// Codex reports an edit as `apply_patch` with the patch itself as the
-  /// input, and no `file_path`. The files it touched are in the response
-  /// instead, one `A path`, `M path` or `D path` line each, as the model
-  /// spelled them, so a relative one is resolved against the payload's own
-  /// `cwd`. A deleted file is left out, there being nothing left to check,
-  /// and a rename reports its new name under `M`.
-  ///
-  /// `strings` makes the program print nothing for any other shape of
-  /// response, so a script fired by something other than a patch is handed
-  /// no files rather than a jq error.
-  static const _patchedFiles =
-      r'(.cwd // ".") as $cwd'
-      ' | .tool_response | strings'
-      r' | scan("(?m)^[AM] (.+)$") | .[0]'
-      r' | if startswith("/") then . else $cwd + "/" + . end';
-
-  /// What [command] runs as, once it names a real plugin root and, for a
-  /// script that watches file edits, the files that were edited.
-  ///
-  /// The plugins read the edited file from `tool_input.file_path`, which is
-  /// Claude Code's spelling, and take the files as arguments otherwise. A
-  /// shell command on [_afterTool] for a file-editing tool gets them that
-  /// way: [_patchedFiles] reads them out of the payload and `xargs` passes
-  /// them on, NUL-separated so a path may hold a space.
-  ///
-  /// `xargs` reports a failing command as 123, where Codex, like Claude,
-  /// reads 2 as "block, and show the model what went wrong on stderr". The
-  /// scripts exit with nothing but 0 or 2, so any failure is mapped back to
-  /// 2 and the analyzer's output reaches the model as it does on Claude.
-  static String _command(HookCommand command, HookAsset hook) {
-    final expanded = command.command.replaceAll(
-      HookCommand.pluginRoot,
-      hook.pluginRoot.path,
-    );
-    if (command.type != _commandType || !_editsFiles(hook)) return expanded;
-
-    return "jq -r '$_patchedFiles' | tr '\\n' '\\0' | xargs -0 $expanded"
-        ' || exit 2';
-  }
-
-  /// Whether [hook] runs after a tool that edits files, which is when the
-  /// payload names them.
-  static bool _editsFiles(HookAsset hook) =>
-      hook.event == _afterTool &&
-      (_matcher(hook)?.split('|').contains(CodexTool.applyPatch) ?? false);
 
   /// The tools [matcher] fires for, as Codex names them.
   ///

@@ -96,7 +96,10 @@ void main() {
 
       /// The registrations [hooks] translates to, under their event.
       Map<String, Object?> events(List<HookAsset> hooks) {
-        final json = translator.hooks(pluginAssets(hooks: hooks))!;
+        final json = translator.hooks(
+          pluginAssets(hooks: hooks),
+          hooksRoot: fs.directory('/home/.codex/hooks'),
+        )!;
         return (jsonDecode(json) as Map<String, Object?>)['hooks']!
             as Map<String, Object?>;
       }
@@ -134,7 +137,9 @@ void main() {
         expect(registrations.single! as Map, isNot(contains('matcher')));
       });
 
-      test('substitute the plugin root the command points at', () {
+      test("point a command at Codex's copy of the plugin", () {
+        // The copy is where the preamble lives, so the command has to run
+        // that script and not the plugin's own.
         final registrations =
             events([hookAsset(fs)])['PostToolUse']! as List<Object?>;
         final commands =
@@ -142,59 +147,13 @@ void main() {
 
         expect(
           (commands.single! as Map)['command'],
-          'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
+          'bash /home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
         );
       });
 
-      test('hand a script that watches edits the patched files', () {
-        // Codex reports an edit as apply_patch and names the files it touched
-        // in the response, not in a file_path, so the script gets them as
-        // arguments instead. xargs turns the script's exit 2 into 123, which
-        // is mapped back so the analyzer's output still blocks.
-        final registrations =
-            events([hookAsset(fs, matcher: 'Edit|Write')])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
-        const patchedFiles =
-            r'(.cwd // ".") as $cwd | .tool_response | strings'
-            r' | scan("(?m)^[AM] (.+)$") | .[0]'
-            r' | if startswith("/") then . else $cwd + "/" + . end';
-
-        expect(
-          (commands.single! as Map)['command'],
-          "jq -r '$patchedFiles' | tr '\\n' '\\0' | xargs -0"
-          ' bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh || exit 2',
-        );
-      });
-
-      test('leave a script the payload names no files for alone', () {
-        // Before the tool runs nothing has been edited yet, and a shell call
-        // carries its command in the payload the same way on both harnesses.
-        final before =
-            events([
-                  hookAsset(fs, event: 'PreToolUse', matcher: 'Edit|Write'),
-                ])['PreToolUse']!
-                as List<Object?>;
-        final shell =
-            events([hookAsset(fs, matcher: 'Bash')])['PostToolUse']!
-                as List<Object?>;
-
-        for (final registrations in [before, shell]) {
-          final commands =
-              (registrations.single! as Map)['hooks']! as List<Object?>;
-
-          expect(
-            (commands.single! as Map)['command'],
-            'bash /plugins/vgv-wingspan/hooks/scripts/analyze.sh',
-          );
-        }
-      });
-
-      test('leave a handler that runs no shell command alone', () {
+      test('carry a handler that runs no shell command as it is', () {
         // Codex takes an mcp_tool handler and Claude a prompt one. Neither
-        // runs a shell command, so neither can take the files.
+        // names a script, so there is nothing to point elsewhere.
         final registrations =
             events([
                   hookAsset(
@@ -246,7 +205,13 @@ void main() {
       });
 
       test('are null when the plugins ship none', () {
-        expect(translator.hooks(pluginAssets()), isNull);
+        expect(
+          translator.hooks(
+            pluginAssets(),
+            hooksRoot: fs.directory('/home/.codex/hooks'),
+          ),
+          isNull,
+        );
       });
 
       test('are null when no hook names a tool Codex has', () {
@@ -255,9 +220,127 @@ void main() {
         expect(
           translator.hooks(
             pluginAssets(hooks: [hookAsset(fs, matcher: 'Read|Glob|Grep')]),
+            hooksRoot: fs.directory('/home/.codex/hooks'),
           ),
           isNull,
         );
+      });
+    });
+
+    group('hookFiles', () {
+      late MemoryFileSystem fs;
+
+      setUp(() => fs = MemoryFileSystem.test());
+
+      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
+        pluginAssets(hooks: hooks),
+        hooksRoot: fs.directory('/home/.codex/hooks'),
+      );
+
+      PlannedChange at(List<PlannedChange> changes, String suffix) =>
+          changes.singleWhere((c) => c.file.path.endsWith(suffix));
+
+      test("copy the plugin's hooks folder under its name, registry aside", () {
+        // Every neighbour comes along, because a script sources and reads
+        // files by its own location. The plugin's hooks.json is what hooks()
+        // translated, so a copy of it would only mislead.
+        final changes = files([hookAsset(fs)]);
+
+        expect(changes.map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
+        ]);
+        expect(changes.map((c) => c.harness).toSet(), {Harness.codex});
+      });
+
+      test('copy each file from its source, so it keeps its mode', () {
+        final change = at(files([hookAsset(fs)]), 'common.sh');
+
+        expect(
+          change.source?.path,
+          '/plugins/vgv-wingspan/hooks/scripts/common.sh',
+        );
+        expect(change.contents, 'hi() { echo hi; }\n');
+      });
+
+      test('put the preamble below the shebang of a script a hook runs', () {
+        final script = at(files([hookAsset(fs)]), 'analyze.sh').contents;
+        final preamble = CodexTranslator.preamble.replaceAll(
+          '__ROOT__',
+          "'/plugins/vgv-wingspan'",
+        );
+
+        expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
+      });
+
+      test('put the preamble at the top of a script with no shebang', () {
+        final hook = hookAsset(
+          fs,
+          commands: const [
+            HookCommand(
+              type: 'command',
+              command: r'${PLUGIN_ROOT}/hooks/run.sh',
+            ),
+          ],
+        );
+        hook.pluginRoot
+            .childDirectory('hooks')
+            .childFile('run.sh')
+            .writeAsStringSync('echo run\n');
+
+        final script = at(files([hook]), 'run.sh').contents;
+
+        expect(script, startsWith('# Added by vgv_ai install'));
+        expect(script, endsWith('fi\necho run\n'));
+      });
+
+      test('quote a plugin root that holds a quote', () {
+        final root = fs.directory("/plugins/it's")..createSync(recursive: true);
+        root.childDirectory('hooks').childFile('run.sh')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('echo run\n');
+        final hook = HookAsset(
+          event: 'Stop',
+          commands: const [
+            HookCommand(
+              type: 'command',
+              command: r'${PLUGIN_ROOT}/hooks/run.sh',
+            ),
+          ],
+          plugin: 'quoted',
+          pluginRoot: root,
+        );
+
+        expect(
+          at(files([hook]), 'run.sh').contents,
+          contains(r"export CLAUDE_PLUGIN_ROOT='/plugins/it'\''s'"),
+        );
+      });
+
+      test('leave a script no shell command names as it is', () {
+        // A prompt handler names no script, and common.sh is only sourced.
+        final hook = hookAsset(
+          fs,
+          commands: const [HookCommand(type: 'prompt', command: 'say-hello')],
+        );
+
+        for (final change in files([hook])) {
+          expect(change.contents, isNot(contains('vgv_ai install')));
+        }
+      });
+
+      test('copy nothing for a hook Codex will not run', () {
+        expect(files([hookAsset(fs, matcher: 'Read|Glob|Grep')]), isEmpty);
+      });
+
+      test('copy nothing for a plugin whose hooks folder has gone away', () {
+        // A cache cleared between resolution and translation. hooks() still
+        // names the scripts, and Codex reports the missing file when one
+        // fires, which beats throwing out of install.
+        final hook = hookAsset(fs);
+        hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
+
+        expect(files([hook]), isEmpty);
       });
     });
 
