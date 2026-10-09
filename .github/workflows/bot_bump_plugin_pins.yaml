@@ -1,0 +1,59 @@
+name: bot_bump_plugin_pins
+
+on:
+  schedule:
+    # weekly on mondays at 8 am utc
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: "3.13.0"
+
+      - name: 📦 Install dependencies
+        run: dart pub get
+
+      - name: 📌 Bump plugin pins
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "bumps<<EOF"
+            dart run packages/plugin_source/tool/bump_plugin_pins.dart
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 🤖 Config Git User
+        run: |
+          git config user.name VGV Bot
+          git config user.email vgvbot@users.noreply.github.com
+
+      - name: 🤖 Create Pull Request
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          base: main
+          branch: vgvbot/bump_plugin_pins
+          commit-message: "chore: bump pinned plugins"
+          title: "chore: bump pinned plugins"
+          body: |
+            Bump the pinned VGV plugins in `packages/plugin_source/lib/src/plugin_ref.dart` to their latest releases.
+
+            ${{ steps.bump.outputs.bumps }}
+
+            > [!IMPORTANT]
+            > This PR was opened with the default `GITHUB_TOKEN`, so CI does not run on it by itself. Push a commit to it, or close and reopen it, so `verify-pins` checks the new pins before merging.
+          labels: bot
+          author: VGV Bot <vgvbot@users.noreply.github.com>
+          assignees: vgvbot
+          committer: VGV Bot <vgvbot@users.noreply.github.com>
