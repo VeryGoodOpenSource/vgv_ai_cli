@@ -224,9 +224,11 @@ void main() {
         }),
       );
 
-      expect(bumps.map((bump) => bump.toString()), [
-        'vgv-wingspan: 0.0.5 (v0.0.5) -> 0.1.0 (v0.1.0)',
-      ]);
+      expect(
+        bumps.single.toString(),
+        'vgv-wingspan: 0.0.5 (v0.0.5) -> 0.1.0 (v0.1.0) '
+        'https://github.com/VeryGoodOpenSource/vgv-wingspan/releases/tag/v0.1.0',
+      );
       expect(
         file.readAsStringSync(),
         _source.replaceFirst(

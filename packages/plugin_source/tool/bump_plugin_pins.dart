@@ -85,7 +85,8 @@ class const PinBump(final PluginRef from, final PluginRef to) {
   @override
   String toString() =>
       '${from.name}: ${from.version} (${from.gitRef}) -> '
-      '${to.version} (${to.gitRef})';
+      '${to.version} (${to.gitRef}) '
+      'https://github.com/${to.repo}/releases/tag/${to.gitRef}';
 }
 
 /// Moves every pin in [pins] that is behind its latest release, rewriting
