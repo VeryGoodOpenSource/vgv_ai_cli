@@ -1,7 +1,7 @@
 /// Bumps every pin in `vgvPlugins` that is behind its plugin's latest GitHub
 /// release, rewriting `lib/src/plugin_ref.dart` in place.
 ///
-/// Run by the `bot_bump_plugin_pins` workflow. Needs an authenticated `gh`.
+/// Needs an authenticated `gh`.
 library;
 
 import 'dart:convert';

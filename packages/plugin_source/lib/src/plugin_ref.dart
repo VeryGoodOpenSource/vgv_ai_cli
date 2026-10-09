@@ -44,10 +44,6 @@ const vgvMarketplaceRepo =
 /// Bumped deliberately rather than tracked from the marketplace at runtime, so
 /// an install is reproducible and a plugin release cannot change what a given
 /// CLI version writes.
-///
-/// The `bot_bump_plugin_pins` workflow opens a PR whenever a plugin publishes
-/// a newer release, rewriting each entry's `version` and `gitRef` in place.
-/// Keep every entry in this shape, one named argument per line.
 const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-wingspan',
