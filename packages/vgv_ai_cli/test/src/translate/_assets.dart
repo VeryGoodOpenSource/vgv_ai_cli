@@ -39,6 +39,7 @@ HookAsset hookAsset(
   FileSystem fs, {
   String event = 'PostToolUse',
   String? matcher,
+  String? agent,
   List<HookCommand> commands = const [
     HookCommand(
       type: 'command',
@@ -65,6 +66,7 @@ HookAsset hookAsset(
     commands: commands,
     plugin: 'vgv-wingspan',
     pluginRoot: root,
+    agent: agent,
   );
 }
 

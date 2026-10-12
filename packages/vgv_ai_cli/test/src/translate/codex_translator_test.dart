@@ -117,6 +117,18 @@ void main() {
         );
       });
 
+      test('watch the shell for a hook that watches reads', () {
+        // Codex reads files through the shell, so wingspan's Read|Glob|Grep
+        // hook fires on the first command instead of the first read.
+        final registrations =
+            events([
+                  hookAsset(fs, event: 'PreToolUse', matcher: 'Read|Glob|Grep'),
+                ])['PreToolUse']!
+                as List<Object?>;
+
+        expect((registrations.single! as Map)['matcher'], 'Bash');
+      });
+
       test('carry over a matcher Codex spells the same way', () {
         for (final matcher in ['Bash', 'mcp__.*very-good-cli__.*']) {
           final registrations =
@@ -250,18 +262,6 @@ void main() {
           isNull,
         );
       });
-
-      test('are null when no hook names a tool Codex has', () {
-        // Codex reads files through the shell, so wingspan's Read|Glob|Grep
-        // hook could never fire and nothing is left to write.
-        expect(
-          translator.hooks(
-            pluginAssets(hooks: [hookAsset(fs, matcher: 'Read|Glob|Grep')]),
-            hooksRoot: fs.directory('/home/.codex/hooks'),
-          ),
-          isNull,
-        );
-      });
     });
 
     group('hookFiles', () {
@@ -331,10 +331,9 @@ void main() {
 
       test('put the preamble below the shebang of a script a hook runs', () {
         final script = at(files([hookAsset(fs)]), 'analyze.sh').contents;
-        final preamble = CodexTranslator.preamble.replaceAll(
-          '__ROOT__',
-          '"/plugins/vgv-wingspan"',
-        );
+        final preamble = CodexTranslator.preamble
+            .replaceAll('__ROOT__', '"/plugins/vgv-wingspan"')
+            .replaceAll('__AGENT__', '""');
 
         expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
       });
@@ -408,6 +407,39 @@ void main() {
         expect(
           at(files([hook]), 'run.sh').contents,
           contains(r'export CLAUDE_PLUGIN_ROOT="/plugins/it\"s \$5 ok"'),
+        );
+      });
+
+      test('scope a script to the agent whose hook names it', () {
+        // flutter-reviewer declares its Bash guard for itself, so the copy
+        // stands aside for any other agent.
+        final script = at(
+          files([hookAsset(fs, matcher: 'Bash', agent: 'flutter-reviewer')]),
+          'analyze.sh',
+        ).contents;
+
+        expect(script, contains('vgv_agent="flutter-reviewer"\n'));
+      });
+
+      test('leave a script hooks of two scopes name unscoped, and say so', () {
+        final hooks = [
+          hookAsset(fs),
+          hookAsset(fs, matcher: 'Bash', agent: 'flutter-reviewer'),
+        ];
+
+        expect(
+          at(files(hooks), 'analyze.sh').contents,
+          contains('vgv_agent=""\n'),
+        );
+        expect(
+          translator.notes(pluginAssets(hooks: hooks)),
+          contains(
+            isA<TranslationNote>().having(
+              (n) => n.reason,
+              'reason',
+              contains('more than one agent scope'),
+            ),
+          ),
         );
       });
 
@@ -516,10 +548,6 @@ void main() {
         );
       });
 
-      test('copy nothing for a hook Codex will not run', () {
-        expect(files([hookAsset(fs, matcher: 'Read|Glob|Grep')]), isEmpty);
-      });
-
       test(
         'copy nothing for a plugin whose hooks folder is gone, and say so',
         () {
@@ -546,17 +574,6 @@ void main() {
       late MemoryFileSystem fs;
 
       setUp(() => fs = MemoryFileSystem.test());
-
-      test('name each hook that matches no tool Codex has', () {
-        final notes = translator.notes(
-          pluginAssets(
-            hooks: [hookAsset(fs, event: 'PreToolUse', matcher: 'Read|Glob')],
-          ),
-        );
-
-        expect(notes.single.subject, 'PreToolUse Read|Glob');
-        expect(notes.single.reason, contains('could never fire'));
-      });
 
       test('ask for the trust that lets the rest run', () {
         final notes = translator.notes(pluginAssets(hooks: [hookAsset(fs)]));

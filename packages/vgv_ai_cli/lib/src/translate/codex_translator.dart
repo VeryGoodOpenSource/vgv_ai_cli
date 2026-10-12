@@ -67,7 +67,7 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final events = <String, List<Object?>>{};
-    for (final hook in assets.hooks.where(_runs)) {
+    for (final hook in assets.hooks) {
       events.putIfAbsent(hook.event, () => []).add({
         'matcher': ?_matcher(hook),
         'hooks': [
@@ -110,19 +110,13 @@ class const CodexTranslator() extends HarnessTranslator {
       ),
   ];
 
-  /// The hooks Codex will not run, what [hookFiles] could not copy as
-  /// intended, and the trust step that starts the rest.
+  /// What [hookFiles] could not copy as intended, and the trust step that
+  /// starts the hooks.
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
     ...super.notes(assets),
-    for (final hook in assets.hooks)
-      if (hook.matcher case final matcher? when !_runs(hook))
-        TranslationNote(
-          subject: '${hook.event} $matcher',
-          reason: 'Codex has none of those tools, so the hook could never fire',
-        ),
     ..._scan(assets).notes,
-    if (assets.hooks.any(_runs))
+    if (assets.hooks.isNotEmpty)
       const TranslationNote(
         subject: 'the hooks written to ~/.codex/hooks.json',
         reason:
@@ -146,8 +140,14 @@ class const CodexTranslator() extends HarnessTranslator {
   /// harness sees one decision. Any other payload, and every payload when jq
   /// is missing, reaches the script as it came.
   ///
+  /// A hook an agent declared for itself is scoped the same way Claude Code
+  /// scopes it: Codex names the agent a tool call came from in `agent_type`,
+  /// so the script stands aside for any other. Without jq that cannot be
+  /// read, and the script runs as it would for every agent.
+  ///
   /// It is bash, as the plugins' scripts are, so it goes only into a script
-  /// bash runs. `__ROOT__` is replaced with the plugin root as one shell
+  /// bash runs. `__ROOT__` is replaced with the plugin root and `__AGENT__`
+  /// with the agent the hook is scoped to, or nothing, each as one shell
   /// word.
   static const preamble = r'''
 # Added by vgv_ai install so this script, written for Claude Code, runs under
@@ -161,8 +161,16 @@ class const CodexTranslator() extends HarnessTranslator {
 # exits with the first failure and prints the first answer. Any other payload
 # reaches it as it came, and so does every payload when jq is missing.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
+vgv_agent=__AGENT__
 if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ] && command -v jq > /dev/null 2>&1; then
   vgv_payload=$(cat)
+  # A hook an agent declared for itself runs for that agent alone. Codex
+  # names the agent a tool call came from in agent_type, and nothing at all
+  # outside a subagent.
+  if [ -n "$vgv_agent" ]; then
+    vgv_caller=$(printf '%s' "$vgv_payload" | jq -r '.agent_type // ""')
+    [ "$vgv_caller" = "$vgv_agent" ] || exit 0
+  fi
   # One line per file of an apply_patch: the tool Claude Code would have
   # named, a tab, and the path resolved against the payload's own cwd, since
   # a patch header names a file relative to the session root when the model
@@ -252,22 +260,29 @@ fi
   static String _quoted(String value) =>
       '"${value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}')}"';
 
-  /// The scripts under the hooks folder that [hook]'s shell commands name,
-  /// relative to the plugin root, and whether the command runs each through
-  /// bash.
-  static Map<String, bool> _scriptsOf(HookAsset hook) => {
-    for (final command in hook.commands)
-      if (command.type == _commandType)
-        for (final match in _hooksFile.allMatches(command.command))
-          match[1]!: _bashCommand.hasMatch(command.command),
-  };
+  /// How the scripts under the hooks folder are used by [hooks], keyed by
+  /// their path relative to the plugin root.
+  static Map<String, _ScriptUse> _scriptUses(List<HookAsset> hooks) {
+    final uses = <String, _ScriptUse>{};
+    for (final hook in hooks) {
+      for (final command in hook.commands) {
+        if (command.type != _commandType) continue;
+        for (final match in _hooksFile.allMatches(command.command)) {
+          uses.putIfAbsent(match[1]!, _ScriptUse.new)
+            ..agents.add(hook.agent)
+            ..bashCommand |= _bashCommand.hasMatch(command.command);
+        }
+      }
+    }
+    return uses;
+  }
 
   /// Every file of every runnable plugin's hooks folder, as the copy holds
   /// it, and a note for each one that could not be copied as intended.
   static _HookScan _scan(PluginAssets assets) {
     final files = <_HookFile>[];
     final notes = <TranslationNote>[];
-    final byPlugin = assets.hooks.where(_runs).groupListsBy((h) => h.plugin);
+    final byPlugin = assets.hooks.groupListsBy((h) => h.plugin);
 
     for (final MapEntry(key: plugin, value: hooks) in byPlugin.entries) {
       final pluginRoot = hooks.first.pluginRoot;
@@ -287,7 +302,7 @@ fi
         continue;
       }
 
-      final scripts = {for (final hook in hooks) ..._scriptsOf(hook)};
+      final scripts = _scriptUses(hooks);
       // followLinks is off so a symlinked directory is reported rather than
       // walked, which a cycle would otherwise turn into a hang.
       final entities = folder.listSync(recursive: true, followLinks: false);
@@ -307,11 +322,11 @@ fi
             source: source,
             relative: relative,
             bytes: switch (scripts[relative]) {
-              final bashCommand? => _withPreamble(
+              final use? => _withPreamble(
                 bytes,
                 pluginRoot,
                 subject: '$plugin/$relative',
-                bashCommand: bashCommand,
+                use: use,
                 notes: notes,
               ),
               _ => bytes,
@@ -356,17 +371,20 @@ fi
     return null;
   }
 
-  /// [bytes] with the [preamble] inserted below the shebang line.
+  /// [bytes] with the [preamble] inserted below the shebang line, scoped to
+  /// the one agent [use] says declared it, if one did.
   ///
   /// The preamble is bash, so it goes only into a script bash runs: one whose
   /// shebang names bash, or one its command runs through bash. Any other
   /// script, and one that is not UTF-8 text, is copied as it is and reported
-  /// in [notes], since Codex will then hand it its own payload.
+  /// in [notes], since Codex will then hand it its own payload. A script
+  /// named by hooks of more than one scope cannot be scoped to one agent, so
+  /// it runs for every agent and is reported too.
   static List<int> _withPreamble(
     List<int> bytes,
     Directory pluginRoot, {
     required String subject,
-    required bool bashCommand,
+    required _ScriptUse use,
     required List<TranslationNote> notes,
   }) {
     final String script;
@@ -385,7 +403,7 @@ fi
     }
 
     final shebang = script.startsWith('#!') ? script.indexOf('\n') + 1 : 0;
-    if (!bashCommand && !_bashShebang.hasMatch(script)) {
+    if (!use.bashCommand && !_bashShebang.hasMatch(script)) {
       notes.add(
         TranslationNote(
           subject: subject,
@@ -397,7 +415,24 @@ fi
       return bytes;
     }
 
-    final body = preamble.replaceAll('__ROOT__', _quoted(pluginRoot.path));
+    final String? agent;
+    if (use.agents.length == 1) {
+      agent = use.agents.single;
+    } else {
+      agent = null;
+      notes.add(
+        TranslationNote(
+          subject: subject,
+          reason:
+              'hooks of more than one agent scope run it, so it runs for '
+              'every agent',
+        ),
+      );
+    }
+
+    final body = preamble
+        .replaceAll('__ROOT__', _quoted(pluginRoot.path))
+        .replaceAll('__AGENT__', _quoted(agent ?? ''));
     return utf8.encode(
       '${script.substring(0, shebang)}$body${script.substring(shebang)}',
     );
@@ -410,19 +445,11 @@ fi
     _ => null,
   };
 
-  /// Whether Codex can run [hook].
-  ///
-  /// A hook with no matcher fires for every tool, so it always can. One whose
-  /// matcher names only tools Codex does not have translates to an empty
-  /// matcher and could never fire, so it is left out of [hooks] and reported
-  /// by [notes] instead.
-  static bool _runs(HookAsset hook) => _matcher(hook)?.isNotEmpty ?? true;
-
   /// The tools [matcher] fires for, as Codex names them.
   ///
   /// A matcher is an alternation of tool names, so each alternative goes
-  /// through [CodexTool] on its own. One Codex has no name for drops out,
-  /// which is how a matcher naming nothing it has comes back empty.
+  /// through [CodexTool] on its own, and a name two alternatives share is
+  /// written once.
   static List<String> _codexTools(String matcher) =>
       {for (final name in matcher.split('|')) ...CodexTool.codexNamesOf(name)}
           .toList();
@@ -449,3 +476,10 @@ class const _HookScan({
   required final List<_HookFile> files,
   required final List<TranslationNote> notes,
 });
+
+/// How the hooks use one script: whether a command runs it through bash, and
+/// the agent scopes of the hooks that name it, null being the plugin's own.
+class _ScriptUse {
+  bool bashCommand = false;
+  final Set<String?> agents = {};
+}
