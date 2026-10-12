@@ -31,7 +31,8 @@ commands point at the CLI's own copy of each plugin's `hooks/` folder under
 with a preamble at the top of every script a hook runs, so a script written
 for Claude Code gets the payload Claude Code would have sent. Copilot's
 `hooks/vgv.json` is the same, written as its own file because Copilot reads
-every `*.json` under `~/.copilot/hooks/`, with the scripts copied beside it.
+every `*.json` under `~/.copilot/hooks/`, subfolders included, which is also
+why its scripts are copied to `~/.copilot/vgv_ai/hooks/<plugin>/` instead.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a

@@ -7,7 +7,6 @@ import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
 import 'package:vgv_ai_cli/src/translate/copilot_translator.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -79,10 +78,7 @@ class const Translator({
     changes: [
       ...?rendered,
       if (translator.runsHooks)
-        ...translator.hookFiles(
-          assets,
-          hooksRoot: harnessHooksRoot(translator.harness, home: home),
-        ),
+        ...translator.hookFiles(assets, hooksRoot: translator.hooksRoot(home)),
     ],
     notes: translator.notes(assets),
   );

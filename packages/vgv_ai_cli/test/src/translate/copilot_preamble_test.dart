@@ -42,14 +42,16 @@ void main() {
 input=$(cat)
 printf '%s\x1f%s\x1e' "$CLAUDE_PLUGIN_ROOT" "$input" >> "$LOG"
 [ -z "${ANSWER:-}" ] || printf '%s\n' "$ANSWER"
+[ -z "${COMPLAINT:-}" ] || printf '%s\n' "$COMPLAINT" >&2
 exit "${EXIT:-0}"
 ''',
       );
       Process.runSync('chmod', ['755', script.path]);
     });
 
-    /// Runs the script on [payload], returning its exit code and stdout.
-    Future<(int, String)> run(
+    /// Runs the script on [payload], returning its exit code, stdout and
+    /// stderr.
+    Future<(int, String, String)> run(
       Map<String, Object?> payload, {
       Map<String, String> env = const {},
       bool direct = false,
@@ -63,9 +65,9 @@ exit "${EXIT:-0}"
       );
       process.stdin.write(jsonEncode(payload));
       await process.stdin.close();
-      final out = await process.stdout.transform(utf8.decoder).join();
-      await process.stderr.drain<void>();
-      return (await process.exitCode, out);
+      final out = process.stdout.transform(utf8.decoder).join();
+      final err = process.stderr.transform(utf8.decoder).join();
+      return (await process.exitCode, await out, await err);
     }
 
     /// Each run the script saw: the root it was given and its payload.
@@ -116,7 +118,7 @@ exit "${EXIT:-0}"
     });
 
     test('lifts a permission decision to where Copilot reads it', () async {
-      final (code, out) = await run(
+      final (code, out, _) = await run(
         {
           'tool_name': 'Bash',
           'tool_input': {'command': 'dart test'},
@@ -140,7 +142,7 @@ exit "${EXIT:-0}"
     });
 
     test('prints any other answer as it came', () async {
-      final (_, out) = await run(
+      final (_, out, _) = await run(
         {
           'tool_name': 'Bash',
           'tool_input': {'command': 'ls'},
@@ -152,7 +154,7 @@ exit "${EXIT:-0}"
     });
 
     test('wraps a session-start message as context', () async {
-      final (_, out) = await run(
+      final (_, out, _) = await run(
         {'hook_event_name': 'SessionStart', 'cwd': temp.path},
         env: {'ANSWER': 'Very Good CLI is not installed.'},
       );
@@ -163,7 +165,7 @@ exit "${EXIT:-0}"
     });
 
     test('prints nothing when the script prints nothing', () async {
-      final (_, out) = await run(edit('${temp.path}/a.dart'));
+      final (_, out, _) = await run(edit('${temp.path}/a.dart'));
 
       expect(out, isEmpty);
     });
@@ -174,22 +176,75 @@ exit "${EXIT:-0}"
         'tool_input': {'command': 'ls'},
       };
 
-      final (denied, _) = await run(payload, env: {'EXIT': '2'});
-      final (errored, _) = await run(payload, env: {'EXIT': '1'});
+      final (denied, _, _) = await run(payload, env: {'EXIT': '2'});
+      final (errored, _, _) = await run(payload, env: {'EXIT': '1'});
 
       expect(denied, 2);
       expect(errored, 0);
     });
 
+    test('turns a denial on stderr into the decision Copilot reads', () async {
+      // Claude Code feeds the agent what a script exiting 2 says on stderr.
+      final (code, out, err) = await run(
+        {
+          'hook_event_name': 'PreToolUse',
+          'tool_name': 'Bash',
+          'tool_input': {'command': 'dart test'},
+        },
+        env: {'EXIT': '2', 'COMPLAINT': 'use the MCP tool'},
+      );
+
+      expect(code, 2);
+      expect(jsonDecode(out), {
+        'permissionDecision': 'deny',
+        'permissionDecisionReason': 'use the MCP tool',
+      });
+      expect(err, 'use the MCP tool\n');
+    });
+
+    test('turns a complaint on stderr after a tool into context', () async {
+      // Copilot drops stderr after a tool, so an analyze failure would never
+      // reach the agent as it does under Claude Code.
+      final (code, out, err) = await run(
+        edit('${temp.path}/a.dart'),
+        env: {'EXIT': '2', 'COMPLAINT': '1 issue found.'},
+      );
+
+      expect(code, 0);
+      expect(jsonDecode(out), {'additionalContext': '1 issue found.'});
+      expect(err, '1 issue found.\n');
+    });
+
+    test(
+      'leaves an exit 2 with an answer, or nothing said, as it is',
+      () async {
+        final payload = {
+          'hook_event_name': 'PreToolUse',
+          'tool_name': 'Bash',
+          'tool_input': {'command': 'ls'},
+        };
+
+        final (quiet, silence, _) = await run(payload, env: {'EXIT': '2'});
+        final (_, answered, _) = await run(
+          payload,
+          env: {'EXIT': '2', 'ANSWER': '{"a":1}', 'COMPLAINT': 'ignored'},
+        );
+
+        expect(quiet, 2);
+        expect(silence, isEmpty);
+        expect(answered, '{"a":1}\n');
+      },
+    );
+
     test('answers the exit, and nothing else, when jq is missing', () async {
       final bin = temp.childDirectory('bin')..createSync();
-      for (final tool in ['bash', 'cat']) {
+      for (final tool in ['bash', 'cat', 'mktemp', 'rm']) {
         final found = Process.runSync('bash', ['-c', 'command -v $tool']);
         bin.childLink(tool).createSync((found.stdout as String).trim());
       }
       final payload = edit('${temp.path}/a.dart');
 
-      final (code, out) = await run(
+      final (code, out, _) = await run(
         payload,
         path: bin.path,
         env: {'EXIT': '1', 'ANSWER': 'plain'},

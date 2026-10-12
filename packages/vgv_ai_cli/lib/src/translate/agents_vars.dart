@@ -51,7 +51,7 @@ class const AgentsVars({
       if (translator.runsHooks)
         '${name}_hooks': ?translator.hooks(
           assets,
-          hooksRoot: harnessHooksRoot(translator.harness, home: home),
+          hooksRoot: translator.hooksRoot(home),
         ),
     };
   }

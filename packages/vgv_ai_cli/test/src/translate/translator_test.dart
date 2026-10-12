@@ -120,10 +120,10 @@ void main() {
           'agents/planner.agent.md',
           'agents/review.agent.md',
           'copilot-instructions.md',
-          'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
-          'hooks/vgv-wingspan/hooks/scripts/common.sh',
           'hooks/vgv.json',
           'mcp-config.json',
+          'vgv_ai/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
       });
     });

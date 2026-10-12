@@ -1,6 +1,7 @@
 import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
 /// {@template harness_translator}
@@ -54,6 +55,14 @@ abstract class HarnessTranslator {
 
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
+
+  /// Where this harness keeps its own copy of the plugins' hook scripts,
+  /// which [hooks] points at and [hookFiles] writes to.
+  ///
+  /// The `hooks` folder of the config directory unless the harness reads
+  /// that folder itself, in which case a copied file would be read as a
+  /// hooks file.
+  Directory hooksRoot(Directory home) => harnessHooksRoot(harness, home: home);
 
   /// The hooks fragment merged into this harness's own hooks file, or null
   /// when there is nothing it can run, whose brick folder then has no hooks

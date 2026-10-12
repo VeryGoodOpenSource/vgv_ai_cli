@@ -76,6 +76,17 @@ void main() {
       expect(translator.runsHooks, isTrue);
     });
 
+    test('keeps its copy of the scripts beside the hooks folder', () {
+      // Copilot reads every *.json under ~/.copilot/hooks/, so a plugin's own
+      // JSON copied there would be read as a hooks file.
+      final home = MemoryFileSystem.test().directory('/home/dev');
+
+      expect(
+        translator.hooksRoot(home).path,
+        '/home/dev/.copilot/vgv_ai/hooks',
+      );
+    });
+
     group('hooks', () {
       late MemoryFileSystem fs;
 
@@ -85,7 +96,7 @@ void main() {
       Map<String, Object?> file(List<HookAsset> hooks) {
         final json = translator.hooks(
           pluginAssets(hooks: hooks),
-          hooksRoot: fs.directory('/home/.copilot/hooks'),
+          hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
         )!;
         return jsonDecode(json) as Map<String, Object?>;
       }
@@ -114,7 +125,7 @@ void main() {
           'type': 'command',
           'matcher': 'Edit|Write',
           'bash': [
-            'bash "/home/.copilot/hooks/vgv-wingspan"',
+            'bash "/home/.copilot/vgv_ai/hooks/vgv-wingspan"',
             'hooks/scripts/analyze.sh',
           ].join('/'),
           'timeoutSec': 30,
@@ -187,7 +198,7 @@ void main() {
         expect(
           translator.hooks(
             pluginAssets(hooks: hooks),
-            hooksRoot: fs.directory('/home/.copilot/hooks'),
+            hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
           ),
           isNull,
         );
@@ -197,7 +208,7 @@ void main() {
         expect(
           translator.hooks(
             pluginAssets(),
-            hooksRoot: fs.directory('/home/.copilot/hooks'),
+            hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
           ),
           isNull,
         );
@@ -211,15 +222,15 @@ void main() {
 
       List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
         pluginAssets(hooks: hooks),
-        hooksRoot: fs.directory('/home/.copilot/hooks'),
+        hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
       );
 
       test("copy the plugin's hooks folder under its name, registry aside", () {
         final changes = files([hookAsset(fs)]);
 
         expect(changes.map((c) => c.file.path), [
-          '/home/.copilot/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
-          '/home/.copilot/hooks/vgv-wingspan/hooks/scripts/common.sh',
+          '/home/.copilot/vgv_ai/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          '/home/.copilot/vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
         expect(changes.map((c) => c.harness).toSet(), {Harness.copilot});
       });

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file/file.dart';
+import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
@@ -20,6 +21,17 @@ class const CopilotTranslator() extends HarnessTranslator {
 
   @override
   bool get runsHooks => true;
+
+  /// Copilot reads every `*.json` under `~/.copilot/hooks/`, subfolders
+  /// included, as a hooks file, so the copied scripts live beside that
+  /// folder rather than in it, or a plugin's own JSON would be read as one.
+  @override
+  Directory hooksRoot(Directory home) {
+    final config = harness.configDirectory(home);
+    return config.fileSystem.directory(
+      p.join(config.path, 'vgv_ai', HookScripts.hooksFolder),
+    );
+  }
 
   /// Copilot documents a `type` on every server, so one is written rather
   /// than left for it to infer.
@@ -118,17 +130,22 @@ class const CopilotTranslator() extends HarnessTranslator {
   /// What goes at the top of Copilot's copy of a hook script, below its
   /// shebang, so a script written for Claude Code runs as written.
   ///
-  /// It answers the four things Copilot hands a script differently. It sets
+  /// It answers what Copilot hands a script differently. It sets
   /// `CLAUDE_PLUGIN_ROOT`, which Copilot sets for a plugin's own hooks only,
   /// to the plugin's real location. It names a file's path under
   /// `tool_input.file_path`, which the scripts read, beside `tool_input.path`,
   /// which Copilot sends. It lifts a permission decision the script writes
   /// under `hookSpecificOutput` to the top level, which is where Copilot
   /// reads one. And it lets a failure other than exit 2 through, as Claude
-  /// Code does, where Copilot would deny the tool call. A session-start
-  /// message, which Claude Code takes as plain text, is wrapped as the
-  /// `additionalContext` Copilot takes. Without jq the payload and the output
-  /// pass as they are, and only the exit is answered.
+  /// Code does, where Copilot would deny the tool call.
+  ///
+  /// What a script says is spelled as Copilot reads it. Claude Code takes
+  /// plain text at session start and feeds the agent what a script that
+  /// exits 2 says on stderr, where Copilot reads JSON alone: so a
+  /// session-start message becomes `additionalContext`, and an exit 2 with
+  /// nothing on stdout becomes a denial carrying the stderr before a tool
+  /// and `additionalContext` carrying it after one. Without jq the payload
+  /// and the output pass as they are, and only the exit is answered.
   ///
   /// It is bash, as the plugins' scripts are, so it goes only into a script
   /// bash runs. `__ROOT__` is replaced with the plugin root as one shell word.
@@ -138,13 +155,13 @@ class const CopilotTranslator() extends HarnessTranslator {
 #
 # Copilot sets CLAUDE_PLUGIN_ROOT for a plugin's own hooks only, so it is set
 # to the plugin's real files. Copilot names a file's path tool_input.path
-# where the script reads tool_input.file_path, reads a permission decision at
-# the top level where the script writes it under hookSpecificOutput, takes a
-# session-start message as additionalContext where the script prints text,
-# and denies a tool call on any failing exit where Claude Code lets one
-# through. So the script below gets the path under both keys, its answer is
-# spelled as Copilot reads it, and a failure other than exit 2 is let
-# through. Without jq the payload and the output pass as they are.
+# where the script reads tool_input.file_path, and denies a tool call on any
+# failing exit where Claude Code lets one through. And Copilot reads JSON
+# alone where Claude Code reads a decision under hookSpecificOutput, plain
+# text at session start, and what a script exiting 2 says on stderr. So the
+# script below gets the path under both keys, a failure other than exit 2 is
+# let through, and its answer is spelled as Copilot reads it. Without jq the
+# payload and the output pass as they are.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
 if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
   vgv_payload=$(cat)
@@ -158,22 +175,42 @@ if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
       then .tool_input.file_path = .tool_input.path else . end
     ' 2> /dev/null) && vgv_payload=$vgv_rewritten
   fi
-  vgv_output=$(printf '%s' "$vgv_payload" | VGV_CLAUDE_PAYLOAD=1 bash "$0")
+  vgv_errors=$(mktemp)
+  vgv_output=$(printf '%s' "$vgv_payload" \
+    | VGV_CLAUDE_PAYLOAD=1 bash "$0" 2> "$vgv_errors")
   vgv_exit=$?
-  if [ "$vgv_jq" -eq 1 ] && [ -n "$vgv_output" ]; then
+  vgv_stderr=$(cat "$vgv_errors")
+  rm -f "$vgv_errors"
+  [ -z "$vgv_stderr" ] || printf '%s\n' "$vgv_stderr" >&2
+  if [ "$vgv_jq" -eq 1 ]; then
     vgv_event=$(printf '%s' "$vgv_payload" \
       | jq -r '.hook_event_name // ""' 2> /dev/null)
-    vgv_answer=$(printf '%s' "$vgv_output" | jq -c '
-      if (.hookSpecificOutput | type) == "object"
-        and (.hookSpecificOutput | has("permissionDecision"))
-      then .hookSpecificOutput
-        | {permissionDecision}
-          + (if has("permissionDecisionReason")
-             then {permissionDecisionReason} else {} end)
-      else . end
-    ' 2> /dev/null) && vgv_output=$vgv_answer
-    if [ -z "$vgv_answer" ] && [ "$vgv_event" = "SessionStart" ]; then
-      vgv_output=$(jq -cn --arg text "$vgv_output" '{additionalContext: $text}')
+    if [ -n "$vgv_output" ]; then
+      vgv_answer=$(printf '%s' "$vgv_output" | jq -c '
+        if (.hookSpecificOutput | type) == "object"
+          and (.hookSpecificOutput | has("permissionDecision"))
+        then .hookSpecificOutput
+          | {permissionDecision}
+            + (if has("permissionDecisionReason")
+               then {permissionDecisionReason} else {} end)
+        else . end
+      ' 2> /dev/null) && vgv_output=$vgv_answer
+      if [ -z "$vgv_answer" ] && [ "$vgv_event" = "SessionStart" ]; then
+        vgv_output=$(jq -cn --arg text "$vgv_output" \
+          '{additionalContext: $text}')
+      fi
+    elif [ "$vgv_exit" -eq 2 ] && [ -n "$vgv_stderr" ]; then
+      case "$vgv_event" in
+        PreToolUse)
+          vgv_output=$(jq -cn --arg text "$vgv_stderr" \
+            '{permissionDecision: "deny", permissionDecisionReason: $text}')
+          ;;
+        PostToolUse)
+          vgv_output=$(jq -cn --arg text "$vgv_stderr" \
+            '{additionalContext: $text}')
+          vgv_exit=0
+          ;;
+      esac
     fi
   fi
   [ -z "$vgv_output" ] || printf '%s\n' "$vgv_output"
