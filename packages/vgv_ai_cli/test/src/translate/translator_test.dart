@@ -151,6 +151,22 @@ void main() {
       );
     });
 
+    test(
+      'plans no hooks for a translator that declares it runs none',
+      () async {
+        // The flag is what the notes read, so a translator that spells hooks
+        // without declaring it runs them would write them and deny it at once.
+        final plan = await const Translator(
+          translators: [DeclinedHooksTranslator()],
+        ).translate(assets: assets, home: home, selected: {Harness.pi});
+
+        expect(
+          plan.harnesses[Harness.pi]!.changes.map((c) => c.file.path),
+          isNot(contains(endsWith('declined.sh'))),
+        );
+      },
+    );
+
     test('tags every change with the harness it configures', () async {
       final plan = await translate(Harness.values.toSet());
 
@@ -257,9 +273,9 @@ void main() {
       test(
         "Codex's hooks merge into the ones the user already keeps",
         () async {
-          final script = p.join(
-            harnessHooksRoot(Harness.codex.configDirectory(home)).path,
-            'vgv-wingspan/hooks/scripts/analyze.sh',
+          final copy = p.join(
+            harnessHooksRoot(Harness.codex, home: home).path,
+            'vgv-wingspan',
           );
           final plan = await translate({Harness.codex});
           final hooks = plan.harnesses[Harness.codex]!.changes.singleWhere(
@@ -274,7 +290,7 @@ void main() {
                   'hooks': [
                     {
                       'type': 'command',
-                      'command': 'bash $script',
+                      'command': 'bash "$copy"/hooks/scripts/analyze.sh',
                       'timeout': 30,
                     },
                   ],

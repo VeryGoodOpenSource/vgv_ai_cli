@@ -147,7 +147,44 @@ void main() {
 
         expect(
           (commands.single! as Map)['command'],
-          'bash /home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'bash "/home/.codex/hooks/vgv-wingspan"/hooks/scripts/analyze.sh',
+        );
+      });
+
+      test('point a file outside the hooks folder at the plugin itself', () {
+        // Only the hooks folder is copied, so anything else a command names
+        // is still read from where the plugin keeps it.
+        final registrations =
+            events([
+                  hookAsset(
+                    fs,
+                    commands: const [
+                      HookCommand(
+                        type: 'command',
+                        command: r'dart run ${PLUGIN_ROOT}/scripts/check.dart',
+                      ),
+                    ],
+                  ),
+                ])['PostToolUse']!
+                as List<Object?>;
+        final commands =
+            (registrations.single! as Map)['hooks']! as List<Object?>;
+
+        expect(
+          (commands.single! as Map)['command'],
+          'dart run "/plugins/vgv-wingspan"/scripts/check.dart',
+        );
+      });
+
+      test('quote a copy root that holds a space', () {
+        final json = translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/Jane Doe/.codex/hooks'),
+        )!;
+
+        expect(
+          json,
+          contains(r'bash \"/home/Jane Doe/.codex/hooks/vgv-wingspan\"/hooks'),
         );
       });
 
@@ -253,7 +290,9 @@ void main() {
         expect(changes.map((c) => c.harness).toSet(), {Harness.codex});
       });
 
-      test('copy each file from its source, so it keeps its mode', () {
+      test('copy each file from its source', () {
+        // The reconciler copies the source's mode across, which a hook that
+        // runs its script directly needs.
         final change = at(files([hookAsset(fs)]), 'common.sh');
 
         expect(
@@ -263,23 +302,77 @@ void main() {
         expect(change.contents, 'hi() { echo hi; }\n');
       });
 
+      test('keep the copies of two plugins apart', () {
+        final other = fs.directory('/plugins/other')
+          ..createSync(recursive: true);
+        other.childDirectory('hooks').childDirectory('scripts')
+          ..createSync(recursive: true)
+          ..childFile('analyze.sh').writeAsStringSync('#!/bin/bash\necho o\n');
+        final hook = HookAsset(
+          event: 'PostToolUse',
+          commands: const [
+            HookCommand(
+              type: 'command',
+              command: r'bash ${PLUGIN_ROOT}/hooks/scripts/analyze.sh',
+            ),
+          ],
+          plugin: 'other',
+          pluginRoot: other,
+        );
+
+        final changes = files([hookAsset(fs), hook]);
+
+        expect(changes.map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
+          '/home/.codex/hooks/other/hooks/scripts/analyze.sh',
+        ]);
+      });
+
       test('put the preamble below the shebang of a script a hook runs', () {
         final script = at(files([hookAsset(fs)]), 'analyze.sh').contents;
         final preamble = CodexTranslator.preamble.replaceAll(
           '__ROOT__',
-          "'/plugins/vgv-wingspan'",
+          '"/plugins/vgv-wingspan"',
         );
 
         expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
       });
 
-      test('put the preamble at the top of a script with no shebang', () {
+      test('put the preamble in every script one command names', () {
         final hook = hookAsset(
           fs,
           commands: const [
             HookCommand(
               type: 'command',
-              command: r'${PLUGIN_ROOT}/hooks/run.sh',
+              command:
+                  r'bash ${PLUGIN_ROOT}/hooks/a.sh && '
+                  r'bash "${PLUGIN_ROOT}/hooks/b.sh"',
+            ),
+          ],
+        );
+        for (final name in ['a.sh', 'b.sh']) {
+          hook.pluginRoot
+              .childDirectory('hooks')
+              .childFile(name)
+              .writeAsStringSync('#!/bin/bash\necho $name\n');
+        }
+
+        final changes = files([hook]);
+
+        // The second is quoted in the command, and is still found.
+        for (final name in ['a.sh', 'b.sh']) {
+          expect(at(changes, name).contents, contains('vgv_ai install'));
+        }
+      });
+
+      test('put the preamble at the top of a script bash runs unshebanged', () {
+        final hook = hookAsset(
+          fs,
+          commands: const [
+            HookCommand(
+              type: 'command',
+              command: r'bash ${PLUGIN_ROOT}/hooks/run.sh',
             ),
           ],
         );
@@ -294,11 +387,12 @@ void main() {
         expect(script, endsWith('fi\necho run\n'));
       });
 
-      test('quote a plugin root that holds a quote', () {
-        final root = fs.directory("/plugins/it's")..createSync(recursive: true);
+      test('quote a plugin root that holds a quote, a dollar or a space', () {
+        final root = fs.directory(r'/plugins/it"s $5 ok')
+          ..createSync(recursive: true);
         root.childDirectory('hooks').childFile('run.sh')
           ..createSync(recursive: true)
-          ..writeAsStringSync('echo run\n');
+          ..writeAsStringSync('#!/bin/bash\necho run\n');
         final hook = HookAsset(
           event: 'Stop',
           commands: const [
@@ -313,7 +407,7 @@ void main() {
 
         expect(
           at(files([hook]), 'run.sh').contents,
-          contains(r"export CLAUDE_PLUGIN_ROOT='/plugins/it'\''s'"),
+          contains(r'export CLAUDE_PLUGIN_ROOT="/plugins/it\"s \$5 ok"'),
         );
       });
 
@@ -329,19 +423,123 @@ void main() {
         }
       });
 
+      test('leave a script bash does not run as it is, and say so', () {
+        // The preamble is bash. A script with another shebang that a hook
+        // runs directly would die on the preamble's first bash-only line.
+        final hook = hookAsset(
+          fs,
+          commands: const [
+            HookCommand(
+              type: 'command',
+              command: r'${PLUGIN_ROOT}/hooks/run.sh',
+            ),
+          ],
+        );
+        hook.pluginRoot
+            .childDirectory('hooks')
+            .childFile('run.sh')
+            .writeAsStringSync('#!/bin/sh\necho run\n');
+
+        expect(at(files([hook]), 'run.sh').contents, '#!/bin/sh\necho run\n');
+        expect(
+          translator.notes(pluginAssets(hooks: [hook])),
+          contains(
+            isA<TranslationNote>()
+                .having(
+                  (n) => n.subject,
+                  'subject',
+                  'vgv-wingspan/hooks/run.sh',
+                )
+                .having((n) => n.reason, 'reason', contains('not a bash')),
+          ),
+        );
+      });
+
+      test('leave a script that is not UTF-8 text as it is, and say so', () {
+        final hook = hookAsset(fs);
+        hook.pluginRoot
+            .childDirectory('hooks')
+            .childDirectory('scripts')
+            .childFile('analyze.sh')
+            .writeAsBytesSync([0x23, 0x21, 0xff, 0xfe]);
+
+        expect(at(files([hook]), 'analyze.sh').bytes, [0x23, 0x21, 0xff, 0xfe]);
+        expect(
+          translator.notes(pluginAssets(hooks: [hook])),
+          contains(
+            isA<TranslationNote>().having(
+              (n) => n.reason,
+              'reason',
+              contains('not UTF-8'),
+            ),
+          ),
+        );
+      });
+
+      test('copy what a symlink points at, under the link name', () {
+        final hook = hookAsset(fs);
+        fs.file('/plugins/shared/lint.sh')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('lint\n');
+        fs
+            .link('/plugins/vgv-wingspan/hooks/scripts/lint.sh')
+            .createSync('/plugins/shared/lint.sh');
+
+        final change = at(files([hook]), 'scripts/lint.sh');
+
+        expect(change.source?.path, '/plugins/shared/lint.sh');
+        expect(change.contents, 'lint\n');
+      });
+
+      test('report a symlink that points nowhere, or at a directory', () {
+        final hook = hookAsset(fs);
+        final hooks = hook.pluginRoot.childDirectory('hooks');
+        fs.link(hooks.childFile('gone.sh').path).createSync('/plugins/none');
+        fs.link(hooks.childFile('dir.sh').path).createSync('/plugins/shared');
+        fs.directory('/plugins/shared').createSync(recursive: true);
+
+        const dangling = 'the symlink points at something that does not exist';
+        const directory =
+            'the symlink points at a directory, which is not copied';
+        final notes = translator.notes(pluginAssets(hooks: [hook]));
+
+        expect(files([hook]).map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
+        ]);
+        expect(
+          notes.map((n) => '${n.subject}: ${n.reason}'),
+          containsAll([
+            'vgv-wingspan/hooks/gone.sh: $dangling',
+            'vgv-wingspan/hooks/dir.sh: $directory',
+          ]),
+        );
+      });
+
       test('copy nothing for a hook Codex will not run', () {
         expect(files([hookAsset(fs, matcher: 'Read|Glob|Grep')]), isEmpty);
       });
 
-      test('copy nothing for a plugin whose hooks folder has gone away', () {
-        // A cache cleared between resolution and translation. hooks() still
-        // names the scripts, and Codex reports the missing file when one
-        // fires, which beats throwing out of install.
-        final hook = hookAsset(fs);
-        hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
+      test(
+        'copy nothing for a plugin whose hooks folder is gone, and say so',
+        () {
+          // A cache cleared between resolution and translation. hooks() still
+          // registers the scripts, so the note is what tells the user why they
+          // will fail, which beats throwing out of install.
+          final hook = hookAsset(fs);
+          hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
 
-        expect(files([hook]), isEmpty);
-      });
+          expect(files([hook]), isEmpty);
+          expect(
+            translator.notes(pluginAssets(hooks: [hook])),
+            contains(
+              isA<TranslationNote>()
+                  .having((n) => n.subject, 'subject', 'vgv-wingspan')
+                  .having((n) => n.reason, 'reason', contains('has gone away')),
+            ),
+          );
+        },
+      );
     });
 
     group('notes', () {
