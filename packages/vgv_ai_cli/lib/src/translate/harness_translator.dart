@@ -64,8 +64,9 @@ abstract class const HarnessTranslator() {
   /// The files this harness needs beside [hooks] to run them, under
   /// [hooksRoot], such as its own copy of the plugins' scripts.
   ///
-  /// Planned here rather than rendered by the brick because a copy of a
-  /// script keeps the source file's mode, which a rendered file cannot.
+  /// Only called when [runsHooks] is set. Planned here rather than rendered
+  /// by the brick because a copy of a script keeps the source file's mode,
+  /// which a rendered file cannot.
   List<PlannedChange> hookFiles(
     PluginAssets assets, {
     required Directory hooksRoot,

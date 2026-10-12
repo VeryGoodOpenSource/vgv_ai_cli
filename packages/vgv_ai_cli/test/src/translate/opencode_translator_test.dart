@@ -16,6 +16,10 @@ void main() {
       expect(translator.harness, Harness.opencode);
     });
 
+    test('declares that it runs no hooks, which the notes read', () {
+      expect(translator.runsHooks, isFalse);
+    });
+
     test('types each MCP server and folds its args into the command', () {
       final settings = jsonDecode(
         translator.settings(
