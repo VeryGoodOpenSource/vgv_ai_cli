@@ -350,7 +350,7 @@ void main() {
       // Claude's spelling of it.
       expect(
         hookFor('SessionStart').commands.single.command,
-        'bash ${HookCommand.pluginRoot}/hooks/scripts/warn.sh',
+        'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
       );
     });
 
@@ -371,7 +371,7 @@ void main() {
     });
 
     test('carries the plugin root the placeholder stands for', () {
-      // HookCommand.pluginRoot is spelled relative to the plugin root, not
+      // HookCommand.rootPlaceholder is spelled relative to the plugin root, not
       // the hooks directory, so this is what a translator substitutes.
       final root = hookFor('SessionStart').pluginRoot;
 
@@ -403,6 +403,30 @@ void main() {
       expect(
         const ClaudePluginParser().parse(root).hooks.single.plugin,
         'bare',
+      );
+    });
+
+    test('rejects a manifest name that is not safe as a directory', () {
+      // The name becomes a folder under the user's home, so "../x" or "a/b"
+      // would nest or escape it.
+      final fs = MemoryFileSystem.test();
+      final root = fs.directory('/cache/odd')..createSync(recursive: true);
+      root.childDirectory('.claude-plugin').childFile('plugin.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"name": "../escape"}');
+      root.childDirectory('hooks').childFile('hooks.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
+        );
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        throwsA(
+          isA<PluginParseException>()
+              .having((e) => e.path, 'path', endsWith('plugin.json'))
+              .having((e) => e.message, 'message', contains('../escape')),
+        ),
       );
     });
 
