@@ -1,5 +1,6 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// The canonical directory the translated skills are written to.
 ///
@@ -18,7 +19,9 @@ import 'package:path/path.dart' as p;
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
 
-/// Where [harnessConfig] keeps the harness's own copy of the plugins' hook
-/// scripts, which its hooks file points at.
-Directory harnessHooksRoot(Directory harnessConfig) =>
-    harnessConfig.fileSystem.directory(p.join(harnessConfig.path, 'hooks'));
+/// Where [harness] keeps its own copy of the plugins' hook scripts, which
+/// its hooks file points at: the `hooks` folder of its config directory.
+Directory harnessHooksRoot(Harness harness, {required Directory home}) {
+  final config = harness.configDirectory(home);
+  return config.fileSystem.directory(p.join(config.path, 'hooks'));
+}

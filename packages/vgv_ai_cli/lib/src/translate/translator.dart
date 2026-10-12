@@ -59,12 +59,11 @@ class const Translator({
           translator.harness: TranslationResult(
             changes: [
               ...?changes[translator.harness],
-              ...translator.hookFiles(
-                assets,
-                hooksRoot: harnessHooksRoot(
-                  translator.harness.configDirectory(home),
+              if (translator.runsHooks)
+                ...translator.hookFiles(
+                  assets,
+                  hooksRoot: harnessHooksRoot(translator.harness, home: home),
                 ),
-              ),
             ],
             notes: translator.notes(assets),
           ),

@@ -38,10 +38,11 @@ class const AgentsVars({
       for (final translator in translators)
         '${translator.harness.name}_settings': ?translator.settings(assets),
       for (final translator in translators)
-        '${translator.harness.name}_hooks': ?translator.hooks(
-          assets,
-          hooksRoot: harnessHooksRoot(translator.harness.configDirectory(home)),
-        ),
+        if (translator.runsHooks)
+          '${translator.harness.name}_hooks': ?translator.hooks(
+            assets,
+            hooksRoot: harnessHooksRoot(translator.harness, home: home),
+          ),
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
       'index': {

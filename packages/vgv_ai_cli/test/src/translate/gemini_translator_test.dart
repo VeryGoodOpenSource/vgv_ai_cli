@@ -22,6 +22,10 @@ void main() {
       expect(translator.harness, Harness.gemini);
     });
 
+    test('declares that it runs no hooks, which the notes read', () {
+      expect(translator.runsHooks, isFalse);
+    });
+
     group('settings', () {
       test('declares each MCP server by name', () {
         final settings = jsonDecode(

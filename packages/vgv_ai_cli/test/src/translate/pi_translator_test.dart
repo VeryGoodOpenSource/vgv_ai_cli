@@ -32,6 +32,16 @@ void main() {
       expect(translator.runsHooks, isFalse);
     });
 
+    test('spells no hooks and no files beside them, as the default', () {
+      final hooksRoot = MemoryFileSystem.test().directory('/home/.pi/hooks');
+
+      expect(translator.hooks(pluginAssets(), hooksRoot: hooksRoot), isNull);
+      expect(
+        translator.hookFiles(pluginAssets(), hooksRoot: hooksRoot),
+        isEmpty,
+      );
+    });
+
     test('reports that nothing in its config runs a shell command', () {
       final fs = MemoryFileSystem.test();
 

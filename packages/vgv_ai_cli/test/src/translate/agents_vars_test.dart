@@ -52,6 +52,14 @@ void main() {
       expect(vars, isNot(contains('pi_hooks')));
     });
 
+    test('leaves out hooks for a harness that declares it runs none', () {
+      final vars = varsFor(const [
+        DeclinedHooksTranslator(),
+      ], assets: pluginAssets(hooks: [hookAsset(fs)]));
+
+      expect(vars, isNot(contains('pi_hooks')));
+    });
+
     test('leaves out hooks for a harness the plugins give none', () {
       final vars = varsFor(const [CodexTranslator()]);
 
