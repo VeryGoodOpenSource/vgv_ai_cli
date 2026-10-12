@@ -8,23 +8,16 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
 /// {@template hook_scripts}
-/// A harness's own copy of each plugin's `hooks` folder, with [preamble] at
-/// the top of every script a hook runs.
-///
-/// The plugins' scripts are written for Claude Code, and the copy is where a
-/// harness answers what it hands a script differently: the preamble is that
-/// answer, in bash, and [preamble] is the harness's own. `__ROOT__` in it is
+/// A harness's copy of each plugin's `hooks` folder, with the harness's own
+/// [preamble] at the top of every script a hook runs. `__ROOT__` in it is
 /// replaced with the plugin root and `__AGENT__` with the agent the hook is
 /// scoped to, or nothing, each as one shell word.
 ///
-/// The whole folder comes along, because a script sources its neighbours and
-/// reads files beside it by its own location. The one exception is the
-/// plugin's `hooks.json`, which the translator spells itself, so a copy of it
-/// would only mislead. A file is copied from its source so it keeps its
-/// mode, which matters for a hook that runs its script directly.
+/// The whole folder comes along, because a script sources its neighbours.
+/// The plugin's `hooks.json` is left out, since the translator spells it.
 /// {@endtemplate}
 class const HookScripts({
-  /// The harness the copy is for, named in the notes.
+  /// The harness the copy is for.
   required final Harness harness,
 
   /// What goes at the top of a copied script, below its shebang.

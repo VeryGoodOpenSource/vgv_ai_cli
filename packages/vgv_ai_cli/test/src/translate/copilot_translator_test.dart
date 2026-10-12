@@ -77,8 +77,6 @@ void main() {
     });
 
     test('keeps its copy of the scripts beside the hooks folder', () {
-      // Copilot reads every *.json under ~/.copilot/hooks/, so a plugin's own
-      // JSON copied there would be read as a hooks file.
       final home = MemoryFileSystem.test().directory('/home/dev');
 
       expect(
@@ -115,8 +113,6 @@ void main() {
       });
 
       test('spell each command as one entry under bash, timed in seconds', () {
-        // Copilot reads a hook registered under the PascalCase event name
-        // with Claude's matcher semantics, so the matcher carries over.
         final entry = entries([
           hookAsset(fs, matcher: 'Edit|Write'),
         ], 'PostToolUse').single;
@@ -150,8 +146,6 @@ void main() {
       });
 
       test('spell an MCP tool the way Copilot names it', () {
-        // Claude Code names an MCP tool mcp__<server>__<tool>, Copilot
-        // <server>-<tool>, and the matcher is a pattern over those names.
         final entry = entries([
           hookAsset(
             fs,
@@ -184,8 +178,6 @@ void main() {
       });
 
       test('leave out a hook an agent declares for itself', () {
-        // Copilot's tool payload names no agent, so flutter-reviewer's Bash
-        // guard would run for every agent, which is not what it declares.
         final hooks = [
           hookAsset(
             fs,

@@ -12,9 +12,8 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// {@template copilot_translator}
 /// Configures GitHub Copilot CLI.
 ///
-/// Copilot reads `~/.agents/skills` natively and invokes each skill by name,
-/// so it needs no commands. Its agents are markdown with frontmatter, and its
-/// MCP servers live in their own `mcp-config.json` rather than in settings.
+/// Copilot reads `~/.agents/skills` natively and invokes skills by name, so
+/// it needs no commands.
 /// {@endtemplate}
 class const CopilotTranslator() extends HarnessTranslator {
   @override
@@ -23,9 +22,8 @@ class const CopilotTranslator() extends HarnessTranslator {
   @override
   bool get runsHooks => true;
 
-  /// Copilot reads every `*.json` under `~/.copilot/hooks/`, subfolders
-  /// included, as a hooks file, so the copied scripts live beside that
-  /// folder rather than in it, or a plugin's own JSON would be read as one.
+  /// Copilot reads every `*.json` under `~/.copilot/hooks/` recursively as
+  /// a hooks file, so the script copies live beside that folder.
   @override
   Directory hooksRoot(Directory home) {
     final config = harness.configDirectory(home);
@@ -34,8 +32,7 @@ class const CopilotTranslator() extends HarnessTranslator {
     );
   }
 
-  /// Copilot documents a `type` on every server, so one is written rather
-  /// than left for it to infer.
+  /// Copilot documents a `type` on every server.
   @override
   String settings(PluginAssets assets) => jsonEncode({
     'mcpServers': {
@@ -59,21 +56,12 @@ class const CopilotTranslator() extends HarnessTranslator {
         }),
       );
 
-  /// The plugins' hooks, as a file under `~/.copilot/hooks/` spells them.
+  /// The plugins' hooks, as `~/.copilot/hooks/vgv.json` spells them.
   ///
-  /// Copilot reads a hook registered under Claude Code's event name with
-  /// Claude Code's matcher semantics and reports the tool under Claude
-  /// Code's name, so the events and matchers carry over as written. Three
-  /// things are spelled differently here: each command is its own entry
-  /// rather than one of a matcher's list, the command sits under `bash` with
-  /// its timeout as `timeoutSec`, and an MCP tool is named `<server>-<tool>`
-  /// rather than `mcp__<server>__<tool>`. The commands point at Copilot's own
-  /// copy of each plugin's `hooks` folder under [hooksRoot], the one
-  /// [hookFiles] writes, which is where the payload is answered.
-  ///
-  /// A hook an agent declared for itself is left out: Copilot's tool payload
-  /// names no agent, so there is nothing to scope it by, and a guard meant
-  /// for one agent would run for all of them.
+  /// Under Claude Code's event names, Copilot applies Claude Code's matcher
+  /// semantics and tool names, so both carry over. Each command is its own
+  /// entry, and a hook an agent declared for itself is left out, since
+  /// Copilot's payload names no agent to scope it by.
   ///
   /// See https://docs.github.com/en/copilot/reference/hooks-reference.
   @override
@@ -87,8 +75,7 @@ class const CopilotTranslator() extends HarnessTranslator {
     return events.isEmpty ? null : jsonEncode({'version': 1, 'hooks': events});
   }
 
-  /// One entry per shell command of [hook], as Copilot's hooks file spells
-  /// it.
+  /// One entry per shell command of [hook].
   static List<Object?> _entries(
     HookAsset hook, {
     required Directory hooksRoot,
@@ -103,8 +90,7 @@ class const CopilotTranslator() extends HarnessTranslator {
         },
   ];
 
-  /// Copilot's own copy of each plugin's `hooks` folder, with [preamble] at
-  /// the top of every script a hook runs.
+  /// Copilot's copy of the plugins' hook scripts, with [preamble] on top.
   @override
   List<PlannedChange> hookFiles(
     PluginAssets assets, {
@@ -123,7 +109,7 @@ class const CopilotTranslator() extends HarnessTranslator {
     ];
   }
 
-  /// A note per hook an agent declared for itself, which [hooks] left out.
+  /// One note per hook an agent declared for itself.
   static List<TranslationNote> _scopedNotes(PluginAssets assets) => [
     for (final hook in assets.hooks)
       if (hook.agent != null)
@@ -135,8 +121,7 @@ class const CopilotTranslator() extends HarnessTranslator {
         ),
   ];
 
-  /// A note per handler type that runs no shell command, which [hooks] left
-  /// out, counting the handlers of that type.
+  /// One note per handler type that runs no shell command.
   static List<TranslationNote> _handlerNotes(List<HookAsset> hooks) {
     final counts = hooks
         .expand((hook) => hook.commands)
@@ -155,41 +140,19 @@ class const CopilotTranslator() extends HarnessTranslator {
     ];
   }
 
-  /// What goes at the top of Copilot's copy of a hook script, below its
-  /// shebang, so a script written for Claude Code runs as written.
+  /// Bash inserted below the shebang of a copied script so one written for
+  /// Claude Code runs under Copilot.
   ///
-  /// It answers what Copilot hands a script differently. It sets
-  /// `CLAUDE_PLUGIN_ROOT`, which Copilot sets for a plugin's own hooks only,
-  /// to the plugin's real location. It names a file's path under
-  /// `tool_input.file_path`, which the scripts read, beside `tool_input.path`,
-  /// which Copilot sends. It lifts a permission decision the script writes
-  /// under `hookSpecificOutput` to the top level, which is where Copilot
-  /// reads one. And it lets a failure other than exit 2 through, as Claude
-  /// Code does, where Copilot would deny the tool call.
-  ///
-  /// What a script says is spelled as Copilot reads it. Claude Code takes
-  /// plain text at session start and feeds the agent what a script that
-  /// exits 2 says on stderr, where Copilot reads JSON alone: so a
-  /// session-start message becomes `additionalContext`, and an exit 2 with
-  /// nothing on stdout becomes a denial carrying the stderr before a tool
-  /// and `additionalContext` carrying it after one. Without jq the payload
-  /// and the output pass as they are, and only the exit is answered.
-  ///
-  /// It is bash, as the plugins' scripts are, so it goes only into a script
-  /// bash runs. `__ROOT__` is replaced with the plugin root as one shell word.
+  /// It sets `CLAUDE_PLUGIN_ROOT`, adds `tool_input.file_path` beside
+  /// Copilot's `tool_input.path`, spells the script's answer as Copilot reads
+  /// it (a flat permission decision, `additionalContext` for a session-start
+  /// message or an exit 2 after a tool, a denial for an exit 2 before one),
+  /// and lets any other failing exit through, as Claude Code does. Without
+  /// jq only the exit is answered. `__ROOT__` is replaced with the plugin
+  /// root as one shell word.
   static const preamble = r'''
 # Added by vgv_ai install so this script, written for Claude Code, runs under
 # Copilot. Edits here are overwritten on the next run.
-#
-# Copilot sets CLAUDE_PLUGIN_ROOT for a plugin's own hooks only, so it is set
-# to the plugin's real files. Copilot names a file's path tool_input.path
-# where the script reads tool_input.file_path, and denies a tool call on any
-# failing exit where Claude Code lets one through. And Copilot reads JSON
-# alone where Claude Code reads a decision under hookSpecificOutput, plain
-# text at session start, and what a script exiting 2 says on stderr. So the
-# script below gets the path under both keys, a failure other than exit 2 is
-# let through, and its answer is spelled as Copilot reads it. Without jq the
-# payload and the output pass as they are.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
 if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
   vgv_payload=$(cat)
@@ -254,32 +217,24 @@ fi
     preamble: preamble,
   );
 
-  /// The prefix Claude Code gives an MCP tool's name, and the separator it
-  /// puts between the server and the tool.
+  /// How Claude Code names an MCP tool: `mcp__<server>__<tool>`.
   static const _mcpPrefix = 'mcp__';
   static const _mcpSeparator = '__';
 
-  /// The hooks Copilot can run: every one the plugins declare for all agents.
+  /// The hooks not scoped to an agent.
   static List<HookAsset> _runnable(PluginAssets assets) => [
     for (final hook in assets.hooks)
       if (hook.agent == null) hook,
   ];
 
-  /// [hook]'s matcher as Copilot spells it, and null when it declares none,
-  /// which is how both harnesses spell a hook that fires for every tool.
-  ///
-  /// A matcher is read as a top-level alternation, which is how the plugins
-  /// write theirs, so a `|` inside a group is split like any other. Each
-  /// alternative naming an MCP tool is respelled: Claude Code names one
-  /// `mcp__<server>__<tool>`, Copilot `<server>-<tool>`. Every other
-  /// alternative is a name both spell the same way, or a pattern over such
-  /// names, and carries over as written.
+  /// [hook]'s matcher with each MCP tool respelled as Copilot names it,
+  /// `<server>-<tool>`. Read as a top-level alternation, which is how the
+  /// plugins write theirs.
   static String? _matcher(HookAsset hook) => switch (hook.matcher) {
     final declared? => declared.split('|').map(_copilotTool).join('|'),
     _ => null,
   };
 
-  /// [alternative] as Copilot names the tool it matches.
   static String _copilotTool(String alternative) =>
       alternative.startsWith(_mcpPrefix)
       ? alternative.substring(_mcpPrefix.length).replaceAll(_mcpSeparator, '-')

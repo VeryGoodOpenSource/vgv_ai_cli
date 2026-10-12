@@ -56,12 +56,8 @@ abstract class HarnessTranslator {
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
-  /// Where this harness keeps its own copy of the plugins' hook scripts,
-  /// which [hooks] points at and [hookFiles] writes to.
-  ///
-  /// The `hooks` folder of the config directory unless the harness reads
-  /// that folder itself, in which case a copied file would be read as a
-  /// hooks file.
+  /// Where this harness keeps its copy of the plugins' hook scripts, which
+  /// [hooks] points at and [hookFiles] writes to.
   Directory hooksRoot(Directory home) => harnessHooksRoot(harness, home: home);
 
   /// The hooks fragment merged into this harness's own hooks file, or null
