@@ -14,6 +14,7 @@ export 'copilot_translator.dart';
 export 'format/format.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';
+export 'hook_scripts.dart';
 export 'model/model.dart';
 export 'opencode_translator.dart';
 export 'pi_translator.dart';
