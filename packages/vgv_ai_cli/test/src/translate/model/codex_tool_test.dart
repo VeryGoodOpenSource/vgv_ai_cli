@@ -8,9 +8,10 @@ void main() {
       expect(CodexTool.codexNamesOf('Write'), ['Write', 'apply_patch']);
     });
 
-    test('names nothing for a tool Codex does not have', () {
+    test('names the shell for a tool Codex reads files with', () {
+      // Codex has no Read, Glob or Grep: it reads through the shell.
       for (final tool in [CodexTool.read, CodexTool.glob, CodexTool.grep]) {
-        expect(CodexTool.codexNamesOf(tool.claude), isEmpty);
+        expect(CodexTool.codexNamesOf(tool.claude), ['Bash']);
       }
     });
 
