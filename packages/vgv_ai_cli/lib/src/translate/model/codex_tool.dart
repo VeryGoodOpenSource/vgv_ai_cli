@@ -20,15 +20,15 @@ enum CodexTool {
   /// {@macro codex_tool}
   write(claude: 'Write', codex: ['Write', _applyPatch]),
 
-  /// Codex reads files through the shell, so this names no tool it has and a
-  /// matcher of nothing but these could never fire.
-  read(claude: 'Read', codex: []),
+  /// Codex has no tool that reads a file: it reads through the shell. So a
+  /// hook that watches reads watches `Bash`, the tool Codex reads with.
+  read(claude: 'Read', codex: [_shell]),
 
   /// {@macro codex_tool}
-  glob(claude: 'Glob', codex: []),
+  glob(claude: 'Glob', codex: [_shell]),
 
   /// {@macro codex_tool}
-  grep(claude: 'Grep', codex: []);
+  grep(claude: 'Grep', codex: [_shell]);
 
   /// {@macro codex_tool}
   new({required this.claude, required this.codex});
@@ -36,11 +36,13 @@ enum CodexTool {
   /// The one tool Codex edits files with, whatever the matcher named.
   static const _applyPatch = 'apply_patch';
 
+  /// The tool Codex runs commands, and so reads files, with.
+  static const _shell = 'Bash';
+
   /// Claude Code's name for this tool, as a hook matcher spells it.
   final String claude;
 
-  /// Every name Codex may report for it, and empty when Codex has no such
-  /// tool.
+  /// Every name Codex may report for it.
   final List<String> codex;
 
   /// The names Codex answers to for [claudeName].
