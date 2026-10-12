@@ -70,28 +70,42 @@ class const GeminiTranslator() extends HarnessTranslator {
     PluginAssets assets, {
     required Directory hooksRoot,
   }) {
-    final events = <String, List<Object?>>{};
-    for (final hook in _runnable(assets)) {
-      events.putIfAbsent(_events[hook.event]!, () => []).add({
-        'matcher': ?_matcher(hook),
-        'hooks': [
-          for (final command in hook.commands)
-            if (command.type == HookScripts.commandType)
-              {
-                'type': command.type,
-                'command': HookScripts.command(
-                  command,
-                  hook,
-                  hooksRoot: hooksRoot,
-                ),
-                if (command.timeout case final seconds?)
-                  'timeout': seconds * _millisecondsPerSecond,
-              },
+    final runnable = _runnable(assets);
+    if (runnable.isEmpty) return null;
+    final byEvent = runnable.groupListsBy((hook) => hook.event);
+    return {
+      for (final MapEntry(key: event, value: hooks) in byEvent.entries)
+        _events[event]!: [
+          for (final hook in hooks) _registration(hook, hooksRoot: hooksRoot),
         ],
-      });
-    }
-    return events.isEmpty ? null : events;
+    };
   }
+
+  /// One registration of [hook], as Gemini's settings spell it: its matcher
+  /// and one handler per shell command.
+  static Map<String, Object?> _registration(
+    HookAsset hook, {
+    required Directory hooksRoot,
+  }) => {
+    'matcher': ?_matcher(hook),
+    'hooks': [
+      for (final command in hook.commands)
+        if (command.type == HookScripts.commandType)
+          _handler(command, hook, hooksRoot: hooksRoot),
+    ],
+  };
+
+  /// One handler of [hook] running [command], timed in milliseconds.
+  static Map<String, Object?> _handler(
+    HookCommand command,
+    HookAsset hook, {
+    required Directory hooksRoot,
+  }) => {
+    'type': command.type,
+    'command': HookScripts.command(command, hook, hooksRoot: hooksRoot),
+    if (command.timeout case final seconds?)
+      'timeout': seconds * _millisecondsPerSecond,
+  };
 
   @override
   HarnessFields agent(AgentAsset agent, {required String instructions}) =>
@@ -128,35 +142,33 @@ class const GeminiTranslator() extends HarnessTranslator {
     return [
       ...super.notes(assets),
       ..._scripts.notes(runnable),
-      ..._scopedNotes(assets),
-      ..._eventNotes(assets),
+      for (final hook in assets.hooks) ?_leftOut(hook),
       ..._handlerNotes(runnable),
     ];
   }
 
-  /// A note per hook an agent declared for itself, which [settings] left
-  /// out.
-  static List<TranslationNote> _scopedNotes(PluginAssets assets) => [
-    for (final hook in assets.hooks)
-      if (hook.agent != null)
-        TranslationNote(
-          subject: "${hook.agent}'s ${hook.event} hook",
-          reason:
-              'Gemini names no agent in a tool call, so a hook an agent '
-              'declares for itself cannot be scoped to it and is left out',
-        ),
-  ];
-
-  /// A note per hook on an event Gemini has no name for, which [settings]
-  /// left out.
-  static List<TranslationNote> _eventNotes(PluginAssets assets) => [
-    for (final hook in assets.hooks)
-      if (hook.agent == null && !_events.containsKey(hook.event))
-        TranslationNote(
-          subject: "${hook.plugin}'s ${hook.event} hook",
-          reason: 'Gemini has no ${hook.event} event, so it is left out',
-        ),
-  ];
+  /// Why [settings] leaves [hook] out, or null when Gemini can run it.
+  ///
+  /// A hook an agent declared for itself has nothing to scope it by, since
+  /// Gemini names no agent in a tool call, and a hook on an event Gemini
+  /// has no name for cannot fire.
+  static TranslationNote? _leftOut(HookAsset hook) {
+    if (hook.agent != null) {
+      return TranslationNote(
+        subject: "${hook.agent}'s ${hook.event} hook",
+        reason:
+            'Gemini names no agent in a tool call, so a hook an agent '
+            'declares for itself cannot be scoped to it and is left out',
+      );
+    }
+    if (!_events.containsKey(hook.event)) {
+      return TranslationNote(
+        subject: "${hook.plugin}'s ${hook.event} hook",
+        reason: 'Gemini has no ${hook.event} event, so it is left out',
+      );
+    }
+    return null;
+  }
 
   /// A note per handler type that runs no shell command, which [settings]
   /// left out, counting the handlers of that type.
@@ -313,11 +325,11 @@ fi
   static const _mcpPrefix = 'mcp__';
   static const _mcpSeparator = '__';
 
-  /// The hooks Gemini can run: every one the plugins declare for all agents,
-  /// on an event Gemini has a name for.
+  /// The hooks Gemini can run: every one [_leftOut] has no reason to leave
+  /// out.
   static List<HookAsset> _runnable(PluginAssets assets) => [
     for (final hook in assets.hooks)
-      if (hook.agent == null && _events.containsKey(hook.event)) hook,
+      if (_leftOut(hook) == null) hook,
   ];
 
   /// [hook]'s matcher as Gemini spells it, and null when it declares none,
