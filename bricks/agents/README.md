@@ -33,11 +33,9 @@ for Claude Code gets the payload Claude Code would have sent. Copilot's
 `hooks/vgv.json` is the same, written as its own file because Copilot reads
 every `*.json` under `~/.copilot/hooks/`, nested folders included, which is also
 why its scripts are copied to `~/.copilot/vgv_ai/hooks/<plugin>/` instead.
-Gemini registers its hooks in `settings.json`, so they arrive inside the
-settings fragment, merged in beside the MCP servers, and its scripts are
-copied to `~/.gemini/hooks/<plugin>/`. Gemini's commands sit under
-`commands/vgv/` so they load as `/vgv:<name>`, since Gemini renames a custom
-command that shares a built-in's name, as `/plan` does.
+Gemini's hooks are part of its `settings.json`, with scripts copied to
+`~/.gemini/hooks/<plugin>/`. Its commands sit under `commands/vgv/` so
+`/vgv:plan` does not collide with its built-in `/plan`.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a

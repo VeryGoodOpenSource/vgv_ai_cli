@@ -122,8 +122,6 @@ void main() {
         });
 
         test('point each command at the copy, timed in milliseconds', () {
-          // The copy is where the preamble lives, so the command has to run
-          // the script from there, and Gemini reads a timeout in milliseconds.
           final entry = entries([hookAsset(fs)], 'AfterTool').single;
 
           expect(entry, {
@@ -163,8 +161,6 @@ void main() {
         });
 
         test('spell an MCP tool the way Gemini names it', () {
-          // Claude Code names an MCP tool mcp__<server>__<tool>, Gemini
-          // mcp_<server>_<tool>, and the matcher is a pattern over those names.
           final entry = entries([
             hookAsset(
               fs,
@@ -202,8 +198,6 @@ void main() {
         });
 
         test('leave out a hook an agent declares for itself', () {
-          // Gemini's tool payload names no agent, so flutter-reviewer's Bash
-          // guard would run for every agent, which is not what it declares.
           final found = settings(
             pluginAssets(
               hooks: [

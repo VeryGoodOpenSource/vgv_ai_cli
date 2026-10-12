@@ -46,9 +46,7 @@ abstract class HarnessTranslator {
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
   ///
-  /// [home] is the directory the harness is configured under, for a harness
-  /// whose settings name a path beneath it, such as one that registers its
-  /// hooks in its settings file and points them at [hooksRoot].
+  /// [home] is for a harness whose settings name a path beneath it.
   String? settings(PluginAssets assets, {required Directory home}) => null;
 
   /// What the brick renders [agent] with for this harness, under its name.

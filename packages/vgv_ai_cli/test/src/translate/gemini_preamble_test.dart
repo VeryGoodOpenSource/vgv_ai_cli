@@ -7,12 +7,8 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// Runs [GeminiTranslator.preamble] for real, through bash and jq, on top of
-/// a stub script that records every payload it is handed.
-///
-/// The Dart suite otherwise asserts only where the preamble is placed, and a
-/// shell program that decides what a guard sees and whether its denial
-/// reaches Gemini deserves to be executed. Skipped where bash or jq is
-/// missing.
+/// a stub script that records every payload it is handed. Skipped where bash
+/// or jq is missing.
 void main() {
   final bash = Process.runSync('bash', ['-c', 'command -v jq']).exitCode == 0;
 
@@ -35,9 +31,8 @@ void main() {
       );
       script.writeAsStringSync(
         '#!/bin/bash\n$preamble'
-        // What a plugin script would do: read the payload once, act on it.
-        // This one records the root it sees and the payload, answers when
-        // asked to, and exits as it is told to.
+        // A stub plugin script: records the root and payload, answers and
+        // exits as told.
         r'''
 input=$(cat)
 printf '%s\x1f%s\x1e' "$CLAUDE_PLUGIN_ROOT" "$input" >> "$LOG"
@@ -83,8 +78,7 @@ exit "${EXIT:-0}"
           },
     ];
 
-    /// What Gemini sends after an edit: its own event and tool names over
-    /// the same argument keys Claude Code uses.
+    /// What Gemini sends after an edit.
     Map<String, Object?> edit(String file) => {
       'hook_event_name': 'AfterTool',
       'cwd': temp.path,
@@ -209,8 +203,6 @@ exit "${EXIT:-0}"
     });
 
     test('leaves a denial before a tool as it is, stderr and all', () async {
-      // Gemini reads an exit 2 before a tool as Claude Code does: the tool is
-      // denied and stderr is the reason.
       final (code, out, err) = await run(
         shell('dart test'),
         env: {'EXIT': '2', 'COMPLAINT': 'use the MCP tool'},
@@ -222,8 +214,6 @@ exit "${EXIT:-0}"
     });
 
     test('turns a complaint on stderr after a tool into context', () async {
-      // Gemini would hide the tool's result behind the complaint, where
-      // Claude Code hands the agent both.
       final (code, out, err) = await run(
         edit('${temp.path}/a.dart'),
         env: {'EXIT': '2', 'COMPLAINT': '1 issue found.'},
