@@ -21,23 +21,18 @@ void main() {
     late File script;
     late File log;
 
-    setUp(() {
-      temp = const LocalFileSystem().systemTempDirectory.createTempSync();
-      addTearDown(() => temp.deleteSync(recursive: true));
-      // A space and a quote, since the root is spliced into the script.
-      pluginRoot = temp.childDirectory("it's a plugin")..createSync();
-      log = temp.childFile('log');
-      final preamble = CodexTranslator.preamble.replaceAll(
-        '__ROOT__',
-        '"${pluginRoot.path}"',
-      );
-      script = temp.childFile('hook.sh')
-        ..writeAsStringSync(
-          '#!/bin/bash\n$preamble'
-          // What a plugin script would do: read the payload once, act on it.
-          // This one records the root it sees and the payload, answers when
-          // asked to, and fails for the files it is told to.
-          r'''
+    /// Writes the script under test: the preamble, scoped to [agent] when
+    /// given, over a stub body.
+    void writeScript({String agent = ''}) {
+      final preamble = CodexTranslator.preamble
+          .replaceAll('__ROOT__', '"${pluginRoot.path}"')
+          .replaceAll('__AGENT__', '"$agent"');
+      script.writeAsStringSync(
+        '#!/bin/bash\n$preamble'
+        // What a plugin script would do: read the payload once, act on it.
+        // This one records the root it sees and the payload, answers when
+        // asked to, and fails for the files it is told to.
+        r'''
 input=$(cat)
 printf '%s\x1f%s\x1e' "$CLAUDE_PLUGIN_ROOT" "$input" >> "$LOG"
 [ -z "${ANSWER:-}" ] || printf '%s\n' "$ANSWER"
@@ -46,8 +41,18 @@ for pair in ${FAILURES:-}; do
 done
 exit 0
 ''',
-        );
+      );
       Process.runSync('chmod', ['755', script.path]);
+    }
+
+    setUp(() {
+      temp = const LocalFileSystem().systemTempDirectory.createTempSync();
+      addTearDown(() => temp.deleteSync(recursive: true));
+      // A space and a quote, since the root is spliced into the script.
+      pluginRoot = temp.childDirectory("it's a plugin")..createSync();
+      log = temp.childFile('log');
+      script = temp.childFile('hook.sh');
+      writeScript();
     });
 
     /// Runs the script on [payload], returning its exit code and stdout.
@@ -234,6 +239,24 @@ exit 0
 
       expect(code, 0);
       expect(runs().single.$2, payload);
+    });
+
+    test('runs a scoped script for its agent alone', () async {
+      writeScript(agent: 'flutter-reviewer');
+      final mine = {
+        'tool_name': 'Bash',
+        'agent_type': 'flutter-reviewer',
+        'tool_input': {'command': 'git status'},
+      };
+      final theirs = {...mine, 'agent_type': 'planner'};
+      final nobody = {...mine}..remove('agent_type');
+
+      final (code, _) = await run(theirs);
+      await run(nobody);
+      await run(mine);
+
+      expect(code, 0);
+      expect(runs().map((r) => r.$2), [mine]);
     });
 
     test('re-runs itself when the script is executed directly', () async {
