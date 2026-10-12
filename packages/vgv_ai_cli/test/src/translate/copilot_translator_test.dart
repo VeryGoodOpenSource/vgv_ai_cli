@@ -301,6 +301,28 @@ void main() {
         expect(notes.single.reason, contains('shell command only'));
       });
 
+      test('count the handlers left out per type', () {
+        final notes = translator.notes(
+          pluginAssets(
+            hooks: [
+              hookAsset(
+                fs,
+                commands: const [
+                  HookCommand(type: 'prompt', command: 'a'),
+                  HookCommand(type: 'http', command: 'b'),
+                  HookCommand(type: 'prompt', command: 'c'),
+                ],
+              ),
+            ],
+          ),
+        );
+
+        expect(notes.map((n) => n.subject), [
+          '2 prompt handler(s)',
+          '1 http handler(s)',
+        ]);
+      });
+
       test('carry what could not be copied as intended', () {
         final hook = hookAsset(fs);
         hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);

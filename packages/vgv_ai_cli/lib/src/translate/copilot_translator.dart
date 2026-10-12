@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
@@ -79,18 +80,28 @@ class const CopilotTranslator() extends HarnessTranslator {
   String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final events = <String, List<Object?>>{};
     for (final hook in _runnable(assets)) {
-      for (final command in hook.commands) {
-        if (command.type != HookScripts.commandType) continue;
-        events.putIfAbsent(hook.event, () => []).add({
+      events
+          .putIfAbsent(hook.event, () => [])
+          .addAll(_entries(hook, hooksRoot: hooksRoot));
+    }
+    return events.isEmpty ? null : jsonEncode({'version': 1, 'hooks': events});
+  }
+
+  /// One entry per shell command of [hook], as Copilot's hooks file spells
+  /// it.
+  static List<Object?> _entries(
+    HookAsset hook, {
+    required Directory hooksRoot,
+  }) => [
+    for (final command in hook.commands)
+      if (command.type == HookScripts.commandType)
+        {
           'type': command.type,
           'matcher': ?_matcher(hook),
           'bash': HookScripts.command(command, hook, hooksRoot: hooksRoot),
           'timeoutSec': ?command.timeout,
-        });
-      }
-    }
-    return events.isEmpty ? null : jsonEncode({'version': 1, 'hooks': events});
-  }
+        },
+  ];
 
   /// Copilot's own copy of each plugin's `hooks` folder, with [preamble] at
   /// the top of every script a hook runs.
@@ -103,25 +114,42 @@ class const CopilotTranslator() extends HarnessTranslator {
   /// What [hookFiles] could not copy as intended, and what [hooks] left out.
   @override
   List<TranslationNote> notes(PluginAssets assets) {
-    final scoped = assets.hooks.where((hook) => hook.agent != null);
-    final handlers = [
-      for (final hook in _runnable(assets))
-        for (final command in hook.commands)
-          if (command.type != HookScripts.commandType) command,
-    ];
+    final runnable = _runnable(assets);
     return [
       ...super.notes(assets),
-      ..._scripts.notes(_runnable(assets)),
-      for (final hook in scoped)
+      ..._scripts.notes(runnable),
+      ..._scopedNotes(assets),
+      ..._handlerNotes(runnable),
+    ];
+  }
+
+  /// A note per hook an agent declared for itself, which [hooks] left out.
+  static List<TranslationNote> _scopedNotes(PluginAssets assets) => [
+    for (final hook in assets.hooks)
+      if (hook.agent != null)
         TranslationNote(
           subject: "${hook.agent}'s ${hook.event} hook",
           reason:
               'Copilot names no agent in a tool call, so a hook an agent '
               'declares for itself cannot be scoped to it and is left out',
         ),
-      if (handlers.isNotEmpty)
+  ];
+
+  /// A note per handler type that runs no shell command, which [hooks] left
+  /// out, counting the handlers of that type.
+  static List<TranslationNote> _handlerNotes(List<HookAsset> hooks) {
+    final counts = hooks
+        .expand((hook) => hook.commands)
+        .map((command) => command.type)
+        .where((type) => type != HookScripts.commandType)
+        .groupFoldBy<String, int>(
+          (type) => type,
+          (count, _) => (count ?? 0) + 1,
+        );
+    return [
+      for (final MapEntry(key: type, value: count) in counts.entries)
         TranslationNote(
-          subject: '${handlers.length} ${handlers.first.type} handler(s)',
+          subject: '$count $type handler(s)',
           reason: 'Copilot runs a shell command only, so they are left out',
         ),
     ];
@@ -240,10 +268,12 @@ fi
   /// [hook]'s matcher as Copilot spells it, and null when it declares none,
   /// which is how both harnesses spell a hook that fires for every tool.
   ///
-  /// A matcher is an alternation, and each alternative naming an MCP tool is
-  /// respelled: Claude Code names one `mcp__<server>__<tool>`, Copilot
-  /// `<server>-<tool>`. Every other alternative is a name both spell the
-  /// same way, or a pattern over such names, and carries over as written.
+  /// A matcher is read as a top-level alternation, which is how the plugins
+  /// write theirs, so a `|` inside a group is split like any other. Each
+  /// alternative naming an MCP tool is respelled: Claude Code names one
+  /// `mcp__<server>__<tool>`, Copilot `<server>-<tool>`. Every other
+  /// alternative is a name both spell the same way, or a pattern over such
+  /// names, and carries over as written.
   static String? _matcher(HookAsset hook) => switch (hook.matcher) {
     final declared? => declared.split('|').map(_copilotTool).join('|'),
     _ => null,
