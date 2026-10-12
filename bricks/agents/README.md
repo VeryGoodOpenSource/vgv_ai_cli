@@ -24,9 +24,11 @@ out of agents and settings.
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
 
-Codex's `hooks.json` comes with `hooks/claude-payload.sh`, which hands a
-plugin's hook script the Codex payload in the shape Claude Code sends. Both
-are rendered only when there are hooks Codex can run.
+Codex's `hooks.json` is rendered only when there are hooks Codex can run. Its
+commands point at the CLI's own copy of each plugin's `hooks/` folder under
+`~/.codex/hooks/<plugin>/`, which the CLI writes beside the brick's output
+with a preamble at the top of every script a hook runs, so a script written
+for Claude Code gets the payload Claude Code would have sent.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a
