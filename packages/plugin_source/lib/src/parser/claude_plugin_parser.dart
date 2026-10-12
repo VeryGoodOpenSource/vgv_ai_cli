@@ -218,29 +218,40 @@ class const ClaudePluginParser() implements PluginParser {
     required String plugin,
     required Directory root,
     String? agent,
-  }) {
-    final assets = <HookAsset>[];
-    for (final event in events.entries) {
-      for (final registration in ConfigMap.maps(event.value)) {
-        final commands = _readHookCommands(registration['hooks']);
-        if (commands.isEmpty) continue;
+  }) => [
+    for (final event in events.entries)
+      for (final registration in ConfigMap.maps(event.value))
+        ?_readRegistration(
+          event.key,
+          registration,
+          plugin: plugin,
+          root: root,
+          agent: agent,
+        ),
+  ];
 
-        // A matcher that is not a string is meaningless; drop it rather than
-        // stringify it, matching the tolerant shape the plugins are written in.
-        final matcher = registration['matcher'];
-        assets.add(
-          HookAsset(
-            event: event.key,
-            matcher: matcher is String ? matcher : null,
-            commands: commands,
-            plugin: plugin,
-            pluginRoot: root,
-            agent: agent,
-          ),
-        );
-      }
-    }
-    return assets;
+  /// One registration under [event], or null when it runs nothing.
+  HookAsset? _readRegistration(
+    String event,
+    ConfigMap registration, {
+    required String plugin,
+    required Directory root,
+    required String? agent,
+  }) {
+    final commands = _readHookCommands(registration['hooks']);
+    if (commands.isEmpty) return null;
+
+    // A matcher that is not a string is meaningless; drop it rather than
+    // stringify it, matching the tolerant shape the plugins are written in.
+    final matcher = registration['matcher'];
+    return HookAsset(
+      event: event,
+      matcher: matcher is String ? matcher : null,
+      commands: commands,
+      plugin: plugin,
+      pluginRoot: root,
+      agent: agent,
+    );
   }
 
   /// The plugin's declared name, from its manifest.
