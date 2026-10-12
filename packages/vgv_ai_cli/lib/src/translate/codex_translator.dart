@@ -266,76 +266,107 @@ fi
     final uses = <String, _ScriptUse>{};
     for (final hook in hooks) {
       for (final command in hook.commands) {
-        if (command.type != _commandType) continue;
-        for (final match in _hooksFile.allMatches(command.command)) {
-          uses.putIfAbsent(match[1]!, _ScriptUse.new)
-            ..agents.add(hook.agent)
-            ..bashCommand |= _bashCommand.hasMatch(command.command);
-        }
+        if (command.type == _commandType) _noteUses(uses, hook, command);
       }
     }
     return uses;
   }
 
-  /// Every file of every runnable plugin's hooks folder, as the copy holds
-  /// it, and a note for each one that could not be copied as intended.
+  /// Records in [uses] each script [command] names, as [hook] uses it.
+  static void _noteUses(
+    Map<String, _ScriptUse> uses,
+    HookAsset hook,
+    HookCommand command,
+  ) {
+    for (final match in _hooksFile.allMatches(command.command)) {
+      uses.putIfAbsent(match[1]!, _ScriptUse.new)
+        ..agents.add(hook.agent)
+        ..bashCommand |= _bashCommand.hasMatch(command.command);
+    }
+  }
+
+  /// Every file of every plugin's hooks folder, as the copy holds it, and a
+  /// note for each one that could not be copied as intended.
   static _HookScan _scan(PluginAssets assets) {
     final files = <_HookFile>[];
     final notes = <TranslationNote>[];
-    final byPlugin = assets.hooks.groupListsBy((h) => h.plugin);
-
-    for (final MapEntry(key: plugin, value: hooks) in byPlugin.entries) {
-      final pluginRoot = hooks.first.pluginRoot;
-      final folder = pluginRoot.childDirectory(_hooksFolder);
-
-      // A cache cleared between resolution and translation. The hooks are
-      // still registered, so say why they will fail rather than throw.
-      if (!folder.existsSync()) {
-        notes.add(
-          TranslationNote(
-            subject: plugin,
-            reason:
-                'its hooks folder ${folder.path} has gone away, so its hooks '
-                'were registered but their scripts were not written',
-          ),
-        );
-        continue;
-      }
-
-      final scripts = _scriptUses(hooks);
-      // followLinks is off so a symlinked directory is reported rather than
-      // walked, which a cycle would otherwise turn into a hang.
-      final entities = folder.listSync(recursive: true, followLinks: false);
-      for (final entity in entities) {
-        if (entity is Directory) continue;
-
-        final relative = p.relative(entity.path, from: pluginRoot.path);
-        if (relative == _registry) continue;
-
-        final source = _sourceFile(entity, '$plugin/$relative', notes);
-        if (source == null) continue;
-
-        final bytes = source.readAsBytesSync();
-        files.add(
-          _HookFile(
-            hook: hooks.first,
-            source: source,
-            relative: relative,
-            bytes: switch (scripts[relative]) {
-              final use? => _withPreamble(
-                bytes,
-                pluginRoot,
-                subject: '$plugin/$relative',
-                use: use,
-                notes: notes,
-              ),
-              _ => bytes,
-            },
-          ),
-        );
-      }
+    for (final hooks in assets.hooks.groupListsBy((h) => h.plugin).values) {
+      _scanPlugin(hooks, files: files, notes: notes);
     }
     return _HookScan(files: files, notes: notes);
+  }
+
+  /// Adds the files of one plugin's hooks folder to [files], [hooks] being
+  /// every hook of that plugin.
+  static void _scanPlugin(
+    List<HookAsset> hooks, {
+    required List<_HookFile> files,
+    required List<TranslationNote> notes,
+  }) {
+    final hook = hooks.first;
+    final folder = hook.pluginRoot.childDirectory(_hooksFolder);
+
+    // A cache cleared between resolution and translation. The hooks are
+    // still registered, so say why they will fail rather than throw.
+    if (!folder.existsSync()) {
+      notes.add(
+        TranslationNote(
+          subject: hook.plugin,
+          reason:
+              'its hooks folder ${folder.path} has gone away, so its hooks '
+              'were registered but their scripts were not written',
+        ),
+      );
+      return;
+    }
+
+    final scripts = _scriptUses(hooks);
+    // followLinks is off so a symlinked directory is reported rather than
+    // walked, which a cycle would otherwise turn into a hang.
+    final entities = folder.listSync(recursive: true, followLinks: false);
+    for (final entity in entities.where((e) => e is! Directory)) {
+      final relative = p.relative(entity.path, from: hook.pluginRoot.path);
+      if (relative == _registry) continue;
+
+      final copy = _copyOf(
+        entity,
+        hook,
+        relative: relative,
+        use: scripts[relative],
+        notes: notes,
+      );
+      if (copy != null) files.add(copy);
+    }
+  }
+
+  /// [entity] as the copy holds it, with the preamble when [use] says a hook
+  /// runs it, or null when it cannot be copied.
+  static _HookFile? _copyOf(
+    FileSystemEntity entity,
+    HookAsset hook, {
+    required String relative,
+    required _ScriptUse? use,
+    required List<TranslationNote> notes,
+  }) {
+    final subject = '${hook.plugin}/$relative';
+    final source = _sourceFile(entity, subject, notes);
+    if (source == null) return null;
+
+    final bytes = source.readAsBytesSync();
+    return _HookFile(
+      hook: hook,
+      source: source,
+      relative: relative,
+      bytes: use == null
+          ? bytes
+          : _withPreamble(
+              bytes,
+              hook.pluginRoot,
+              subject: subject,
+              use: use,
+              notes: notes,
+            ),
+    );
   }
 
   /// Resolves [entity] to a readable file, or reports why it cannot be.

@@ -56,18 +56,32 @@ class const Translator({
           : null,
       harnesses: {
         for (final translator in chosen)
-          translator.harness: TranslationResult(
-            changes: [
-              ...?changes[translator.harness],
-              if (translator.runsHooks)
-                ...translator.hookFiles(
-                  assets,
-                  hooksRoot: harnessHooksRoot(translator.harness, home: home),
-                ),
-            ],
-            notes: translator.notes(assets),
+          translator.harness: _result(
+            translator,
+            rendered: changes[translator.harness],
+            assets: assets,
+            home: home,
           ),
       },
     );
   }
+
+  /// What [translator]'s harness gets: the files the brick [rendered] for
+  /// it, the files it needs beside its hooks, and its notes.
+  TranslationResult _result(
+    HarnessTranslator translator, {
+    required List<PlannedChange>? rendered,
+    required PluginAssets assets,
+    required Directory home,
+  }) => TranslationResult(
+    changes: [
+      ...?rendered,
+      if (translator.runsHooks)
+        ...translator.hookFiles(
+          assets,
+          hooksRoot: harnessHooksRoot(translator.harness, home: home),
+        ),
+    ],
+    notes: translator.notes(assets),
+  );
 }

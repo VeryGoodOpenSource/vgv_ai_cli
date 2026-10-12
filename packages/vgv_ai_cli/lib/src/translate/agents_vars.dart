@@ -35,30 +35,38 @@ class const AgentsVars({
     return {
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
-      for (final translator in translators)
-        '${translator.harness.name}_settings': ?translator.settings(assets),
-      for (final translator in translators)
-        if (translator.runsHooks)
-          '${translator.harness.name}_hooks': ?translator.hooks(
-            assets,
-            hooksRoot: harnessHooksRoot(translator.harness, home: home),
-          ),
+      for (final translator in translators) ..._harnessVars(translator),
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
-      'index': {
-        'has_skills': assets.skills.isNotEmpty,
-        'skills': [
-          for (final skill in assets.skills)
-            _entry(skill.name, skill.description),
-        ],
-        'has_agents': assets.agents.isNotEmpty,
-        'agents': [
-          for (final agent in assets.agents)
-            _entry(agent.name, agent.description),
-        ],
-      },
+      'index': _index(),
     };
   }
+
+  /// What [translator] spells for its harness: a settings fragment and, for
+  /// one that runs hooks, a hooks fragment, each left out when null.
+  Map<String, Object?> _harnessVars(HarnessTranslator translator) {
+    final name = translator.harness.name;
+    return {
+      '${name}_settings': ?translator.settings(assets),
+      if (translator.runsHooks)
+        '${name}_hooks': ?translator.hooks(
+          assets,
+          hooksRoot: harnessHooksRoot(translator.harness, home: home),
+        ),
+    };
+  }
+
+  /// What `AGENTS.md` lists.
+  Map<String, Object?> _index() => {
+    'has_skills': assets.skills.isNotEmpty,
+    'skills': [
+      for (final skill in assets.skills) _entry(skill.name, skill.description),
+    ],
+    'has_agents': assets.agents.isNotEmpty,
+    'agents': [
+      for (final agent in assets.agents) _entry(agent.name, agent.description),
+    ],
+  };
 
   Map<String, Object?> _agent(AgentAsset agent) {
     final instructions = agentInstructions(
