@@ -15,10 +15,10 @@ enum CodexTool {
   /// and reports `tool_name: apply_patch`, so without it the file names only
   /// tools Codex never reports, and the matcher rests on an alias it
   /// documents but need not keep.
-  edit(claude: 'Edit', codex: ['Edit', applyPatch]),
+  edit(claude: 'Edit', codex: ['Edit', _applyPatch]),
 
   /// {@macro codex_tool}
-  write(claude: 'Write', codex: ['Write', applyPatch]),
+  write(claude: 'Write', codex: ['Write', _applyPatch]),
 
   /// Codex reads files through the shell, so this names no tool it has and a
   /// matcher of nothing but these could never fire.
@@ -34,7 +34,7 @@ enum CodexTool {
   new({required this.claude, required this.codex});
 
   /// The one tool Codex edits files with, whatever the matcher named.
-  static const applyPatch = 'apply_patch';
+  static const _applyPatch = 'apply_patch';
 
   /// Claude Code's name for this tool, as a hook matcher spells it.
   final String claude;

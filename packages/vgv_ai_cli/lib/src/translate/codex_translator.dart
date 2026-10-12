@@ -55,8 +55,8 @@ class const CodexTranslator() extends HarnessTranslator {
   ///
   /// Codex's hooks file has the same shape as Claude's, down to `timeout`
   /// being seconds. Two things are spelled differently here: the tool names
-  /// the matchers name, and the plugin root the commands point at, which is
-  /// Codex's own copy of each plugin's scripts under [hooksRoot], the one
+  /// the matchers name, and where the commands point, which is Codex's own
+  /// copy of each plugin's `hooks` folder under [hooksRoot], the one
   /// [hookFiles] writes. The copy is where the third difference, the payload,
   /// is answered.
   ///
@@ -74,10 +74,7 @@ class const CodexTranslator() extends HarnessTranslator {
           for (final command in hook.commands)
             {
               'type': command.type,
-              'command': command.command.replaceAll(
-                HookCommand.pluginRoot,
-                _copyRoot(hook, hooksRoot).path,
-              ),
+              'command': _command(command, hook, hooksRoot: hooksRoot),
               'timeout': ?command.timeout,
             },
         ],
@@ -96,49 +93,25 @@ class const CodexTranslator() extends HarnessTranslator {
   /// would only mislead. A file is copied from its source so it keeps its
   /// mode, which matters for a hook that runs its script directly.
   ///
-  /// A plugin whose `hooks` folder has gone away, as a cache cleared between
-  /// resolution and translation does, gets no copy; [hooks] still names the
-  /// scripts, and Codex reports the missing file when one fires.
+  /// What could not be copied as intended is reported by [notes].
   @override
   List<PlannedChange> hookFiles(
     PluginAssets assets, {
     required Directory hooksRoot,
-  }) {
-    final changes = <PlannedChange>[];
-    final byPlugin = assets.hooks.where(_runs).groupListsBy((h) => h.plugin);
+  }) => [
+    for (final file in _scan(assets).files)
+      PlannedChange(
+        file: hooksRoot.fileSystem.file(
+          p.join(_copyRoot(file.hook, hooksRoot).path, file.relative),
+        ),
+        bytes: file.bytes,
+        harness: harness,
+        source: file.source,
+      ),
+  ];
 
-    for (final hooks in byPlugin.values) {
-      final pluginRoot = hooks.first.pluginRoot;
-      final source = pluginRoot.childDirectory(_hooksFolder);
-      if (!source.existsSync()) continue;
-
-      final target = _copyRoot(hooks.first, hooksRoot);
-      final scripts = {for (final hook in hooks) ..._scriptsOf(hook)};
-      final entities = source.listSync(recursive: true, followLinks: false);
-
-      for (final entity in entities) {
-        if (entity is! File) continue;
-
-        final relative = p.relative(entity.path, from: pluginRoot.path);
-        if (relative == _registry) continue;
-
-        final bytes = entity.readAsBytesSync();
-        changes.add(
-          PlannedChange(
-            file: target.fileSystem.file(p.join(target.path, relative)),
-            bytes: scripts.contains(relative)
-                ? _withPreamble(bytes, pluginRoot)
-                : bytes,
-            harness: harness,
-            source: entity,
-          ),
-        );
-      }
-    }
-    return changes;
-  }
-
-  /// The hooks Codex will not run, and the trust step that starts the rest.
+  /// The hooks Codex will not run, what [hookFiles] could not copy as
+  /// intended, and the trust step that starts the rest.
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
     ...super.notes(assets),
@@ -148,6 +121,7 @@ class const CodexTranslator() extends HarnessTranslator {
           subject: '${hook.event} $matcher',
           reason: 'Codex has none of those tools, so the hook could never fire',
         ),
+    ..._scan(assets).notes,
     if (assets.hooks.any(_runs))
       const TranslationNote(
         subject: 'the hooks written to ~/.codex/hooks.json',
@@ -157,7 +131,7 @@ class const CodexTranslator() extends HarnessTranslator {
       ),
   ];
 
-  /// What goes at the top of Codex's copy of a hook script, below any
+  /// What goes at the top of Codex's copy of a hook script, below its
   /// shebang, so a script written for Claude Code runs as written.
   ///
   /// It answers the two things Codex hands a script differently. It sets
@@ -167,11 +141,14 @@ class const CodexTranslator() extends HarnessTranslator {
   /// naming it in `tool_input.file_path`, where Codex sends one `apply_patch`
   /// holding the patch text and names no file. So the preamble reads the
   /// files out of the patch headers and runs the script once per file that
-  /// still exists, each time with the payload Claude Code would have sent,
-  /// then exits with the first failure. Any other payload, and every payload
-  /// when jq is missing, reaches the script as it came.
+  /// is on disk, each time with the payload Claude Code would have sent,
+  /// then exits with the first failure and prints the first answer, so the
+  /// harness sees one decision. Any other payload, and every payload when jq
+  /// is missing, reaches the script as it came.
   ///
-  /// `__ROOT__` is replaced with the plugin root as one shell word.
+  /// It is bash, as the plugins' scripts are, so it goes only into a script
+  /// bash runs. `__ROOT__` is replaced with the plugin root as one shell
+  /// word.
   static const preamble = r'''
 # Added by vgv_ai install so this script, written for Claude Code, runs under
 # Codex. Edits here are overwritten on the next run.
@@ -180,34 +157,47 @@ class const CodexTranslator() extends HarnessTranslator {
 # And Codex reports a file edit as one apply_patch holding the patch text,
 # where Claude Code sends an Edit or Write per file, naming it in
 # tool_input.file_path. So the script below runs once per file the patch
-# touches, each time with the payload Claude Code would have sent. Any other
-# payload reaches it as it came, and so does every payload when jq is missing.
+# touches, each time with the payload Claude Code would have sent, and this
+# exits with the first failure and prints the first answer. Any other payload
+# reaches it as it came, and so does every payload when jq is missing.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
 if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ] && command -v jq > /dev/null 2>&1; then
   vgv_payload=$(cat)
-  # One line per file: the tool Claude Code would have named, a tab, and the
-  # path resolved against the payload's own cwd, since a patch header names a
-  # file relative to the session root when the model wrote it that way.
+  # One line per file of an apply_patch: the tool Claude Code would have
+  # named, a tab, and the path resolved against the payload's own cwd, since
+  # a patch header names a file relative to the session root when the model
+  # wrote it that way. Any other tool's payload yields no lines, however much
+  # its text may look like a patch.
   vgv_edits=$(printf '%s' "$vgv_payload" | jq -r '
-    ((.cwd // ".") | rtrimstr("/")) as $cwd
+    select(.tool_name == "apply_patch")
+    | ((.cwd // ".") | rtrimstr("/")) as $cwd
     | .tool_input.command // ""
     | scan("(?m)^\\*\\*\\* (Add File|Update File|Move to): (.+)$")
     | (if .[0] == "Add File" then "Write" else "Edit" end)
       + "\t" + (.[1] | if startswith("/") then . else $cwd + "/" + . end)
   ' 2> /dev/null)
   vgv_status=0
+  vgv_answer=""
   vgv_ran=0
   while IFS=$'\t' read -r vgv_tool vgv_file; do
-    # A deleted file, or the old name of a renamed one, is no longer there.
+    # A file not on disk is skipped: one the patch deleted, the old name of a
+    # renamed one, or one it is about to add when this runs before the tool.
     [ -n "$vgv_file" ] && [ -f "$vgv_file" ] || continue
     vgv_ran=1
-    printf '%s' "$vgv_payload" \
+    vgv_output=$(printf '%s' "$vgv_payload" \
       | jq --arg tool "$vgv_tool" --arg file "$vgv_file" \
         '.tool_name = $tool | .tool_input.file_path = $file' \
-      | VGV_CLAUDE_PAYLOAD=1 bash "$0" || vgv_status=$?
+      | VGV_CLAUDE_PAYLOAD=1 bash "$0")
+    vgv_exit=$?
+    [ "$vgv_status" -ne 0 ] || vgv_status=$vgv_exit
+    [ -n "$vgv_answer" ] || vgv_answer=$vgv_output
   done <<< "$vgv_edits"
-  if [ "$vgv_ran" -eq 1 ]; then exit "$vgv_status"; fi
-  exec < <(printf '%s' "$vgv_payload")
+  if [ "$vgv_ran" -eq 0 ]; then
+    printf '%s' "$vgv_payload" | VGV_CLAUDE_PAYLOAD=1 bash "$0"
+    exit $?
+  fi
+  [ -z "$vgv_answer" ] || printf '%s\n' "$vgv_answer"
+  exit "$vgv_status"
 fi
 ''';
 
@@ -223,36 +213,195 @@ fi
   /// Neither runs a script, so neither names one to copy.
   static const _commandType = 'command';
 
-  /// A plugin file a command names, relative to the plugin root.
-  static final _pluginFile = RegExp(
-    '${RegExp.escape(HookCommand.pluginRoot)}/(\\S+)',
+  /// A file under the plugin's hooks folder that a command names, relative
+  /// to the plugin root. Stops at a quote, so a quoted path is still found.
+  static final _hooksFile = RegExp(
+    '${RegExp.escape(HookCommand.rootPlaceholder)}/($_hooksFolder/[^\\s"\']+)',
   );
+
+  /// A command that runs its script through bash, whatever the shebang says.
+  static final _bashCommand = RegExp(r'^\s*bash\s');
+
+  /// A shebang that names bash.
+  static final _bashShebang = RegExp(r'^#!.*\bbash\b');
 
   /// Where Codex's copy of [hook]'s plugin goes under [hooksRoot].
   static Directory _copyRoot(HookAsset hook, Directory hooksRoot) =>
       hooksRoot.childDirectory(hook.plugin);
 
-  /// The plugin files [hook]'s shell commands name, relative to the plugin
-  /// root, which are the scripts that get the [preamble].
-  static Iterable<String> _scriptsOf(HookAsset hook) => [
+  /// What [command] runs as, once its paths are real.
+  ///
+  /// A file under the plugin's hooks folder is read from Codex's copy, which
+  /// is where the preamble is. Anything else the plugin ships stays where it
+  /// is, so the rest of the placeholder becomes the plugin's own root. Both
+  /// are quoted, because a plugin under the user's home sits at a path that
+  /// may hold a space.
+  static String _command(
+    HookCommand command,
+    HookAsset hook, {
+    required Directory hooksRoot,
+  }) => command.command
+      .replaceAll(
+        '${HookCommand.rootPlaceholder}/$_hooksFolder/',
+        '${_quoted(_copyRoot(hook, hooksRoot).path)}/$_hooksFolder/',
+      )
+      .replaceAll(HookCommand.rootPlaceholder, _quoted(hook.pluginRoot.path));
+
+  /// [value] as one double-quoted shell word, which concatenates cleanly
+  /// with the rest of a path whether or not the command quoted it.
+  static String _quoted(String value) =>
+      '"${value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}')}"';
+
+  /// The scripts under the hooks folder that [hook]'s shell commands name,
+  /// relative to the plugin root, and whether the command runs each through
+  /// bash.
+  static Map<String, bool> _scriptsOf(HookAsset hook) => {
     for (final command in hook.commands)
       if (command.type == _commandType)
-        for (final match in _pluginFile.allMatches(command.command)) match[1]!,
-  ];
+        for (final match in _hooksFile.allMatches(command.command))
+          match[1]!: _bashCommand.hasMatch(command.command),
+  };
 
-  /// [bytes] with the [preamble] inserted below the shebang line, or at the
-  /// top when there is none.
-  static List<int> _withPreamble(List<int> bytes, Directory pluginRoot) {
-    final script = utf8.decode(bytes);
-    final body = preamble.replaceAll('__ROOT__', _quoted(pluginRoot.path));
+  /// Every file of every runnable plugin's hooks folder, as the copy holds
+  /// it, and a note for each one that could not be copied as intended.
+  static _HookScan _scan(PluginAssets assets) {
+    final files = <_HookFile>[];
+    final notes = <TranslationNote>[];
+    final byPlugin = assets.hooks.where(_runs).groupListsBy((h) => h.plugin);
+
+    for (final MapEntry(key: plugin, value: hooks) in byPlugin.entries) {
+      final pluginRoot = hooks.first.pluginRoot;
+      final folder = pluginRoot.childDirectory(_hooksFolder);
+
+      // A cache cleared between resolution and translation. The hooks are
+      // still registered, so say why they will fail rather than throw.
+      if (!folder.existsSync()) {
+        notes.add(
+          TranslationNote(
+            subject: plugin,
+            reason:
+                'its hooks folder ${folder.path} has gone away, so its hooks '
+                'were registered but their scripts were not written',
+          ),
+        );
+        continue;
+      }
+
+      final scripts = {for (final hook in hooks) ..._scriptsOf(hook)};
+      // followLinks is off so a symlinked directory is reported rather than
+      // walked, which a cycle would otherwise turn into a hang.
+      final entities = folder.listSync(recursive: true, followLinks: false);
+      for (final entity in entities) {
+        if (entity is Directory) continue;
+
+        final relative = p.relative(entity.path, from: pluginRoot.path);
+        if (relative == _registry) continue;
+
+        final source = _sourceFile(entity, '$plugin/$relative', notes);
+        if (source == null) continue;
+
+        final bytes = source.readAsBytesSync();
+        files.add(
+          _HookFile(
+            hook: hooks.first,
+            source: source,
+            relative: relative,
+            bytes: switch (scripts[relative]) {
+              final bashCommand? => _withPreamble(
+                bytes,
+                pluginRoot,
+                subject: '$plugin/$relative',
+                bashCommand: bashCommand,
+                notes: notes,
+              ),
+              _ => bytes,
+            },
+          ),
+        );
+      }
+    }
+    return _HookScan(files: files, notes: notes);
+  }
+
+  /// Resolves [entity] to a readable file, or reports why it cannot be.
+  static File? _sourceFile(
+    FileSystemEntity entity,
+    String subject,
+    List<TranslationNote> notes,
+  ) {
+    if (entity is File) return entity;
+
+    final String resolved;
+    try {
+      resolved = entity.resolveSymbolicLinksSync();
+    } on FileSystemException {
+      notes.add(
+        TranslationNote(
+          subject: subject,
+          reason: 'the symlink points at something that does not exist',
+        ),
+      );
+      return null;
+    }
+
+    final file = entity.fileSystem.file(resolved);
+    if (file.existsSync()) return file;
+
+    notes.add(
+      TranslationNote(
+        subject: subject,
+        reason: 'the symlink points at a directory, which is not copied',
+      ),
+    );
+    return null;
+  }
+
+  /// [bytes] with the [preamble] inserted below the shebang line.
+  ///
+  /// The preamble is bash, so it goes only into a script bash runs: one whose
+  /// shebang names bash, or one its command runs through bash. Any other
+  /// script, and one that is not UTF-8 text, is copied as it is and reported
+  /// in [notes], since Codex will then hand it its own payload.
+  static List<int> _withPreamble(
+    List<int> bytes,
+    Directory pluginRoot, {
+    required String subject,
+    required bool bashCommand,
+    required List<TranslationNote> notes,
+  }) {
+    final String script;
+    try {
+      script = utf8.decode(bytes);
+    } on FormatException {
+      notes.add(
+        TranslationNote(
+          subject: subject,
+          reason:
+              'it is not UTF-8 text, so it was copied as it is and Codex '
+              'hands it its own payload',
+        ),
+      );
+      return bytes;
+    }
+
     final shebang = script.startsWith('#!') ? script.indexOf('\n') + 1 : 0;
+    if (!bashCommand && !_bashShebang.hasMatch(script)) {
+      notes.add(
+        TranslationNote(
+          subject: subject,
+          reason:
+              'it is not a bash script, so it was copied as it is and Codex '
+              'hands it its own payload',
+        ),
+      );
+      return bytes;
+    }
+
+    final body = preamble.replaceAll('__ROOT__', _quoted(pluginRoot.path));
     return utf8.encode(
       '${script.substring(0, shebang)}$body${script.substring(shebang)}',
     );
   }
-
-  /// [value] as one single-quoted shell word.
-  static String _quoted(String value) => "'${value.replaceAll("'", r"'\''")}'";
 
   /// [hook]'s matcher as Codex spells it, and null when it declares none,
   /// which is how both harnesses spell a hook that fires for every tool.
@@ -278,3 +427,25 @@ fi
       {for (final name in matcher.split('|')) ...CodexTool.codexNamesOf(name)}
           .toList();
 }
+
+/// One file of a plugin's hooks folder, as Codex's copy will hold it.
+class const _HookFile({
+  /// A hook of the plugin the file belongs to, which names the copy's root.
+  required final HookAsset hook,
+
+  /// The file it is copied from, which carries the mode across.
+  required final File source,
+
+  /// Where it sits, relative to the plugin root.
+  required final String relative,
+
+  /// What the copy holds: the source, with the preamble when it is a script
+  /// a hook runs.
+  required final List<int> bytes,
+});
+
+/// What a pass over the plugins' hooks folders found.
+class const _HookScan({
+  required final List<_HookFile> files,
+  required final List<TranslationNote> notes,
+});
