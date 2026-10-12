@@ -14,12 +14,32 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   @override
-  PluginAssets parse(Directory root) => PluginAssets(
-    skills: _readSkills(root.childDirectory('skills')),
-    agents: _readAgents(root.childDirectory('agents')),
-    mcpServers: _readMcpServers(root.childFile('.mcp.json')),
-    hooks: _readHooks(root),
-  );
+  PluginAssets parse(Directory root) {
+    // Read only when a hook needs it: a plugin without hooks may sit in a
+    // directory named anything, and the name is held to a pattern.
+    late final plugin = _pluginName(root);
+    final agents = _readAgents(root.childDirectory('agents'));
+    return PluginAssets(
+      skills: _readSkills(root.childDirectory('skills')),
+      agents: [for (final agent in agents) agent.asset],
+      mcpServers: _readMcpServers(root.childFile('.mcp.json')),
+      hooks: [
+        if (_readHookEvents(root) case final events?)
+          ..._readRegistrations(events, plugin: plugin, root: root),
+        // An agent may declare hooks for itself in its frontmatter, in the
+        // same shape as hooks.json. They are carried beside the plugin's
+        // own, scoped to the agent.
+        for (final agent in agents)
+          if (agent.hooks case final events?)
+            ..._readRegistrations(
+              events,
+              plugin: plugin,
+              root: root,
+              agent: agent.asset.name,
+            ),
+      ],
+    );
+  }
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.
   ///
@@ -143,10 +163,10 @@ class const ClaudePluginParser() implements PluginParser {
     return skills;
   }
 
-  List<AgentAsset> _readAgents(Directory agentsDir) {
+  List<_AgentFile> _readAgents(Directory agentsDir) {
     if (!agentsDir.existsSync()) return const [];
 
-    final agents = <AgentAsset>[];
+    final agents = <_AgentFile>[];
     // Wingspan nests agents under a category directory and the Flutter plugin
     // does not, so recurse and flatten. followLinks is off so a cycle cannot
     // hang the walk; there are no symlinks under agents/ in either plugin.
@@ -159,35 +179,46 @@ class const ClaudePluginParser() implements PluginParser {
         path: file.path,
       );
       agents.add(
-        AgentAsset(
-          name: _validName(
-            frontmatter.name ?? p.basenameWithoutExtension(file.path),
-            path: file.path,
+        _AgentFile(
+          asset: AgentAsset(
+            name: _validName(
+              frontmatter.name ?? p.basenameWithoutExtension(file.path),
+              path: file.path,
+            ),
+            description: frontmatter.description,
+            body: frontmatter.body,
+            skills: frontmatter.skills,
           ),
-          description: frontmatter.description,
-          body: frontmatter.body,
-          skills: frontmatter.skills,
+          hooks: frontmatter.config.child('hooks'),
         ),
       );
     }
-    agents.sort((a, b) => a.name.compareTo(b.name));
+    agents.sort((a, b) => a.asset.name.compareTo(b.asset.name));
     return agents;
   }
 
   /// Reads `hooks/hooks.json` under [root], whose shape is an event map of
   /// registrations:
-  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`.
+  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
+  /// and returns the event map, or null when the plugin ships no hooks.
   ///
   /// Every level is tolerated as absent or the wrong type rather than assumed,
   /// because a plugin may ship no hooks at all.
-  List<HookAsset> _readHooks(Directory root) {
+  ConfigMap? _readHookEvents(Directory root) {
     final file = root.childDirectory('hooks').childFile('hooks.json');
-    if (!file.existsSync()) return const [];
+    if (!file.existsSync()) return null;
 
-    final events = _readJsonObject(file).child('hooks');
-    if (events == null) return const [];
+    return _readJsonObject(file).child('hooks');
+  }
 
-    final plugin = _pluginName(root);
+  /// The hooks under [events], an event map of registrations, declared by
+  /// [plugin] at [root] and scoped to [agent] when one declared them.
+  List<HookAsset> _readRegistrations(
+    ConfigMap events, {
+    required String plugin,
+    required Directory root,
+    String? agent,
+  }) {
     final assets = <HookAsset>[];
     for (final event in events.entries) {
       for (final registration in ConfigMap.maps(event.value)) {
@@ -204,6 +235,7 @@ class const ClaudePluginParser() implements PluginParser {
             commands: commands,
             plugin: plugin,
             pluginRoot: root,
+            agent: agent,
           ),
         );
       }
@@ -216,8 +248,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// Claude Code caches a plugin under `<marketplace>/<name>/<version>`, so
   /// the directory's own name is a version number and says nothing. A plugin
   /// shipping no manifest, or none that names it, goes by its directory. The
-  /// name becomes a directory under the user's home, so it is held to the
-  /// same pattern as a skill or agent name.
+  /// name becomes a directory under the user's home when a harness keeps a
+  /// copy of the plugin's hooks, so it is held to the same pattern as a skill
+  /// or agent name.
   String _pluginName(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')
@@ -301,3 +334,9 @@ class const ClaudePluginParser() implements PluginParser {
   ConfigMap _readJsonObject(File file) =>
       ConfigMap.parseJson(file.readAsStringSync(), path: file.path);
 }
+
+/// An agent file: the asset, and the hooks its frontmatter declares for it.
+class const _AgentFile({
+  required final AgentAsset asset,
+  final ConfigMap? hooks,
+});
