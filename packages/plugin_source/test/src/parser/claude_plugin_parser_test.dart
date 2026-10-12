@@ -385,6 +385,25 @@ void main() {
       );
     });
 
+    test("reads an agent's own hooks, scoped to the agent", () {
+      // flutter-reviewer declares a PreToolUse hook in its frontmatter, the
+      // same shape as hooks.json, which fires only while it runs.
+      final scoped = assets.hooks.where((h) => h.agent != null);
+
+      expect(scoped.map((h) => h.agent), ['flutter-reviewer']);
+      expect(scoped.single.event, 'PreToolUse');
+      expect(scoped.single.matcher, 'Bash');
+      expect(
+        scoped.single.commands.single.command,
+        'bash allow-readonly-git.sh',
+      );
+      expect(scoped.single.plugin, 'fixture-plugin');
+    });
+
+    test('leaves a hook the plugin declares unscoped', () {
+      expect(hookFor('SessionStart').agent, isNull);
+    });
+
     test('names the plugin from its manifest', () {
       // The cache files a plugin under its version, so the directory name
       // would say 0.0.5 where a translator needs vgv-wingspan.
@@ -404,6 +423,15 @@ void main() {
         const ClaudePluginParser().parse(root).hooks.single.plugin,
         'bare',
       );
+    });
+
+    test('needs no name for a plugin that declares no hooks', () {
+      // The cache files a plugin under its version, which is no directory
+      // name, and a plugin without hooks never needs one.
+      final fs = MemoryFileSystem.test();
+      final root = fs.directory('/cache/0.0.5')..createSync(recursive: true);
+
+      expect(const ClaudePluginParser().parse(root).hooks, isEmpty);
     });
 
     test('rejects a manifest name that is not safe as a directory', () {

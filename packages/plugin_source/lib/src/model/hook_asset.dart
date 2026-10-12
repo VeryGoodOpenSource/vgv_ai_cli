@@ -29,6 +29,10 @@ class const HookCommand({
 /// belongs to, both carried per hook because merging combines several
 /// plugins. A harness that keeps its own copy of a plugin's scripts files it
 /// under [plugin].
+///
+/// [agent] names the agent that declared the hook for itself, so it fires
+/// only while that agent runs, and is null for a hook the plugin declares
+/// for every agent.
 /// {@endtemplate}
 class const HookAsset({
   required final String event,
@@ -36,4 +40,5 @@ class const HookAsset({
   required final String plugin,
   required final Directory pluginRoot,
   final String? matcher,
+  final String? agent,
 });
