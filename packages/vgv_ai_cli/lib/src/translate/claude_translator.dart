@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
@@ -22,17 +23,18 @@ class const ClaudeTranslator() extends HarnessTranslator {
   bool get readsSharedSkills => false;
 
   @override
-  String settings(PluginAssets assets) => jsonEncode({
-    'extraKnownMarketplaces': {
-      vgvMarketplaceName: {
-        'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
-      },
-    },
-    'enabledPlugins': {
-      for (final plugin in vgvPlugins)
-        '${plugin.name}@$vgvMarketplaceName': true,
-    },
-  });
+  String settings(PluginAssets assets, {required Directory home}) =>
+      jsonEncode({
+        'extraKnownMarketplaces': {
+          vgvMarketplaceName: {
+            'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
+          },
+        },
+        'enabledPlugins': {
+          for (final plugin in vgvPlugins)
+            '${plugin.name}@$vgvMarketplaceName': true,
+        },
+      });
 
   /// Nothing: the plugins run here exactly as their authors wrote them,
   /// hooks included.

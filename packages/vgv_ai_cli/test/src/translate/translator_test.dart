@@ -70,17 +70,22 @@ void main() {
         expect(await tree(Harness.claude), ['settings.json']);
       });
 
-      test('Gemini gets settings, instructions, agents and commands', () async {
-        expect(await tree(Harness.gemini), [
-          'AGENTS.md',
-          'agents/planner.md',
-          'agents/review.md',
-          'commands/plan.toml',
-          'commands/review.toml',
-          'commands/testing.toml',
-          'settings.json',
-        ]);
-      });
+      test(
+        'Gemini gets settings, instructions, agents, commands and hooks',
+        () async {
+          expect(await tree(Harness.gemini), [
+            'AGENTS.md',
+            'agents/planner.md',
+            'agents/review.md',
+            'commands/vgv/plan.toml',
+            'commands/vgv/review.toml',
+            'commands/vgv/testing.toml',
+            'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+            'hooks/vgv-wingspan/hooks/scripts/common.sh',
+            'settings.json',
+          ]);
+        },
+      );
 
       test('Codex gets config, instructions, agents and hooks', () async {
         expect(await tree(Harness.codex), [
@@ -276,7 +281,10 @@ void main() {
         'Codex agents and Gemini commands are the TOML they were given',
         () async {
           final agent = await contents(Harness.codex, 'agents/planner.toml');
-          final command = await contents(Harness.gemini, 'commands/plan.toml');
+          final command = await contents(
+            Harness.gemini,
+            'commands/vgv/plan.toml',
+          );
 
           expect(TomlDocument.parse(agent).toMap()['name'], 'planner');
           expect(TomlDocument.parse(command).toMap()['prompt'], '# Body\n');
@@ -322,6 +330,34 @@ void main() {
               ],
             },
           });
+        },
+      );
+
+      test(
+        "Gemini's hooks merge into its settings, under Gemini's event names",
+        () async {
+          final copy = p.join(
+            harnessHooksRoot(Harness.gemini, home: home).path,
+            'vgv-wingspan',
+          );
+          final settings = await contents(Harness.gemini, 'settings.json');
+
+          expect(
+            jsonDecode(settings),
+            containsPair('hooks', {
+              'AfterTool': [
+                {
+                  'hooks': [
+                    {
+                      'type': 'command',
+                      'command': 'bash "$copy"/hooks/scripts/analyze.sh',
+                      'timeout': 30000,
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
         },
       );
 

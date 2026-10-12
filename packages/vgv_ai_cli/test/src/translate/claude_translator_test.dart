@@ -10,13 +10,16 @@ import '_assets.dart';
 void main() {
   group('ClaudeTranslator', () {
     const translator = ClaudeTranslator();
+    final home = MemoryFileSystem.test().directory('/home/dev');
 
     test('configures Claude Code', () {
       expect(translator.harness, Harness.claude);
     });
 
     test('points Claude Code at the marketplace and enables both plugins', () {
-      final settings = jsonDecode(translator.settings(pluginAssets()));
+      final settings = jsonDecode(
+        translator.settings(pluginAssets(), home: home),
+      );
 
       expect(settings, {
         'extraKnownMarketplaces': {

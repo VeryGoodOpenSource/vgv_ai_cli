@@ -62,7 +62,7 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
       "type": "text",
     },
     {
-      "path": "{{#gemini}}gemini/commands/{{#commands}}{{{name}}}.toml{{/commands}}{{/gemini}}",
+      "path": "{{#gemini}}gemini/commands/vgv/{{#commands}}{{{name}}}.toml{{/commands}}{{/gemini}}",
       "data": "e3sjY29tbWFuZHN9fXt7I2dlbWluaX19e3t7dG9tbH19fXt7L2dlbWluaX19e3svY29tbWFuZHN9fQ==",
       "type": "text",
     },

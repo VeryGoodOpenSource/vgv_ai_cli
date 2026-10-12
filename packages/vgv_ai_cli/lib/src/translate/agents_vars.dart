@@ -47,7 +47,7 @@ class const AgentsVars({
   Map<String, Object?> _harnessVars(HarnessTranslator translator) {
     final name = translator.harness.name;
     return {
-      '${name}_settings': ?translator.settings(assets),
+      '${name}_settings': ?translator.settings(assets, home: home),
       if (translator.runsHooks)
         '${name}_hooks': ?translator.hooks(
           assets,

@@ -15,7 +15,9 @@ void main() {
     });
 
     test('has no settings, since Pi reads the shared skills natively', () {
-      expect(translator.settings(pluginAssets()), isNull);
+      final home = MemoryFileSystem.test().directory('/home/dev');
+
+      expect(translator.settings(pluginAssets(), home: home), isNull);
     });
 
     test('spells nothing else, since Pi reads prompts as written', () {

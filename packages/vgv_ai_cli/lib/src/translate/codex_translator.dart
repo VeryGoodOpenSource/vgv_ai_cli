@@ -26,15 +26,16 @@ class const CodexTranslator() extends HarnessTranslator {
   /// Codex declares servers as `[mcp_servers.<name>]` tables, and a remote
   /// server's static headers as `http_headers`.
   @override
-  String settings(PluginAssets assets) => TomlDocument.fromMap({
-    'mcp_servers': {
-      for (final server in assets.mcpServers)
-        server.name: {
-          for (final MapEntry(:key, :value) in server.toJson().entries)
-            _renamedKeys[key] ?? key: value,
+  String settings(PluginAssets assets, {required Directory home}) =>
+      TomlDocument.fromMap({
+        'mcp_servers': {
+          for (final server in assets.mcpServers)
+            server.name: {
+              for (final MapEntry(:key, :value) in server.toJson().entries)
+                _renamedKeys[key] ?? key: value,
+            },
         },
-    },
-  }).toString();
+      }).toString();
 
   /// Codex requires `name` and `developer_instructions`, and drops with a
   /// warning any agent declaring no `description`, so all three are written.

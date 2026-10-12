@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:path/path.dart' as path;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
@@ -12,8 +13,12 @@ import '_assets.dart';
 
 void main() {
   late FileSystem fs;
+  late Directory home;
 
-  setUp(() => fs = MemoryFileSystem.test());
+  setUp(() {
+    fs = MemoryFileSystem.test();
+    home = fs.directory('/home/dev');
+  });
 
   group('GeminiTranslator', () {
     const translator = GeminiTranslator();
@@ -22,27 +27,30 @@ void main() {
       expect(translator.harness, Harness.gemini);
     });
 
-    test('declares that it runs no hooks, which the notes read', () {
-      expect(translator.runsHooks, isFalse);
+    test('declares that it runs the hooks, which the notes read', () {
+      expect(translator.runsHooks, isTrue);
     });
 
     group('settings', () {
-      test('declares each MCP server by name', () {
-        final settings = jsonDecode(
-          translator.settings(
-            pluginAssets(
-              mcpServers: [
-                const LocalMCPServer(
-                  name: 'dart',
-                  command: 'dart',
-                  args: ['mcp-server'],
-                ),
-              ],
-            ),
-          ),
-        ) as Map<String, dynamic>;
+      /// The settings [assets] translate to.
+      Map<String, dynamic> settings(PluginAssets assets) =>
+          jsonDecode(translator.settings(assets, home: home))
+              as Map<String, dynamic>;
 
-        expect(settings['mcpServers'], {
+      test('declares each MCP server by name', () {
+        final found = settings(
+          pluginAssets(
+            mcpServers: [
+              const LocalMCPServer(
+                name: 'dart',
+                command: 'dart',
+                args: ['mcp-server'],
+              ),
+            ],
+          ),
+        );
+
+        expect(found['mcpServers'], {
           'dart': {
             'command': 'dart',
             'args': ['mcp-server'],
@@ -51,21 +59,19 @@ void main() {
       });
 
       test("writes a remote server's headers as headers", () {
-        final settings = jsonDecode(
-          translator.settings(
-            pluginAssets(
-              mcpServers: [
-                const RemoteMCPServer(
-                  name: 'docs',
-                  url: 'https://docs.example',
-                  headers: {'X-Region': 'us'},
-                ),
-              ],
-            ),
+        final found = settings(
+          pluginAssets(
+            mcpServers: [
+              const RemoteMCPServer(
+                name: 'docs',
+                url: 'https://docs.example',
+                headers: {'X-Region': 'us'},
+              ),
+            ],
           ),
-        ) as Map<String, dynamic>;
+        );
 
-        expect(settings['mcpServers'], {
+        expect(found['mcpServers'], {
           'docs': {
             'url': 'https://docs.example',
             'headers': {'X-Region': 'us'},
@@ -74,12 +80,152 @@ void main() {
       });
 
       test('reads AGENTS.md without giving up its own GEMINI.md', () {
-        final settings = jsonDecode(
-          translator.settings(pluginAssets()),
-        ) as Map<String, dynamic>;
-
-        expect(settings['context'], {
+        expect(settings(pluginAssets())['context'], {
           'fileName': ['AGENTS.md', 'GEMINI.md'],
+        });
+      });
+
+      test('carry no hooks key when the plugins ship no hooks', () {
+        expect(settings(pluginAssets()), isNot(contains('hooks')));
+      });
+
+      group('hooks', () {
+        /// The registrations [hooks] translate to, under Gemini's event.
+        List<Map<String, Object?>> entries(
+          List<HookAsset> hooks,
+          String event,
+        ) {
+          final events = settings(pluginAssets(hooks: hooks))['hooks'] as Map;
+          return (events[event]! as List<Object?>).cast();
+        }
+
+        test("sit under Gemini's name for each event", () {
+          final events =
+              settings(
+                    pluginAssets(
+                      hooks: [
+                        hookAsset(fs, event: 'PreToolUse'),
+                        hookAsset(fs),
+                        hookAsset(fs, event: 'SessionStart'),
+                        hookAsset(fs, event: 'Stop'),
+                      ],
+                    ),
+                  )['hooks']
+                  as Map;
+
+          expect(events.keys, [
+            'BeforeTool',
+            'AfterTool',
+            'SessionStart',
+            'AfterAgent',
+          ]);
+        });
+
+        test('point each command at the copy, timed in milliseconds', () {
+          // The copy is where the preamble lives, so the command has to run
+          // the script from there, and Gemini reads a timeout in milliseconds.
+          final entry = entries([hookAsset(fs)], 'AfterTool').single;
+
+          expect(entry, {
+            'hooks': [
+              {
+                'type': 'command',
+                'command': [
+                  'bash "/home/dev/.gemini/hooks/vgv-wingspan"',
+                  'hooks/scripts/analyze.sh',
+                ].join('/'),
+                'timeout': 30000,
+              },
+            ],
+          });
+        });
+
+        test('leave a command with no timeout without one', () {
+          final entry = entries([
+            hookAsset(
+              fs,
+              commands: const [HookCommand(type: 'command', command: 'a.sh')],
+            ),
+          ], 'AfterTool').single;
+
+          expect((entry['hooks']! as List).single, {
+            'type': 'command',
+            'command': 'a.sh',
+          });
+        });
+
+        test('name the tools a matcher names the way Gemini does', () {
+          final entry = entries([
+            hookAsset(fs, matcher: 'Edit|Write'),
+          ], 'AfterTool').single;
+
+          expect(entry['matcher'], 'replace|write_file');
+        });
+
+        test('spell an MCP tool the way Gemini names it', () {
+          // Claude Code names an MCP tool mcp__<server>__<tool>, Gemini
+          // mcp_<server>_<tool>, and the matcher is a pattern over those names.
+          final entry = entries([
+            hookAsset(
+              fs,
+              event: 'PreToolUse',
+              matcher: 'Bash|mcp__.*very-good-cli__.*',
+            ),
+          ], 'BeforeTool').single;
+
+          expect(entry['matcher'], 'run_shell_command|mcp_.*very-good-cli_.*');
+        });
+
+        test('leave a hook that matches no tool with no matcher', () {
+          final entry = entries([
+            hookAsset(fs, event: 'SessionStart'),
+          ], 'SessionStart').single;
+
+          expect(entry, isNot(contains('matcher')));
+        });
+
+        test('leave out a handler that runs no shell command', () {
+          final entry = entries([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(type: 'prompt', command: 'say-hello'),
+                HookCommand(type: 'command', command: 'a.sh'),
+              ],
+            ),
+          ], 'AfterTool').single;
+
+          expect((entry['hooks']! as List).single, {
+            'type': 'command',
+            'command': 'a.sh',
+          });
+        });
+
+        test('leave out a hook an agent declares for itself', () {
+          // Gemini's tool payload names no agent, so flutter-reviewer's Bash
+          // guard would run for every agent, which is not what it declares.
+          final found = settings(
+            pluginAssets(
+              hooks: [
+                hookAsset(
+                  fs,
+                  event: 'PreToolUse',
+                  matcher: 'Bash',
+                  agent: 'flutter-reviewer',
+                ),
+              ],
+            ),
+          );
+
+          expect(found, isNot(contains('hooks')));
+        });
+
+        test('leave out a hook on an event Gemini has no name for', () {
+          final found = settings(
+            pluginAssets(hooks: [hookAsset(fs, event: 'SubagentStop')]),
+          );
+
+          expect(found, isNot(contains('hooks')));
         });
       });
     });
@@ -120,16 +266,104 @@ void main() {
       });
     });
 
+    group('hookFiles', () {
+      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
+        pluginAssets(hooks: hooks),
+        hooksRoot: fs.directory('/home/dev/.gemini/hooks'),
+      );
+
+      test("copy the plugin's hooks folder under its name, registry aside", () {
+        final changes = files([hookAsset(fs)]);
+
+        expect(changes.map((c) => c.file.path), [
+          '/home/dev/.gemini/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          '/home/dev/.gemini/hooks/vgv-wingspan/hooks/scripts/common.sh',
+        ]);
+        expect(changes.map((c) => c.harness).toSet(), {Harness.gemini});
+      });
+
+      test(
+        "put Gemini's preamble below the shebang of a script a hook runs",
+        () {
+          final script = files([hookAsset(fs)])
+              .singleWhere((c) => path.basename(c.file.path) == 'analyze.sh')
+              .contents;
+          final preamble = GeminiTranslator.preamble.replaceAll(
+            '__ROOT__',
+            '"/plugins/vgv-wingspan"',
+          );
+
+          expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
+        },
+      );
+
+      test('copy nothing for a hook Gemini cannot run', () {
+        expect(
+          files([hookAsset(fs, matcher: 'Bash', agent: 'flutter-reviewer')]),
+          isEmpty,
+        );
+        expect(files([hookAsset(fs, event: 'SubagentStop')]), isEmpty);
+      });
+    });
+
     group('notes', () {
-      test('report that nothing in its config runs a shell command, once', () {
+      test('say nothing about hooks Gemini runs as declared', () {
+        expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
+      });
+
+      test('say that a hook an agent declares for itself is left out', () {
         final notes = translator.notes(
-          pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
+          pluginAssets(
+            hooks: [
+              hookAsset(
+                fs,
+                event: 'PreToolUse',
+                matcher: 'Bash',
+                agent: 'flutter-reviewer',
+              ),
+            ],
+          ),
         );
 
-        expect(notes.single.subject, '2 hook(s)');
+        expect(notes.single.subject, "flutter-reviewer's PreToolUse hook");
+        expect(notes.single.reason, contains('names no agent'));
+      });
+
+      test('say that a hook on an event Gemini lacks is left out', () {
+        final notes = translator.notes(
+          pluginAssets(hooks: [hookAsset(fs, event: 'SubagentStop')]),
+        );
+
+        expect(notes.single.subject, "vgv-wingspan's SubagentStop hook");
         expect(
           notes.single.reason,
-          contains("nothing in Gemini's config runs one"),
+          'Gemini has no SubagentStop event, so it is left out',
+        );
+      });
+
+      test('say that a handler running no shell command is left out', () {
+        final notes = translator.notes(
+          pluginAssets(
+            hooks: [
+              hookAsset(
+                fs,
+                commands: const [HookCommand(type: 'prompt', command: 'hi')],
+              ),
+            ],
+          ),
+        );
+
+        expect(notes.single.subject, '1 prompt handler(s)');
+        expect(notes.single.reason, contains('shell command only'));
+      });
+
+      test('carry what could not be copied as intended', () {
+        final hook = hookAsset(fs);
+        hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
+
+        expect(
+          translator.notes(pluginAssets(hooks: [hook])).single.reason,
+          contains('has gone away'),
         );
       });
 
