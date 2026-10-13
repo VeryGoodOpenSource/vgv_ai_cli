@@ -521,10 +521,24 @@ void main() {
 
         await runInstall(['--only', 'claude']);
 
-        expect(
-          ManifestStore(home).load()![homeFile('.claude/a.md').path],
-          isA<OwnedFile>(),
-        );
+        final manifest = ManifestStore(home).load()!;
+        expect(manifest[homeFile('.claude/a.md').path], isA<OwnedFile>());
+        expect(manifest.plugins, {
+          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        });
+      });
+
+      test('records the pinned versions when only they changed', () async {
+        planOne();
+        await runInstall(['--only', 'claude']);
+        final store = ManifestStore(home);
+        store.save(store.load()!.withPlugins(const {'vgv-wingspan': '0.0.1'}));
+
+        await runInstall(['--only', 'claude']);
+
+        expect(store.load()!.plugins, {
+          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        });
       });
 
       test('is not rewritten when nothing it records changed', () async {
@@ -548,7 +562,7 @@ void main() {
         expect(manifestFile().existsSync(), isFalse);
       });
 
-      test('installs nothing over one from another version', () async {
+      test('installs nothing over one from a newer version', () async {
         planOne();
         final newer = jsonEncode({'version': InstallManifest.version + 1});
         manifestFile()
@@ -682,13 +696,6 @@ void main() {
         expect(
           InstallCommand(logger: logger).home?.path,
           environment['HOME'] ?? environment['USERPROFILE'],
-        );
-      });
-
-      test('the home falls back to USERPROFILE', () {
-        expect(
-          InstallCommand.userHome(const {'USERPROFILE': r'C:\Users\dev'})?.path,
-          r'C:\Users\dev',
         );
       });
 

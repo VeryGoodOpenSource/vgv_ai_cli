@@ -27,12 +27,61 @@ dart pub global activate --source=path <path to this package>
 ## Usage
 
 ```sh
+# Check that the Very Good AI tooling is installed and current
+$ vgv_ai doctor
+
+# Check only some harnesses, or skip one
+$ vgv_ai doctor --only codex --only gemini
+$ vgv_ai doctor --no-claude
+
+# Remove what the VGV AI CLI installed
+$ vgv_ai uninstall
+
+# Preview what would be removed, without removing anything
+$ vgv_ai uninstall --check
+
+# Remove only some harnesses, or keep one
+$ vgv_ai uninstall --only codex --only gemini
+$ vgv_ai uninstall --no-claude
+
+# Also remove what you changed since install
+$ vgv_ai uninstall --force
+
 # Show CLI version
 $ vgv_ai --version
 
 # Show usage help
 $ vgv_ai --help
 ```
+
+`doctor` never changes your harness config or the manifest. It may clone the plugins into
+`~/.vgv_ai/plugins`, the cache `install` uses too, when Claude Code has no copy. For each harness,
+it reports the files and keys the VGV AI CLI wrote that are missing, were changed since, or differ
+from what this version installs. It also shows the plugin versions you installed from next to the
+ones this version pins. Every problem comes with the `install` command that fixes it, and the report
+ends with one command that fixes everything `install` can, for example
+`vgv_ai install --only gemini --only codex`. That command includes `--force` only when changed files
+need restoring, and then `--force` applies to every harness it names. `doctor` exits with `70` when
+it finds a problem, including when it cannot resolve the plugins to check content, and `0` when it
+finds only suggestions or warnings.
+
+`uninstall` removes only what `~/.vgv_ai/manifest.json` records the VGV AI CLI wrote, so your own
+files, keys, comments, and sections stay.
+
+- **Selection:** the harnesses come from the manifest, not from what is installed, so you can clean
+  up an agent you've already removed. `--only` and `--no-<harness>` narrow the run as they do for
+  `install`, and you can't combine them.
+- **Shared skills:** the skills in `~/.agents/skills` are shared by every agent, so they're removed
+  only when every harness the manifest records is, and `uninstall` says so. A partial run keeps
+  them and tells you how to remove them.
+- **Your changes:** without `--force`, a file, key, or section you changed since install is kept,
+  and a warning names it.
+- **Directories:** empty directories left behind are removed, but `~/.agents/skills` and each
+  harness's config directory, such as `~/.codex`, stay.
+- **Manifest:** it keeps whatever is left to remove, and it's deleted once nothing is. `--check`
+  changes nothing, not even the manifest.
+- **Exit codes:** `74` when a file or the manifest can't be read or written, and `0` when it only
+  warns, for example about a file it can't parse.
 
 ## Running Tests with coverage 🧪
 

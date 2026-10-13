@@ -53,7 +53,7 @@ void main() {
       );
     });
 
-    test('loads null for a manifest another version wrote', () {
+    test('loads null for a manifest a newer version wrote', () {
       store.file
         ..createSync(recursive: true)
         ..writeAsStringSync(

@@ -41,8 +41,11 @@ void main() {
   };
 
   group('InstallManifest', () {
-    test('round trips every kind of entry', () {
-      final manifest = InstallManifest(const [owned, merged, sections]);
+    test('round trips every kind of entry, and the plugin versions', () {
+      final manifest = InstallManifest(
+        const [owned, merged, sections],
+        const {'vgv-wingspan': '0.0.5', 'vgv-ai-flutter-plugin': '0.0.6'},
+      );
 
       final decoded = InstallManifest.decode(
         manifest.encode(home: home),
@@ -68,14 +71,22 @@ void main() {
         sections.sections,
       );
       expect((decoded[owned.path]! as OwnedFile).sha256, 'abc');
+      expect(decoded.plugins, {
+        'vgv-wingspan': '0.0.5',
+        'vgv-ai-flutter-plugin': '0.0.6',
+      });
     });
 
-    test('encodes the version, owners and modes by name', () {
+    test('encodes the version, plugins, owners and modes by name', () {
       final json = jsonDecode(
-        InstallManifest(const [owned, merged]).encode(home: home),
+        InstallManifest(
+          const [owned, merged],
+          const {'vgv-wingspan': '0.0.5'},
+        ).encode(home: home),
       ) as Map<String, dynamic>;
 
-      expect(json['version'], InstallManifest.version);
+      expect(json['version'], 2);
+      expect(json['plugins'], {'vgv-wingspan': '0.0.5'});
       expect(json['entries'], [
         {
           'path': '.agents/skills/a/SKILL.md',
@@ -109,7 +120,25 @@ void main() {
       );
     });
 
-    test('is null when another version wrote it', () {
+    test('has no plugin versions when they are missing or malformed', () {
+      InstallManifest decode(Object? plugins) => InstallManifest.decode(
+        jsonEncode({
+          'version': InstallManifest.version,
+          'plugins': plugins,
+          'entries': <Object>[],
+        }),
+        home: home,
+      )!;
+
+      expect(decode(null).plugins, isEmpty);
+      expect(decode(['vgv-wingspan']).plugins, isEmpty);
+      expect(
+        decode({'vgv-wingspan': 5, 'vgv-ai-flutter-plugin': '0.0.5'}).plugins,
+        {'vgv-ai-flutter-plugin': '0.0.5'},
+      );
+    });
+
+    test('is null when a newer version wrote it', () {
       expect(
         InstallManifest.decode(
           jsonEncode({
@@ -120,10 +149,26 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    test('is empty for a version it never wrote', () {
       expect(
-        InstallManifest.decode(jsonEncode({'version': 0}), home: home),
-        isNull,
+        InstallManifest.decode(jsonEncode({'version': 0}), home: home)!.entries,
+        isEmpty,
       );
+    });
+
+    test('reads a version 1 manifest as one with no plugin versions', () {
+      final manifest = InstallManifest.decode(
+        jsonEncode({
+          'version': 1,
+          'entries': [onDisk(owned)],
+        }),
+        home: home,
+      )!;
+
+      expect(manifest.entries.map((e) => e.path), [owned.path]);
+      expect(manifest.plugins, isEmpty);
     });
 
     test('skips entries it does not understand', () {
@@ -191,18 +236,33 @@ void main() {
 
     test('records an entry in place of the one for its path', () {
       const updated = OwnedFile(path: '/x', owner: null, sha256: 'new');
-      final manifest = InstallManifest(const [
-        OwnedFile(path: '/x', owner: null, sha256: 'old'),
-        merged,
-      ]).record(updated);
+      final manifest = InstallManifest(
+        const [OwnedFile(path: '/x', owner: null, sha256: 'old'), merged],
+        const {'vgv-wingspan': '0.0.5'},
+      ).record(updated);
 
       expect(manifest.entries, [updated, merged]);
+      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
     });
 
     test('drops the entries for the given paths', () {
-      final manifest = InstallManifest(const [owned, merged, sections]);
+      final manifest = InstallManifest(
+        const [owned, merged, sections],
+        const {'vgv-wingspan': '0.0.5'},
+      ).without([owned.path, sections.path]);
 
-      expect(manifest.without([owned.path, sections.path]).entries, [merged]);
+      expect(manifest.entries, [merged]);
+      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
+    });
+
+    test('replaces the plugin versions, keeping the entries', () {
+      final manifest = InstallManifest(
+        const [owned],
+        const {'vgv-wingspan': '0.0.4'},
+      ).withPlugins(const {'vgv-wingspan': '0.0.5'});
+
+      expect(manifest.entries, [owned]);
+      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
     });
 
     test('equals a manifest with the same entries, in the same order', () {
@@ -221,6 +281,10 @@ void main() {
             OwnedFile(path: owned.path, owner: null, sha256: 'other'),
           ]),
         ),
+      );
+      expect(
+        InstallManifest(const [owned], const {'vgv-wingspan': '0.0.5'}),
+        isNot(InstallManifest(const [owned], const {'vgv-wingspan': '0.0.4'})),
       );
     });
 
