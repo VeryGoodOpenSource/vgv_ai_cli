@@ -16,7 +16,7 @@ class const ManifestStore(
 ) {
   /// Why a manifest this version cannot read is left as it is.
   static const unreadable =
-      'the manifest was written by another version of vgv_ai, so it was '
+      'the manifest was written by a newer version of vgv_ai, so it was '
       'left as it is';
 
   /// The manifest file.
@@ -24,7 +24,7 @@ class const ManifestStore(
       home.fileSystem.file(p.join(home.path, '.vgv_ai', 'manifest.json'));
 
   /// The manifest in [file], an empty one when there is none, or null when
-  /// another version of vgv_ai wrote it and it must be left alone.
+  /// a newer version of vgv_ai wrote it and it must be left alone.
   InstallManifest? load() {
     final file = this.file;
     return file.existsSync()

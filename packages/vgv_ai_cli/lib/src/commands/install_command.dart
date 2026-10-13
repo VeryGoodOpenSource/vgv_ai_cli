@@ -3,9 +3,9 @@ import 'dart:io' show Platform;
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
-import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
-import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
@@ -23,7 +23,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// * `--no-<harness>` skips one detected harness. It cannot be combined with
 ///   `--only`, which already names the set.
 /// {@endtemplate}
-class InstallCommand extends Command<int> {
+class InstallCommand extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   new({
     required this._logger,
@@ -46,24 +46,8 @@ class InstallCommand extends Command<int> {
             'Overwrite your values when they conflict with the ones install '
             'writes.',
         negatable: false,
-      )
-      ..addMultiOption(
-        'only',
-        help:
-            'Configure just these harnesses, whether or not they are '
-            'detected.',
-        allowed: Harness.values.map((harness) => harness.name),
       );
-
-    // Opting out matters more than opting in: the default is every harness that
-    // is actually installed, so `--no-<harness>` is how the set is narrowed.
-    for (final harness in Harness.values) {
-      argParser.addFlag(
-        harness.name,
-        defaultsTo: true,
-        help: 'Configure ${harness.displayName}.',
-      );
-    }
+    addHarnessOptions('Configure');
   }
 
   final Logger _logger;
@@ -95,12 +79,6 @@ class InstallCommand extends Command<int> {
 
   @override
   String get name => commandName;
-
-  /// The home directory [environment] names, or null when it names none.
-  static Directory? userHome(Map<String, String> environment) {
-    final home = environment['HOME'] ?? environment['USERPROFILE'];
-    return home == null ? null : const LocalFileSystem().directory(home);
-  }
 
   /// The directory install configures, or null when it cannot be found.
   Directory? get home {
@@ -138,11 +116,11 @@ class InstallCommand extends Command<int> {
     final manifest = _load(store);
     if (manifest == null) return ExitCode.ioError.code;
 
-    final assets = await _resolveAssets(home);
-    if (assets == null) return ExitCode.unavailable.code;
+    final resolved = await _resolveAssets(home);
+    if (resolved == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
-      assets: assets,
+      assets: resolved.assets,
       home: home,
       selected: selected,
     );
@@ -157,7 +135,14 @@ class InstallCommand extends Command<int> {
 
     _report(plan, applied, dryRun: dryRun);
     final recorded =
-        dryRun || _record(store, from: manifest, to: reconciliation.manifest);
+        dryRun ||
+        _record(
+          store,
+          from: manifest,
+          to: reconciliation.manifest.withPlugins({
+            for (final plugin in resolved.plugins) plugin.name: plugin.version,
+          }),
+        );
     final anyChangeFailed = applied.any(
       (change) => change.outcome == ChangeOutcome.failed,
     );
@@ -219,22 +204,12 @@ class InstallCommand extends Command<int> {
   /// config for a harness the user does not have is noise. Only enabled
   /// harnesses are probed, since each probe may wait out a timeout.
   Future<Set<Harness>> _select() async {
-    final results = argResults!;
-    final only = results['only'] as List<String>;
-    if (only.isNotEmpty) {
-      final flagged = Harness.values.where((h) => results.wasParsed(h.name));
-      if (flagged.isNotEmpty) {
-        usageException(
-          '--only cannot be combined with '
-          '${flagged.map((harness) => '--[no-]${harness.name}').join(', ')}.',
-        );
-      }
-      return only.map(Harness.values.byName).toSet();
-    }
+    final only = onlyHarnesses;
+    if (only != null) return only;
 
     final enabled = <Harness>[];
     for (final harness in Harness.values) {
-      if (results[harness.name] == true) {
+      if (isEnabled(harness)) {
         enabled.add(harness);
       } else {
         _logger.detail('Skipping ${harness.displayName}: opted out');
@@ -265,16 +240,16 @@ class InstallCommand extends Command<int> {
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
-  Future<PluginAssets?> _resolveAssets(Directory home) async {
+  Future<ResolvedAssets?> _resolveAssets(Directory home) async {
     final progress = _logger.progress('Resolving plugins');
 
     switch (await _resolver.resolve(home)) {
-      case ResolvedAssets(:final assets):
+      case final ResolvedAssets resolved:
         progress.complete(
-          'Resolved ${assets.skills.length} skills and '
-          '${assets.agents.length} agents',
+          'Resolved ${resolved.assets.skills.length} skills and '
+          '${resolved.assets.agents.length} agents',
         );
-        return assets;
+        return resolved;
       case UnavailableAssets(:final plugin, :final reasons):
         progress.fail('Could not resolve $plugin');
         for (final reason in reasons) {

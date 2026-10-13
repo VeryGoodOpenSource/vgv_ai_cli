@@ -27,12 +27,30 @@ dart pub global activate --source=path <path to this package>
 ## Usage
 
 ```sh
+# Check that the Very Good AI tooling is installed and current
+$ vgv_ai doctor
+
+# Check only some harnesses, or skip one
+$ vgv_ai doctor --only codex --only gemini
+$ vgv_ai doctor --no-claude
+
 # Show CLI version
 $ vgv_ai --version
 
 # Show usage help
 $ vgv_ai --help
 ```
+
+`doctor` never changes your harness config or the manifest. It may clone the plugins into
+`~/.vgv_ai/plugins`, the cache `install` uses too, when Claude Code has no copy. For each harness,
+it reports the files and keys the VGV AI CLI wrote that are missing, were changed since, or differ
+from what this version installs. It also shows the plugin versions you installed from next to the
+ones this version pins. Every problem comes with the `install` command that fixes it, and the report
+ends with one command that fixes everything `install` can, for example
+`vgv_ai install --only gemini --only codex`. That command includes `--force` only when changed files
+need restoring, and then `--force` applies to every harness it names. `doctor` exits with `70` when
+it finds a problem, including when it cannot resolve the plugins to check content, and `0` when it
+finds only suggestions or warnings.
 
 ## Running Tests with coverage 🧪
 
