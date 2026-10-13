@@ -66,8 +66,8 @@ class const Translator({
     );
   }
 
-  /// What [translator]'s harness gets: the files the brick [rendered] for
-  /// it, the files it needs beside its hooks, and its notes.
+  /// [translator]'s [rendered] files, the files beside its hooks, and its
+  /// notes.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,

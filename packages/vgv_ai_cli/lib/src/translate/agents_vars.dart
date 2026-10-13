@@ -21,11 +21,8 @@ class const AgentsVars({
 }) {
   /// The vars, keyed as the brick reads them.
   ///
-  /// `agents` and `commands` are the only top-level lists, and an empty one
-  /// is left out rather than passed through as `[]`. A brick file path loops
-  /// over a list to decide how many files to render, and an empty list still
-  /// renders one file, with nothing where its name should be: a stray `.md`
-  /// in the user's config directory.
+  /// `agents` and `commands` are left out when empty: the brick loops a file
+  /// path over each, and an empty list still renders one nameless file.
   Map<String, Object?> toMap() {
     final agents = [for (final agent in assets.agents) _agent(agent)];
     final commands = [
@@ -42,8 +39,8 @@ class const AgentsVars({
     };
   }
 
-  /// What [translator] spells for its harness: a settings fragment and, for
-  /// one that runs hooks, a hooks fragment, each left out when null.
+  /// The settings and hooks fragments [translator] spells, each left out
+  /// when null.
   Map<String, Object?> _harnessVars(HarnessTranslator translator) {
     final name = translator.harness.name;
     return {

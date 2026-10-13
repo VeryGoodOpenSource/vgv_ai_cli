@@ -15,8 +15,8 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 class const ClaudePluginParser() implements PluginParser {
   @override
   PluginAssets parse(Directory root) {
-    // Read only when a hook needs it: a plugin without hooks may sit in a
-    // directory named anything, and the name is held to a pattern.
+    // Lazy: only a hook needs the name, and a hookless plugin may sit in a
+    // directory named anything.
     late final plugin = _pluginName(root);
     final agents = _readAgents(root.childDirectory('agents'));
     return PluginAssets(
@@ -26,9 +26,7 @@ class const ClaudePluginParser() implements PluginParser {
       hooks: [
         if (_readHookEvents(root) case final events?)
           ..._readRegistrations(events, plugin: plugin, root: root),
-        // An agent may declare hooks for itself in its frontmatter, in the
-        // same shape as hooks.json. They are carried beside the plugin's
-        // own, scoped to the agent.
+        // Hooks an agent declares for itself, in the shape of hooks.json.
         for (final agent in agents)
           if (agent.hooks case final events?)
             ..._readRegistrations(
@@ -111,11 +109,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's own name for the plugin root inside a hook command. Rewritten
-  /// to the neutral [HookCommand.rootPlaceholder] in the command text, so a
-  /// translator substitutes one token for every plugin. A script's own
-  /// reference to the variable at run time is the source harness's contract,
-  /// as `${CLAUDE_SKILL_DIR}` is for a skill, and stays as written.
+  /// Claude's name for the plugin root in a hook command, rewritten to
+  /// [HookCommand.rootPlaceholder]. A script's own use of the variable at
+  /// run time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
   /// [name], once it is known to be safe as a file name.
@@ -197,13 +193,9 @@ class const ClaudePluginParser() implements PluginParser {
     return agents;
   }
 
-  /// Reads `hooks/hooks.json` under [root], whose shape is an event map of
-  /// registrations:
+  /// The event map of `hooks/hooks.json` under [root], shaped
   /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
-  /// and returns the event map, or null when the plugin ships no hooks.
-  ///
-  /// Every level is tolerated as absent or the wrong type rather than assumed,
-  /// because a plugin may ship no hooks at all.
+  /// or null when the plugin ships none.
   ConfigMap? _readHookEvents(Directory root) {
     final file = root.childDirectory('hooks').childFile('hooks.json');
     if (!file.existsSync()) return null;
@@ -254,14 +246,9 @@ class const ClaudePluginParser() implements PluginParser {
     );
   }
 
-  /// The plugin's declared name, from its manifest.
-  ///
-  /// Claude Code caches a plugin under `<marketplace>/<name>/<version>`, so
-  /// the directory's own name is a version number and says nothing. A plugin
-  /// shipping no manifest, or none that names it, goes by its directory. The
-  /// name becomes a directory under the user's home when a harness keeps a
-  /// copy of the plugin's hooks, so it is held to the same pattern as a skill
-  /// or agent name.
+  /// The manifest's name, or the directory's without one. The cache names a
+  /// directory after the version, and the name becomes a folder under the
+  /// user's home, so it is validated like a skill name.
   String _pluginName(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')

@@ -6,18 +6,13 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// {@template harness_translator}
 /// How one harness spells what the plugins contribute.
 ///
-/// The plugins are written for Claude Code and stay that way. Every
-/// difference another harness has is answered here and never there, so a
-/// plugin never carries a branch for a harness it was not written for. That
-/// holds for what a hook script is handed at run time as much as for the
-/// config files, which is why a translator keeps its own copy of a script
-/// with a preamble on top rather than ask the plugins to understand a second
-/// payload.
+/// The plugins are written for Claude Code and stay that way: every
+/// difference another harness has is answered here, config files and hook
+/// payloads alike.
 ///
-/// A translator supplies what the `agents` brick cannot produce itself, the
-/// settings fragment and any frontmatter or TOML, and the brick decides which
-/// files exist. A feature the harness lacks has no folder in the brick, so
-/// there is nothing here to imitate it with.
+/// A translator supplies what the `agents` brick cannot produce itself, and
+/// the brick decides which files exist. A feature the harness lacks has no
+/// folder in the brick.
 ///
 /// One implementation per harness, and none depends on another translator.
 /// See `Harness` for every step of adding a harness.
@@ -30,12 +25,8 @@ abstract class const HarnessTranslator() {
   /// `~/.agents/skills`.
   bool get readsSharedSkills => true;
 
-  /// Whether this harness runs the plugins' hooks.
-  ///
-  /// Declared rather than read off [hooks], because [notes] has to say why a
-  /// harness gets none and cannot call [hooks] without the paths it takes.
-  /// Overriding one without the other would write a harness its hooks and
-  /// tell it in the same breath that it has none, so both are read from here.
+  /// Whether this harness runs the plugins' hooks. Declared, not derived from
+  /// [hooks], because [notes] reads it without the paths [hooks] takes.
   bool get runsHooks => false;
 
   /// The settings fragment merged into the root of this harness's config,
@@ -52,34 +43,23 @@ abstract class const HarnessTranslator() {
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
-  /// The hooks fragment merged into this harness's own hooks file, or null
-  /// when there is nothing it can run, whose brick folder then has no hooks
-  /// file.
-  ///
-  /// Only called when [runsHooks] is set. [hooksRoot] is the folder under
-  /// this harness's config directory that [hookFiles] writes to, for a
-  /// translator whose commands point there.
+  /// The hooks fragment merged into this harness's hooks file, or null.
+  /// Only called when [runsHooks] is set; [hookFiles] writes under
+  /// [hooksRoot].
   String? hooks(PluginAssets assets, {required Directory hooksRoot}) => null;
 
-  /// The files this harness needs beside [hooks] to run them, under
-  /// [hooksRoot], such as its own copy of the plugins' scripts.
-  ///
-  /// Only called when [runsHooks] is set. Planned here rather than rendered
-  /// by the brick because a copy of a script keeps the source file's mode,
-  /// which a rendered file cannot.
+  /// The files this harness needs beside [hooks], under [hooksRoot]. Planned
+  /// rather than rendered so a copied script keeps its mode. Only called when
+  /// [runsHooks] is set.
   List<PlannedChange> hookFiles(
     PluginAssets assets, {
     required Directory hooksRoot,
   }) => const [];
 
-  /// What the user needs to know about [assets] for this harness: what it
-  /// cannot express, and what it will not do until they act.
+  /// What the user needs to know about [assets] for this harness.
   ///
-  /// The plugins declare a hook as a shell command to run at a lifecycle
-  /// point. A harness that cannot be configured to run one gets none, which
-  /// is about its config rather than whether it has hooks at all: OpenCode
-  /// has lifecycle hooks, but they are TypeScript callbacks a plugin
-  /// registers, not a command named in a file.
+  /// A harness whose config cannot run a shell command gets no hooks:
+  /// OpenCode's hooks are TypeScript callbacks, not commands in a file.
   List<TranslationNote> notes(PluginAssets assets) => [
     if (!runsHooks && assets.hooks.isNotEmpty)
       TranslationNote(

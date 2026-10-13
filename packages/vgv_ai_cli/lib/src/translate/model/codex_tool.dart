@@ -1,27 +1,19 @@
 import 'package:collection/collection.dart';
 
 /// {@template codex_tool}
-/// A tool Claude Code names in a hook matcher, and the names Codex answers to
-/// for the same tool.
-///
-/// Only the tools the two harnesses spell differently are listed. Every other
-/// name carries over untouched, `Bash` and the `mcp__<server>__<tool>` form
-/// the MCP matchers are written in included, which is what [codexNamesOf]
-/// returns for a name no entry claims.
+/// A tool Claude Code names in a hook matcher and the names Codex answers to
+/// for it. Only tools spelled differently are listed; any other name carries
+/// over as itself.
 /// {@endtemplate}
 enum CodexTool {
-  /// Codex answers to `Edit` in a matcher, so this adds a name rather than
-  /// fixing a miss. It is Codex's own: a file edit arrives as `apply_patch`
-  /// and reports `tool_name: apply_patch`, so without it the file names only
-  /// tools Codex never reports, and the matcher rests on an alias it
-  /// documents but need not keep.
+  /// Codex accepts `Edit` in a matcher but reports `apply_patch`, so both
+  /// are named.
   edit(claude: 'Edit', codex: ['Edit', _applyPatch]),
 
   /// {@macro codex_tool}
   write(claude: 'Write', codex: ['Write', _applyPatch]),
 
-  /// Codex has no tool that reads a file: it reads through the shell. So a
-  /// hook that watches reads watches `Bash`, the tool Codex reads with.
+  /// Codex reads files through the shell, so a hook on reads watches `Bash`.
   read(claude: 'Read', codex: [_shell]),
 
   /// {@macro codex_tool}
@@ -45,10 +37,7 @@ enum CodexTool {
   /// Every name Codex may report for it.
   final List<String> codex;
 
-  /// The names Codex answers to for [claudeName].
-  ///
-  /// A name no entry claims is one both harnesses spell the same way, so it
-  /// comes back as itself.
+  /// The names Codex answers to for [claudeName], or the name itself.
   static List<String> codexNamesOf(String claudeName) =>
       values.firstWhereOrNull((tool) => tool.claude == claudeName)?.codex ??
       [claudeName];

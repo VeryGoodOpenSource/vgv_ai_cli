@@ -24,15 +24,9 @@ class const HookCommand({
 /// One hook registration resolved from a plugin.
 ///
 /// [event] is the lifecycle point, carried as the source harness names it.
-/// [matcher] narrows which tools it fires for. [pluginRoot] is the directory
-/// [HookCommand.rootPlaceholder] stands for, and [plugin] names the plugin it
-/// belongs to, both carried per hook because merging combines several
-/// plugins. A harness that keeps its own copy of a plugin's scripts files it
-/// under [plugin].
-///
-/// [agent] names the agent that declared the hook for itself, so it fires
-/// only while that agent runs, and is null for a hook the plugin declares
-/// for every agent.
+/// [matcher] narrows which tools it fires for. [plugin] and [pluginRoot] are
+/// the plugin's name and the directory [HookCommand.rootPlaceholder] stands
+/// for. [agent] is the agent that declared the hook for itself, or null.
 /// {@endtemplate}
 class const HookAsset({
   required final String event,
