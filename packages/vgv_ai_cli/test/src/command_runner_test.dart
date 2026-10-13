@@ -15,8 +15,8 @@ class _MockProgress extends Mock implements Progress;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
 
-class _FlagCommand extends Command<int> {
-  new() {
+class _FlagCommand() extends Command<int> {
+  this {
     argParser.addFlag('flag', negatable: false);
   }
 

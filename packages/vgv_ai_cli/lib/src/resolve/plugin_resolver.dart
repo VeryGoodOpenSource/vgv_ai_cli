@@ -13,18 +13,11 @@ import 'package:vgv_ai_cli/src/resolve/model/model.dart';
 /// is kept for later runs. This is the one place both `install` and `doctor`
 /// get their plugins from.
 /// {@endtemplate}
-class PluginResolver {
-  /// {@macro plugin_resolver}
-  const new({
-    RunProcess? runProcess,
-    this._parser = const ClaudePluginParser(),
-    this._plugins = vgvPlugins,
-  }) : _runProcess = runProcess ?? Process.run;
-
-  final RunProcess _runProcess;
-  final PluginParser _parser;
-  final List<PluginRef> _plugins;
-
+class const PluginResolver({
+  final RunProcess _runProcess = Process.run,
+  final PluginParser _parser = const ClaudePluginParser(),
+  final List<PluginRef> _plugins = vgvPlugins,
+}) {
   /// Resolves every plugin for [home], stopping at the first that cannot be
   /// resolved or parsed: a half-configured harness is worse than an
   /// unconfigured one.

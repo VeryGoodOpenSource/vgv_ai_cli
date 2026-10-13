@@ -44,21 +44,14 @@ class const Reconciler({
 }
 
 /// One [Reconciler.apply] call's settings, and the manifest it updates.
-class _Run {
-  new({
-    required this.codec,
-    required this.force,
-    required this.dryRun,
-    required this.manifest,
-  });
-
-  final DocumentCodec codec;
-  final bool force;
-  final bool dryRun;
+class _Run({
+  required final DocumentCodec codec,
+  required final bool force,
+  required final bool dryRun,
 
   /// What VGV has written, updated as each change lands.
-  InstallManifest manifest;
-
+  required var InstallManifest manifest,
+}) {
   /// Applies [change], reporting a filesystem error rather than throwing it.
   AppliedChange guarded(PlannedChange change) {
     try {

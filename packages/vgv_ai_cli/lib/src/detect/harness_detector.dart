@@ -25,13 +25,10 @@ class HarnessDetection {
 /// {@template harness_detector}
 /// Probes the machine for installed harnesses.
 /// {@endtemplate}
-class HarnessDetector {
-  /// {@macro harness_detector}
-  const new({
-    RunProcess? runProcess,
-    this._timeout = const Duration(seconds: 5),
-  }) : _runProcess = runProcess ?? Process.run;
-
+class const HarnessDetector({
+  final RunProcess _runProcess = Process.run,
+  final Duration _timeout = const Duration(seconds: 5),
+}) {
   /// Matches the first `x.y.z` in a version banner.
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
 
@@ -39,9 +36,6 @@ class HarnessDetector {
   static String _banner(ProcessResult result) {
     return '${result.stdout}${result.stderr}';
   }
-
-  final RunProcess _runProcess;
-  final Duration _timeout;
 
   /// Probes every known harness, in parallel.
   Future<Map<Harness, HarnessDetection>> detectAll() async {
