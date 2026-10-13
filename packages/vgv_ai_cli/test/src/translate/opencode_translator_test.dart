@@ -11,7 +11,6 @@ import '_assets.dart';
 void main() {
   group('OpenCodeTranslator', () {
     const translator = OpenCodeTranslator();
-    final home = MemoryFileSystem.test().directory('/home/dev');
 
     test('configures OpenCode', () {
       expect(translator.harness, Harness.opencode);
@@ -24,7 +23,6 @@ void main() {
     test('types each MCP server and folds its args into the command', () {
       final settings = jsonDecode(
         translator.settings(
-          home: home,
           pluginAssets(
             mcpServers: [
               const LocalMCPServer(

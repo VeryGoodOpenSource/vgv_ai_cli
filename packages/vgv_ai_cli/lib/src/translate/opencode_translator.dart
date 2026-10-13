@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
@@ -18,26 +17,25 @@ class const OpenCodeTranslator() extends HarnessTranslator {
 
   /// OpenCode types every server and folds a command's args into one array.
   @override
-  String settings(PluginAssets assets, {required Directory home}) =>
-      jsonEncode({
-        r'$schema': 'https://opencode.ai/config.json',
-        'mcp': {
-          for (final server in assets.mcpServers)
-            server.name: switch (server) {
-              LocalMCPServer(:final command, :final args, :final env) => {
-                'type': 'local',
-                'command': [command, ...args],
-                if (env.isNotEmpty) 'environment': env,
-              },
-              RemoteMCPServer(:final url, :final headers) => {
-                'type': 'remote',
-                'url': url,
-                if (headers.isNotEmpty) 'headers': headers,
-              },
-            },
+  String settings(PluginAssets assets) => jsonEncode({
+    r'$schema': 'https://opencode.ai/config.json',
+    'mcp': {
+      for (final server in assets.mcpServers)
+        server.name: switch (server) {
+          LocalMCPServer(:final command, :final args, :final env) => {
+            'type': 'local',
+            'command': [command, ...args],
+            if (env.isNotEmpty) 'environment': env,
+          },
+          RemoteMCPServer(:final url, :final headers) => {
+            'type': 'remote',
+            'url': url,
+            if (headers.isNotEmpty) 'headers': headers,
+          },
         },
-        'instructions': ['AGENTS.md'],
-      });
+    },
+    'instructions': ['AGENTS.md'],
+  });
 
   @override
   HarnessFields agent(AgentAsset agent, {required String instructions}) =>

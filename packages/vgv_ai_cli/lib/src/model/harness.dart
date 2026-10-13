@@ -34,7 +34,14 @@ enum Harness {
   pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent'),
 
   /// GitHub Copilot CLI.
-  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot');
+  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot'),
+
+  /// Antigravity CLI, which keeps its config beside Gemini's.
+  antigravity(
+    displayName: 'Antigravity',
+    executable: 'agy',
+    config: '.gemini/antigravity-cli',
+  );
 
   /// {@macro harness}
   new({

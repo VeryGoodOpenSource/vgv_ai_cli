@@ -12,7 +12,6 @@ import '_assets.dart';
 void main() {
   group('CopilotTranslator', () {
     const translator = CopilotTranslator();
-    final home = MemoryFileSystem.test().directory('/home/dev');
 
     test('configures Copilot', () {
       expect(translator.harness, Harness.copilot);
@@ -20,7 +19,6 @@ void main() {
 
     test('declares MCP servers with the type Copilot expects', () {
       final json = translator.settings(
-        home: home,
         pluginAssets(
           mcpServers: [
             const RemoteMCPServer(

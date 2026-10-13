@@ -48,7 +48,7 @@ void main() {
           agents: const [],
           mcpServers: const [],
         ),
-        home: home,
+        root: agentsSkillsRoot(home),
       );
 
   PlannedChange changeAt(TranslationResult result, String suffix) =>

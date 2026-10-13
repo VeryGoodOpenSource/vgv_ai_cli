@@ -1,0 +1,6 @@
+---
+trigger: always_on
+description: The VGV skills and agents, as vgv_ai installed them.
+---
+
+{{> instructions.md }}{{> agent_index.md }}

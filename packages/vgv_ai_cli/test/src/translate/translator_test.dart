@@ -70,22 +70,17 @@ void main() {
         expect(await tree(Harness.claude), ['settings.json']);
       });
 
-      test(
-        'Gemini gets settings, instructions, agents, commands and hooks',
-        () async {
-          expect(await tree(Harness.gemini), [
-            'AGENTS.md',
-            'agents/planner.md',
-            'agents/review.md',
-            'commands/vgv/plan.toml',
-            'commands/vgv/review.toml',
-            'commands/vgv/testing.toml',
-            'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
-            'hooks/vgv-wingspan/hooks/scripts/common.sh',
-            'settings.json',
-          ]);
-        },
-      );
+      test('Gemini gets settings, instructions, agents and commands', () async {
+        expect(await tree(Harness.gemini), [
+          'AGENTS.md',
+          'agents/planner.md',
+          'agents/review.md',
+          'commands/plan.toml',
+          'commands/review.toml',
+          'commands/testing.toml',
+          'settings.json',
+        ]);
+      });
 
       test('Codex gets config, instructions, agents and hooks', () async {
         expect(await tree(Harness.codex), [
@@ -129,6 +124,23 @@ void main() {
           'mcp-config.json',
           'vgv_ai/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           'vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
+        ]);
+      });
+
+      test('Antigravity gets one plugin holding everything', () async {
+        expect(await tree(Harness.antigravity), [
+          'plugins/vgv/agents/planner.md',
+          'plugins/vgv/agents/review.md',
+          'plugins/vgv/hooks.json',
+          'plugins/vgv/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'plugins/vgv/hooks/vgv-wingspan/hooks/scripts/common.sh',
+          'plugins/vgv/mcp_config.json',
+          'plugins/vgv/plugin.json',
+          'plugins/vgv/rules/vgv.md',
+          'plugins/vgv/skills/plan/SKILL.md',
+          'plugins/vgv/skills/quiet/SKILL.md',
+          'plugins/vgv/skills/review/SKILL.md',
+          'plugins/vgv/skills/testing/SKILL.md',
         ]);
       });
     });
@@ -177,6 +189,13 @@ void main() {
       expect(
         modes,
         containsPair('.agents/skills/plan/SKILL.md', ChangeMode.own),
+      );
+      expect(
+        modes,
+        containsPair(
+          '.gemini/antigravity-cli/plugins/vgv/plugin.json',
+          ChangeMode.own,
+        ),
       );
     });
 
@@ -230,6 +249,20 @@ void main() {
       expect(plan.harnesses.keys, [Harness.claude]);
     });
 
+    test(
+      'plans Antigravity its own copy of the skills, not the shared one',
+      () async {
+        final plan = await translate({Harness.antigravity});
+        final documents = plan.harnesses[Harness.antigravity]!.changes
+            .where((c) => c.file.path.endsWith('SKILL.md'))
+            .map((c) => c.harness);
+
+        expect(plan.shared, isNull);
+        expect(documents, everyElement(Harness.antigravity));
+        expect(documents, hasLength(assets.skills.length));
+      },
+    );
+
     test('carries each harness its own notes', () async {
       final plan = await translate({Harness.claude, Harness.pi});
 
@@ -281,10 +314,7 @@ void main() {
         'Codex agents and Gemini commands are the TOML they were given',
         () async {
           final agent = await contents(Harness.codex, 'agents/planner.toml');
-          final command = await contents(
-            Harness.gemini,
-            'commands/vgv/plan.toml',
-          );
+          final command = await contents(Harness.gemini, 'commands/plan.toml');
 
           expect(TomlDocument.parse(agent).toMap()['name'], 'planner');
           expect(TomlDocument.parse(command).toMap()['prompt'], '# Body\n');
@@ -334,32 +364,28 @@ void main() {
       );
 
       test(
-        "Gemini's hooks merge into its settings, under Gemini's event names",
+        'an Antigravity agent names its skills and keeps its body',
         () async {
-          final copy = p.join(
-            harnessHooksRoot(Harness.gemini, home: home).path,
-            'vgv-wingspan',
+          final agent = await contents(
+            Harness.antigravity,
+            'plugins/vgv/agents/review.md',
           );
-          final settings = await contents(Harness.gemini, 'settings.json');
 
-          expect(
-            jsonDecode(settings),
-            containsPair('hooks', {
-              'AfterTool': [
-                {
-                  'hooks': [
-                    {
-                      'type': 'command',
-                      'command': 'bash "$copy"/hooks/scripts/analyze.sh',
-                      'timeout': 30000,
-                    },
-                  ],
-                },
-              ],
-            }),
-          );
+          expect(frontmatterValues(agent)['skills'], ['skills/plan']);
+          expect(agent, endsWith('---\n\nYou review code.\n'));
         },
       );
+
+      test("Antigravity's rule indexes every skill and agent", () async {
+        final rule = await contents(
+          Harness.antigravity,
+          'plugins/vgv/rules/vgv.md',
+        );
+
+        expect(rule, startsWith('---\ntrigger: always_on\n'));
+        expect(rule, contains('- **quiet**: what it does\n'));
+        expect(rule, contains('- **planner**: reviews code\n'));
+      });
 
       test('AGENTS.md indexes every skill and agent', () async {
         final instructions = await contents(Harness.gemini, 'AGENTS.md');

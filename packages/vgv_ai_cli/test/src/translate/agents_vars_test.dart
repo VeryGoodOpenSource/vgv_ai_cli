@@ -31,6 +31,7 @@ void main() {
           'opencode': false,
           'pi': true,
           'copilot': false,
+          'antigravity': false,
         },
       );
     });

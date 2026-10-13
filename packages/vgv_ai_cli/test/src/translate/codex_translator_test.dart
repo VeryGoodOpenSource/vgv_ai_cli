@@ -12,7 +12,6 @@ import '_assets.dart';
 void main() {
   group('CodexTranslator', () {
     const translator = CodexTranslator();
-    final home = MemoryFileSystem.test().directory('/home/dev');
 
     test('configures Codex', () {
       expect(translator.harness, Harness.codex);
@@ -24,7 +23,6 @@ void main() {
 
     test('declares MCP servers as TOML tables, headers as http_headers', () {
       final toml = translator.settings(
-        home: home,
         pluginAssets(
           mcpServers: [
             const RemoteMCPServer(

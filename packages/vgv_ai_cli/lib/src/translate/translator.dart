@@ -4,9 +4,11 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
+import 'package:vgv_ai_cli/src/translate/antigravity_translator.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
 import 'package:vgv_ai_cli/src/translate/copilot_translator.dart';
+import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -23,6 +25,7 @@ const harnessTranslators = <HarnessTranslator>[
   OpenCodeTranslator(),
   PiTranslator(),
   CopilotTranslator(),
+  AntigravityTranslator(),
 ];
 
 /// {@template translator}
@@ -53,7 +56,7 @@ class const Translator({
 
     return TranslationPlan(
       shared: chosen.any((translator) => translator.readsSharedSkills)
-          ? skills.translate(assets: assets, home: home)
+          ? skills.translate(assets: assets, root: agentsSkillsRoot(home))
           : null,
       harnesses: {
         for (final translator in chosen)
@@ -68,18 +71,33 @@ class const Translator({
   }
 
   /// What [translator]'s harness gets: the files the brick [rendered] for
-  /// it, the files it needs beside its hooks, and its notes.
+  /// it, the files it needs beside its hooks, its own copy of the skills
+  /// when it keeps one, and its notes.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,
     required PluginAssets assets,
     required Directory home,
-  }) => TranslationResult(
-    changes: [
-      ...?rendered,
-      if (translator.runsHooks)
-        ...translator.hookFiles(assets, hooksRoot: translator.hooksRoot(home)),
-    ],
-    notes: translator.notes(assets),
-  );
+  }) {
+    final own = switch (translator.skillsRoot(home)) {
+      final root? => skills.translate(
+        assets: assets,
+        root: root,
+        harness: translator.harness,
+      ),
+      _ => null,
+    };
+    return TranslationResult(
+      changes: [
+        ...?rendered,
+        if (translator.runsHooks)
+          ...translator.hookFiles(
+            assets,
+            hooksRoot: translator.hooksRoot(home),
+          ),
+        ...?own?.changes,
+      ],
+      notes: [...translator.notes(assets), ...?own?.notes],
+    );
+  }
 }

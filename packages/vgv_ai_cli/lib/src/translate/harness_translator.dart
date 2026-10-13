@@ -34,6 +34,10 @@ abstract class HarnessTranslator {
   /// `~/.agents/skills`.
   bool get readsSharedSkills => true;
 
+  /// Where this harness keeps its own copy of the skills, for one that reads
+  /// neither the shared copy nor the plugins' own, or null.
+  Directory? skillsRoot(Directory home) => null;
+
   /// Whether this harness runs the plugins' hooks.
   ///
   /// Declared rather than read off [hooks], because [notes] has to say why a
@@ -45,9 +49,7 @@ abstract class HarnessTranslator {
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
-  ///
-  /// [home] is for a harness whose settings name a path beneath it.
-  String? settings(PluginAssets assets, {required Directory home}) => null;
+  String? settings(PluginAssets assets) => null;
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///

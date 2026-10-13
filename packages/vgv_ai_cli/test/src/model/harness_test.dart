@@ -12,6 +12,7 @@ void main() {
         'opencode',
         'pi',
         'copilot',
+        'antigravity',
       ]);
     });
 
@@ -46,6 +47,7 @@ void main() {
           Harness.opencode: '/home/dev/.config/opencode',
           Harness.pi: '/home/dev/.pi/agent',
           Harness.copilot: '/home/dev/.copilot',
+          Harness.antigravity: '/home/dev/.gemini/antigravity-cli',
         },
       );
     });
