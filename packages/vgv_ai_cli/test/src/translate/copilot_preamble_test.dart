@@ -87,6 +87,74 @@ exit "${EXIT:-0}"
       'tool_input': {'path': file, 'old_str': 'a', 'new_str': 'b'},
     };
 
+    /// What Copilot sends for a patch: Claude Code's tool name over the
+    /// patch text itself.
+    Map<String, Object?> patch(List<String> lines, {String? cwd}) => {
+      'hook_event_name': 'PostToolUse',
+      'cwd': cwd ?? temp.path,
+      'tool_name': 'Edit',
+      'tool_input': ['*** Begin Patch', ...lines, '*** End Patch'].join('\n'),
+    };
+
+    test('runs the script once per file of a patch that is on disk', () async {
+      temp.childFile('old.dart').writeAsStringSync('');
+      temp.childFile('renamed.dart').writeAsStringSync('');
+      temp.childDirectory('lib').createSync();
+      temp.childFile('lib/added.dart').writeAsStringSync('');
+
+      final (code, _, _) = await run(
+        patch([
+          '*** Update File: old.dart',
+          '*** Delete File: gone.dart',
+          '*** Update File: was.dart',
+          '*** Move to: renamed.dart',
+          '*** Add File: ${temp.path}/lib/added.dart',
+          '*** Add File: lib/not_yet.dart',
+        ]),
+      );
+
+      expect(code, 0);
+      expect(
+        [
+          for (final (_, payload) in runs())
+            [
+              payload['tool_name'],
+              (payload['tool_input']! as Map)['file_path'],
+            ].join(' '),
+        ],
+        [
+          'Edit ${temp.path}/old.dart',
+          'Edit ${temp.path}/renamed.dart',
+          'Write ${temp.path}/lib/added.dart',
+        ],
+      );
+    });
+
+    test(
+      'joins what every file of a patch says, and fails on the first',
+      () async {
+        temp.childFile('a.dart').writeAsStringSync('');
+        temp.childFile('b.dart').writeAsStringSync('');
+
+        final (code, out, _) = await run(
+          patch(['*** Update File: a.dart', '*** Update File: b.dart']),
+          env: {'EXIT': '2', 'COMPLAINT': 'issue'},
+        );
+
+        expect(code, 0);
+        expect(jsonDecode(out), {'additionalContext': 'issue\nissue'});
+        expect(runs(), hasLength(2));
+      },
+    );
+
+    test('passes a patch naming no file on disk through as it came', () async {
+      final payload = patch(['*** Add File: not_yet.dart']);
+
+      await run(payload);
+
+      expect(runs().single.$2, payload);
+    });
+
     test('names the edited file under file_path as well', () async {
       await run(edit('${temp.path}/a.dart'));
 

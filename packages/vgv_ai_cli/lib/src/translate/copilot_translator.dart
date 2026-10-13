@@ -143,13 +143,14 @@ class const CopilotTranslator() extends HarnessTranslator {
   /// Bash inserted below the shebang of a copied script so one written for
   /// Claude Code runs under Copilot.
   ///
-  /// It sets `CLAUDE_PLUGIN_ROOT`, adds `tool_input.file_path` beside
-  /// Copilot's `tool_input.path`, spells the script's answer as Copilot reads
-  /// it (a flat permission decision, `additionalContext` for a session-start
-  /// message or an exit 2 after a tool, a denial for an exit 2 before one),
-  /// and lets any other failing exit through, as Claude Code does. Without
-  /// jq only the exit is answered. `__ROOT__` is replaced with the plugin
-  /// root as one shell word.
+  /// It sets `CLAUDE_PLUGIN_ROOT`, hands the script each edited file under
+  /// `tool_input.file_path` (Copilot names one as `tool_input.path`, or
+  /// sends a whole patch as `tool_input` and the script runs once per file
+  /// on disk), spells the answer as Copilot reads it (a flat permission
+  /// decision, `additionalContext` for a session-start message or an exit 2
+  /// after a tool, a denial for an exit 2 before one), and lets any other
+  /// failing exit through, as Claude Code does. Without jq only the exit is
+  /// answered. `__ROOT__` is replaced with the plugin root as one shell word.
   static const preamble = r'''
 # Added by vgv_ai install so this script, written for Claude Code, runs under
 # Copilot. Edits here are overwritten on the next run.
@@ -157,20 +158,51 @@ export CLAUDE_PLUGIN_ROOT=__ROOT__
 if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
   vgv_payload=$(cat)
   vgv_jq=0
+  vgv_runs=""
   if command -v jq > /dev/null 2>&1; then
     vgv_jq=1
-    vgv_rewritten=$(printf '%s' "$vgv_payload" | jq -c '
-      if (.tool_input | type) == "object"
-        and (.tool_input | has("path"))
-        and (.tool_input | has("file_path") | not)
-      then .tool_input.file_path = .tool_input.path else . end
-    ' 2> /dev/null) && vgv_payload=$vgv_rewritten
+    # One payload per file: the file Copilot names under tool_input.path, or
+    # each file on disk that a patch sent as tool_input touches.
+    vgv_edits=$(printf '%s' "$vgv_payload" | jq -r '
+      select(.tool_input | type == "string")
+      | ((.cwd // ".") | rtrimstr("/")) as $cwd
+      | .tool_input
+      | scan("(?m)^\\*\\*\\* (Add File|Update File|Move to): (.+)$")
+      | (if .[0] == "Add File" then "Write" else "Edit" end)
+        + "\t" + (.[1] | if startswith("/") then . else $cwd + "/" + . end)
+    ' 2> /dev/null)
+    while IFS=$'\t' read -r vgv_tool vgv_file; do
+      [ -n "$vgv_file" ] && [ -f "$vgv_file" ] || continue
+      vgv_runs="$vgv_runs$(printf '%s' "$vgv_payload" \
+        | jq -c --arg tool "$vgv_tool" --arg file "$vgv_file" \
+          '.tool_name = $tool | .tool_input = {file_path: $file}')
+"
+    done <<< "$vgv_edits"
+    if [ -z "$vgv_runs" ]; then
+      vgv_runs=$(printf '%s' "$vgv_payload" | jq -c '
+        if (.tool_input | type) == "object"
+          and (.tool_input | has("path"))
+          and (.tool_input | has("file_path") | not)
+        then .tool_input.file_path = .tool_input.path else . end
+      ' 2> /dev/null)
+    fi
   fi
+  [ -n "$vgv_runs" ] || vgv_runs=$vgv_payload
+  vgv_exit=0
+  vgv_output=""
+  vgv_stderr=""
   vgv_errors=$(mktemp)
-  vgv_output=$(printf '%s' "$vgv_payload" \
-    | VGV_CLAUDE_PAYLOAD=1 bash "$0" 2> "$vgv_errors")
-  vgv_exit=$?
-  vgv_stderr=$(cat "$vgv_errors")
+  while IFS= read -r vgv_run; do
+    [ -n "$vgv_run" ] || continue
+    vgv_one=$(printf '%s' "$vgv_run" \
+      | VGV_CLAUDE_PAYLOAD=1 bash "$0" 2> "$vgv_errors")
+    vgv_code=$?
+    [ "$vgv_exit" -ne 0 ] || vgv_exit=$vgv_code
+    [ -n "$vgv_output" ] || vgv_output=$vgv_one
+    vgv_more=$(cat "$vgv_errors")
+    [ -z "$vgv_more" ] || vgv_stderr="${vgv_stderr:+$vgv_stderr
+}$vgv_more"
+  done <<< "$vgv_runs"
   rm -f "$vgv_errors"
   [ -z "$vgv_stderr" ] || printf '%s\n' "$vgv_stderr" >&2
   if [ "$vgv_jq" -eq 1 ]; then
