@@ -108,6 +108,82 @@ void main() {
     });
   });
 
+  group('deleteEmptyUpTo', () {
+    late Directory root;
+
+    setUp(() => root = fileSystem.directory('/home/.agents/skills'));
+
+    test('deletes empty directories up to the boundary and keeps it', () {
+      fileSystem.directory('${root.path}/a/b')
+        ..createSync(recursive: true)
+        ..deleteEmptyUpTo(root);
+
+      expect(fileSystem.directory('${root.path}/a').existsSync(), isFalse);
+      expect(root.existsSync(), isTrue);
+    });
+
+    test('stops at the first directory that is not empty', () {
+      final start = fileSystem.directory('${root.path}/a/b')
+        ..createSync(recursive: true);
+      final kept = fileSystem.file('${root.path}/a/user.md')..createSync();
+
+      start.deleteEmptyUpTo(root);
+
+      expect(start.existsSync(), isFalse);
+      expect(kept.existsSync(), isTrue);
+    });
+
+    test('walks up past a directory that is already gone', () {
+      fileSystem.directory('${root.path}/a').createSync(recursive: true);
+
+      fileSystem.directory('${root.path}/a/b').deleteEmptyUpTo(root);
+
+      expect(fileSystem.directory('${root.path}/a').existsSync(), isFalse);
+      expect(root.existsSync(), isTrue);
+    });
+
+    test('does nothing for the boundary itself', () {
+      root
+        ..createSync(recursive: true)
+        ..deleteEmptyUpTo(root);
+
+      expect(root.existsSync(), isTrue);
+    });
+
+    test('does nothing for a directory outside the boundary', () {
+      final outside = fileSystem.directory('/home/.codex')
+        ..createSync(recursive: true)
+        ..deleteEmptyUpTo(root);
+
+      expect(outside.existsSync(), isTrue);
+    });
+
+    test('never deletes a symlinked directory', () {
+      final real = fileSystem.directory('/dotfiles/skill')
+        ..createSync(recursive: true);
+      root.createSync(recursive: true);
+      final link = fileSystem.link('${root.path}/skill')..createSync(real.path);
+
+      fileSystem.directory(link.path).deleteEmptyUpTo(root);
+
+      expect(fileSystem.isLinkSync(link.path), isTrue);
+      expect(real.existsSync(), isTrue);
+    });
+
+    test('never deletes through a symlinked directory', () {
+      final real = fileSystem.directory('/dotfiles/skill/references')
+        ..createSync(recursive: true);
+      root.createSync(recursive: true);
+      final link = fileSystem.link('${root.path}/skill')
+        ..createSync(real.parent.path);
+
+      fileSystem.directory('${link.path}/references').deleteEmptyUpTo(root);
+
+      expect(fileSystem.isLinkSync(link.path), isTrue);
+      expect(real.existsSync(), isTrue);
+    });
+  });
+
   group('description', () {
     test('is the message alone when there is no OS error', () {
       expect(

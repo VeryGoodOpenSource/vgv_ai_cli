@@ -21,14 +21,15 @@ const description =
 class VgvAiCliCommandRunner extends CompletionCommandRunner<int> {
   /// {@macro vgv_ai_cli_command_runner}
   ///
-  /// [installCommand] and [doctorCommand] replace the default `install` and
-  /// `doctor`, whose collaborators otherwise reach the real home directory
-  /// and plugin cache.
+  /// [installCommand], [doctorCommand] and [uninstallCommand] replace the
+  /// default `install`, `doctor` and `uninstall`, whose collaborators
+  /// otherwise reach the real home directory and plugin cache.
   new({
     Logger? logger,
     PubUpdater? pubUpdater,
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
+    UninstallCommand? uninstallCommand,
   }) : _logger = logger ?? Logger(),
        _pubUpdater = pubUpdater ?? PubUpdater(),
        super(executableName, description) {
@@ -48,6 +49,7 @@ class VgvAiCliCommandRunner extends CompletionCommandRunner<int> {
     // Add sub commands
     addCommand(doctorCommand ?? DoctorCommand(logger: _logger));
     addCommand(installCommand ?? InstallCommand(logger: _logger));
+    addCommand(uninstallCommand ?? UninstallCommand(logger: _logger));
     addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
   }
 
