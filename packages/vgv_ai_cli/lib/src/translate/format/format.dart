@@ -5,4 +5,5 @@
 library;
 
 export 'agent_instructions.dart';
+export 'codex_preamble.dart';
 export 'vgv_paths.dart';

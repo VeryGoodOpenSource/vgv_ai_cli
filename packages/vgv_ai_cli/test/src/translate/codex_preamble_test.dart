@@ -6,7 +6,7 @@ import 'package:file/local.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-/// Runs [CodexTranslator.preamble] for real, through bash and jq, on top of a
+/// Runs [codexPreamble] for real, through bash and jq, on top of a
 /// stub script that records every payload it is handed.
 ///
 /// The Dart suite otherwise asserts only where the preamble is placed, and a
@@ -24,7 +24,7 @@ void main() {
     /// Writes the script under test: the preamble, scoped to [agent] when
     /// given, over a stub body.
     void writeScript({String agent = ''}) {
-      final preamble = CodexTranslator.preamble
+      final preamble = codexPreamble
           .replaceAll('__ROOT__', '"${pluginRoot.path}"')
           .replaceAll('__AGENT__', '"$agent"');
       script.writeAsStringSync(

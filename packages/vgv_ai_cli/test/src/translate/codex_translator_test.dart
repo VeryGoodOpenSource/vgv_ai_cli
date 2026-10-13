@@ -331,7 +331,7 @@ void main() {
 
       test('put the preamble below the shebang of a script a hook runs', () {
         final script = at(files([hookAsset(fs)]), 'analyze.sh').contents;
-        final preamble = CodexTranslator.preamble
+        final preamble = codexPreamble
             .replaceAll('__ROOT__', '"/plugins/vgv-wingspan"')
             .replaceAll('__AGENT__', '""');
 
