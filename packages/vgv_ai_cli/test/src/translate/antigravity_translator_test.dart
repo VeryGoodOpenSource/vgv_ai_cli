@@ -245,7 +245,7 @@ void main() {
         final script = files([hookAsset(fs)])
             .singleWhere((c) => path.basename(c.file.path) == 'analyze.sh')
             .contents;
-        final preamble = AntigravityTranslator.preamble.replaceAll(
+        final preamble = antigravityPreamble.replaceAll(
           '__ROOT__',
           '"/plugins/vgv-wingspan"',
         );

@@ -6,7 +6,7 @@ import 'package:file/local.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-/// Runs [AntigravityTranslator.preamble] for real, through bash and jq, on
+/// Runs [antigravityPreamble] for real, through bash and jq, on
 /// top of a stub script that records every payload it is handed. Skipped
 /// where bash or jq is missing.
 void main() {
@@ -25,7 +25,7 @@ void main() {
       pluginRoot = temp.childDirectory("it's a plugin")..createSync();
       log = temp.childFile('log');
       script = temp.childFile('hook.sh');
-      final preamble = AntigravityTranslator.preamble.replaceAll(
+      final preamble = antigravityPreamble.replaceAll(
         '__ROOT__',
         '"${pluginRoot.path}"',
       );

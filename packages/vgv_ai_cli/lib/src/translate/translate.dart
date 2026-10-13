@@ -8,6 +8,7 @@ library;
 
 export 'agents_brick.dart';
 export 'agents_vars.dart';
+export 'antigravity_preamble.dart';
 export 'antigravity_translator.dart';
 export 'claude_translator.dart';
 export 'codex_translator.dart';
