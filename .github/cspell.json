@@ -25,6 +25,7 @@
     "mcp",
     "opencode",
     "prereqs",
-    "toml"
+    "toml",
+    "vgvbot"
   ]
 }
