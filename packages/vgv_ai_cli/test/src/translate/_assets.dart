@@ -1,7 +1,5 @@
 import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:yaml/yaml.dart';
 
 /// Builders shared by the per-harness translator tests, so each test file
@@ -87,26 +85,4 @@ Map<String, Object?> frontmatterValues(Object? rendered) {
   final lines = (rendered! as String).split('\n');
   final yaml = loadYaml(lines.sublist(1, lines.lastIndexOf('---')).join('\n'));
   return Map<String, Object?>.from(yaml as Map);
-}
-
-/// A translator that spells hooks and the files beside them, yet declares it
-/// runs none, so a test can check the flag is what the callers read.
-class const DeclinedHooksTranslator() extends HarnessTranslator {
-  @override
-  Harness get harness => Harness.pi;
-
-  @override
-  String? hooks(PluginAssets assets, {required Directory hooksRoot}) => '{}';
-
-  @override
-  List<PlannedChange> hookFiles(
-    PluginAssets assets, {
-    required Directory hooksRoot,
-  }) => [
-    PlannedChange.text(
-      file: hooksRoot.childFile('declined.sh'),
-      contents: '',
-      harness: harness,
-    ),
-  ];
 }

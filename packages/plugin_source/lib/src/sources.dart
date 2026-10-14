@@ -15,10 +15,7 @@ typedef RunGit = Future<ProcessResult> Function(List<String> args);
 /// {@template plugin_source}
 /// Resolves a [PluginRef] to a directory on disk.
 /// {@endtemplate}
-abstract class PluginSource {
-  /// {@macro plugin_source}
-  const new();
-
+abstract class const PluginSource() {
   /// Resolves [ref] from this source.
   Future<PluginResolution> resolve(PluginRef ref);
 }

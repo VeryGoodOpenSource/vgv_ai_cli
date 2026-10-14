@@ -60,11 +60,7 @@ class _FakeTranslator extends Fake implements Translator {
 
 /// A [ManifestAuditor] that reports [unreadable] as unreadable, and verifies
 /// everything else for real.
-class _LockedAuditor extends ManifestAuditor {
-  const new(this.unreadable);
-
-  final String unreadable;
-
+class const _LockedAuditor(final String unreadable) extends ManifestAuditor {
   @override
   EntryHealth verify(ManifestEntry entry, FileSystem fileSystem) =>
       entry.path == unreadable

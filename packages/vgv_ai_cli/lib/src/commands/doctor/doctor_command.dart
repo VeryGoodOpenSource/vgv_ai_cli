@@ -33,29 +33,19 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// installed. `--only` and `--no-<harness>` narrow the report as they
 /// narrow `install`. Never writes harness config or the manifest.
 /// {@endtemplate}
-class DoctorCommand extends Command<int> with HarnessSelection {
-  /// {@macro doctor_command}
-  new({
-    required this._logger,
-    this._home,
-    this._environment,
-    this._detector = const HarnessDetector(),
-    this._auditor = const ManifestAuditor(),
-    this._resolver = const PluginResolver(),
-    this._translator = const Translator(),
-    this._reconciler = const Reconciler(),
-  }) {
+class DoctorCommand({
+  required final Logger _logger,
+  final Directory? _home,
+  final Map<String, String>? _environment,
+  final HarnessDetector _detector = const HarnessDetector(),
+  final ManifestAuditor _auditor = const ManifestAuditor(),
+  final PluginResolver _resolver = const PluginResolver(),
+  final Translator _translator = const Translator(),
+  final Reconciler _reconciler = const Reconciler(),
+}) extends Command<int> with HarnessSelection {
+  this {
     addHarnessOptions('Check');
   }
-
-  final Logger _logger;
-  final Directory? _home;
-  final Map<String, String>? _environment;
-  final HarnessDetector _detector;
-  final ManifestAuditor _auditor;
-  final PluginResolver _resolver;
-  final Translator _translator;
-  final Reconciler _reconciler;
 
   static const String commandName = 'doctor';
 

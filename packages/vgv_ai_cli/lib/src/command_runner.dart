@@ -18,21 +18,19 @@ const description =
 /// $ vgv_ai --version
 /// ```
 /// {@endtemplate}
-class VgvAiCliCommandRunner extends CompletionCommandRunner<int> {
+class VgvAiCliCommandRunner({
+  Logger? logger,
+  PubUpdater? pubUpdater,
+  InstallCommand? installCommand,
+  DoctorCommand? doctorCommand,
+  UninstallCommand? uninstallCommand,
+}) extends CompletionCommandRunner<int> {
   /// {@macro vgv_ai_cli_command_runner}
   ///
   /// [installCommand], [doctorCommand] and [uninstallCommand] replace the
   /// default `install`, `doctor` and `uninstall`, whose collaborators
   /// otherwise reach the real home directory and plugin cache.
-  new({
-    Logger? logger,
-    PubUpdater? pubUpdater,
-    InstallCommand? installCommand,
-    DoctorCommand? doctorCommand,
-    UninstallCommand? uninstallCommand,
-  }) : _logger = logger ?? Logger(),
-       _pubUpdater = pubUpdater ?? PubUpdater(),
-       super(executableName, description) {
+  this : super(executableName, description) {
     // Add root options and flags
     argParser
       ..addFlag(
@@ -56,8 +54,8 @@ class VgvAiCliCommandRunner extends CompletionCommandRunner<int> {
   @override
   void printUsage() => _logger.info(usage);
 
-  final Logger _logger;
-  final PubUpdater _pubUpdater;
+  final Logger _logger = logger ?? Logger();
+  final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
 
   @override
   Future<int> run(Iterable<String> args) async {

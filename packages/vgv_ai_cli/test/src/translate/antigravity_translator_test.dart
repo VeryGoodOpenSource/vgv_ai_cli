@@ -35,8 +35,7 @@ void main() {
       );
     });
 
-    test('declares that it runs the hooks, which the notes read', () {
-      expect(translator.runsHooks, isTrue);
+    test('keeps its copy of the scripts inside the plugin', () {
       expect(translator.hooksRoot(home).path, hooksRoot);
     });
 
@@ -116,14 +115,15 @@ void main() {
     });
 
     group('hooks', () {
-      /// The whole file [hooks] translates to.
-      Map<String, Object?> file(List<HookAsset> hooks) {
-        final json = translator.hooks(
-          pluginAssets(hooks: hooks),
-          hooksRoot: fs.directory(hooksRoot),
-        )!;
-        return jsonDecode(json) as Map<String, Object?>;
-      }
+      /// What [hooks] translate to.
+      HookTranslation translation(List<HookAsset> hooks) => translator.hooks(
+        pluginAssets(hooks: hooks),
+        hooksRoot: fs.directory(hooksRoot),
+      );
+
+      /// The whole file [hooks] translate to.
+      Map<String, Object?> file(List<HookAsset> hooks) =>
+          jsonDecode(translation(hooks).fragment!) as Map<String, Object?>;
 
       /// The registrations [hooks] translate to, under [event] of the test
       /// plugin.
@@ -204,37 +204,38 @@ void main() {
         });
       });
 
-      test('are null when nothing can run', () {
-        final root = fs.directory(hooksRoot);
-
-        expect(translator.hooks(pluginAssets(), hooksRoot: root), isNull);
+      test('register nothing when nothing can run', () {
+        expect(translation([]).fragment, isNull);
         expect(
-          translator.hooks(
-            pluginAssets(hooks: [hookAsset(fs, agent: 'flutter-reviewer')]),
-            hooksRoot: root,
-          ),
+          translation([hookAsset(fs, agent: 'flutter-reviewer')]).fragment,
           isNull,
         );
         expect(
-          translator.hooks(
-            pluginAssets(hooks: [hookAsset(fs, event: 'UserPromptSubmit')]),
-            hooksRoot: root,
-          ),
+          translation([hookAsset(fs, event: 'UserPromptSubmit')]).fragment,
           isNull,
         );
       });
-    });
 
-    group('hookFiles', () {
-      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
-        pluginAssets(hooks: hooks),
-        hooksRoot: fs.directory(hooksRoot),
-      );
+      test('register nothing for a hook that runs no shell command', () {
+        final hooks = [
+          hookAsset(
+            fs,
+            commands: const [HookCommand(type: 'prompt', command: 'hi')],
+          ),
+        ];
+
+        expect(translation(hooks).fragment, isNull);
+        expect(
+          translation(hooks).files.map((c) => path.basename(c.file.path)),
+          isNot(contains(AntigravityTranslator.compatScript)),
+        );
+      });
 
       test("copy the plugin's hooks folder under its name, registry aside", () {
-        final changes = files([hookAsset(fs)]);
+        final changes = translation([hookAsset(fs)]).files;
 
         expect(changes.map((c) => c.file.path), [
+          '$hooksRoot/${AntigravityTranslator.compatScript}',
           '$hooksRoot/vgv-wingspan/hooks/scripts/analyze.sh',
           '$hooksRoot/vgv-wingspan/hooks/scripts/common.sh',
         ]);
@@ -242,62 +243,63 @@ void main() {
       });
 
       test("put Antigravity's preamble below the shebang of a script", () {
-        final script = files([hookAsset(fs)])
+        final script = translation([hookAsset(fs)]).files
             .singleWhere((c) => path.basename(c.file.path) == 'analyze.sh')
             .contents;
-        final preamble = antigravityPreamble.replaceAll(
-          '__ROOT__',
-          '"/plugins/vgv-wingspan"',
-        );
+        final preamble = antigravityPreamble
+            .replaceAll('__ROOT__', '"/plugins/vgv-wingspan"')
+            .replaceAll(
+              '__COMPAT__',
+              '"$hooksRoot/${AntigravityTranslator.compatScript}"',
+            );
 
         expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
       });
 
       test('copy nothing for a hook Antigravity cannot run', () {
-        expect(files([hookAsset(fs, agent: 'flutter-reviewer')]), isEmpty);
-        expect(files([hookAsset(fs, event: 'Notification')]), isEmpty);
+        expect(
+          translation([hookAsset(fs, agent: 'flutter-reviewer')]).files,
+          isEmpty,
+        );
+        expect(
+          translation([hookAsset(fs, event: 'Notification')]).files,
+          isEmpty,
+        );
       });
     });
 
     group('notes', () {
+      List<TranslationNote> notesOf(List<HookAsset> hooks) => translator
+          .hooks(pluginAssets(hooks: hooks), hooksRoot: fs.directory(hooksRoot))
+          .notes;
+
       test('say that nothing a hook says after a tool reaches the agent', () {
-        final notes = translator.notes(pluginAssets(hooks: [hookAsset(fs)]));
+        final notes = notesOf([hookAsset(fs)]);
 
         expect(notes.single.subject, 'the PostToolUse hooks');
         expect(notes.single.reason, contains('hears none of it'));
       });
 
       test('say nothing about a hook before a tool', () {
-        expect(
-          translator.notes(
-            pluginAssets(hooks: [hookAsset(fs, event: 'PreToolUse')]),
-          ),
-          isEmpty,
-        );
+        expect(notesOf([hookAsset(fs, event: 'PreToolUse')]), isEmpty);
       });
 
       test('say that a hook an agent declares for itself is left out', () {
-        final notes = translator.notes(
-          pluginAssets(
-            hooks: [
-              hookAsset(
-                fs,
-                event: 'PreToolUse',
-                matcher: 'Bash',
-                agent: 'flutter-reviewer',
-              ),
-            ],
+        final notes = notesOf([
+          hookAsset(
+            fs,
+            event: 'PreToolUse',
+            matcher: 'Bash',
+            agent: 'flutter-reviewer',
           ),
-        );
+        ]);
 
         expect(notes.single.subject, "flutter-reviewer's PreToolUse hook");
         expect(notes.single.reason, contains('names no agent'));
       });
 
       test('say that a hook on an event Antigravity lacks is left out', () {
-        final notes = translator.notes(
-          pluginAssets(hooks: [hookAsset(fs, event: 'Notification')]),
-        );
+        final notes = notesOf([hookAsset(fs, event: 'Notification')]);
 
         expect(notes.single.subject, "vgv-wingspan's Notification hook");
         expect(
@@ -307,17 +309,13 @@ void main() {
       });
 
       test('say that a handler running no shell command is left out', () {
-        final notes = translator.notes(
-          pluginAssets(
-            hooks: [
-              hookAsset(
-                fs,
-                event: 'PreToolUse',
-                commands: const [HookCommand(type: 'prompt', command: 'hi')],
-              ),
-            ],
+        final notes = notesOf([
+          hookAsset(
+            fs,
+            event: 'PreToolUse',
+            commands: const [HookCommand(type: 'prompt', command: 'hi')],
           ),
-        );
+        ]);
 
         expect(notes.single.subject, '1 prompt handler(s)');
         expect(notes.single.reason, contains('shell command only'));
@@ -327,13 +325,10 @@ void main() {
         final hook = hookAsset(fs, event: 'PreToolUse');
         hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
 
-        expect(
-          translator.notes(pluginAssets(hooks: [hook])).single.reason,
-          contains('has gone away'),
-        );
+        expect(notesOf([hook]).single.reason, contains('has gone away'));
       });
 
-      test('are empty when everything translates', () {
+      test('say nothing beyond the hooks', () {
         expect(
           translator.notes(pluginAssets(agents: [agentAsset('reviewer')])),
           isEmpty,

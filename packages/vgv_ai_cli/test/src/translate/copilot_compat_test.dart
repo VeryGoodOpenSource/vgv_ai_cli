@@ -6,15 +6,16 @@ import 'package:file/local.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-/// Runs [CopilotTranslator.preamble] for real, through bash and jq, on top of
-/// a stub script that records every payload it is handed. Skipped where bash
-/// or jq is missing.
+/// Runs [copilotPreamble] and [copilotCompatScript] for real, through bash
+/// and jq, on top of a stub script that records every payload it is handed.
+/// Skipped where bash or jq is missing.
 void main() {
   final bash = Process.runSync('bash', ['-c', 'command -v jq']).exitCode == 0;
 
-  group('the Copilot preamble', () {
+  group('the Copilot compat script', () {
     late Directory temp;
     late Directory pluginRoot;
+    late File compat;
     late File script;
     late File log;
 
@@ -25,10 +26,11 @@ void main() {
       pluginRoot = temp.childDirectory("it's a plugin")..createSync();
       log = temp.childFile('log');
       script = temp.childFile('hook.sh');
-      final preamble = CopilotTranslator.preamble.replaceAll(
-        '__ROOT__',
-        '"${pluginRoot.path}"',
-      );
+      compat = temp.childFile(CopilotTranslator.compatScript)
+        ..writeAsStringSync(copilotCompatScript);
+      final preamble = copilotPreamble
+          .replaceAll('__ROOT__', '"${pluginRoot.path}"')
+          .replaceAll('__COMPAT__', '"${compat.path}"');
       script.writeAsStringSync(
         '#!/bin/bash\n$preamble'
         // A stub plugin script: records the root and payload, answers and

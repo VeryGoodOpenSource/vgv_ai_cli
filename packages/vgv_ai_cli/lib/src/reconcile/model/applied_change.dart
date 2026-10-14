@@ -34,16 +34,13 @@ enum ChangeOutcome {
 /// {@template applied_change}
 /// A [PlannedChange] and what applying it did.
 /// {@endtemplate}
-class AppliedChange {
-  /// {@macro applied_change}
-  new({required this.change, required this.outcome, this.error});
-
+class AppliedChange({
   /// The change that was applied.
-  final PlannedChange change;
+  required final PlannedChange change,
 
   /// What applying [change] did.
-  final ChangeOutcome outcome;
+  required final ChangeOutcome outcome,
 
   /// Why the change [ChangeOutcome.failed], and null otherwise.
-  final String? error;
-}
+  final String? error,
+});

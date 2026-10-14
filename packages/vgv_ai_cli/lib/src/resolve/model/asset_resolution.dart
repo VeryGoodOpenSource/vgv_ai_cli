@@ -3,10 +3,7 @@ import 'package:plugin_source/plugin_source.dart';
 /// {@template asset_resolution}
 /// What resolving and parsing every pinned plugin produced.
 /// {@endtemplate}
-sealed class AssetResolution {
-  /// {@macro asset_resolution}
-  const new();
-}
+sealed class const AssetResolution();
 
 /// {@template resolved_assets}
 /// Every plugin in [plugins] resolved and parsed, merged into [assets].

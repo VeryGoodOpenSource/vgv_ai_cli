@@ -5,7 +5,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/antigravity_preamble.dart';
+import 'package:vgv_ai_cli/src/translate/antigravity_compat.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/hook_scripts.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -24,14 +24,14 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// The plugin everything is installed as.
   static const plugin = 'vgv';
 
+  /// The file under the hooks root that holds [antigravityCompatScript].
+  static const compatScript = 'vgv-claude-compat.sh';
+
   @override
   Harness get harness => Harness.antigravity;
 
   @override
   bool get readsSharedSkills => false;
-
-  @override
-  bool get runsHooks => true;
 
   /// The plugin's root under Antigravity's config directory.
   Directory pluginRoot(Directory home) {
@@ -78,22 +78,65 @@ class const AntigravityTranslator() extends HarnessTranslator {
         instructions: '${agent.body.trimRight()}\n',
       );
 
-  /// The plugin's `hooks.json`: one set per source plugin, under the event
-  /// names Antigravity shares with Claude Code, with matchers respelled to
-  /// its tool names and a timeout in seconds. Each command carries the event
-  /// in `VGV_HOOK_EVENT`, since the payload does not name it.
+  /// The plugins' hooks as the plugin's `hooks.json` spells them: one set
+  /// per source plugin, under the event names Antigravity shares with Claude
+  /// Code, with matchers respelled to its tool names, a timeout in seconds,
+  /// and the event in `VGV_HOOK_EVENT` on each command, since the payload
+  /// does not name it. The scripts are copied under [hooksRoot] with
+  /// [antigravityCompatScript] beside them.
+  ///
+  /// A hook an agent declared for itself, and one on an event Antigravity
+  /// lacks, are left out. After a tool Antigravity reads nothing a hook
+  /// says, so those hooks run but the agent hears none of it.
   ///
   /// See https://antigravity.google/docs/hooks/.
   @override
-  String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
+  HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final runnable = _runnable(assets);
-    if (runnable.isEmpty) return null;
+    final compat = hooksRoot.childFile(compatScript);
+    final copy = scripts.copy(runnable, hooksRoot: hooksRoot, compat: compat);
+    return HookTranslation(
+      fragment: _fragment(runnable, hooksRoot: hooksRoot),
+      files: [
+        if (runnable.any(HookScripts.runsCommand))
+          PlannedChange.text(
+            file: compat,
+            contents: antigravityCompatScript,
+            harness: harness,
+          ),
+        ...copy.files,
+      ],
+      notes: [
+        ...copy.notes,
+        for (final hook in assets.hooks) ?_leftOut(hook),
+        if (runnable.any((hook) => hook.event == 'PostToolUse'))
+          const TranslationNote(
+            subject: 'the PostToolUse hooks',
+            reason:
+                'Antigravity reads nothing a hook says after a tool, so they '
+                'run but the agent hears none of it',
+          ),
+        ..._handlerNotes(runnable),
+      ],
+    );
+  }
+
+  /// The `hooks.json` fragment, or null when there is no command to run.
+  static String? _fragment(
+    List<HookAsset> hooks, {
+    required Directory hooksRoot,
+  }) {
+    final commands = hooks
+        .where(HookScripts.safelyNamed)
+        .where(HookScripts.runsCommand)
+        .toList();
+    if (commands.isEmpty) return null;
     return jsonEncode({
-      for (final MapEntry(key: source, value: hooks)
-          in runnable.groupListsBy((hook) => hook.plugin).entries)
+      for (final MapEntry(key: source, value: ofPlugin)
+          in commands.groupListsBy((h) => h.plugin).entries)
         source: {
           for (final MapEntry(key: event, value: registrations)
-              in hooks.groupListsBy((hook) => hook.event).entries)
+              in ofPlugin.groupListsBy((h) => h.event).entries)
             event: [
               for (final hook in registrations)
                 _registration(hook, hooksRoot: hooksRoot),
@@ -121,30 +164,6 @@ class const AntigravityTranslator() extends HarnessTranslator {
     ],
   };
 
-  @override
-  List<PlannedChange> hookFiles(
-    PluginAssets assets, {
-    required Directory hooksRoot,
-  }) => _scripts.files(_runnable(assets), hooksRoot: hooksRoot);
-
-  @override
-  List<TranslationNote> notes(PluginAssets assets) {
-    final runnable = _runnable(assets);
-    return [
-      ...super.notes(assets),
-      ..._scripts.notes(runnable),
-      for (final hook in assets.hooks) ?_leftOut(hook),
-      if (runnable.any((hook) => hook.event == 'PostToolUse'))
-        const TranslationNote(
-          subject: 'the PostToolUse hooks',
-          reason:
-              'Antigravity reads nothing a hook says after a tool, so they '
-              'run but the agent hears none of it',
-        ),
-      ..._handlerNotes(runnable),
-    ];
-  }
-
   /// Why [hooks] leaves [hook] out, or null when Antigravity can run it.
   static TranslationNote? _leftOut(HookAsset hook) {
     if (hook.agent != null) {
@@ -164,7 +183,7 @@ class const AntigravityTranslator() extends HarnessTranslator {
     return null;
   }
 
-  /// A note per handler type that runs no shell command, counting them.
+  /// One note per handler type that runs no shell command.
   static List<TranslationNote> _handlerNotes(List<HookAsset> hooks) {
     final counts = hooks
         .expand((hook) => hook.commands)
@@ -183,7 +202,8 @@ class const AntigravityTranslator() extends HarnessTranslator {
     ];
   }
 
-  static const _scripts = HookScripts(
+  @override
+  HookScripts get scripts => const HookScripts(
     harness: Harness.antigravity,
     preamble: antigravityPreamble,
   );
@@ -206,6 +226,9 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// hook is undocumented, so the server's name is matched anywhere.
   static const _mcpPrefix = 'mcp__';
   static const _mcpSeparator = '__';
+
+  /// `.*` written twice over, as a matcher already ending in one gets.
+  static final _repeatedWildcard = RegExp(r'(\.\*){2,}');
 
   /// The hooks Antigravity can run.
   static List<HookAsset> _runnable(PluginAssets assets) => [
@@ -234,7 +257,4 @@ class const AntigravityTranslator() extends HarnessTranslator {
       '.*',
     );
   }
-
-  /// `.*` written twice over, as a matcher already ending in one gets.
-  static final _repeatedWildcard = RegExp(r'(\.\*){2,}');
 }

@@ -17,10 +17,6 @@ void main() {
       expect(translator.harness, Harness.codex);
     });
 
-    test('declares that it runs the hooks, which the notes read', () {
-      expect(translator.runsHooks, isTrue);
-    });
-
     test('declares MCP servers as TOML tables, headers as http_headers', () {
       final toml = translator.settings(
         pluginAssets(
@@ -94,12 +90,15 @@ void main() {
 
       setUp(() => fs = MemoryFileSystem.test());
 
-      /// The registrations [hooks] translates to, under their event.
+      /// What [hooks] translate to, under the hooks root.
+      HookTranslation translate(List<HookAsset> hooks) => translator.hooks(
+        pluginAssets(hooks: hooks),
+        hooksRoot: fs.directory('/home/.codex/hooks'),
+      );
+
+      /// The registrations [hooks] translate to, under their event.
       Map<String, Object?> events(List<HookAsset> hooks) {
-        final json = translator.hooks(
-          pluginAssets(hooks: hooks),
-          hooksRoot: fs.directory('/home/.codex/hooks'),
-        )!;
+        final json = translate(hooks).fragment!;
         return (jsonDecode(json) as Map<String, Object?>)['hooks']!
             as Map<String, Object?>;
       }
@@ -139,6 +138,16 @@ void main() {
 
           expect((registrations.single! as Map)['matcher'], matcher);
         }
+      });
+
+      test('hand Codex a matcher that is more than a list of names', () {
+        // Splitting a regex on | would break its alternation, and Codex reads
+        // the same regex, so it goes as written.
+        final registrations =
+            events([hookAsset(fs, matcher: r'^(Edit|Write)$')])['PostToolUse']!
+                as List<Object?>;
+
+        expect((registrations.single! as Map)['matcher'], r'^(Edit|Write)$');
       });
 
       test('leave a hook that matches no tool with no matcher', () {
@@ -189,10 +198,12 @@ void main() {
       });
 
       test('quote a copy root that holds a space', () {
-        final json = translator.hooks(
-          pluginAssets(hooks: [hookAsset(fs)]),
-          hooksRoot: fs.directory('/home/Jane Doe/.codex/hooks'),
-        )!;
+        final json = translator
+            .hooks(
+              pluginAssets(hooks: [hookAsset(fs)]),
+              hooksRoot: fs.directory('/home/Jane Doe/.codex/hooks'),
+            )
+            .fragment!;
 
         expect(
           json,
@@ -253,26 +264,31 @@ void main() {
         expect(registrations, hasLength(2));
       });
 
-      test('are null when the plugins ship none', () {
+      test('register nothing when the plugins ship none', () {
         expect(
-          translator.hooks(
-            pluginAssets(),
-            hooksRoot: fs.directory('/home/.codex/hooks'),
-          ),
+          translator
+              .hooks(pluginAssets(), hooksRoot: fs.directory('/home/.codex'))
+              .fragment,
           isNull,
         );
       });
     });
 
-    group('hookFiles', () {
+    group('files', () {
       late MemoryFileSystem fs;
 
       setUp(() => fs = MemoryFileSystem.test());
 
-      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
+      HookTranslation translate(List<HookAsset> hooks) => translator.hooks(
         pluginAssets(hooks: hooks),
         hooksRoot: fs.directory('/home/.codex/hooks'),
       );
+
+      List<PlannedChange> files(List<HookAsset> hooks) =>
+          translate(hooks).files;
+
+      List<TranslationNote> notes(List<HookAsset> hooks) =>
+          translate(hooks).notes;
 
       PlannedChange at(List<PlannedChange> changes, String suffix) =>
           changes.singleWhere((c) => c.file.path.endsWith(suffix));
@@ -284,6 +300,7 @@ void main() {
         final changes = files([hookAsset(fs)]);
 
         expect(changes.map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-claude-compat.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
@@ -323,19 +340,54 @@ void main() {
         final changes = files([hookAsset(fs), hook]);
 
         expect(changes.map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-claude-compat.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
           '/home/.codex/hooks/other/hooks/scripts/analyze.sh',
         ]);
       });
 
+      test('write the compat script the preambles source', () {
+        final compat = at(files([hookAsset(fs)]), 'vgv-claude-compat.sh');
+
+        expect(compat.contents, codexCompatScript);
+        expect(
+          files([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(type: 'prompt', command: 'say-hello'),
+              ],
+            ),
+          ]).map((c) => c.file.path),
+          isNot(contains('/home/.codex/hooks/vgv-claude-compat.sh')),
+        );
+      });
+
       test('put the preamble below the shebang of a script a hook runs', () {
         final script = at(files([hookAsset(fs)]), 'analyze.sh').contents;
-        final preamble = CodexTranslator.preamble
+        final preamble = codexPreamble
             .replaceAll('__ROOT__', '"/plugins/vgv-wingspan"')
-            .replaceAll('__AGENT__', '""');
+            .replaceAll('__AGENT__', '""')
+            .replaceAll(
+              '__COMPAT__',
+              '"/home/.codex/hooks/vgv-claude-compat.sh"',
+            );
 
         expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
+      });
+
+      test('keep a shebang with no newline after it a shebang', () {
+        final hook = hookAsset(fs);
+        hook.pluginRoot
+            .childDirectory('hooks')
+            .childDirectory('scripts')
+            .childFile('analyze.sh')
+            .writeAsStringSync('#!/bin/bash');
+
+        final script = at(files([hook]), 'analyze.sh').contents;
+
+        expect(script, startsWith('#!/bin/bash\n# Added by vgv_ai install'));
       });
 
       test('put the preamble in every script one command names', () {
@@ -383,7 +435,7 @@ void main() {
         final script = at(files([hook]), 'run.sh').contents;
 
         expect(script, startsWith('# Added by vgv_ai install'));
-        expect(script, endsWith('fi\necho run\n'));
+        expect(script, endsWith('vgv-claude-compat.sh"\necho run\n'));
       });
 
       test('quote a plugin root that holds a quote, a dollar or a space', () {
@@ -418,7 +470,7 @@ void main() {
           'analyze.sh',
         ).contents;
 
-        expect(script, contains('vgv_agent="flutter-reviewer"\n'));
+        expect(script, contains('VGV_AGENT="flutter-reviewer" . '));
       });
 
       test('leave a script hooks of two scopes name unscoped, and say so', () {
@@ -429,10 +481,10 @@ void main() {
 
         expect(
           at(files(hooks), 'analyze.sh').contents,
-          contains('vgv_agent=""\n'),
+          contains('VGV_AGENT="" . '),
         );
         expect(
-          translator.notes(pluginAssets(hooks: hooks)),
+          notes(hooks),
           contains(
             isA<TranslationNote>().having(
               (n) => n.reason,
@@ -474,7 +526,7 @@ void main() {
 
         expect(at(files([hook]), 'run.sh').contents, '#!/bin/sh\necho run\n');
         expect(
-          translator.notes(pluginAssets(hooks: [hook])),
+          notes([hook]),
           contains(
             isA<TranslationNote>()
                 .having(
@@ -497,7 +549,7 @@ void main() {
 
         expect(at(files([hook]), 'analyze.sh').bytes, [0x23, 0x21, 0xff, 0xfe]);
         expect(
-          translator.notes(pluginAssets(hooks: [hook])),
+          notes([hook]),
           contains(
             isA<TranslationNote>().having(
               (n) => n.reason,
@@ -533,14 +585,13 @@ void main() {
         const dangling = 'the symlink points at something that does not exist';
         const directory =
             'the symlink points at a directory, which is not copied';
-        final notes = translator.notes(pluginAssets(hooks: [hook]));
-
         expect(files([hook]).map((c) => c.file.path), [
+          '/home/.codex/hooks/vgv-claude-compat.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           '/home/.codex/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
         expect(
-          notes.map((n) => '${n.subject}: ${n.reason}'),
+          notes([hook]).map((n) => '${n.subject}: ${n.reason}'),
           containsAll([
             'vgv-wingspan/hooks/gone.sh: $dangling',
             'vgv-wingspan/hooks/dir.sh: $directory',
@@ -557,13 +608,47 @@ void main() {
           final hook = hookAsset(fs);
           hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
 
-          expect(files([hook]), isEmpty);
+          expect(files([hook]).map((c) => c.file.path), [
+            '/home/.codex/hooks/vgv-claude-compat.sh',
+          ]);
           expect(
-            translator.notes(pluginAssets(hooks: [hook])),
+            notes([hook]),
             contains(
               isA<TranslationNote>()
                   .having((n) => n.subject, 'subject', 'vgv-wingspan')
                   .having((n) => n.reason, 'reason', contains('has gone away')),
+            ),
+          );
+        },
+      );
+
+      test(
+        'leave out a plugin whose name is not a folder name, and say so',
+        () {
+          // The name came from the manifest unchecked, and becomes a folder
+          // under the hooks root; "../x" would escape it.
+          final hook = HookAsset(
+            event: 'Stop',
+            commands: const [
+              HookCommand(
+                type: 'command',
+                command: r'${PLUGIN_ROOT}/hooks/run.sh',
+              ),
+            ],
+            plugin: '../escape',
+            pluginRoot: hookAsset(fs).pluginRoot,
+          );
+
+          expect(files([hook]).map((c) => c.file.path), [
+            '/home/.codex/hooks/vgv-claude-compat.sh',
+          ]);
+          expect(translate([hook]).fragment, isNull);
+          expect(
+            notes([hook]),
+            contains(
+              isA<TranslationNote>()
+                  .having((n) => n.subject, 'subject', '../escape')
+                  .having((n) => n.reason, 'reason', contains('not safe')),
             ),
           );
         },
@@ -576,12 +661,23 @@ void main() {
       setUp(() => fs = MemoryFileSystem.test());
 
       test('ask for the trust that lets the rest run', () {
-        final notes = translator.notes(pluginAssets(hooks: [hookAsset(fs)]));
+        final translation = translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.codex/hooks'),
+        );
 
-        expect(notes.single.reason, contains('/hooks'));
+        expect(translation.notes.single.reason, contains('/hooks'));
       });
 
-      test('say nothing about hooks when there are none', () {
+      test('say nothing when there are no hooks', () {
+        final translation = translator.hooks(
+          pluginAssets(),
+          hooksRoot: fs.directory('/home/.codex/hooks'),
+        );
+
+        expect(translation.fragment, isNull);
+        expect(translation.files, isEmpty);
+        expect(translation.notes, isEmpty);
         expect(translator.notes(pluginAssets()), isEmpty);
       });
     });

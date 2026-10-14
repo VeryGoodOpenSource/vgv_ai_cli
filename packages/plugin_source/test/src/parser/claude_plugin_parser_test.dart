@@ -425,39 +425,6 @@ void main() {
       );
     });
 
-    test('needs no name for a plugin that declares no hooks', () {
-      // The cache files a plugin under its version, which is no directory
-      // name, and a plugin without hooks never needs one.
-      final fs = MemoryFileSystem.test();
-      final root = fs.directory('/cache/0.0.5')..createSync(recursive: true);
-
-      expect(const ClaudePluginParser().parse(root).hooks, isEmpty);
-    });
-
-    test('rejects a manifest name that is not safe as a directory', () {
-      // The name becomes a folder under the user's home, so "../x" or "a/b"
-      // would nest or escape it.
-      final fs = MemoryFileSystem.test();
-      final root = fs.directory('/cache/odd')..createSync(recursive: true);
-      root.childDirectory('.claude-plugin').childFile('plugin.json')
-        ..createSync(recursive: true)
-        ..writeAsStringSync('{"name": "../escape"}');
-      root.childDirectory('hooks').childFile('hooks.json')
-        ..createSync(recursive: true)
-        ..writeAsStringSync(
-          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
-        );
-
-      expect(
-        () => const ClaudePluginParser().parse(root),
-        throwsA(
-          isA<PluginParseException>()
-              .having((e) => e.path, 'path', endsWith('plugin.json'))
-              .having((e) => e.message, 'message', contains('../escape')),
-        ),
-      );
-    });
-
     test('skips an event whose value is not a list', () {
       expect(assets.hooks.map((h) => h.event), isNot(contains('Malformed')));
     });

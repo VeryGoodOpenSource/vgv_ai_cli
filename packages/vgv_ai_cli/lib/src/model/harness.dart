@@ -9,11 +9,24 @@ import 'package:path/path.dart' as p;
 ///
 /// 1. Add an entry here.
 /// 2. Write its `HarnessTranslator` and add it to `harnessTranslators`.
+///    Override `hooks()` when its config can run a shell command.
 /// 3. Add a boolean var named after it to `bricks/agents/brick.yaml`, and a
 ///    folder of the same name under `__brick__` holding the files it reads.
 /// 4. Regenerate the bundle with `tool/generate_agents_bundle.sh`.
 /// {@endtemplate}
-enum Harness {
+enum Harness({
+  /// A human readable name, for output.
+  ///
+  /// The enum's own [name] is the flag and reporting name, e.g. `opencode`,
+  /// and the folder the `agents` brick renders this harness into.
+  required final String displayName,
+
+  /// The binary looked for on the path.
+  required final String executable,
+
+  /// [configDirectory] relative to home, with `/` separators.
+  required final String _config,
+}) {
   /// Claude Code, which installs the VGV plugins from the marketplace.
   claude(displayName: 'Claude Code', executable: 'claude', config: '.claude'),
 
@@ -42,25 +55,6 @@ enum Harness {
     executable: 'agy',
     config: '.gemini/antigravity-cli',
   );
-
-  /// {@macro harness}
-  new({
-    required this.displayName,
-    required this.executable,
-    required this._config,
-  });
-
-  /// A human readable name, for output.
-  ///
-  /// The enum's own [name] is the flag and reporting name, e.g. `opencode`,
-  /// and the folder the `agents` brick renders this harness into.
-  final String displayName;
-
-  /// The binary looked for on the path.
-  final String executable;
-
-  /// [configDirectory] relative to home, with `/` separators.
-  final String _config;
 
   /// The directory this harness reads its user-level config from.
   Directory configDirectory(Directory home) => home.fileSystem.directory(

@@ -5,6 +5,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/copilot_compat.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/hook_scripts.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -19,8 +20,8 @@ class const CopilotTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.copilot;
 
-  @override
-  bool get runsHooks => true;
+  /// The file under the hooks root that holds [copilotCompatScript].
+  static const compatScript = 'vgv-claude-compat.sh';
 
   /// Copilot reads every `*.json` under `~/.copilot/hooks/` recursively as
   /// a hooks file, so the script copies live beside that folder.
@@ -56,7 +57,9 @@ class const CopilotTranslator() extends HarnessTranslator {
         }),
       );
 
-  /// The plugins' hooks, as `~/.copilot/hooks/vgv.json` spells them.
+  /// The plugins' hooks as `~/.copilot/hooks/vgv.json` spells them, with
+  /// Copilot's copy of each plugin's `hooks` folder under [hooksRoot] and
+  /// [copilotCompatScript] beside it.
   ///
   /// Under Claude Code's event names, Copilot applies Claude Code's matcher
   /// semantics and tool names, so both carry over. Each command is its own
@@ -65,13 +68,41 @@ class const CopilotTranslator() extends HarnessTranslator {
   ///
   /// See https://docs.github.com/en/copilot/reference/hooks-reference.
   @override
-  String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
+  HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
+    final runnable = _runnable(assets);
+    final compat = hooksRoot.childFile(compatScript);
+    final copy = scripts.copy(runnable, hooksRoot: hooksRoot, compat: compat);
+    return HookTranslation(
+      fragment: _fragment(runnable, hooksRoot: hooksRoot),
+      files: [
+        if (runnable.any(HookScripts.runsCommand))
+          PlannedChange.text(
+            file: compat,
+            contents: copilotCompatScript,
+            harness: harness,
+          ),
+        ...copy.files,
+      ],
+      notes: [
+        ...copy.notes,
+        ..._scopedNotes(assets),
+        ..._handlerNotes(runnable),
+      ],
+    );
+  }
+
+  /// The `vgv.json` fragment, or null when there is no command to run.
+  static String? _fragment(
+    List<HookAsset> hooks, {
+    required Directory hooksRoot,
+  }) {
     final events = <String, List<Object?>>{};
-    for (final hook in _runnable(assets)) {
+    for (final hook in hooks.where(HookScripts.safelyNamed)) {
       events
           .putIfAbsent(hook.event, () => [])
           .addAll(_entries(hook, hooksRoot: hooksRoot));
     }
+    events.removeWhere((_, entries) => entries.isEmpty);
     return events.isEmpty ? null : jsonEncode({'version': 1, 'hooks': events});
   }
 
@@ -89,25 +120,6 @@ class const CopilotTranslator() extends HarnessTranslator {
           'timeoutSec': ?command.timeout,
         },
   ];
-
-  /// Copilot's copy of the plugins' hook scripts, with [preamble] on top.
-  @override
-  List<PlannedChange> hookFiles(
-    PluginAssets assets, {
-    required Directory hooksRoot,
-  }) => _scripts.files(_runnable(assets), hooksRoot: hooksRoot);
-
-  /// What [hookFiles] could not copy as intended, and what [hooks] left out.
-  @override
-  List<TranslationNote> notes(PluginAssets assets) {
-    final runnable = _runnable(assets);
-    return [
-      ...super.notes(assets),
-      ..._scripts.notes(runnable),
-      ..._scopedNotes(assets),
-      ..._handlerNotes(runnable),
-    ];
-  }
 
   /// One note per hook an agent declared for itself.
   static List<TranslationNote> _scopedNotes(PluginAssets assets) => [
@@ -140,116 +152,12 @@ class const CopilotTranslator() extends HarnessTranslator {
     ];
   }
 
-  /// Bash inserted below the shebang of a copied script so one written for
-  /// Claude Code runs under Copilot.
-  ///
-  /// It sets `CLAUDE_PLUGIN_ROOT`, hands the script each edited file under
-  /// `tool_input.file_path` (Copilot names one as `tool_input.path`, or
-  /// sends a whole patch as `tool_input` and the script runs once per file
-  /// on disk), spells the answer as Copilot reads it (a flat permission
-  /// decision, `additionalContext` for a session-start message or an exit 2
-  /// after a tool, a denial for an exit 2 before one), and lets any other
-  /// failing exit through, as Claude Code does. Without jq only the exit is
-  /// answered. `__ROOT__` is replaced with the plugin root as one shell word.
-  static const preamble = r'''
-# Added by vgv_ai install so this script, written for Claude Code, runs under
-# Copilot. Edits here are overwritten on the next run.
-export CLAUDE_PLUGIN_ROOT=__ROOT__
-if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
-  vgv_payload=$(cat)
-  vgv_jq=0
-  vgv_runs=""
-  if command -v jq > /dev/null 2>&1; then
-    vgv_jq=1
-    # One payload per file: the file Copilot names under tool_input.path, or
-    # each file on disk that a patch sent as tool_input touches.
-    vgv_edits=$(printf '%s' "$vgv_payload" | jq -r '
-      select(.tool_input | type == "string")
-      | ((.cwd // ".") | rtrimstr("/")) as $cwd
-      | .tool_input
-      | scan("(?m)^\\*\\*\\* (Add File|Update File|Move to): (.+)$")
-      | (if .[0] == "Add File" then "Write" else "Edit" end)
-        + "\t" + (.[1] | if startswith("/") then . else $cwd + "/" + . end)
-    ' 2> /dev/null)
-    while IFS=$'\t' read -r vgv_tool vgv_file; do
-      [ -n "$vgv_file" ] && [ -f "$vgv_file" ] || continue
-      vgv_runs="$vgv_runs$(printf '%s' "$vgv_payload" \
-        | jq -c --arg tool "$vgv_tool" --arg file "$vgv_file" \
-          '.tool_name = $tool | .tool_input = {file_path: $file}')
-"
-    done <<< "$vgv_edits"
-    if [ -z "$vgv_runs" ]; then
-      vgv_runs=$(printf '%s' "$vgv_payload" | jq -c '
-        if (.tool_input | type) == "object"
-          and (.tool_input | has("path"))
-          and (.tool_input | has("file_path") | not)
-        then .tool_input.file_path = .tool_input.path else . end
-      ' 2> /dev/null)
-    fi
-  fi
-  [ -n "$vgv_runs" ] || vgv_runs=$vgv_payload
-  vgv_exit=0
-  vgv_output=""
-  vgv_stderr=""
-  vgv_errors=$(mktemp)
-  while IFS= read -r vgv_run; do
-    [ -n "$vgv_run" ] || continue
-    vgv_one=$(printf '%s' "$vgv_run" \
-      | VGV_CLAUDE_PAYLOAD=1 bash "$0" 2> "$vgv_errors")
-    vgv_code=$?
-    [ "$vgv_exit" -ne 0 ] || vgv_exit=$vgv_code
-    [ -n "$vgv_output" ] || vgv_output=$vgv_one
-    vgv_more=$(cat "$vgv_errors")
-    [ -z "$vgv_more" ] || vgv_stderr="${vgv_stderr:+$vgv_stderr
-}$vgv_more"
-  done <<< "$vgv_runs"
-  rm -f "$vgv_errors"
-  [ -z "$vgv_stderr" ] || printf '%s\n' "$vgv_stderr" >&2
-  if [ "$vgv_jq" -eq 1 ]; then
-    vgv_event=$(printf '%s' "$vgv_payload" \
-      | jq -r '.hook_event_name // ""' 2> /dev/null)
-    if [ -n "$vgv_output" ]; then
-      vgv_answer=$(printf '%s' "$vgv_output" | jq -c '
-        if (.hookSpecificOutput | type) == "object"
-          and (.hookSpecificOutput | has("permissionDecision"))
-        then .hookSpecificOutput
-          | {permissionDecision}
-            + (if has("permissionDecisionReason")
-               then {permissionDecisionReason} else {} end)
-        else . end
-      ' 2> /dev/null) && vgv_output=$vgv_answer
-      if [ -z "$vgv_answer" ] && [ "$vgv_event" = "SessionStart" ]; then
-        vgv_output=$(jq -cn --arg text "$vgv_output" \
-          '{additionalContext: $text}')
-      fi
-    elif [ "$vgv_exit" -eq 2 ] && [ -n "$vgv_stderr" ]; then
-      case "$vgv_event" in
-        PreToolUse)
-          vgv_output=$(jq -cn --arg text "$vgv_stderr" \
-            '{permissionDecision: "deny", permissionDecisionReason: $text}')
-          ;;
-        PostToolUse)
-          vgv_output=$(jq -cn --arg text "$vgv_stderr" \
-            '{additionalContext: $text}')
-          vgv_exit=0
-          ;;
-      esac
-    fi
-  fi
-  [ -z "$vgv_output" ] || printf '%s\n' "$vgv_output"
-  case "$vgv_exit" in
-    0 | 2) exit "$vgv_exit" ;;
-    *) exit 0 ;;
-  esac
-fi
-''';
+  @override
+  HookScripts get scripts =>
+      const HookScripts(harness: Harness.copilot, preamble: copilotPreamble);
 
-  static const _scripts = HookScripts(
-    harness: Harness.copilot,
-    preamble: preamble,
-  );
-
-  /// How Claude Code names an MCP tool: `mcp__<server>__<tool>`.
+  /// The prefix and separator of an MCP tool's name in a plugin's matcher,
+  /// `mcp__<server>__<tool>`.
   static const _mcpPrefix = 'mcp__';
   static const _mcpSeparator = '__';
 

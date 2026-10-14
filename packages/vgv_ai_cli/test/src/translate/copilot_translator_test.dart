@@ -72,10 +72,6 @@ void main() {
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
-    test('runs the hooks', () {
-      expect(translator.runsHooks, isTrue);
-    });
-
     test('keeps its copy of the scripts beside the hooks folder', () {
       final home = MemoryFileSystem.test().directory('/home/dev');
 
@@ -92,10 +88,12 @@ void main() {
 
       /// The whole file [hooks] translates to.
       Map<String, Object?> file(List<HookAsset> hooks) {
-        final json = translator.hooks(
-          pluginAssets(hooks: hooks),
-          hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
-        )!;
+        final json = translator
+            .hooks(
+              pluginAssets(hooks: hooks),
+              hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
+            )
+            .fragment!;
         return jsonDecode(json) as Map<String, Object?>;
       }
 
@@ -188,39 +186,46 @@ void main() {
         ];
 
         expect(
-          translator.hooks(
-            pluginAssets(hooks: hooks),
-            hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
-          ),
+          translator
+              .hooks(
+                pluginAssets(hooks: hooks),
+                hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
+              )
+              .fragment,
           isNull,
         );
       });
 
       test('are null when the plugins ship none', () {
         expect(
-          translator.hooks(
-            pluginAssets(),
-            hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
-          ),
+          translator
+              .hooks(
+                pluginAssets(),
+                hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
+              )
+              .fragment,
           isNull,
         );
       });
     });
 
-    group('hookFiles', () {
+    group('files', () {
       late MemoryFileSystem fs;
 
       setUp(() => fs = MemoryFileSystem.test());
 
-      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
-        pluginAssets(hooks: hooks),
-        hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
-      );
+      List<PlannedChange> files(List<HookAsset> hooks) => translator
+          .hooks(
+            pluginAssets(hooks: hooks),
+            hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'),
+          )
+          .files;
 
       test("copy the plugin's hooks folder under its name, registry aside", () {
         final changes = files([hookAsset(fs)]);
 
         expect(changes.map((c) => c.file.path), [
+          '/home/.copilot/vgv_ai/hooks/${CopilotTranslator.compatScript}',
           '/home/.copilot/vgv_ai/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           '/home/.copilot/vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
@@ -233,10 +238,13 @@ void main() {
           final script = files([hookAsset(fs)])
               .singleWhere((c) => path.basename(c.file.path) == 'analyze.sh')
               .contents;
-          final preamble = CopilotTranslator.preamble.replaceAll(
-            '__ROOT__',
-            '"/plugins/vgv-wingspan"',
-          );
+          final preamble = copilotPreamble
+              .replaceAll('__ROOT__', '"/plugins/vgv-wingspan"')
+              .replaceAll(
+                '__COMPAT__',
+                '"/home/.copilot/vgv_ai/hooks/'
+                    '${CopilotTranslator.compatScript}"',
+              );
 
           expect(script, '#!/bin/bash\n${preamble}source common.sh\necho hi\n');
         },
@@ -255,12 +263,16 @@ void main() {
 
       setUp(() => fs = MemoryFileSystem.test());
 
+      List<TranslationNote> notesOf(PluginAssets assets) => translator
+          .hooks(assets, hooksRoot: fs.directory('/home/.copilot/vgv_ai/hooks'))
+          .notes;
+
       test('say nothing about hooks Copilot runs as declared', () {
-        expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
+        expect(notesOf(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
       });
 
       test('say that a hook an agent declares for itself is left out', () {
-        final notes = translator.notes(
+        final notes = notesOf(
           pluginAssets(
             hooks: [
               hookAsset(
@@ -278,7 +290,7 @@ void main() {
       });
 
       test('say that a handler running no shell command is left out', () {
-        final notes = translator.notes(
+        final notes = notesOf(
           pluginAssets(
             hooks: [
               hookAsset(
@@ -294,7 +306,7 @@ void main() {
       });
 
       test('count the handlers left out per type', () {
-        final notes = translator.notes(
+        final notes = notesOf(
           pluginAssets(
             hooks: [
               hookAsset(
@@ -320,7 +332,7 @@ void main() {
         hook.pluginRoot.childDirectory('hooks').deleteSync(recursive: true);
 
         expect(
-          translator.notes(pluginAssets(hooks: [hook])).single.reason,
+          notesOf(pluginAssets(hooks: [hook])).single.reason,
           contains('has gone away'),
         );
       });

@@ -1,4 +1,3 @@
-import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
@@ -16,16 +15,16 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// The directory every harness is configured under.
-  required final Directory home,
+  /// Where the shared skills are written.
+  required final String skillsRoot,
+
+  /// The hooks fragment of each harness that has one.
+  final Map<Harness, String> hooks = const {},
 }) {
   /// The vars, keyed as the brick reads them.
   ///
-  /// `agents` and `commands` are the only top-level lists, and an empty one
-  /// is left out rather than passed through as `[]`. A brick file path loops
-  /// over a list to decide how many files to render, and an empty list still
-  /// renders one file, with nothing where its name should be: a stray `.md`
-  /// in the user's config directory.
+  /// `agents` and `commands` are left out when empty: the brick loops a file
+  /// path over each, and an empty list still renders one nameless file.
   Map<String, Object?> toMap() {
     final agents = [for (final agent in assets.agents) _agent(agent)];
     final commands = [
@@ -35,24 +34,13 @@ class const AgentsVars({
     return {
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
-      for (final translator in translators) ..._harnessVars(translator),
+      for (final translator in translators) ...{
+        '${translator.harness.name}_settings': ?translator.settings(assets),
+        '${translator.harness.name}_hooks': ?hooks[translator.harness],
+      },
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
       'index': _index(),
-    };
-  }
-
-  /// What [translator] spells for its harness: a settings fragment and, for
-  /// one that runs hooks, a hooks fragment, each left out when null.
-  Map<String, Object?> _harnessVars(HarnessTranslator translator) {
-    final name = translator.harness.name;
-    return {
-      '${name}_settings': ?translator.settings(assets),
-      if (translator.runsHooks)
-        '${name}_hooks': ?translator.hooks(
-          assets,
-          hooksRoot: translator.hooksRoot(home),
-        ),
     };
   }
 
@@ -69,10 +57,7 @@ class const AgentsVars({
   };
 
   Map<String, Object?> _agent(AgentAsset agent) {
-    final instructions = agentInstructions(
-      agent,
-      skillsRoot: agentsSkillsRoot(home).path,
-    );
+    final instructions = agentInstructions(agent, skillsRoot: skillsRoot);
     return {
       'name': agent.name,
       'instructions': instructions,

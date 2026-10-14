@@ -1,22 +1,31 @@
-/// What goes at the top of Antigravity's copy of a hook script, below its
-/// shebang, so a script written for Claude Code runs as written.
+/// Goes below the shebang of every script a hook runs, in Antigravity's
+/// copy of the plugin's hooks folder. `__ROOT__` and `__COMPAT__` are
+/// replaced with quoted shell words: the plugin root and the path of
+/// [antigravityCompatScript].
+const antigravityPreamble = '''
+# Added by vgv_ai install so this Claude Code hook script runs under
+# Antigravity CLI.
+export CLAUDE_PLUGIN_ROOT=__ROOT__
+. __COMPAT__
+''';
+
+/// The script [antigravityPreamble] sources, written once under the hooks
+/// root.
 ///
 /// Antigravity sends `toolCall.name` and `toolCall.args` under its own
-/// names, `workspacePaths` for the directory, and no event name; the
-/// preamble hands the script Claude Code's payload, with the event from
-/// `VGV_HOOK_EVENT`. Its answer is spelled as Antigravity reads it: a
-/// permission decision, or an exit 2 with its stderr, becomes the
-/// top-level `decision` before a tool; after a tool nothing is read, so
-/// `{}` is answered; a session-start line becomes `injectSteps`. Exit
-/// codes are undocumented, so the script's is not passed on. Without jq
-/// the payload and the output pass as they are.
-///
-/// `__ROOT__` is replaced with the plugin root as one shell word.
-const antigravityPreamble = r'''
-# Added by vgv_ai install so this script, written for Claude Code, runs under
-# Antigravity CLI. Edits here are overwritten on the next run.
-export CLAUDE_PLUGIN_ROOT=__ROOT__
-if [ -z "${VGV_CLAUDE_PAYLOAD:-}" ]; then
+/// names, `workspacePaths` for the directory, and no event name, so the
+/// script gets Claude Code's payload, with the event from `VGV_HOOK_EVENT`.
+/// Its answer is spelled as Antigravity reads it: a permission decision, or
+/// an exit 2 with its stderr, becomes the top-level `decision` before a
+/// tool; after a tool nothing is read, so `{}` is answered; a session-start
+/// line becomes `injectSteps`. Exit codes are undocumented, so the script's
+/// is not passed on. Without jq the payload and the output pass as they are.
+const antigravityCompatScript = r'''
+#!/bin/bash
+# Sourced at the top of each hook script vgv_ai copies for Antigravity, so a
+# script written for Claude Code runs under Antigravity CLI. Written by
+# vgv_ai install; edits here are overwritten on the next run.
+[ -z "${VGV_CLAUDE_PAYLOAD:-}" ] || return 0
 vgv_payload=$(cat)
 vgv_event=${VGV_HOOK_EVENT:-}
 vgv_jq=0
@@ -44,7 +53,7 @@ if command -v jq > /dev/null 2>&1; then
 fi
 vgv_errors=$(mktemp)
 vgv_output=$(printf '%s' "$vgv_payload" \
-  | VGV_CLAUDE_PAYLOAD=1 bash "$0" 2> "$vgv_errors")
+  | VGV_CLAUDE_PAYLOAD=1 bash "$0" "$@" 2> "$vgv_errors")
 vgv_exit=$?
 vgv_stderr=$(cat "$vgv_errors")
 rm -f "$vgv_errors"
@@ -80,5 +89,4 @@ if [ "$vgv_jq" -eq 1 ]; then
 fi
 [ -z "$vgv_output" ] || printf '%s\n' "$vgv_output"
 exit 0
-fi
 ''';

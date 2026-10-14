@@ -8,35 +8,38 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
 /// {@template hook_scripts}
-/// A harness's copy of each plugin's `hooks` folder, with the harness's own
-/// [preamble] at the top of every script a hook runs. `__ROOT__` in it is
-/// replaced with the plugin root and `__AGENT__` with the agent the hook is
-/// scoped to, or nothing, each as one shell word.
+/// A harness's copy of each plugin's `hooks` folder under the hooks root
+/// and the plugin's name, with the harness's [preamble] below the shebang
+/// of every script a hook runs. `__ROOT__`, `__AGENT__` and `__COMPAT__`
+/// in it are replaced with quoted shell words: the plugin root, the agent
+/// the hook is scoped to or an empty string, and the compat script's path.
 ///
-/// The whole folder comes along, because a script sources its neighbours.
-/// The plugin's `hooks.json` is left out, since the translator spells it.
+/// The whole folder comes, since scripts source their neighbours; the
+/// plugin's `hooks.json` does not, the translator spells it.
 /// {@endtemplate}
 class const HookScripts({
   /// The harness the copy is for.
   required final Harness harness,
 
-  /// What goes at the top of a copied script, below its shebang.
+  /// What goes below the shebang of a script a hook runs.
   required final String preamble,
 }) {
   /// The folder a Claude Code plugin keeps its hooks in.
   static const hooksFolder = 'hooks';
 
+  /// The handler type that runs a shell command; `mcp_tool` and `prompt`
+  /// name no script.
+  static const commandType = 'command';
+
   /// The plugin's own hook registry, relative to its root.
   static final String _registry = p.join(hooksFolder, 'hooks.json');
 
-  /// The handler type whose `command` is a shell command.
-  ///
-  /// Codex also takes an `mcp_tool` handler, and Claude a `prompt` one.
-  /// Neither runs a script, so neither names one to copy.
-  static const commandType = 'command';
+  /// What a plugin may be named, since its name becomes a folder under the
+  /// hooks root.
+  static final _namePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
-  /// A file under the plugin's hooks folder that a command names, relative
-  /// to the plugin root. Stops at a quote, so a quoted path is still found.
+  /// A file under the hooks folder a command names, relative to the plugin
+  /// root, quoted or not.
   static final _hooksFile = RegExp(
     '${RegExp.escape(HookCommand.rootPlaceholder)}/($hooksFolder/[^\\s"\']+)',
   );
@@ -47,17 +50,19 @@ class const HookScripts({
   /// A shebang that names bash.
   static final _bashShebang = RegExp(r'^#!.*\bbash\b');
 
+  /// Whether [hook]'s plugin name is safe as a folder name.
+  static bool safelyNamed(HookAsset hook) => _namePattern.hasMatch(hook.plugin);
+
+  /// Whether [hook] runs a shell command, which is what needs the preamble.
+  static bool runsCommand(HookAsset hook) =>
+      hook.commands.any((command) => command.type == commandType);
+
   /// Where the copy of [hook]'s plugin goes under [hooksRoot].
   static Directory copyRoot(HookAsset hook, Directory hooksRoot) =>
       hooksRoot.childDirectory(hook.plugin);
 
-  /// What [command] runs as, once its paths are real.
-  ///
-  /// A file under the plugin's hooks folder is read from the copy under
-  /// [hooksRoot], which is where the preamble is. Anything else the plugin
-  /// ships stays where it is, so the rest of the placeholder becomes the
-  /// plugin's own root. Both are quoted, because a plugin under the user's
-  /// home sits at a path that may hold a space.
+  /// [command] with the hooks folder pointing at the copy and the rest of
+  /// the plugin at itself, both quoted.
   static String command(
     HookCommand command,
     HookAsset hook, {
@@ -69,35 +74,40 @@ class const HookScripts({
       )
       .replaceAll(HookCommand.rootPlaceholder, quoted(hook.pluginRoot.path));
 
-  /// [value] as one double-quoted shell word, which concatenates cleanly
-  /// with the rest of a path whether or not the command quoted it.
+  /// [value] as one double-quoted shell word.
   static String quoted(String value) =>
       '"${value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}')}"';
 
-  /// The copy of every plugin [hooks] belong to, under [hooksRoot] and the
-  /// plugin's name.
-  ///
-  /// What could not be copied as intended is reported by [notes].
-  List<PlannedChange> files(
+  /// The copy of every plugin [hooks] belong to, [compat] being the script
+  /// the preamble sources, and a note for each file that could not be
+  /// copied as intended.
+  HookCopy copy(
     List<HookAsset> hooks, {
     required Directory hooksRoot,
-  }) => [
-    for (final file in _scan(hooks).files)
-      PlannedChange(
-        file: hooksRoot.fileSystem.file(
-          p.join(copyRoot(file.hook, hooksRoot).path, file.relative),
-        ),
-        bytes: file.bytes,
-        harness: harness,
-        source: file.source,
-      ),
-  ];
+    required File compat,
+  }) {
+    final files = <_HookFile>[];
+    final notes = <TranslationNote>[];
+    for (final plugin in hooks.groupListsBy((h) => h.plugin).values) {
+      _scanPlugin(plugin, files: files, notes: notes);
+    }
+    return HookCopy(
+      files: [
+        for (final file in files)
+          PlannedChange(
+            file: hooksRoot.fileSystem.file(
+              p.join(copyRoot(file.hook, hooksRoot).path, file.relative),
+            ),
+            bytes: file.bytes(compat),
+            harness: harness,
+            source: file.source,
+          ),
+      ],
+      notes: notes,
+    );
+  }
 
-  /// What [files] could not copy as intended.
-  List<TranslationNote> notes(List<HookAsset> hooks) => _scan(hooks).notes;
-
-  /// How the scripts under the hooks folder are used by [hooks], keyed by
-  /// their path relative to the plugin root.
+  /// How [hooks] use each script under the hooks folder, by relative path.
   static Map<String, _ScriptUse> _scriptUses(List<HookAsset> hooks) {
     final uses = <String, _ScriptUse>{};
     for (final hook in hooks) {
@@ -108,7 +118,7 @@ class const HookScripts({
     return uses;
   }
 
-  /// Records in [uses] each script [command] names, as [hook] uses it.
+  /// Records each script [command] names in [uses].
   static void _noteUses(
     Map<String, _ScriptUse> uses,
     HookAsset hook,
@@ -121,29 +131,27 @@ class const HookScripts({
     }
   }
 
-  /// Every file of every plugin's hooks folder, as the copy holds it, and a
-  /// note for each one that could not be copied as intended.
-  _HookScan _scan(List<HookAsset> hooks) {
-    final files = <_HookFile>[];
-    final notes = <TranslationNote>[];
-    for (final plugin in hooks.groupListsBy((h) => h.plugin).values) {
-      _scanPlugin(plugin, files: files, notes: notes);
-    }
-    return _HookScan(files: files, notes: notes);
-  }
-
-  /// Adds the files of one plugin's hooks folder to [files], [hooks] being
-  /// every hook of that plugin.
+  /// Adds one plugin's hooks folder to [files], [hooks] being all of its.
   void _scanPlugin(
     List<HookAsset> hooks, {
     required List<_HookFile> files,
     required List<TranslationNote> notes,
   }) {
     final hook = hooks.first;
-    final folder = hook.pluginRoot.childDirectory(hooksFolder);
+    if (!safelyNamed(hook)) {
+      notes.add(
+        TranslationNote(
+          subject: hook.plugin,
+          reason:
+              'its name is not safe as a folder name, so its hooks were not '
+              'installed',
+        ),
+      );
+      return;
+    }
 
-    // A cache cleared between resolution and translation. The hooks are
-    // still registered, so say why they will fail rather than throw.
+    final folder = hook.pluginRoot.childDirectory(hooksFolder);
+    // The cache was cleared since resolution; say so rather than throw.
     if (!folder.existsSync()) {
       notes.add(
         TranslationNote(
@@ -157,8 +165,7 @@ class const HookScripts({
     }
 
     final scripts = _scriptUses(hooks);
-    // followLinks is off so a symlinked directory is reported rather than
-    // walked, which a cycle would otherwise turn into a hang.
+    // followLinks off: a symlink cycle would otherwise hang the walk.
     final entities = folder.listSync(recursive: true, followLinks: false);
     for (final entity in entities.where((e) => e is! Directory)) {
       final relative = p.relative(entity.path, from: hook.pluginRoot.path);
@@ -175,8 +182,7 @@ class const HookScripts({
     }
   }
 
-  /// [entity] as the copy holds it, with the preamble when [use] says a hook
-  /// runs it, or null when it cannot be copied.
+  /// [entity] as the copy holds it, or null when it cannot be copied.
   _HookFile? _copyOf(
     FileSystemEntity entity,
     HookAsset hook, {
@@ -188,21 +194,15 @@ class const HookScripts({
     final source = _sourceFile(entity, subject, notes);
     if (source == null) return null;
 
-    final bytes = source.readAsBytesSync();
-    return _HookFile(
+    final file = _HookFile(
       hook: hook,
       source: source,
       relative: relative,
-      bytes: use == null
-          ? bytes
-          : _withPreamble(
-              bytes,
-              hook.pluginRoot,
-              subject: subject,
-              use: use,
-              notes: notes,
-            ),
+      preamble: preamble,
     );
+    return use == null
+        ? file
+        : _withPreamble(file, subject: subject, use: use, notes: notes);
   }
 
   /// Resolves [entity] to a readable file, or reports why it cannot be.
@@ -238,25 +238,17 @@ class const HookScripts({
     return null;
   }
 
-  /// [bytes] with the [preamble] inserted below the shebang line, scoped to
-  /// the one agent [use] says declared it, if one did.
-  ///
-  /// The preamble is bash, so it goes only into a script bash runs: one whose
-  /// shebang names bash, or one its command runs through bash. Any other
-  /// script, and one that is not UTF-8 text, is copied as it is and reported
-  /// in [notes], since the harness will then hand it its own payload. A
-  /// script named by hooks of more than one scope cannot be scoped to one
-  /// agent, so it runs for every agent and is reported too.
-  List<int> _withPreamble(
-    List<int> bytes,
-    Directory pluginRoot, {
+  /// [file] with the [preamble] below its shebang. A script bash does not
+  /// run, or that is not UTF-8, is copied as it is and reported in [notes].
+  _HookFile _withPreamble(
+    _HookFile file, {
     required String subject,
     required _ScriptUse use,
     required List<TranslationNote> notes,
   }) {
     final String script;
     try {
-      script = utf8.decode(bytes);
+      script = utf8.decode(file.source.readAsBytesSync());
     } on FormatException {
       notes.add(
         TranslationNote(
@@ -266,10 +258,9 @@ class const HookScripts({
               '${harness.displayName} hands it its own payload',
         ),
       );
-      return bytes;
+      return file;
     }
 
-    final shebang = script.startsWith('#!') ? script.indexOf('\n') + 1 : 0;
     if (!use.bashCommand && !_bashShebang.hasMatch(script)) {
       notes.add(
         TranslationNote(
@@ -279,7 +270,7 @@ class const HookScripts({
               '${harness.displayName} hands it its own payload',
         ),
       );
-      return bytes;
+      return file;
     }
 
     final String? agent;
@@ -297,39 +288,72 @@ class const HookScripts({
       );
     }
 
-    final body = preamble
-        .replaceAll('__ROOT__', quoted(pluginRoot.path))
-        .replaceAll('__AGENT__', quoted(agent ?? ''));
-    return utf8.encode(
-      '${script.substring(0, shebang)}$body${script.substring(shebang)}',
+    // A shebang-only script has no newline to split at.
+    final newline = script.indexOf('\n');
+    final shebang = !script.startsWith('#!')
+        ? 0
+        : newline < 0
+        ? script.length
+        : newline + 1;
+    final head = script.substring(0, shebang);
+    return _HookFile(
+      hook: file.hook,
+      source: file.source,
+      relative: file.relative,
+      preamble: preamble,
+      splice: _Splice(
+        head: head.isNotEmpty && !head.endsWith('\n') ? '$head\n' : head,
+        tail: script.substring(shebang),
+        agent: agent,
+      ),
     );
   }
 }
 
-/// One file of a plugin's hooks folder, as the copy will hold it.
-class const _HookFile({
-  /// A hook of the plugin the file belongs to, which names the copy's root.
-  required final HookAsset hook,
-
-  /// The file it is copied from, which carries the mode across.
-  required final File source,
-
-  /// Where it sits, relative to the plugin root.
-  required final String relative,
-
-  /// What the copy holds: the source, with the preamble when it is a script
-  /// a hook runs.
-  required final List<int> bytes,
-});
-
-/// What a pass over the plugins' hooks folders found.
-class const _HookScan({
-  required final List<_HookFile> files,
+/// {@template hook_copy}
+/// What [HookScripts.copy] produced: the files of the copy and a note for
+/// each that could not be copied as intended.
+/// {@endtemplate}
+class const HookCopy({
+  required final List<PlannedChange> files,
   required final List<TranslationNote> notes,
 });
 
-/// How the hooks use one script: whether a command runs it through bash, and
-/// the agent scopes of the hooks that name it, null being the plugin's own.
+/// One file of a plugin's hooks folder as the copy holds it; [hook] is any
+/// hook of the plugin, [relative] its path from the plugin root, and
+/// [splice] where [preamble] goes when a hook runs it.
+class const _HookFile({
+  required final HookAsset hook,
+  required final File source,
+  required final String relative,
+  required final String preamble,
+  final _Splice? splice,
+}) {
+  /// The copy's bytes, [compat] being the script the preamble sources.
+  List<int> bytes(File compat) => switch (splice) {
+    final splice? => utf8.encode(splice.render(preamble, hook, compat)),
+    _ => source.readAsBytesSync(),
+  };
+}
+
+/// Where a preamble goes in a script: between [head], the shebang or
+/// nothing, and [tail], the rest, scoped to [agent] when one is set.
+class const _Splice({
+  required final String head,
+  required final String tail,
+  required final String? agent,
+}) {
+  String render(String preamble, HookAsset hook, File compat) {
+    final body = preamble
+        .replaceAll('__ROOT__', HookScripts.quoted(hook.pluginRoot.path))
+        .replaceAll('__AGENT__', HookScripts.quoted(agent ?? ''))
+        .replaceAll('__COMPAT__', HookScripts.quoted(compat.path));
+    return '$head$body$tail';
+  }
+}
+
+/// How the hooks use one script: run through bash by a command, and the
+/// agent scopes of the hooks naming it, null being the plugin's own.
 class _ScriptUse {
   bool bashCommand = false;
   final Set<String?> agents = {};

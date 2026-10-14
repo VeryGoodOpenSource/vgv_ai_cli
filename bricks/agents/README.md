@@ -28,12 +28,13 @@ holds only the settings that point at it.
 
 Codex's `hooks.json` is rendered only when there are hooks Codex can run. Its
 commands point at the CLI's own copy of each plugin's `hooks/` folder under
-`~/.codex/hooks/<plugin>/`, which the CLI writes beside the brick's output
-with a preamble at the top of every script a hook runs, so a script written
-for Claude Code gets the payload Claude Code would have sent. Copilot's
-`hooks/vgv.json` is the same, written as its own file because Copilot reads
-every `*.json` under `~/.copilot/hooks/`, nested folders included, which is also
-why its scripts are copied to `~/.copilot/vgv_ai/hooks/<plugin>/` instead.
+`~/.codex/hooks/<plugin>/`, which the CLI writes beside the brick's output.
+Every script a hook runs starts by sourcing `~/.codex/hooks/vgv-claude-compat.sh`,
+so a script written for Claude Code gets the payload Claude Code would have sent.
+Copilot's `hooks/vgv.json` is the same, written as its own file because Copilot
+reads every `*.json` under `~/.copilot/hooks/`, nested folders included, which
+is also why its scripts and compat script are copied to
+`~/.copilot/vgv_ai/hooks/` instead.
 
 Antigravity's whole folder is one plugin, `plugins/vgv/`, which is how
 Antigravity bundles skills, agents, MCP servers, hooks and rules and loads

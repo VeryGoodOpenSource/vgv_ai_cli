@@ -13,10 +13,12 @@ void main() {
     Map<String, Object?> varsFor(
       List<HarnessTranslator> translators, {
       PluginAssets? assets,
+      Map<Harness, String> hooks = const {},
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      home: fs.directory('/home/dev'),
+      skillsRoot: '/home/dev/.agents/skills',
+      hooks: hooks,
     ).toMap();
 
     test('flags every harness, true only for those selected', () {
@@ -44,28 +46,14 @@ void main() {
       expect(vars, isNot(contains('codex_settings')));
     });
 
-    test('carries hooks only for selected harnesses that run some', () {
-      final vars = varsFor(const [
-        CodexTranslator(),
-        PiTranslator(),
-      ], assets: pluginAssets(hooks: [hookAsset(fs)]));
+    test('carries the hooks fragment of each harness given one', () {
+      final vars = varsFor(
+        const [CodexTranslator(), PiTranslator()],
+        hooks: {Harness.codex: '{"hooks": {}}'},
+      );
 
-      expect(vars, contains('codex_hooks'));
+      expect(vars['codex_hooks'], '{"hooks": {}}');
       expect(vars, isNot(contains('pi_hooks')));
-    });
-
-    test('leaves out hooks for a harness that declares it runs none', () {
-      final vars = varsFor(const [
-        DeclinedHooksTranslator(),
-      ], assets: pluginAssets(hooks: [hookAsset(fs)]));
-
-      expect(vars, isNot(contains('pi_hooks')));
-    });
-
-    test('leaves out hooks for a harness the plugins give none', () {
-      final vars = varsFor(const [CodexTranslator()]);
-
-      expect(vars, isNot(contains('codex_hooks')));
     });
 
     test('leaves out agents and commands when there are none', () {

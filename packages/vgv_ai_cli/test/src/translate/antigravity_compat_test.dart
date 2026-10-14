@@ -6,15 +6,16 @@ import 'package:file/local.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-/// Runs [antigravityPreamble] for real, through bash and jq, on
-/// top of a stub script that records every payload it is handed. Skipped
-/// where bash or jq is missing.
+/// Runs [antigravityPreamble] and [antigravityCompatScript] for real,
+/// through bash and jq, on top of a stub script that records every payload
+/// it is handed. Skipped where bash or jq is missing.
 void main() {
   final bash = Process.runSync('bash', ['-c', 'command -v jq']).exitCode == 0;
 
-  group('the Antigravity preamble', () {
+  group('the Antigravity compat script', () {
     late Directory temp;
     late Directory pluginRoot;
+    late File compat;
     late File script;
     late File log;
 
@@ -25,10 +26,11 @@ void main() {
       pluginRoot = temp.childDirectory("it's a plugin")..createSync();
       log = temp.childFile('log');
       script = temp.childFile('hook.sh');
-      final preamble = antigravityPreamble.replaceAll(
-        '__ROOT__',
-        '"${pluginRoot.path}"',
-      );
+      compat = temp.childFile(AntigravityTranslator.compatScript)
+        ..writeAsStringSync(antigravityCompatScript);
+      final preamble = antigravityPreamble
+          .replaceAll('__ROOT__', '"${pluginRoot.path}"')
+          .replaceAll('__COMPAT__', '"${compat.path}"');
       script.writeAsStringSync(
         '#!/bin/bash\n$preamble'
         // A stub plugin script: records the root and payload, answers and

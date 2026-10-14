@@ -22,8 +22,14 @@ void main() {
       expect(translator.harness, Harness.gemini);
     });
 
-    test('declares that it runs no hooks, which the notes read', () {
-      expect(translator.runsHooks, isFalse);
+    test('runs none of the hooks', () {
+      expect(
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.gemini/hooks'),
+        ),
+        isNull,
+      );
     });
 
     group('settings', () {
@@ -120,25 +126,13 @@ void main() {
       });
     });
 
-    group('notes', () {
-      test('report that nothing in its config runs a shell command, once', () {
-        final notes = translator.notes(
-          pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
-        );
-
-        expect(notes.single.subject, '2 hook(s)');
-        expect(
-          notes.single.reason,
-          contains("nothing in Gemini's config runs one"),
-        );
-      });
-
-      test('are empty when everything translates', () {
-        expect(
-          translator.notes(pluginAssets(agents: [agentAsset('reviewer')])),
-          isEmpty,
-        );
-      });
+    test('reports nothing itself', () {
+      expect(
+        translator.notes(
+          pluginAssets(hooks: [hookAsset(fs)], agents: [agentAsset('r')]),
+        ),
+        isEmpty,
+      );
     });
   });
 }

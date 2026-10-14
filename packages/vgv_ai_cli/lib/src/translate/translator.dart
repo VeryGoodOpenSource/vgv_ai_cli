@@ -47,7 +47,22 @@ class const Translator({
       for (final translator in translators)
         if (selected.contains(translator.harness)) translator,
     ];
-    final vars = AgentsVars(translators: chosen, assets: assets, home: home);
+    final hooks = {
+      for (final translator in chosen)
+        translator.harness: translator.hooks(
+          assets,
+          hooksRoot: translator.hooksRoot(home),
+        ),
+    };
+    final vars = AgentsVars(
+      translators: chosen,
+      assets: assets,
+      skillsRoot: agentsSkillsRoot(home).path,
+      hooks: {
+        for (final MapEntry(key: harness, value: translation) in hooks.entries)
+          harness: ?translation?.fragment,
+      },
+    );
     final rendered = await brick.render(vars.toMap());
     final changes = [
       for (final MapEntry(key: path, value: contents) in rendered.entries)
@@ -63,6 +78,7 @@ class const Translator({
           translator.harness: _result(
             translator,
             rendered: changes[translator.harness],
+            hooks: hooks[translator.harness],
             assets: assets,
             home: home,
           ),
@@ -70,12 +86,14 @@ class const Translator({
     );
   }
 
-  /// What [translator]'s harness gets: the files the brick [rendered] for
-  /// it, the files it needs beside its hooks, its own copy of the skills
-  /// when it keeps one, and its notes.
+  /// [translator]'s [rendered] files, the ones beside its [hooks], and its
+  /// own copy of the skills when it keeps one, with its notes. A harness
+  /// that runs no hooks is told so here, since every translator would
+  /// otherwise say it the same way.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,
+    required HookTranslation? hooks,
     required PluginAssets assets,
     required Directory home,
   }) {
@@ -88,16 +106,19 @@ class const Translator({
       _ => null,
     };
     return TranslationResult(
-      changes: [
-        ...?rendered,
-        if (translator.runsHooks)
-          ...translator.hookFiles(
-            assets,
-            hooksRoot: translator.hooksRoot(home),
+      changes: [...?rendered, ...?hooks?.files, ...?own?.changes],
+      notes: [
+        ...translator.notes(assets),
+        ...?hooks?.notes,
+        ...?own?.notes,
+        if (hooks == null && assets.hooks.isNotEmpty)
+          TranslationNote(
+            subject: '${assets.hooks.length} hook(s)',
+            reason:
+                'the plugins ship them as shell commands, and nothing in '
+                "${translator.harness.displayName}'s config runs one",
           ),
-        ...?own?.changes,
       ],
-      notes: [...translator.notes(assets), ...?own?.notes],
     );
   }
 }

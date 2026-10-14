@@ -39,9 +39,7 @@ class _RecordingParser implements PluginParser {
   }
 }
 
-class _ThrowingParser implements PluginParser {
-  const new();
-
+class const _ThrowingParser() implements PluginParser {
   @override
   PluginAssets parse(Directory root) =>
       throw const PluginParseException('/plugin/agents/a.md', 'bad name');
