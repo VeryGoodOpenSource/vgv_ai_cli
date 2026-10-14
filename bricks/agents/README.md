@@ -13,16 +13,22 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           |
-| -------- | --------------- | ----------- | --------------- | ------------------ |
-| claude   | `settings.json` |             |                 |                    |
-| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |
-| codex    | `config.toml`   | yes         | `agents/*.toml` |                    |
-| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |
-| pi       |                 | yes         |                 | `prompts/*.md`     |
+| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           | Hooks         |
+| -------- | --------------- | ----------- | --------------- | ------------------ | ------------- |
+| claude   | `settings.json` |             |                 |                    |               |
+| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |               |
+| codex    | `config.toml`   | yes         | `agents/*.toml` |                    | `hooks.json`  |
+| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |               |
+| pi       |                 | yes         |                 | `prompts/*.md`     |               |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
+
+Codex's `hooks.json` is rendered only when there are hooks Codex can run. Its
+commands point at the CLI's own copy of each plugin's `hooks/` folder under
+`~/.codex/hooks/<plugin>/`, which the CLI writes beside the brick's output.
+Every script a hook runs starts by sourcing `~/.codex/hooks/vgv-claude-compat.sh`,
+so a script written for Claude Code gets the payload Claude Code would have sent.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a

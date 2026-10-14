@@ -44,9 +44,16 @@ void main() {
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
-    test('reports nothing, since the plugins run here as written', () {
+    test('writes nothing for the hooks, which the plugin system runs', () {
       final fs = MemoryFileSystem.test();
 
+      expect(
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.claude/hooks'),
+        ),
+        const HookTranslation(),
+      );
       expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
     });
   });

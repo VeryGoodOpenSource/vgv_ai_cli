@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
@@ -34,8 +35,9 @@ class const ClaudeTranslator() extends HarnessTranslator {
     },
   });
 
-  /// Nothing: the plugins run here exactly as their authors wrote them,
-  /// hooks included.
+  /// Nothing to write: the plugin system runs the hooks as their authors
+  /// wrote them.
   @override
-  List<TranslationNote> notes(PluginAssets assets) => const [];
+  HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) =>
+      const HookTranslation();
 }

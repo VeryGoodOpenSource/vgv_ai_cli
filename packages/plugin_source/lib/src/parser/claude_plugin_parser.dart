@@ -14,12 +14,33 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   @override
-  PluginAssets parse(Directory root) => PluginAssets(
-    skills: _readSkills(root.childDirectory('skills')),
-    agents: _readAgents(root.childDirectory('agents')),
-    mcpServers: _readMcpServers(root.childFile('.mcp.json')),
-    hooks: _readHooks(root.childDirectory('hooks')),
-  );
+  PluginAssets parse(Directory root) {
+    final agents = _readAgents(root.childDirectory('agents'));
+    final events = _readHookEvents(root);
+    final scoped = [
+      for (final agent in agents)
+        if (agent.hooks != null) agent,
+    ];
+    // Only a hook needs the name, so a hookless plugin needs no manifest.
+    final plugin = events == null && scoped.isEmpty ? null : _pluginName(root);
+    return PluginAssets(
+      skills: _readSkills(root.childDirectory('skills')),
+      agents: [for (final agent in agents) agent.asset],
+      mcpServers: _readMcpServers(root.childFile('.mcp.json')),
+      hooks: [
+        if (events != null)
+          ..._readRegistrations(events, plugin: plugin!, root: root),
+        // Hooks an agent declares for itself, in the shape of hooks.json.
+        for (final agent in scoped)
+          ..._readRegistrations(
+            agent.hooks!,
+            plugin: plugin!,
+            root: root,
+            agent: agent.asset.name,
+          ),
+      ],
+    );
+  }
 
   /// Whether a skill with this [frontmatter] should be emitted as a command.
   ///
@@ -91,8 +112,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's own name for the plugin root inside a hook command. Rewritten to
-  /// the neutral [HookCommand.pluginRoot] so translators never see it.
+  /// Claude's name for the plugin root in a hook command, rewritten to
+  /// [HookCommand.rootPlaceholder]. A script's own use of the variable at
+  /// run time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
   /// [name], once it is known to be safe as a file name.
@@ -140,10 +162,10 @@ class const ClaudePluginParser() implements PluginParser {
     return skills;
   }
 
-  List<AgentAsset> _readAgents(Directory agentsDir) {
+  List<_AgentFile> _readAgents(Directory agentsDir) {
     if (!agentsDir.existsSync()) return const [];
 
-    final agents = <AgentAsset>[];
+    final agents = <_AgentFile>[];
     // Wingspan nests agents under a category directory and the Flutter plugin
     // does not, so recurse and flatten. followLinks is off so a cycle cannot
     // hang the walk; there are no symlinks under agents/ in either plugin.
@@ -156,53 +178,87 @@ class const ClaudePluginParser() implements PluginParser {
         path: file.path,
       );
       agents.add(
-        AgentAsset(
-          name: _validName(
-            frontmatter.name ?? p.basenameWithoutExtension(file.path),
-            path: file.path,
+        _AgentFile(
+          asset: AgentAsset(
+            name: _validName(
+              frontmatter.name ?? p.basenameWithoutExtension(file.path),
+              path: file.path,
+            ),
+            description: frontmatter.description,
+            body: frontmatter.body,
+            skills: frontmatter.skills,
           ),
-          description: frontmatter.description,
-          body: frontmatter.body,
-          skills: frontmatter.skills,
+          hooks: frontmatter.config.child('hooks'),
         ),
       );
     }
-    agents.sort((a, b) => a.name.compareTo(b.name));
+    agents.sort((a, b) => a.asset.name.compareTo(b.asset.name));
     return agents;
   }
 
-  /// Reads `hooks/hooks.json`, whose shape is an event map of registrations:
-  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`.
-  ///
-  /// Every level is tolerated as absent or the wrong type rather than assumed,
-  /// because a plugin may ship no hooks at all.
-  List<HookAsset> _readHooks(Directory hooksDir) {
-    final file = hooksDir.childFile('hooks.json');
-    if (!file.existsSync()) return const [];
+  /// The event map of `hooks/hooks.json` under [root], shaped
+  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
+  /// or null when the plugin ships none.
+  ConfigMap? _readHookEvents(Directory root) {
+    final file = root.childDirectory('hooks').childFile('hooks.json');
+    if (!file.existsSync()) return null;
 
-    final events = _readJsonObject(file).child('hooks');
-    if (events == null) return const [];
+    return _readJsonObject(file).child('hooks');
+  }
 
-    final assets = <HookAsset>[];
-    for (final event in events.entries) {
-      for (final registration in ConfigMap.maps(event.value)) {
-        final commands = _readHookCommands(registration['hooks']);
-        if (commands.isEmpty) continue;
+  /// The hooks under [events], an event map of registrations, declared by
+  /// [plugin] at [root] and scoped to [agent] when one declared them.
+  List<HookAsset> _readRegistrations(
+    ConfigMap events, {
+    required String plugin,
+    required Directory root,
+    String? agent,
+  }) => [
+    for (final event in events.entries)
+      for (final registration in ConfigMap.maps(event.value))
+        ?_readRegistration(
+          event.key,
+          registration,
+          plugin: plugin,
+          root: root,
+          agent: agent,
+        ),
+  ];
 
-        // A matcher that is not a string is meaningless; drop it rather than
-        // stringify it, matching the tolerant shape the plugins are written in.
-        final matcher = registration['matcher'];
-        assets.add(
-          HookAsset(
-            event: event.key,
-            matcher: matcher is String ? matcher : null,
-            commands: commands,
-            directory: hooksDir,
-          ),
-        );
-      }
-    }
-    return assets;
+  /// One registration under [event], or null when it runs nothing.
+  HookAsset? _readRegistration(
+    String event,
+    ConfigMap registration, {
+    required String plugin,
+    required Directory root,
+    required String? agent,
+  }) {
+    final commands = _readHookCommands(registration['hooks']);
+    if (commands.isEmpty) return null;
+
+    // A matcher that is not a string is meaningless; drop it rather than
+    // stringify it, matching the tolerant shape the plugins are written in.
+    final matcher = registration['matcher'];
+    return HookAsset(
+      event: event,
+      matcher: matcher is String ? matcher : null,
+      commands: commands,
+      plugin: plugin,
+      pluginRoot: root,
+      agent: agent,
+    );
+  }
+
+  /// The manifest's name, or the directory's without one. The cache names a
+  /// directory after the version, so the manifest is what says vgv-wingspan.
+  String _pluginName(Directory root) {
+    final manifest = root
+        .childDirectory('.claude-plugin')
+        .childFile('plugin.json');
+    final declared = manifest.existsSync()
+        ? _readJsonObject(manifest).string('name')
+        : null;
+    return declared ?? p.basename(root.path);
   }
 
   List<HookCommand> _readHookCommands(Object? raw) {
@@ -216,7 +272,7 @@ class const ClaudePluginParser() implements PluginParser {
           type: entry.string('type') ?? 'command',
           command: command.replaceAll(
             _claudePluginRoot,
-            HookCommand.pluginRoot,
+            HookCommand.rootPlaceholder,
           ),
           timeout: entry.integer('timeout'),
         ),
@@ -275,3 +331,9 @@ class const ClaudePluginParser() implements PluginParser {
   ConfigMap _readJsonObject(File file) =>
       ConfigMap.parseJson(file.readAsStringSync(), path: file.path);
 }
+
+/// An agent file: the asset, and the hooks its frontmatter declares for it.
+class const _AgentFile({
+  required final AgentAsset asset,
+  final ConfigMap? hooks,
+});

@@ -1,3 +1,4 @@
+import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
@@ -5,11 +6,13 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// {@template harness_translator}
 /// How one harness spells what the plugins contribute.
 ///
-/// A translator changes spelling, never semantics. It supplies what the
-/// `agents` brick cannot produce itself, the settings fragment and any
-/// frontmatter or TOML, and the brick decides which files exist. A feature the
-/// harness lacks has no folder in the brick, so there is nothing here to
-/// imitate it with.
+/// The plugins are written for Claude Code and stay that way: every
+/// difference another harness has is answered here, config files and hook
+/// payloads alike.
+///
+/// A translator supplies what the `agents` brick cannot produce itself, and
+/// the brick decides which files exist. A feature the harness lacks has no
+/// folder in the brick.
 ///
 /// One implementation per harness, and none depends on another translator.
 /// See `Harness` for every step of adding a harness.
@@ -36,18 +39,14 @@ abstract class const HarnessTranslator() {
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
-  /// Everything in [assets] this harness cannot express.
-  ///
-  /// The plugins' hook scripts read Claude Code's payload, which no other
-  /// harness sends, so a hook wired in elsewhere would run and do nothing.
-  /// They are left out until the scripts are harness-aware.
-  List<TranslationNote> notes(PluginAssets assets) => [
-    if (assets.hooks.isNotEmpty)
-      TranslationNote(
-        subject: '${assets.hooks.length} hook(s)',
-        reason:
-            'the plugin hook scripts only understand Claude Code, so '
-            '${harness.displayName} gets none for now',
-      ),
-  ];
+  /// The plugins' hooks as this harness runs them, with the files beside
+  /// the fragment under [hooksRoot], or null for a harness whose config
+  /// cannot run a shell command: OpenCode's hooks are TypeScript callbacks,
+  /// not commands in a file.
+  HookTranslation? hooks(PluginAssets assets, {required Directory hooksRoot}) =>
+      null;
+
+  /// What the user needs to know about [assets] for this harness, beyond
+  /// what [hooks] reports.
+  List<TranslationNote> notes(PluginAssets assets) => const [];
 }

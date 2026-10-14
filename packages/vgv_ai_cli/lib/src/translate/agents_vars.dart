@@ -17,12 +17,14 @@ class const AgentsVars({
 
   /// Where the shared skills are written.
   required final String skillsRoot,
+
+  /// The hooks fragment of each harness that has one.
+  final Map<Harness, String> hooks = const {},
 }) {
   /// The vars, keyed as the brick reads them.
   ///
-  /// `agents` and `commands` are the only top-level lists, and each is left
-  /// out when empty. Mason renders a path loop once for every combination of
-  /// every top-level list, and renders an empty one as a file with no name.
+  /// `agents` and `commands` are left out when empty: the brick loops a file
+  /// path over each, and an empty list still renders one nameless file.
   Map<String, Object?> toMap() {
     final agents = [for (final agent in assets.agents) _agent(agent)];
     final commands = [
@@ -32,24 +34,27 @@ class const AgentsVars({
     return {
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
-      for (final translator in translators)
+      for (final translator in translators) ...{
         '${translator.harness.name}_settings': ?translator.settings(assets),
+        '${translator.harness.name}_hooks': ?hooks[translator.harness],
+      },
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
-      'index': {
-        'has_skills': assets.skills.isNotEmpty,
-        'skills': [
-          for (final skill in assets.skills)
-            _entry(skill.name, skill.description),
-        ],
-        'has_agents': assets.agents.isNotEmpty,
-        'agents': [
-          for (final agent in assets.agents)
-            _entry(agent.name, agent.description),
-        ],
-      },
+      'index': _index(),
     };
   }
+
+  /// What `AGENTS.md` lists.
+  Map<String, Object?> _index() => {
+    'has_skills': assets.skills.isNotEmpty,
+    'skills': [
+      for (final skill in assets.skills) _entry(skill.name, skill.description),
+    ],
+    'has_agents': assets.agents.isNotEmpty,
+    'agents': [
+      for (final agent in assets.agents) _entry(agent.name, agent.description),
+    ],
+  };
 
   Map<String, Object?> _agent(AgentAsset agent) {
     final instructions = agentInstructions(agent, skillsRoot: skillsRoot);

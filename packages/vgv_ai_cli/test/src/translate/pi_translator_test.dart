@@ -28,12 +28,15 @@ void main() {
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
-    test('reports that hooks are Claude-only', () {
+    test('runs none of the hooks, as the default', () {
       final fs = MemoryFileSystem.test();
 
       expect(
-        translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains('Pi gets none for now'),
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.pi/hooks'),
+        ),
+        isNull,
       );
     });
 

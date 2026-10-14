@@ -350,7 +350,7 @@ void main() {
       // Claude's spelling of it.
       expect(
         hookFor('SessionStart').commands.single.command,
-        'bash ${HookCommand.pluginRoot}/hooks/scripts/warn.sh',
+        'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
       );
     });
 
@@ -370,12 +370,58 @@ void main() {
       expect(hookFor('PostToolUse').commands.last.timeout, isNull);
     });
 
-    test('carries the hooks directory so scripts can be copied', () {
-      final directory = hookFor('SessionStart').directory;
+    test('carries the plugin root the placeholder stands for', () {
+      // HookCommand.rootPlaceholder is spelled relative to the plugin root, not
+      // the hooks directory, so this is what a translator substitutes.
+      final root = hookFor('SessionStart').pluginRoot;
 
       expect(
-        directory.childDirectory('scripts').childFile('warn.sh').existsSync(),
+        root
+            .childDirectory('hooks')
+            .childDirectory('scripts')
+            .childFile('warn.sh')
+            .existsSync(),
         isTrue,
+      );
+    });
+
+    test("reads an agent's own hooks, scoped to the agent", () {
+      // flutter-reviewer declares a PreToolUse hook in its frontmatter, the
+      // same shape as hooks.json, which fires only while it runs.
+      final scoped = assets.hooks.where((h) => h.agent != null);
+
+      expect(scoped.map((h) => h.agent), ['flutter-reviewer']);
+      expect(scoped.single.event, 'PreToolUse');
+      expect(scoped.single.matcher, 'Bash');
+      expect(
+        scoped.single.commands.single.command,
+        'bash allow-readonly-git.sh',
+      );
+      expect(scoped.single.plugin, 'fixture-plugin');
+    });
+
+    test('leaves a hook the plugin declares unscoped', () {
+      expect(hookFor('SessionStart').agent, isNull);
+    });
+
+    test('names the plugin from its manifest', () {
+      // The cache files a plugin under its version, so the directory name
+      // would say 0.0.5 where a translator needs vgv-wingspan.
+      expect(hookFor('SessionStart').plugin, 'fixture-plugin');
+    });
+
+    test('names a plugin without a manifest after its directory', () {
+      final fs = MemoryFileSystem.test();
+      final root = fs.directory('/cache/bare')..createSync(recursive: true);
+      root.childDirectory('hooks').childFile('hooks.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
+        );
+
+      expect(
+        const ClaudePluginParser().parse(root).hooks.single.plugin,
+        'bare',
       );
     });
 

@@ -13,10 +13,12 @@ void main() {
     Map<String, Object?> varsFor(
       List<HarnessTranslator> translators, {
       PluginAssets? assets,
+      Map<Harness, String> hooks = const {},
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      skillsRoot: '/skills',
+      skillsRoot: '/home/dev/.agents/skills',
+      hooks: hooks,
     ).toMap();
 
     test('flags every harness, true only for those selected', () {
@@ -40,6 +42,16 @@ void main() {
       expect(vars, contains('gemini_settings'));
       expect(vars, isNot(contains('pi_settings')));
       expect(vars, isNot(contains('codex_settings')));
+    });
+
+    test('carries the hooks fragment of each harness given one', () {
+      final vars = varsFor(
+        const [CodexTranslator(), PiTranslator()],
+        hooks: {Harness.codex: '{"hooks": {}}'},
+      );
+
+      expect(vars['codex_hooks'], '{"hooks": {}}');
+      expect(vars, isNot(contains('pi_hooks')));
     });
 
     test('leaves out agents and commands when there are none', () {
@@ -66,7 +78,7 @@ void main() {
       final agent = (vars['agents']! as List).single as Map<String, Object?>;
 
       expect(agent['name'], 'review');
-      expect(agent['instructions'], contains('`/skills`'));
+      expect(agent['instructions'], contains('`/home/dev/.agents/skills`'));
       expect(agent['opencode'], contains('frontmatter'));
       expect(agent['pi'], isEmpty);
     });

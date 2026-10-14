@@ -22,6 +22,16 @@ void main() {
       expect(translator.harness, Harness.gemini);
     });
 
+    test('runs none of the hooks', () {
+      expect(
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.gemini/hooks'),
+        ),
+        isNull,
+      );
+    });
+
     group('settings', () {
       test('declares each MCP server by name', () {
         final settings = jsonDecode(
@@ -116,22 +126,13 @@ void main() {
       });
     });
 
-    group('notes', () {
-      test('report that hooks are Claude-only, once', () {
-        final notes = translator.notes(
-          pluginAssets(hooks: [hookAsset(fs), hookAsset(fs)]),
-        );
-
-        expect(notes.single.subject, '2 hook(s)');
-        expect(notes.single.reason, contains('Gemini gets none for now'));
-      });
-
-      test('are empty when everything translates', () {
-        expect(
-          translator.notes(pluginAssets(agents: [agentAsset('reviewer')])),
-          isEmpty,
-        );
-      });
+    test('reports nothing itself', () {
+      expect(
+        translator.notes(
+          pluginAssets(hooks: [hookAsset(fs)], agents: [agentAsset('r')]),
+        ),
+        isEmpty,
+      );
     });
   });
 }

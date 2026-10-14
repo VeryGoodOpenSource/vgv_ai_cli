@@ -16,6 +16,18 @@ void main() {
       expect(translator.harness, Harness.opencode);
     });
 
+    test('runs none of the hooks', () {
+      final fs = MemoryFileSystem.test();
+
+      expect(
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.config/opencode/hooks'),
+        ),
+        isNull,
+      );
+    });
+
     test('types each MCP server and folds its args into the command', () {
       final settings = jsonDecode(
         translator.settings(
@@ -83,13 +95,10 @@ void main() {
       });
     });
 
-    test('reports that hooks are Claude-only', () {
+    test('reports nothing itself', () {
       final fs = MemoryFileSystem.test();
 
-      expect(
-        translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains('OpenCode gets none for now'),
-      );
+      expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
     });
   });
 }

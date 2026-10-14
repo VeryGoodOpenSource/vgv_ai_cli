@@ -9,6 +9,7 @@ library;
 export 'agents_brick.dart';
 export 'agents_vars.dart';
 export 'claude_translator.dart';
+export 'codex_compat.dart';
 export 'codex_translator.dart';
 export 'format/format.dart';
 export 'gemini_translator.dart';

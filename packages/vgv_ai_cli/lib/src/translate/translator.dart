@@ -43,10 +43,21 @@ class const Translator({
       for (final translator in translators)
         if (selected.contains(translator.harness)) translator,
     ];
+    final hooks = {
+      for (final translator in chosen)
+        translator.harness: translator.hooks(
+          assets,
+          hooksRoot: harnessHooksRoot(translator.harness, home: home),
+        ),
+    };
     final vars = AgentsVars(
       translators: chosen,
       assets: assets,
       skillsRoot: agentsSkillsRoot(home).path,
+      hooks: {
+        for (final MapEntry(key: harness, value: translation) in hooks.entries)
+          harness: ?translation?.fragment,
+      },
     );
     final rendered = await brick.render(vars.toMap());
     final changes = [
@@ -60,11 +71,36 @@ class const Translator({
           : null,
       harnesses: {
         for (final translator in chosen)
-          translator.harness: TranslationResult(
-            changes: changes[translator.harness] ?? const [],
-            notes: translator.notes(assets),
+          translator.harness: _result(
+            translator,
+            rendered: changes[translator.harness],
+            hooks: hooks[translator.harness],
+            assets: assets,
           ),
       },
     );
   }
+
+  /// [translator]'s [rendered] files and the ones beside its [hooks], with
+  /// its notes. A harness that runs no hooks is told so here, since every
+  /// translator would otherwise say it the same way.
+  TranslationResult _result(
+    HarnessTranslator translator, {
+    required List<PlannedChange>? rendered,
+    required HookTranslation? hooks,
+    required PluginAssets assets,
+  }) => TranslationResult(
+    changes: [...?rendered, ...?hooks?.files],
+    notes: [
+      ...translator.notes(assets),
+      ...?hooks?.notes,
+      if (hooks == null && assets.hooks.isNotEmpty)
+        TranslationNote(
+          subject: '${assets.hooks.length} hook(s)',
+          reason:
+              'the plugins ship them as shell commands, and nothing in '
+              "${translator.harness.displayName}'s config runs one",
+        ),
+    ],
+  );
 }

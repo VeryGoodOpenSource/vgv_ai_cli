@@ -1,3 +1,9 @@
+# 0.4.0+1
+
+- feat: render `codex/hooks.json`, so the plugins' hooks reach Codex. It is
+  rendered only when the CLI supplies hooks for Codex to run; the scripts it
+  points at are copied by the CLI, not the brick.
+
 # 0.3.0+1
 
 - fix: drop `codex/prompts/`. Codex removed custom prompts in 0.117.0, so the

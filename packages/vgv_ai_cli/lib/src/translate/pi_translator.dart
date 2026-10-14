@@ -17,7 +17,6 @@ class const PiTranslator() extends HarnessTranslator {
 
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
-    ...super.notes(assets),
     if (assets.agents.isNotEmpty)
       TranslationNote(
         subject: '${assets.agents.length} agent(s)',
