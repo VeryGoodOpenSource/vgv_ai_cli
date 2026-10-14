@@ -60,6 +60,34 @@ void main() {
     });
   });
 
+  group('decode, for a field with several allowed shapes,', () {
+    final skills = Ack.object({
+      'skills': Ack.anyOf([Ack.list(Ack.string()), Ack.string()]),
+    });
+
+    test('names every shape when the value matches none of them', () {
+      expect(
+        () => skills.decode({'skills': 2}, path: 'a.md'),
+        _throwsParseException(
+          'a.md',
+          '#/skills: Expected array or string, got integer',
+        ),
+      );
+    });
+
+    test('describes the shape the value has, where it goes wrong', () {
+      expect(
+        () => skills.decode({
+          'skills': ['a', 2],
+        }, path: 'a.md'),
+        _throwsParseException(
+          'a.md',
+          '#/skills/1: Expected string, got integer',
+        ),
+      );
+    });
+  });
+
   group('decodeJson', () {
     test('decodes JSON text against the schema', () {
       final value = Ack.object({'name': Ack.string()})

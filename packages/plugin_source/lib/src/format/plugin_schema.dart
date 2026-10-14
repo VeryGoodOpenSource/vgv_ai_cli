@@ -35,7 +35,18 @@ extension PluginSchema<T extends Object> on AckSchema<Object, T> {
   /// The first leaf beneath [error]'s nesting, as `<pointer>: <message>`.
   ///
   /// A nested error's own message only says that something beneath it failed.
+  /// A value that fits none of an `anyOf`'s shapes names them all. One that
+  /// has the type of a shape but fails inside it is described by that shape.
   static String _describe(SchemaError error) => switch (error) {
+    SchemaNestedError(schema: AnyOfSchema(), :final errors) => switch (errors
+        .whereType<TypeMismatchError>()
+        .toList()) {
+      final mismatches when mismatches.length == errors.length =>
+        '${error.path}: Expected '
+            '${mismatches.map((e) => e.expectedType).join(' or ')}, '
+            'got ${mismatches.first.actualType}',
+      _ => _describe(errors.firstWhere((e) => e is! TypeMismatchError)),
+    },
     SchemaNestedError(errors: [final first, ...]) => _describe(first),
     _ => '${error.path}: ${error.message}',
   };
