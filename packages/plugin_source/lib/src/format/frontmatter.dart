@@ -52,14 +52,7 @@ class const Frontmatter({
       );
     }
 
-    // YAML admits non-string keys, such as an unquoted `2:`, which the schema
-    // would reject with a message that does not name the key.
-    for (final key in document.keys) {
-      if (key is! String) {
-        throw PluginParseException(path, 'key $key must be a string');
-      }
-    }
-
+    _checkKeys(document, pointer: '#', path: path);
     return Frontmatter(
       values: schema.decode(_plain.decode(document, path: path), path: path),
       body: lines.skip(end + 1).join('\n').trimLeft(),
@@ -77,6 +70,34 @@ class const Frontmatter({
   /// Normalizes YAML collections into plain Dart ones, which a passthrough
   /// object schema alone leaves as `YamlMap` and `YamlList`.
   static final MapSchema<Object, Object> _plain = Ack.map(Ack.any().nullable());
+
+  /// Throws, naming the first key under [value] that is not a string, at any
+  /// depth.
+  ///
+  /// YAML admits non-string keys, such as an unquoted `2:`, which the schema
+  /// would reject with a message that does not name the key.
+  static void _checkKeys(
+    Object? value, {
+    required String pointer,
+    required String path,
+  }) {
+    switch (value) {
+      case final Map<Object?, Object?> map:
+        for (final MapEntry(:key, value: child) in map.entries) {
+          if (key is! String) {
+            throw PluginParseException(
+              path,
+              '$pointer: key $key must be a string',
+            );
+          }
+          _checkKeys(child, pointer: '$pointer/$key', path: path);
+        }
+      case final List<Object?> items:
+        for (final (index, item) in items.indexed) {
+          _checkKeys(item, pointer: '$pointer/$index', path: path);
+        }
+    }
+  }
 
   /// The declared `name`, or `null` when absent.
   String? get name => values['name'] as String?;

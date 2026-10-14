@@ -107,7 +107,21 @@ void main() {
       // naming the key.
       expect(
         () => _parse('---\n2: x\n---\n'),
-        _throwsParseException(contains('key 2')),
+        _throwsParseException('#: key 2 must be a string'),
+      );
+    });
+
+    test('rejects a nested non-string key, naming where it is', () {
+      expect(
+        () => _parse('---\nmetadata:\n  2: x\n---\n'),
+        _throwsParseException('#/metadata: key 2 must be a string'),
+      );
+    });
+
+    test('rejects a non-string key inside a list, naming where it is', () {
+      expect(
+        () => _parse('---\nhooks:\n  - true: x\n---\n'),
+        _throwsParseException('#/hooks/0: key true must be a string'),
       );
     });
 
