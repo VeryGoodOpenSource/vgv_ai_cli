@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 ///
 /// 1. Add an entry here.
 /// 2. Write its `HarnessTranslator` and add it to `harnessTranslators`.
+///    Override `hooks()` when its config can run a shell command.
 /// 3. Add a boolean var named after it to `bricks/agents/brick.yaml`, and a
 ///    folder of the same name under `__brick__` holding the files it reads.
 /// 4. Regenerate the bundle with `tool/generate_agents_bundle.sh`.
