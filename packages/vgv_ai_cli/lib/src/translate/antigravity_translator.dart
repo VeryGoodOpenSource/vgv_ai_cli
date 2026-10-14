@@ -141,16 +141,24 @@ class const AntigravityTranslator() extends HarnessTranslator {
         source: {
           for (final MapEntry(key: event, value: registrations)
               in ofPlugin.groupListsBy((h) => h.event).entries)
-            event: [
-              for (final hook in registrations)
-                if (_toolEvents.contains(event))
-                  _registration(hook, hooksRoot: hooksRoot)
-                else
-                  ..._handlers(hook, hooksRoot: hooksRoot),
-            ],
+            event: _entries(event, registrations, hooksRoot: hooksRoot),
         },
     });
   }
+
+  /// What [event] lists: a registration per hook for a tool event, the
+  /// handlers themselves for any other.
+  static List<Map<String, Object?>> _entries(
+    String event,
+    List<HookAsset> hooks, {
+    required Directory hooksRoot,
+  }) => [
+    for (final hook in hooks)
+      if (_toolEvents.contains(event))
+        _registration(hook, hooksRoot: hooksRoot)
+      else
+        ..._handlers(hook, hooksRoot: hooksRoot),
+  ];
 
   /// [hook]'s matcher and its handlers, as a tool event lists them.
   static Map<String, Object?> _registration(
