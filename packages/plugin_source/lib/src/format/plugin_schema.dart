@@ -11,10 +11,12 @@ import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 extension PluginSchema<T extends Object> on AckSchema<Object, T> {
   /// Validates [value], an already-decoded document such as a YAML map.
   ///
-  /// [path] names the file in any [PluginParseException]. The schema must
-  /// not be nullable.
+  /// [path] names the file in any [PluginParseException]. A nullable schema
+  /// that accepts a null [value] throws too, since a document cannot be
+  /// nothing.
   T decode(Object? value, {required String path}) => switch (safeParse(value)) {
-    Ok(:final value) => value!,
+    Ok(:final value?) => value,
+    Ok() => throw PluginParseException(path, '#: Expected a value, got null'),
     Fail(:final error) => throw PluginParseException(path, _describe(error)),
   };
 
@@ -38,16 +40,26 @@ extension PluginSchema<T extends Object> on AckSchema<Object, T> {
   /// A value that fits none of an `anyOf`'s shapes names them all. One that
   /// has the type of a shape but fails inside it is described by that shape.
   static String _describe(SchemaError error) => switch (error) {
-    SchemaNestedError(schema: AnyOfSchema(), :final errors) => switch (errors
-        .whereType<TypeMismatchError>()
-        .toList()) {
-      final mismatches when mismatches.length == errors.length =>
-        '${error.path}: Expected '
-            '${mismatches.map((e) => e.expectedType).join(' or ')}, '
-            'got ${mismatches.first.actualType}',
-      _ => _describe(errors.firstWhere((e) => e is! TypeMismatchError)),
-    },
+    SchemaNestedError(
+      schema: AnyOfSchema(),
+      errors: final errors && [_, ...],
+    ) =>
+      switch (errors.whereType<TypeMismatchError>().toList()) {
+        final mismatches && [final first, ...]
+            when mismatches.length == errors.length =>
+          '${error.path}: Expected '
+              '${mismatches.map((e) => e.expectedType).join(' or ')}, '
+              'got ${first.actualType}',
+        _ => _describe(errors.firstWhere((e) => e is! TypeMismatchError)),
+      },
     SchemaNestedError(errors: [final first, ...]) => _describe(first),
     _ => '${error.path}: ${error.message}',
   };
 }
+
+/// [parent], a JSON pointer, extended by [token].
+///
+/// The token is escaped as RFC 6901 requires, `~` as `~0` and `/` as `~1`, so
+/// a key holding either still names one segment.
+String jsonPointer(String parent, Object token) =>
+    '$parent/${'$token'.replaceAll('~', '~0').replaceAll('/', '~1')}';

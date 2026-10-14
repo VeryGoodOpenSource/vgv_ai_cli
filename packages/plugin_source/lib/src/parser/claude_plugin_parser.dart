@@ -319,7 +319,8 @@ class const ClaudePluginParser() implements PluginParser {
     ),
     _ => throw PluginParseException(
       path,
-      '#/mcpServers/$name: declares neither a url nor a command',
+      '${jsonPointer('#/mcpServers', name)}: declares neither a url nor a '
+      'command',
     ),
   };
 }

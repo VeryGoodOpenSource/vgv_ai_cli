@@ -125,6 +125,13 @@ void main() {
       );
     });
 
+    test('escapes a slash or tilde in the keys it names', () {
+      expect(
+        () => _parse('---\n"a/b~c":\n  2: x\n---\n'),
+        _throwsParseException('#/a~1b~0c: key 2 must be a string'),
+      );
+    });
+
     test('rejects a non-string name, naming the field', () {
       expect(
         () => _parse('---\nname: 2\n---\n'),

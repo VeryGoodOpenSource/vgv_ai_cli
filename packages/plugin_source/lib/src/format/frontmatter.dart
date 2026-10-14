@@ -90,11 +90,11 @@ class const Frontmatter({
               '$pointer: key $key must be a string',
             );
           }
-          _checkKeys(child, pointer: '$pointer/$key', path: path);
+          _checkKeys(child, pointer: jsonPointer(pointer, key), path: path);
         }
       case final List<Object?> items:
         for (final (index, item) in items.indexed) {
-          _checkKeys(item, pointer: '$pointer/$index', path: path);
+          _checkKeys(item, pointer: jsonPointer(pointer, index), path: path);
         }
     }
   }

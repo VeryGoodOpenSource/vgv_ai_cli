@@ -343,6 +343,13 @@ void main() {
         );
       });
 
+      test('a server whose name holds a slash or tilde, escaped', () {
+        expect(
+          () => parseServers('{"a/b~c": {}}'),
+          throwsAt('#/mcpServers/a~1b~0c: declares neither'),
+        );
+      });
+
       test('args that are not a list of strings', () {
         expect(
           () => parseServers('{"dart": {"command": "dart", "args": [1]}}'),

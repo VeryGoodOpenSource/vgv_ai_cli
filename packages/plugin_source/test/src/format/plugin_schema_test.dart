@@ -29,6 +29,13 @@ void main() {
       expect(value, {'name': 'a'});
     });
 
+    test('throws for null, even when the schema accepts it', () {
+      expect(
+        () => Ack.string().nullable().decode(null, path: 'a.json'),
+        _throwsParseException('a.json', '#: Expected a value, got null'),
+      );
+    });
+
     test('accepts a YamlMap', () {
       final value = Ack.object({'name': Ack.string()})
           .decode(loadYaml('name: a'), path: 'a.md');
@@ -129,6 +136,16 @@ void main() {
           isNot(throwsA(isA<FormatException>())),
         ),
       );
+    });
+  });
+
+  group('jsonPointer', () {
+    test('appends the token as a segment', () {
+      expect(jsonPointer('#/hooks', 0), '#/hooks/0');
+    });
+
+    test('escapes a tilde and a slash', () {
+      expect(jsonPointer('#', 'a/b~c'), '#/a~1b~0c');
     });
   });
 }
