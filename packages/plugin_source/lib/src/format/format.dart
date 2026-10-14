@@ -7,3 +7,4 @@ library;
 export 'config_map.dart';
 export 'frontmatter.dart';
 export 'plugin_parse_exception.dart';
+export 'plugin_schema.dart';
