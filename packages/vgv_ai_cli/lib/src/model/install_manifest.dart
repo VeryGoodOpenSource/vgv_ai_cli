@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:ack/ack.dart';
 import 'package:crypto/crypto.dart';
 import 'package:equatable/equatable.dart';
 import 'package:path/path.dart' as p;
@@ -34,73 +33,65 @@ sealed class const ManifestEntry({
   @override
   List<Object?> get props => [path, owner, mode, _fields];
 
-  /// Every entry shape this version writes, by its mode, decoding to the
-  /// entry, with its path resolved against [home].
+  /// Decodes one entry, or null when it is not one this version writes.
   ///
   /// The mode is read back by the same name [toJson] writes it with, so the
-  /// two cannot drift apart. An entry whose owner or mode is unknown, whose
-  /// fields are missing, or whose path is absolute or leads out of [home],
-  /// fails to parse.
-  static DiscriminatedObjectSchema<ManifestEntry> schema({
-    required String home,
-  }) {
-    ObjectSchema shape(
-      ChangeMode mode,
-      Map<String, AckSchema<Object, Object>> fields,
-    ) => Ack.object({
-      'path': Ack.string()
-          .refine((path) => !p.isAbsolute(path), message: 'is absolute')
-          .transform((path) => p.normalize(p.join(home, path)))
-          .refine((path) => p.isWithin(home, path), message: 'leaves home'),
-      'owner': Ack.enumValues(Harness.values).nullable(),
-      'mode': Ack.literal(mode.name),
-      ...fields,
-    }, additionalProperties: true);
+  /// two cannot drift apart.
+  static ManifestEntry? fromJson(Object? json) {
+    if (json
+        case final Map<dynamic, dynamic> entry &&
+            {
+              'path': final String path,
+              'owner': final String? owner,
+              'mode': final String mode,
+            }) {
+      final harness = Harness.values.asNameMap()[owner];
+      if (owner != null && harness == null) return null;
 
-    return Ack.discriminated(
-      discriminatorKey: 'mode',
-      schemas: {
-        ChangeMode.own.name: shape(ChangeMode.own, {
-          'sha256': Ack.string(),
-        }).transform((json) => _EntryJson(json).ownedFile),
-        for (final format in DocumentFormat.values)
-          format.mode.name: shape(format.mode, {
-            'contribution': Ack.map(Ack.any().nullable()),
-          }).transform((json) => _EntryJson(json).mergedDocument(format)),
-        ChangeMode.mergeMarkdown.name: shape(ChangeMode.mergeMarkdown, {
-          // Any values, so a corrupt hash drops one section, not the entry.
-          'sections': Ack.map(Ack.any().nullable()),
-        }).transform((json) => _EntryJson(json).markdownSections),
-      },
-    );
+      return _decode(
+        entry,
+        path: path,
+        owner: harness,
+        mode: ChangeMode.values.asNameMap()[mode],
+      );
+    }
+    return null;
   }
-}
 
-/// A manifest entry as [ManifestEntry.schema] has validated it.
-extension type _EntryJson(Map<String, Object?> _json) {
-  String get _path => _json['path']! as String;
-
-  Harness? get _owner => _json['owner'] as Harness?;
-
-  OwnedFile get ownedFile =>
-      OwnedFile(path: _path, owner: _owner, sha256: _json['sha256']! as String);
-
-  MergedDocument mergedDocument(DocumentFormat format) => MergedDocument(
-    path: _path,
-    owner: _owner,
-    format: format,
-    contribution: Contribution(_json['contribution']! as Map<String, Object?>),
-  );
-
-  MarkdownSections get markdownSections => MarkdownSections(
-    path: _path,
-    owner: _owner,
-    sections: {
-      for (final MapEntry(:key, :value)
-          in (_json['sections']! as Map<String, Object?>).entries)
-        if (value case final String hash) key: hash,
-    },
-  );
+  /// Decodes the fields of [json] that [mode] writes, or null when [mode] is
+  /// unknown or its fields are missing.
+  static ManifestEntry? _decode(
+    Map<dynamic, dynamic> json, {
+    required String path,
+    required Harness? owner,
+    required ChangeMode? mode,
+  }) {
+    final format = mode?.format;
+    if (json case {'sha256': final String sha256} when mode == ChangeMode.own) {
+      return OwnedFile(path: path, owner: owner, sha256: sha256);
+    }
+    if (json case {'contribution': final Map<String, dynamic> contribution}
+        when format != null) {
+      return MergedDocument(
+        path: path,
+        owner: owner,
+        format: format,
+        contribution: Contribution(contribution),
+      );
+    }
+    if (json case {'sections': final Map<String, dynamic> sections}
+        when mode == ChangeMode.mergeMarkdown) {
+      return MarkdownSections(
+        path: path,
+        owner: owner,
+        sections: {
+          for (final MapEntry(:key, :value) in sections.entries)
+            if (value is String) key: value,
+        },
+      );
+    }
+    return null;
+  }
 }
 
 /// {@template owned_file}
@@ -215,14 +206,16 @@ class InstallManifest extends Equatable {
       return InstallManifest();
     }
 
-    final entry = ManifestEntry.schema(home: home);
     return switch (json) {
       {
         'version': 1 || InstallManifest.version,
         'entries': final List<dynamic> list,
       } =>
         InstallManifest(
-          [for (final item in list) ?entry.safeParse(item).getOrNull()],
+          [
+            for (final item in list)
+              ?ManifestEntry.fromJson(_resolved(item, home: home)),
+          ],
           {
             if (json['plugins'] case final Map<String, dynamic> plugins)
               for (final MapEntry(:key, :value) in plugins.entries)
@@ -232,6 +225,18 @@ class InstallManifest extends Equatable {
       {'version': final int other} when other > version => null,
       _ => InstallManifest(),
     };
+  }
+
+  /// [item] with its path resolved against [home], or null when the path
+  /// is absolute or leads out of [home].
+  static Object? _resolved(Object? item, {required String home}) {
+    if (item is! Map<String, dynamic>) return null;
+
+    final relative = item['path'];
+    if (relative is! String || p.isAbsolute(relative)) return null;
+
+    final path = p.normalize(p.join(home, relative));
+    return p.isWithin(home, path) ? {...item, 'path': path} : null;
   }
 
   /// The format [encode] writes.
