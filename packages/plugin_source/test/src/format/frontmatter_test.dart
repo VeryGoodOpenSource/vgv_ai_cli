@@ -102,8 +102,27 @@ void main() {
       }
     });
 
-    test('keeps a non-string key as a string', () {
-      expect(_parse('---\n2: x\n---\n').config.values.keys, contains('2'));
+    test('rejects a non-string key, naming it', () {
+      // YAML admits an unquoted `2:`, which the schema would reject without
+      // naming the key.
+      expect(
+        () => _parse('---\n2: x\n---\n'),
+        _throwsParseException(contains('key 2')),
+      );
+    });
+
+    test('rejects a non-string name, naming the field', () {
+      expect(
+        () => _parse('---\nname: 2\n---\n'),
+        _throwsParseException(contains('#/name')),
+      );
+    });
+
+    test('rejects skills that are neither a list nor a string', () {
+      expect(
+        () => _parse('---\nskills: 2\n---\n'),
+        _throwsParseException(contains('#/skills')),
+      );
     });
 
     test('converts nested structures to plain Dart collections', () {
@@ -114,7 +133,7 @@ void main() {
         '---\nname: a\nhooks:\n  PreToolUse:\n    - matcher: "Bash"\n---\n',
       );
 
-      final hooks = frontmatter.config['hooks']! as Map<String, Object?>;
+      final hooks = frontmatter.values['hooks']! as Map<String, Object?>;
       final entries = hooks['PreToolUse']! as List<Object?>;
       final first = entries.single! as Map<String, Object?>;
 
@@ -163,6 +182,10 @@ void main() {
       expect(_parse('---\nskills:\n  - a\n  - b\n---\n').skills, ['a', 'b']);
     });
 
+    test('splits a comma-separated string', () {
+      expect(_parse('---\nskills: a, b\n---\n').skills, ['a', 'b']);
+    });
+
     test('parses a bare scalar as one entry', () {
       expect(_parse('---\nskills: a\n---\n').skills, ['a']);
     });
@@ -198,31 +221,31 @@ void main() {
     });
 
     test('round-trips a plain string', () {
-      expect(roundTrip({'name': 'testing'}).config.string('name'), 'testing');
+      expect(roundTrip({'name': 'testing'}).values['name'], 'testing');
     });
 
     test('round-trips a string carrying YAML indicator characters', () {
       const awkward = 'Use when: reviewing #code, [maybe] {always}';
 
       expect(
-        roundTrip({'description': awkward}).config.string('description'),
+        roundTrip({'description': awkward}).values['description'],
         awkward,
       );
     });
 
     test('round-trips a string that looks like a bool', () {
       // Emitted plain, `yes` parses back as a boolean rather than a string.
-      expect(roundTrip({'name': 'yes'}).config.string('name'), 'yes');
+      expect(roundTrip({'name': 'yes'}).values['name'], 'yes');
     });
 
     test('round-trips a string that looks like a number', () {
-      expect(roundTrip({'name': '1.0'}).config.string('name'), '1.0');
+      expect(roundTrip({'name': '1.0'}).values['name'], '1.0');
     });
 
     test('round-trips a string containing a quote and a backslash', () {
       const awkward = r'He said "run C:\dart" loudly';
 
-      expect(roundTrip({'name': awkward}).config.string('name'), awkward);
+      expect(roundTrip({'name': awkward}).values['name'], awkward);
     });
 
     test('round-trips a multi-line string as a literal block', () {
@@ -232,17 +255,14 @@ void main() {
       final rendered = Frontmatter.render({'description': multi});
 
       expect(rendered, contains('|2-'));
-      expect(
-        roundTrip({'description': multi}).config.string('description'),
-        multi,
-      );
+      expect(roundTrip({'description': multi}).values['description'], multi);
     });
 
     test('round-trips a multi-line string whose first line is indented', () {
       const indented = '  indented first\nthen flush';
 
       expect(
-        roundTrip({'description': indented}).config.string('description'),
+        roundTrip({'description': indented}).values['description'],
         indented,
       );
     });
@@ -253,7 +273,7 @@ void main() {
       expect(
         roundTrip({
           'notes': [multi, 'single'],
-        }).config['notes'],
+        }).values['notes'],
         [multi, 'single'],
       );
     });
@@ -264,8 +284,8 @@ void main() {
       expect(
         roundTrip({
           'outer': {'inner': multi},
-        }).config.child('outer')!.string('inner'),
-        multi,
+        }).values['outer'],
+        {'inner': multi},
       );
     });
 
@@ -281,14 +301,14 @@ void main() {
     });
 
     test('round-trips a string containing a tab', () {
-      expect(roundTrip({'name': 'a\tb'}).config.string('name'), 'a\tb');
+      expect(roundTrip({'name': 'a\tb'}).values['name'], 'a\tb');
     });
 
     test('round-trips a list', () {
       expect(
         roundTrip({
           'keywords': ['a', 'b'],
-        }).config.stringList('keywords'),
+        }).values['keywords'],
         ['a', 'b'],
       );
     });
@@ -298,19 +318,19 @@ void main() {
         'metadata': {'type': 'reference', 'level': 2},
       });
 
-      expect(parsed.config.child('metadata')?.string('type'), 'reference');
-      expect(parsed.config.child('metadata')?.integer('level'), 2);
+      expect(parsed.values['metadata'], {'type': 'reference', 'level': 2});
+      expect(parsed.values['metadata'], isA<Map<String, Object?>>());
     });
 
     test('round-trips a bool and a number', () {
       final parsed = roundTrip({'enabled': true, 'weight': 3});
 
-      expect(parsed.config.boolean('enabled'), isTrue);
-      expect(parsed.config.integer('weight'), 3);
+      expect(parsed.values['enabled'], isTrue);
+      expect(parsed.values['weight'], 3);
     });
 
     test('renders a null as an empty value', () {
-      expect(roundTrip({'license': null}).config.string('license'), isNull);
+      expect(roundTrip({'license': null}).values['license'], isNull);
     });
 
     test('renders an empty list and map as quoted scalars', () {
@@ -318,8 +338,8 @@ void main() {
       // parseable instead of emitting a dangling key.
       final parsed = roundTrip({'a': <String>[], 'b': <String, Object?>{}});
 
-      expect(parsed.config.string('a'), '[]');
-      expect(parsed.config.string('b'), '{}');
+      expect(parsed.values['a'], '[]');
+      expect(parsed.values['b'], '{}');
     });
 
     test('round-trips the body beneath it', () {

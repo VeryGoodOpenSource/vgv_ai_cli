@@ -1,18 +1,20 @@
 import 'dart:convert';
 
-import 'package:plugin_source/src/format/config_map.dart';
+import 'package:ack/ack.dart';
 import 'package:plugin_source/src/format/plugin_parse_exception.dart';
+import 'package:plugin_source/src/format/plugin_schema.dart';
 import 'package:yaml/yaml.dart';
 
 /// {@template frontmatter}
 /// A markdown file's YAML frontmatter, parsed, plus the body beneath it.
 ///
-/// [config] holds every frontmatter key with its normalized value, read through
-/// the shared [ConfigMap] accessors. [body] is the document with the
-/// frontmatter block removed.
+/// [values] holds every frontmatter key, with nested values as plain
+/// `Map<String, Object?>` and `List<Object?>`. The keys every format shares
+/// are validated by [schema]; a parser validates its own keys against its own
+/// schema. [body] is the document with the frontmatter block removed.
 /// {@endtemplate}
 class const Frontmatter({
-  required final ConfigMap config,
+  required final Map<String, Object?> values,
   required final String body,
 }) {
   /// Parses [source], which must open and close with a `---` fence.
@@ -50,32 +52,60 @@ class const Frontmatter({
       );
     }
 
-    // YAML admits non-string keys, such as an unquoted `2:`; ConfigMap
-    // stringifies them.
+    // YAML admits non-string keys, such as an unquoted `2:`, which the schema
+    // would reject with a message that does not name the key.
+    for (final key in document.keys) {
+      if (key is! String) {
+        throw PluginParseException(path, 'key $key must be a string');
+      }
+    }
+
     return Frontmatter(
-      config: ConfigMap.of(document),
+      values: schema.decode(_plain.decode(document, path: path), path: path),
       body: lines.skip(end + 1).join('\n').trimLeft(),
     );
   }
 
+  /// The frontmatter keys every format shares. `skills` is written both as a
+  /// list and as one comma-separated string.
+  static final ObjectSchema schema = Ack.object({
+    'name': Ack.string().optional(),
+    'description': Ack.string().optional(),
+    'skills': Ack.anyOf([Ack.list(Ack.string()), Ack.string()]).optional(),
+  }).passthrough();
+
+  /// Normalizes YAML collections into plain Dart ones, which a passthrough
+  /// object schema alone leaves as `YamlMap` and `YamlList`.
+  static final MapSchema<Object, Object> _plain = Ack.map(Ack.any().nullable());
+
   /// The declared `name`, or `null` when absent.
-  String? get name => config.string('name');
+  String? get name => values['name'] as String?;
 
   /// The declared `description`, flattened onto one line, or `''` when absent.
   String get description => oneLine('description') ?? '';
 
-  /// Skills the asset expects to have loaded.
+  /// Skills the asset expects to have loaded, blank entries dropped.
   ///
   /// Written both inline as `[a, b]` and as a block sequence across the two
-  /// plugins, so both parse to the same list.
-  List<String> get skills => config.stringList('skills');
+  /// plugins, so both parse to the same list. A string is split on commas.
+  List<String> get skills {
+    final items = switch (values['skills']) {
+      final String line => line.split(','),
+      final list => list as List<String>? ?? const [],
+    };
+    return [
+      for (final item in items)
+        if (item.trim().isNotEmpty) item.trim(),
+    ];
+  }
 
-  /// The value under [key], flattened onto one line, or `null` when absent.
+  /// The string under [key], flattened onto one line, or `null` when absent.
   ///
   /// The plugins write their prose keys as folded and literal block scalars,
-  /// which carry newlines no index table or harness manifest wants.
+  /// which carry newlines no index table or harness manifest wants. A schema
+  /// must have validated [key] as a string.
   String? oneLine(String key) =>
-      config.string(key)?.replaceAll(_whitespace, ' ').trim();
+      (values[key] as String?)?.replaceAll(_whitespace, ' ').trim();
 
   static final _whitespace = RegExp(r'\s+');
 

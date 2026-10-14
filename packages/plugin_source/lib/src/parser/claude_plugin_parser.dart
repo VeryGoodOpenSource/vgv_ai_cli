@@ -47,16 +47,19 @@ class const ClaudePluginParser() implements PluginParser {
   ///
   /// The Flutter plugin omits `user-invocable` entirely yet its skills are
   /// invocable, so an absent key means `true`.
+  ///
+  /// This and the other `...Of` helpers read [frontmatter] already validated
+  /// against [skillFrontmatterSchema].
   static bool userInvocableOf(Frontmatter frontmatter) =>
-      frontmatter.config.boolean('user-invocable') ?? true;
+      frontmatter.values['user-invocable'] as bool? ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
   /// Read from `allowed-tools`, falling back to `tools`, then tokenized by
   /// [tokenizeTools].
   static List<String> allowedToolsOf(Frontmatter frontmatter) => tokenizeTools(
-    frontmatter.config.string('allowed-tools') ??
-        frontmatter.config.string('tools'),
+    (frontmatter.values['allowed-tools'] ?? frontmatter.values['tools'])
+        as String?,
   );
 
   /// Splits Claude's `allowed-tools` value into individual tool names.
@@ -92,7 +95,7 @@ class const ClaudePluginParser() implements PluginParser {
   static Map<String, Object?> portableFrontmatterOf(
     Frontmatter frontmatter,
   ) => {
-    for (final entry in frontmatter.config.entries)
+    for (final entry in frontmatter.values.entries)
       if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
     // Rewrites the description in place, keeping its position. Only a skill
     // that declares `when_to_use` is touched, so one that does not renders
@@ -144,6 +147,7 @@ class const ClaudePluginParser() implements PluginParser {
         file.readAsStringSync(),
         path: file.path,
       );
+      skillFrontmatterSchema.decode(frontmatter.values, path: file.path);
       skills.add(
         SkillAsset(
           name: _validName(
@@ -189,7 +193,10 @@ class const ClaudePluginParser() implements PluginParser {
             body: frontmatter.body,
             skills: frontmatter.skills,
           ),
-          hooks: frontmatter.config.child('hooks'),
+          hooks: switch (frontmatter.values['hooks']) {
+            final Map<String, Object?> hooks => ConfigMap.of(hooks),
+            _ => null,
+          },
         ),
       );
     }

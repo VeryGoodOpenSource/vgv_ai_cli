@@ -25,3 +25,11 @@ final ObjectSchema mcpFileSchema = Ack.object({
     }).passthrough(),
   ).optional(),
 }).passthrough();
+
+/// A skill's `SKILL.md` frontmatter, beyond the keys every format shares.
+final ObjectSchema skillFrontmatterSchema = Ack.object({
+  'user-invocable': Ack.boolean().optional(),
+  'allowed-tools': Ack.string().optional(),
+  'tools': Ack.string().optional(),
+  'when_to_use': Ack.string().optional(),
+}).passthrough();

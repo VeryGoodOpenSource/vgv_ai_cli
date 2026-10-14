@@ -106,6 +106,37 @@ void main() {
       );
     });
 
+    group('throws, naming the file and field, for', () {
+      /// Parses a plugin whose one skill declares [frontmatter].
+      void parseSkill(String frontmatter) {
+        final root = MemoryFileSystem.test().directory('/plugin');
+        root.childFile('skills/a/SKILL.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('---\n$frontmatter\n---\nbody\n');
+        const ClaudePluginParser().parse(root);
+      }
+
+      Matcher throwsAt(String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', '/plugin/skills/a/SKILL.md')
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      test('a non-boolean user-invocable', () {
+        expect(
+          () => parseSkill('user-invocable: nope'),
+          throwsAt('#/user-invocable'),
+        );
+      });
+
+      test('a non-string allowed-tools', () {
+        expect(
+          () => parseSkill('allowed-tools: [Read]'),
+          throwsAt('#/allowed-tools'),
+        );
+      });
+    });
+
     test('falls back to the directory name when frontmatter has none', () {
       // The fixture skill's SKILL.md declares no name, so the only way it can
       // be called 'unnamed-skill' is the directory-name fallback.
@@ -741,13 +772,6 @@ void main() {
       test('is true when explicitly true', () {
         expect(
           ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
-          isTrue,
-        );
-      });
-
-      test('treats a non-boolean value as absent', () {
-        expect(
-          ClaudePluginParser.userInvocableOf(fm('user-invocable: nope')),
           isTrue,
         );
       });
