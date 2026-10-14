@@ -50,18 +50,18 @@ class const ClaudePluginParser() implements PluginParser {
   /// invocable, so an absent key means `true`.
   ///
   /// This and the other `...Of` helpers read [frontmatter] already validated
-  /// against [skillFrontmatterSchema].
+  /// as [SkillFrontmatterJson].
   static bool userInvocableOf(Frontmatter frontmatter) =>
-      frontmatter.values['user-invocable'] as bool? ?? true;
+      SkillFrontmatterJson(frontmatter.values).userInvocable ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
   /// Read from `allowed-tools`, falling back to `tools`, then tokenized by
   /// [tokenizeTools].
-  static List<String> allowedToolsOf(Frontmatter frontmatter) => tokenizeTools(
-    (frontmatter.values['allowed-tools'] ?? frontmatter.values['tools'])
-        as String?,
-  );
+  static List<String> allowedToolsOf(Frontmatter frontmatter) {
+    final skill = SkillFrontmatterJson(frontmatter.values);
+    return tokenizeTools(skill.allowedTools ?? skill.tools);
+  }
 
   /// Splits Claude's `allowed-tools` value into individual tool names.
   ///
@@ -148,7 +148,7 @@ class const ClaudePluginParser() implements PluginParser {
         file.readAsStringSync(),
         path: file.path,
       );
-      skillFrontmatterSchema.decode(frontmatter.values, path: file.path);
+      SkillFrontmatterJson.decode(frontmatter.values, path: file.path);
       skills.add(
         SkillAsset(
           name: _validName(
@@ -194,9 +194,7 @@ class const ClaudePluginParser() implements PluginParser {
             body: frontmatter.body,
             skills: frontmatter.skills,
           ),
-          hooks:
-              hooksSchema.decode(frontmatter.values, path: file.path)['hooks']
-                  as Map<String, Object?>?,
+          hooks: HooksJson.decode(frontmatter.values, path: file.path).events,
         ),
       );
     }
@@ -204,33 +202,31 @@ class const ClaudePluginParser() implements PluginParser {
     return agents;
   }
 
-  /// The event map of `hooks/hooks.json` under [root], shaped
-  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
-  /// or null when the plugin ships none.
-  Map<String, Object?>? _readHookEvents(Directory root) {
+  /// The registrations of `hooks/hooks.json` under [root], by event, or null
+  /// when the plugin ships none.
+  Map<String, List<HookRegistrationJson>>? _readHookEvents(Directory root) {
     final file = root.childDirectory('hooks').childFile('hooks.json');
     if (!file.existsSync()) return null;
 
-    return hooksSchema.decodeJson(
-          file.readAsStringSync(),
-          path: file.path,
-        )['hooks']
-        as Map<String, Object?>?;
+    return HooksJson.decodeJson(
+      file.readAsStringSync(),
+      path: file.path,
+    ).events;
   }
 
-  /// The hooks under [events], an event map of registrations, declared by
-  /// [plugin] at [root] and scoped to [agent] when one declared them.
+  /// The hooks under [events], declared by [plugin] at [root] and scoped to
+  /// [agent] when one declared them.
   List<HookAsset> _readRegistrations(
-    Map<String, Object?> events, {
+    Map<String, List<HookRegistrationJson>> events, {
     required String plugin,
     required Directory root,
     String? agent,
   }) => [
-    for (final MapEntry(key: event, :value) in events.entries)
-      for (final registration in value! as List<Object?>)
+    for (final MapEntry(key: event, value: registrations) in events.entries)
+      for (final registration in registrations)
         ?_readRegistration(
           event,
-          registration! as Map<String, Object?>,
+          registration,
           plugin: plugin,
           root: root,
           agent: agent,
@@ -240,17 +236,17 @@ class const ClaudePluginParser() implements PluginParser {
   /// One registration under [event], or null when it runs nothing.
   HookAsset? _readRegistration(
     String event,
-    Map<String, Object?> registration, {
+    HookRegistrationJson registration, {
     required String plugin,
     required Directory root,
     required String? agent,
   }) {
-    final commands = _readHookCommands(registration['hooks']! as List<Object?>);
+    final commands = _readHookCommands(registration.hooks);
     if (commands.isEmpty) return null;
 
     return HookAsset(
       event: event,
-      matcher: registration['matcher'] as String?,
+      matcher: registration.matcher,
       commands: commands,
       plugin: plugin,
       pluginRoot: root,
@@ -265,41 +261,39 @@ class const ClaudePluginParser() implements PluginParser {
         .childDirectory('.claude-plugin')
         .childFile('plugin.json');
     final declared = manifest.existsSync()
-        ? pluginManifestSchema.decodeJson(
-                manifest.readAsStringSync(),
-                path: manifest.path,
-              )['name']
-              as String?
+        ? PluginManifestJson.decodeJson(
+            manifest.readAsStringSync(),
+            path: manifest.path,
+          ).name
         : null;
     return declared ?? p.basename(root.path);
   }
 
   /// The hooks of one registration that run a command, the only kind a
   /// harness can translate.
-  List<HookCommand> _readHookCommands(List<Object?> hooks) => [
-    for (final hook in hooks.cast<Map<String, Object?>>())
-      if (hook case {'command': final String command})
+  List<HookCommand> _readHookCommands(List<HookJson> hooks) => [
+    for (final hook in hooks)
+      if (hook.command case final command?)
         HookCommand(
-          type: hook['type'] as String? ?? 'command',
+          type: hook.type ?? 'command',
           command: command.replaceAll(
             _claudePluginRoot,
             HookCommand.rootPlaceholder,
           ),
-          timeout: hook['timeout'] as int?,
+          timeout: hook.timeout,
         ),
   ];
 
   List<MCPServer> _readMcpServers(File mcpFile) {
     if (!mcpFile.existsSync()) return const [];
 
-    final file = mcpFileSchema.decodeJson(
+    final file = McpFileJson.decodeJson(
       mcpFile.readAsStringSync(),
       path: mcpFile.path,
     );
-    final servers = file['mcpServers'] as Map<String, Object?>? ?? const {};
     return [
-      for (final MapEntry(key: name, :value) in servers.entries)
-        _mcpServer(name, value! as Map<String, Object?>, path: mcpFile.path),
+      for (final MapEntry(key: name, value: server) in file.servers.entries)
+        _mcpServer(name, server, path: mcpFile.path),
     ];
   }
 
@@ -309,34 +303,29 @@ class const ClaudePluginParser() implements PluginParser {
   /// server and the file at [path].
   MCPServer _mcpServer(
     String name,
-    Map<String, Object?> server, {
+    McpServerJson server, {
     required String path,
   }) => switch (server) {
-    {'url': final String url} => RemoteMCPServer(
+    McpServerJson(:final url?) => RemoteMCPServer(
       name: name,
       url: url,
-      headers: _stringMap(server['headers']),
+      headers: server.headers,
     ),
-    {'command': final String command} => LocalMCPServer(
+    McpServerJson(:final command?) => LocalMCPServer(
       name: name,
       command: command,
-      args: [...?server['args'] as List<String>?],
-      env: _stringMap(server['env']),
+      args: server.args,
+      env: server.env,
     ),
     _ => throw PluginParseException(
       path,
       '#/mcpServers/$name: declares neither a url nor a command',
     ),
   };
-
-  /// An optional `env` or `headers` block, which the schema has already
-  /// checked holds only strings.
-  Map<String, String> _stringMap(Object? block) =>
-      Map.from(block as Map<String, Object?>? ?? const {});
 }
 
 /// An agent file: the asset, and the hooks its frontmatter declares for it.
 class const _AgentFile({
   required final AgentAsset asset,
-  final Map<String, Object?>? hooks,
+  final Map<String, List<HookRegistrationJson>>? hooks,
 });
