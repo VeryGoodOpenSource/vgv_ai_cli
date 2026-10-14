@@ -280,14 +280,61 @@ void main() {
       expect(authed.headers, {'Authorization': 'Bearer token'});
     });
 
-    test('skips an entry that is not an object', () {
-      expect(server('ignored'), isNull);
-    });
+    group('throws, naming the file and field, for', () {
+      /// Parses a plugin whose `.mcp.json` declares [servers].
+      void parseServers(String servers) {
+        final root = MemoryFileSystem.test().directory('/plugin');
+        root.childFile('.mcp.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"mcpServers": $servers}');
+        const ClaudePluginParser().parse(root);
+      }
 
-    test('skips a declaration that is neither local nor remote', () {
-      // No `url` and no `command`: not a valid MCP server, and the union has
-      // no unknown fallback, so it is dropped.
-      expect(server('broken'), isNull);
+      Matcher throwsAt(String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', '/plugin/.mcp.json')
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      test('a server that is not an object', () {
+        expect(
+          () => parseServers('{"dart": "not an object"}'),
+          throwsAt('#/mcpServers/dart'),
+        );
+      });
+
+      test('a server that is neither local nor remote', () {
+        // No `url` and no `command`: not a valid MCP server, and the union
+        // has no unknown fallback.
+        expect(
+          () => parseServers('{"broken": {}}'),
+          throwsAt('#/mcpServers/broken: declares neither'),
+        );
+      });
+
+      test('args that are not a list of strings', () {
+        expect(
+          () => parseServers('{"dart": {"command": "dart", "args": [1]}}'),
+          throwsAt('#/mcpServers/dart/args/0'),
+        );
+      });
+
+      test('a non-string env value', () {
+        expect(
+          () => parseServers(
+            '{"dart": {"command": "dart", "env": {"TOKEN": 1}}}',
+          ),
+          throwsAt('#/mcpServers/dart/env/TOKEN'),
+        );
+      });
+
+      test('a non-string header value', () {
+        expect(
+          () =>
+              parseServers('{"r": {"url": "https://x", "headers": {"A": 1}}}'),
+          throwsAt('#/mcpServers/r/headers/A'),
+        );
+      });
     });
 
     test('is empty when the plugin has no .mcp.json', () {
@@ -304,7 +351,7 @@ void main() {
           isA<PluginParseException>().having(
             (e) => e.message,
             'message',
-            contains('JSON object'),
+            contains('Expected object'),
           ),
         ),
       );
@@ -422,6 +469,27 @@ void main() {
       expect(
         const ClaudePluginParser().parse(root).hooks.single.plugin,
         'bare',
+      );
+    });
+
+    test('throws when the manifest name is not a string', () {
+      final root = MemoryFileSystem.test().directory('/plugin');
+      root.childDirectory('hooks').childFile('hooks.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
+        );
+      root.childDirectory('.claude-plugin').childFile('plugin.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"name": 1}');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        throwsA(
+          isA<PluginParseException>()
+              .having((e) => e.path, 'path', contains('plugin.json'))
+              .having((e) => e.message, 'message', contains('#/name')),
+        ),
       );
     });
 

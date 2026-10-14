@@ -2,6 +2,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
+import 'package:plugin_source/src/parser/claude_schemas.dart';
 import 'package:plugin_source/src/parser/plugin_parser.dart';
 
 /// {@template claude_plugin_parser}
@@ -256,7 +257,11 @@ class const ClaudePluginParser() implements PluginParser {
         .childDirectory('.claude-plugin')
         .childFile('plugin.json');
     final declared = manifest.existsSync()
-        ? _readJsonObject(manifest).string('name')
+        ? pluginManifestSchema.decodeJson(
+                manifest.readAsStringSync(),
+                path: manifest.path,
+              )['name']
+              as String?
         : null;
     return declared ?? p.basename(root.path);
   }
@@ -284,49 +289,47 @@ class const ClaudePluginParser() implements PluginParser {
   List<MCPServer> _readMcpServers(File mcpFile) {
     if (!mcpFile.existsSync()) return const [];
 
-    final servers = _readJsonObject(mcpFile).child('mcpServers');
-    if (servers == null) return const [];
-
+    final file = mcpFileSchema.decodeJson(
+      mcpFile.readAsStringSync(),
+      path: mcpFile.path,
+    );
+    final servers = file['mcpServers'] as Map<String, Object?>? ?? const {};
     return [
-      for (final MapEntry(key: name) in servers.entries)
-        // Anything that is not an object (e.g. a bare string) is not a server
-        // declaration and is skipped.
-        if (servers.child(name) case final config?) ?_mcpServer(name, config),
+      for (final MapEntry(key: name, :value) in servers.entries)
+        _mcpServer(name, value! as Map<String, Object?>, path: mcpFile.path),
     ];
   }
 
   /// Discriminates a server declaration by shape: a `url` makes it remote, a
   /// `command` makes it local. A declaration with neither is not a valid MCP
-  /// server, so it is dropped ([MCPServer] has no unknown variant).
-  MCPServer? _mcpServer(String name, ConfigMap config) {
-    final url = config.string('url');
-    if (url != null) {
-      return RemoteMCPServer(
-        name: name,
-        url: url,
-        headers: _stringMap(config.child('headers')),
-      );
-    }
-
-    final command = config.string('command');
-    if (command != null) {
-      return LocalMCPServer(
-        name: name,
-        command: command,
-        args: config.stringList('args'),
-        env: _stringMap(config.child('env')),
-      );
-    }
-
-    return null;
-  }
-
-  /// Flattens a nested config block into a string-to-string map, stringifying
-  /// each value. Used for `env` and `headers`, both of which are string maps.
-  Map<String, String> _stringMap(ConfigMap? config) => {
-    if (config != null)
-      for (final entry in config.entries) entry.key: '${entry.value}',
+  /// server ([MCPServer] has no unknown variant), so it throws, naming the
+  /// server and the file at [path].
+  MCPServer _mcpServer(
+    String name,
+    Map<String, Object?> server, {
+    required String path,
+  }) => switch (server) {
+    {'url': final String url} => RemoteMCPServer(
+      name: name,
+      url: url,
+      headers: _stringMap(server['headers']),
+    ),
+    {'command': final String command} => LocalMCPServer(
+      name: name,
+      command: command,
+      args: [...?server['args'] as List<String>?],
+      env: _stringMap(server['env']),
+    ),
+    _ => throw PluginParseException(
+      path,
+      '#/mcpServers/$name: declares neither a url nor a command',
+    ),
   };
+
+  /// An optional `env` or `headers` block, which the schema has already
+  /// checked holds only strings.
+  Map<String, String> _stringMap(Object? block) =>
+      Map.from(block as Map<String, Object?>? ?? const {});
 
   ConfigMap _readJsonObject(File file) =>
       ConfigMap.parseJson(file.readAsStringSync(), path: file.path);
