@@ -170,30 +170,6 @@ class const GitPluginSource({
   }
 }
 
-/// {@template chained_plugin_source}
-/// Tries each source in [sources] in order, returning the first that resolves.
-/// {@endtemplate}
-class const ChainedPluginSource(final List<PluginSource> sources)
-    extends PluginSource {
-  @override
-  Future<PluginResolution> resolve(PluginRef ref) async {
-    final reasons = <String>[];
-    for (final source in sources) {
-      final resolution = await source.resolve(ref);
-      switch (resolution) {
-        case ResolvedPlugin():
-          return resolution;
-        case UnavailablePlugin(reasons: final sourceReasons):
-          reasons.addAll(sourceReasons);
-      }
-    }
-    if (reasons.isEmpty) {
-      return UnavailablePlugin.single('no plugin sources were configured');
-    }
-    return UnavailablePlugin(reasons);
-  }
-}
-
 /// Resolves one [ref] through [source], or throws naming every source's reason.
 ///
 /// Callers resolving several plugins are expected to let the first failure
