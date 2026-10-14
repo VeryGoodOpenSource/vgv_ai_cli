@@ -40,6 +40,10 @@ void main() {
       );
     });
 
+    test('copies none of the hook scripts, as the default', () {
+      expect(translator.scripts, isNull);
+    });
+
     test('reports the agents and MCP servers it cannot configure', () {
       final notes = translator.notes(
         pluginAssets(

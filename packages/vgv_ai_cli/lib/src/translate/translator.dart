@@ -49,7 +49,7 @@ class const Translator({
       for (final translator in chosen)
         translator.harness: translator.hooks(
           assets,
-          hooksRoot: harnessHooksRoot(translator.harness, home: home),
+          hooksRoot: translator.hooksRoot(home),
         ),
     };
     final vars = AgentsVars(
