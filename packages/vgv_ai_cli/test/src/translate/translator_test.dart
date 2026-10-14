@@ -56,7 +56,8 @@ void main() {
     final root = harness.configDirectory(home).path;
     return [
       for (final change in plan.harnesses[harness]!.changes)
-        change.file.path.substring(root.length + 1),
+        if (change.file.path.startsWith('$root/'))
+          change.file.path.substring(root.length + 1),
     ]..sort();
   }
 
@@ -139,7 +140,6 @@ void main() {
           'plugins/vgv/hooks/vgv-wingspan/hooks/scripts/common.sh',
           'plugins/vgv/mcp_config.json',
           'plugins/vgv/plugin.json',
-          'plugins/vgv/rules/vgv.md',
           'plugins/vgv/skills/plan/SKILL.md',
           'plugins/vgv/skills/quiet/SKILL.md',
           'plugins/vgv/skills/review/SKILL.md',
@@ -195,10 +195,7 @@ void main() {
       );
       expect(
         modes,
-        containsPair(
-          '.gemini/antigravity-cli/plugins/vgv/plugin.json',
-          ChangeMode.own,
-        ),
+        containsPair('.gemini/config/plugins/vgv/plugin.json', ChangeMode.own),
       );
     });
 
@@ -371,17 +368,6 @@ void main() {
           expect(agent, endsWith('---\n\nYou review code.\n'));
         },
       );
-
-      test("Antigravity's rule indexes every skill and agent", () async {
-        final rule = await contents(
-          Harness.antigravity,
-          'plugins/vgv/rules/vgv.md',
-        );
-
-        expect(rule, startsWith('---\ntrigger: always_on\n'));
-        expect(rule, contains('- **quiet**: what it does\n'));
-        expect(rule, contains('- **planner**: reviews code\n'));
-      });
 
       test('AGENTS.md indexes every skill and agent', () async {
         final instructions = await contents(Harness.gemini, 'AGENTS.md');

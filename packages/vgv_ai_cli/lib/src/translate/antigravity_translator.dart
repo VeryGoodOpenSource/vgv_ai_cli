@@ -13,10 +13,12 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// {@template antigravity_translator}
 /// Configures Antigravity CLI.
 ///
-/// Everything goes into one Antigravity plugin, `plugins/vgv/`, which is how
-/// Antigravity bundles skills, agents, MCP servers, hooks and rules. It reads
-/// neither `~/.agents/skills` nor a commands folder: the skills are copied
-/// into the plugin and each becomes a `/<name>` command on its own.
+/// Everything goes into one Antigravity plugin, `plugins/vgv/` under the
+/// config it shares with the Antigravity IDE, which is how Antigravity
+/// bundles skills, agents, MCP servers and hooks. It reads neither
+/// `~/.agents/skills` nor a commands folder: the skills are copied into the
+/// plugin and each becomes a `/<name>` command on its own. The skills and
+/// agents register natively, so no rule indexes them.
 ///
 /// See https://antigravity.google/docs/plugins/.
 /// {@endtemplate}
@@ -82,8 +84,10 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// per source plugin, under the event names Antigravity shares with Claude
   /// Code, with matchers respelled to its tool names, a timeout in seconds,
   /// and the event in `VGV_HOOK_EVENT` on each command, since the payload
-  /// does not name it. The scripts are copied under [hooksRoot] with
-  /// [antigravityCompatScript] beside them.
+  /// does not name it. A tool event lists registrations of a matcher and
+  /// its handlers; any other event lists the handlers themselves. The
+  /// scripts are copied under [hooksRoot] with [antigravityCompatScript]
+  /// beside them.
   ///
   /// A hook an agent declared for itself, and one on an event Antigravity
   /// lacks, are left out. After a tool Antigravity reads nothing a hook
@@ -139,30 +143,39 @@ class const AntigravityTranslator() extends HarnessTranslator {
               in ofPlugin.groupListsBy((h) => h.event).entries)
             event: [
               for (final hook in registrations)
-                _registration(hook, hooksRoot: hooksRoot),
+                if (_toolEvents.contains(event))
+                  _registration(hook, hooksRoot: hooksRoot)
+                else
+                  ..._handlers(hook, hooksRoot: hooksRoot),
             ],
         },
     });
   }
 
-  /// [hook]'s matcher and one handler per shell command.
+  /// [hook]'s matcher and its handlers, as a tool event lists them.
   static Map<String, Object?> _registration(
     HookAsset hook, {
     required Directory hooksRoot,
   }) => {
     'matcher': ?_matcher(hook),
-    'hooks': [
-      for (final command in hook.commands)
-        if (command.type == HookScripts.commandType)
-          {
-            'type': command.type,
-            'command':
-                'VGV_HOOK_EVENT=${hook.event} '
-                '${HookScripts.command(command, hook, hooksRoot: hooksRoot)}',
-            'timeout': ?command.timeout,
-          },
-    ],
+    'hooks': _handlers(hook, hooksRoot: hooksRoot),
   };
+
+  /// One handler per shell command of [hook].
+  static List<Map<String, Object?>> _handlers(
+    HookAsset hook, {
+    required Directory hooksRoot,
+  }) => [
+    for (final command in hook.commands)
+      if (command.type == HookScripts.commandType)
+        {
+          'type': command.type,
+          'command':
+              'VGV_HOOK_EVENT=${hook.event} '
+              '${HookScripts.command(command, hook, hooksRoot: hooksRoot)}',
+          'timeout': ?command.timeout,
+        },
+  ];
 
   /// Why [hooks] leaves [hook] out, or null when Antigravity can run it.
   static TranslationNote? _leftOut(HookAsset hook) {
@@ -211,6 +224,9 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// The Claude Code events Antigravity has under the same name.
   static const _events = {'PreToolUse', 'PostToolUse', 'SessionStart', 'Stop'};
 
+  /// The events whose registrations carry a matcher.
+  static const _toolEvents = {'PreToolUse', 'PostToolUse'};
+
   /// Antigravity's name for each Claude Code built-in tool.
   static const _tools = {
     'Bash': 'run_command',
@@ -222,13 +238,11 @@ class const AntigravityTranslator() extends HarnessTranslator {
     'LS': 'list_dir',
   };
 
-  /// How Claude Code spells an MCP tool. How Antigravity spells one in a
-  /// hook is undocumented, so the server's name is matched anywhere.
+  /// How Claude Code spells an MCP tool in a matcher. Antigravity calls
+  /// every MCP tool through one tool, [_mcpTool], naming the server and the
+  /// tool in its arguments, which the compat script hands the script.
   static const _mcpPrefix = 'mcp__';
-  static const _mcpSeparator = '__';
-
-  /// `.*` written twice over, as a matcher already ending in one gets.
-  static final _repeatedWildcard = RegExp(r'(\.\*){2,}');
+  static const _mcpTool = 'call_mcp_tool';
 
   /// The hooks Antigravity can run.
   static List<HookAsset> _runnable(PluginAssets assets) => [
@@ -237,24 +251,18 @@ class const AntigravityTranslator() extends HarnessTranslator {
   ];
 
   /// [hook]'s matcher with each alternative respelled to Antigravity's tool
-  /// name, or null when it declares none.
+  /// name, written once, or null when it declares none.
   static String? _matcher(HookAsset hook) => switch (hook.matcher) {
-    final declared? => declared.split('|').map(_antigravityTool).join('|'),
+    final declared? => {
+      for (final alternative in declared.split('|'))
+        _antigravityTool(alternative),
+    }.join('|'),
     _ => null,
   };
 
-  /// [alternative] as Antigravity names the tool it matches.
+  /// [alternative] as Antigravity names the tool it matches: every MCP tool
+  /// is [_mcpTool], and the script tells them apart by server.
   static String _antigravityTool(String alternative) =>
-      _tools[alternative] ?? _antigravityMcpTool(alternative);
-
-  /// [alternative] respelled from `mcp__<server>__<tool>` to a pattern over
-  /// the server's name.
-  static String _antigravityMcpTool(String alternative) {
-    if (!alternative.startsWith(_mcpPrefix)) return alternative;
-    final rest = alternative.substring(_mcpPrefix.length);
-    return '.*${rest.replaceAll(_mcpSeparator, '.*')}'.replaceAll(
-      _repeatedWildcard,
-      '.*',
-    );
-  }
+      _tools[alternative] ??
+      (alternative.startsWith(_mcpPrefix) ? _mcpTool : alternative);
 }

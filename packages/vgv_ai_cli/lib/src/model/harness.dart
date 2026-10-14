@@ -49,11 +49,12 @@ enum Harness({
   /// GitHub Copilot CLI.
   copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot'),
 
-  /// Antigravity CLI, which keeps its config beside Gemini's.
+  /// Antigravity CLI, which keeps the config it shares with the Antigravity
+  /// IDE beside Gemini's.
   antigravity(
     displayName: 'Antigravity',
     executable: 'agy',
-    config: '.gemini/antigravity-cli',
+    config: '.gemini/config',
   );
 
   /// The directory this harness reads its user-level config from.

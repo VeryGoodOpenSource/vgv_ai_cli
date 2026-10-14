@@ -21,7 +21,7 @@ void main() {
 
   group('AntigravityTranslator', () {
     const translator = AntigravityTranslator();
-    const hooksRoot = '/home/dev/.gemini/antigravity-cli/plugins/vgv/hooks';
+    const hooksRoot = '/home/dev/.gemini/config/plugins/vgv/hooks';
 
     test('configures Antigravity', () {
       expect(translator.harness, Harness.antigravity);
@@ -31,7 +31,7 @@ void main() {
       expect(translator.readsSharedSkills, isFalse);
       expect(
         translator.skillsRoot(home).path,
-        '/home/dev/.gemini/antigravity-cli/plugins/vgv/skills',
+        '/home/dev/.gemini/config/plugins/vgv/skills',
       );
     });
 
@@ -167,24 +167,25 @@ void main() {
         );
       });
 
-      test('match an MCP tool on its server name', () {
+      test('match every MCP tool through the one tool that calls them', () {
         final entry = entries([
           hookAsset(
             fs,
             event: 'PreToolUse',
-            matcher: 'Bash|mcp__.*very-good-cli__.*',
+            matcher: 'Bash|mcp__.*very-good-cli__.*|mcp__dart__.*',
           ),
         ], 'PreToolUse').single;
 
-        expect(entry['matcher'], 'run_command|.*very-good-cli.*');
+        expect(entry['matcher'], 'run_command|call_mcp_tool');
       });
 
-      test('leave a hook that matches no tool with no matcher', () {
+      test('list the handlers themselves under an event with no tool', () {
         final entry = entries([
           hookAsset(fs, event: 'SessionStart'),
         ], 'SessionStart').single;
 
-        expect(entry, isNot(contains('matcher')));
+        expect(entry.keys, ['type', 'command', 'timeout']);
+        expect(entry['command'], startsWith('VGV_HOOK_EVENT=SessionStart '));
       });
 
       test('leave out a handler that runs no shell command', () {

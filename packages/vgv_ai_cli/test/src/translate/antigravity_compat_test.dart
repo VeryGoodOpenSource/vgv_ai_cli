@@ -127,6 +127,20 @@ exit "${EXIT:-0}"
       },
     );
 
+    test('hands the script an MCP call as Claude Code names it', () async {
+      await run(
+        call('call_mcp_tool', {
+          'ServerName': 'vgv_very-good-cli',
+          'ToolName': 'test',
+          'Arguments': {'directory': '/app'},
+        }),
+      );
+
+      final payload = runs().single.$2;
+      expect(payload['tool_name'], 'mcp__vgv_very-good-cli__test');
+      expect(payload['tool_input'], {'directory': '/app'});
+    });
+
     test('passes an unknown tool and its args through', () async {
       await run(call('mcp_very_good_cli_test', {'x': 1}));
 

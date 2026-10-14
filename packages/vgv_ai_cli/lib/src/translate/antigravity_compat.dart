@@ -13,8 +13,10 @@ export CLAUDE_PLUGIN_ROOT=__ROOT__
 /// root.
 ///
 /// Antigravity sends `toolCall.name` and `toolCall.args` under its own
-/// names, `workspacePaths` for the directory, and no event name, so the
-/// script gets Claude Code's payload, with the event from `VGV_HOOK_EVENT`.
+/// names, every MCP tool as `call_mcp_tool` naming the server and tool in
+/// its arguments, `workspacePaths` for the directory, and no event name, so
+/// the script gets Claude Code's payload, with the event from
+/// `VGV_HOOK_EVENT`.
 /// Its answer is spelled as Antigravity reads it: a permission decision, or
 /// an exit 2 with its stderr, becomes the top-level `decision` before a
 /// tool; after a tool nothing is read, so `{}` is answered; a session-start
@@ -39,7 +41,11 @@ if command -v jq > /dev/null 2>&1; then
     | {hook_event_name: $event, session_id: (.conversationId // ""),
        transcript_path: (.transcriptPath // ""),
        cwd: (.workspacePaths[0] // "")}
-    + (if .toolCall then
+    + (if .toolCall.name == "call_mcp_tool" then
+        {tool_name: ("mcp__" + ($args.ServerName // "") + "__"
+                     + ($args.ToolName // "")),
+         tool_input: ($args.Arguments // {})}
+       elif .toolCall then
         {tool_name: ($tools[.toolCall.name] // .toolCall.name),
          tool_input: ($args
            + (if $args.CommandLine then {command: $args.CommandLine}
