@@ -40,21 +40,23 @@ extension PluginSchema<T extends Object> on AckSchema<Object, T> {
   /// A value that fits none of an `anyOf`'s shapes names them all. One that
   /// has the type of a shape but fails inside it is described by that shape.
   static String _describe(SchemaError error) => switch (error) {
-    SchemaNestedError(
-      schema: AnyOfSchema(),
-      errors: final errors && [_, ...],
-    ) =>
-      switch (errors.whereType<TypeMismatchError>().toList()) {
-        final mismatches && [final first, ...]
-            when mismatches.length == errors.length =>
-          '${error.path}: Expected '
-              '${mismatches.map((e) => e.expectedType).join(' or ')}, '
-              'got ${first.actualType}',
-        _ => _describe(errors.firstWhere((e) => e is! TypeMismatchError)),
-      },
+    SchemaNestedError(schema: AnyOfSchema(), :final errors)
+        when errors.isNotEmpty && errors.every((e) => e is TypeMismatchError) =>
+      _expectedOneOf(error.path, errors.cast<TypeMismatchError>()),
+    SchemaNestedError(schema: AnyOfSchema(), :final errors)
+        when errors.any((e) => e is! TypeMismatchError) =>
+      _describe(errors.firstWhere((e) => e is! TypeMismatchError)),
     SchemaNestedError(errors: [final first, ...]) => _describe(first),
     _ => '${error.path}: ${error.message}',
   };
+
+  /// A value at [path] that fits none of an `anyOf`'s [mismatches].
+  static String _expectedOneOf(
+    String path,
+    List<TypeMismatchError> mismatches,
+  ) =>
+      '$path: Expected ${mismatches.map((e) => e.expectedType).join(' or ')}, '
+      'got ${mismatches.first.actualType}';
 }
 
 /// [parent], a JSON pointer, extended by [token].
