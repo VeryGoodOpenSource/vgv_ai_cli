@@ -48,20 +48,15 @@ class const ClaudePluginParser() implements PluginParser {
   ///
   /// The Flutter plugin omits `user-invocable` entirely yet its skills are
   /// invocable, so an absent key means `true`.
-  ///
-  /// This and the other `...Of` helpers read [frontmatter] already validated
-  /// as [SkillFrontmatterJson].
-  static bool userInvocableOf(Frontmatter frontmatter) =>
-      SkillFrontmatterJson(frontmatter.values).userInvocable ?? true;
+  static bool userInvocableOf(SkillFrontmatter frontmatter) =>
+      frontmatter.userInvocable ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
   /// Read from `allowed-tools`, falling back to `tools`, then tokenized by
   /// [tokenizeTools].
-  static List<String> allowedToolsOf(Frontmatter frontmatter) {
-    final skill = SkillFrontmatterJson(frontmatter.values);
-    return tokenizeTools(skill.allowedTools ?? skill.tools);
-  }
+  static List<String> allowedToolsOf(SkillFrontmatter frontmatter) =>
+      tokenizeTools(frontmatter.allowedTools ?? frontmatter.tools);
 
   /// Splits Claude's `allowed-tools` value into individual tool names.
   ///
@@ -83,9 +78,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// skill index, so a skill is free to keep its triggers there. No other
   /// harness reads the key, and it is outside the Agent Skills key set, so
   /// folding is the only way those phrases survive translation.
-  static String descriptionOf(Frontmatter frontmatter) => [
+  static String descriptionOf(SkillFrontmatter frontmatter) => [
     frontmatter.description,
-    ?frontmatter.oneLine(_whenToUse),
+    ?frontmatter.whenToUse,
   ].where((part) => part.isNotEmpty).join(' - ');
 
   /// The [frontmatter] values safe to write for any harness.
@@ -94,14 +89,14 @@ class const ClaudePluginParser() implements PluginParser {
   /// `effort`, `model`, `when_to_use` and `user-invocable` that no other
   /// harness reads; they are interpreted where they matter and dropped here.
   static Map<String, Object?> portableFrontmatterOf(
-    Frontmatter frontmatter,
+    SkillFrontmatter frontmatter,
   ) => {
     for (final entry in frontmatter.values.entries)
       if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
     // Rewrites the description in place, keeping its position. Only a skill
     // that declares `when_to_use` is touched, so one that does not renders
     // exactly as it was written.
-    if (frontmatter.oneLine(_whenToUse) != null)
+    if (frontmatter.whenToUse != null)
       'description': descriptionOf(frontmatter),
   };
 
@@ -109,9 +104,6 @@ class const ClaudePluginParser() implements PluginParser {
   /// directory name under the user's home, so a separator, a `..` or a
   /// character Windows refuses would write somewhere it must not.
   static final _namePattern = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
-
-  /// Claude's own key for a skill's trigger phrases.
-  static const _whenToUse = 'when_to_use';
 
   /// One tool name, plus an optional parenthesized scope that may itself
   /// contain spaces, commas and slashes.
@@ -144,11 +136,10 @@ class const ClaudePluginParser() implements PluginParser {
       // must survive any later copy.
       if (!file.existsSync()) continue;
 
-      final frontmatter = Frontmatter.parse(
-        file.readAsStringSync(),
+      final frontmatter = SkillFrontmatter.decode(
+        Frontmatter.parse(file.readAsStringSync(), path: file.path),
         path: file.path,
       );
-      SkillFrontmatterJson.decode(frontmatter.values, path: file.path);
       skills.add(
         SkillAsset(
           name: _validName(

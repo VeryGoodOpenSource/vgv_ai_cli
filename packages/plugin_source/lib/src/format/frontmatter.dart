@@ -9,11 +9,16 @@ import 'package:yaml/yaml.dart';
 /// A markdown file's YAML frontmatter, parsed, plus the body beneath it.
 ///
 /// [values] holds every frontmatter key, with nested values as plain
-/// `Map<String, Object?>` and `List<Object?>`. The keys every format shares
-/// are validated by [schema]; a parser validates its own keys against its own
-/// schema. [body] is the document with the frontmatter block removed.
+/// `Map<String, Object?>` and `List<Object?>`. Nested values are unmodifiable
+/// snapshots, so a caller that edits one must copy it first. The keys every
+/// format shares are validated by [schema]; a parser validates its own keys
+/// against its own schema. [body] is the document with the frontmatter block
+/// removed.
+///
+/// Built only through [Frontmatter.parse], so holding one means [schema]
+/// validated it.
 /// {@endtemplate}
-class const Frontmatter({
+class const Frontmatter._({
   required final Map<String, Object?> values,
   required final String body,
 }) {
@@ -53,7 +58,7 @@ class const Frontmatter({
     }
 
     _checkKeys(document, pointer: '#', path: path);
-    return Frontmatter(
+    return Frontmatter._(
       values: schema.decode(_plain.decode(document, path: path), path: path),
       body: lines.skip(end + 1).join('\n').trimLeft(),
     );
@@ -103,7 +108,7 @@ class const Frontmatter({
   String? get name => values['name'] as String?;
 
   /// The declared `description`, flattened onto one line, or `''` when absent.
-  String get description => oneLine('description') ?? '';
+  String get description => oneLine(values['description'] as String?) ?? '';
 
   /// Skills the asset expects to have loaded, blank entries dropped.
   ///
@@ -120,13 +125,12 @@ class const Frontmatter({
     ];
   }
 
-  /// The string under [key], flattened onto one line, or `null` when absent.
+  /// [text] flattened onto one line, or `null` when [text] is.
   ///
   /// The plugins write their prose keys as folded and literal block scalars,
-  /// which carry newlines no index table or harness manifest wants. A schema
-  /// must have validated [key] as a string.
-  String? oneLine(String key) =>
-      (values[key] as String?)?.replaceAll(_whitespace, ' ').trim();
+  /// which carry newlines no index table or harness manifest wants.
+  static String? oneLine(String? text) =>
+      text?.replaceAll(_whitespace, ' ').trim();
 
   static final _whitespace = RegExp(r'\s+');
 

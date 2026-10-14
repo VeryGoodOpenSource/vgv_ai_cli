@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
 import 'package:plugin_source/src/parser/claude_plugin_parser.dart';
+import 'package:plugin_source/src/parser/claude_schemas.dart';
 import 'package:test/test.dart';
 
 const _fs = LocalFileSystem();
@@ -750,8 +751,10 @@ void main() {
   });
 
   group('Claude-specific interpretation', () {
-    Frontmatter fm(String body) =>
-        Frontmatter.parse('---\n$body\n---\n', path: 'a.md');
+    SkillFrontmatter fm(String body) => SkillFrontmatter.decode(
+      Frontmatter.parse('---\n$body\n---\n', path: 'a.md'),
+      path: 'a.md',
+    );
 
     test('portableFrontmatterOf keeps exactly the spec keys', () {
       final portable = ClaudePluginParser.portableFrontmatterOf(

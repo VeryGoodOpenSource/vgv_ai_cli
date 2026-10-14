@@ -129,11 +129,18 @@ extension type HookJson(Map<String, Object?> _json) {
   int? get timeout => _json['timeout'] as int?;
 }
 
-/// A skill's `SKILL.md` frontmatter, beyond the keys every format shares.
-extension type SkillFrontmatterJson(Map<String, Object?> _json) {
-  /// Validates [values], an already-decoded document from the file at [path].
-  factory decode(Object? values, {required String path}) =>
-      SkillFrontmatterJson(_schema.decode(values, path: path));
+/// A skill's `SKILL.md` frontmatter, validated for the keys Claude adds
+/// beyond the ones every format shares.
+///
+/// Built only through [SkillFrontmatter.decode], so holding one means its
+/// keys were validated.
+extension type SkillFrontmatter._(Frontmatter _frontmatter)
+    implements Frontmatter {
+  /// Validates [frontmatter], read from the file at [path].
+  factory decode(Frontmatter frontmatter, {required String path}) {
+    _schema.decode(frontmatter.values, path: path);
+    return SkillFrontmatter._(frontmatter);
+  }
 
   static final ObjectSchema _schema = Ack.object({
     'user-invocable': Ack.boolean().optional(),
@@ -142,9 +149,14 @@ extension type SkillFrontmatterJson(Map<String, Object?> _json) {
     'when_to_use': Ack.string().optional(),
   }).passthrough();
 
-  bool? get userInvocable => _json['user-invocable'] as bool?;
+  bool? get userInvocable => values['user-invocable'] as bool?;
 
-  String? get allowedTools => _json['allowed-tools'] as String?;
+  String? get allowedTools => values['allowed-tools'] as String?;
 
-  String? get tools => _json['tools'] as String?;
+  String? get tools => values['tools'] as String?;
+
+  /// Claude's own key for the skill's trigger phrases, flattened onto one
+  /// line, or `null` when absent.
+  String? get whenToUse =>
+      Frontmatter.oneLine(values['when_to_use'] as String?);
 }

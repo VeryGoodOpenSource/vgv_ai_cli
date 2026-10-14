@@ -183,14 +183,12 @@ void main() {
   });
 
   group('oneLine', () {
-    test('flattens any key, not only the description', () {
-      final frontmatter = _parse('---\nwhen_to_use: >\n  One.\n  Two.\n---\n');
-
-      expect(frontmatter.oneLine('when_to_use'), 'One. Two.');
+    test('flattens folded and literal text onto one line', () {
+      expect(Frontmatter.oneLine('  One.\n  Two.\n'), 'One. Two.');
     });
 
-    test('is null when the key is absent', () {
-      expect(_parse('---\nname: a\n---\n').oneLine('when_to_use'), isNull);
+    test('is null for null', () {
+      expect(Frontmatter.oneLine(null), isNull);
     });
   });
 
