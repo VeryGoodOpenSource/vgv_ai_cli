@@ -116,12 +116,16 @@ void main() {
         ]);
       });
 
-      test('Copilot gets MCP config, instructions and agents', () async {
+      test('Copilot gets MCP config, instructions, agents and hooks', () async {
         expect(await tree(Harness.copilot), [
           'agents/planner.agent.md',
           'agents/review.agent.md',
           'copilot-instructions.md',
+          'hooks/vgv.json',
           'mcp-config.json',
+          'vgv_ai/hooks/${CopilotTranslator.compatScript}',
+          'vgv_ai/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
       });
     });
@@ -154,6 +158,7 @@ void main() {
         modes,
         containsPair('.copilot/mcp-config.json', ChangeMode.mergeJson),
       );
+      expect(modes, containsPair('.copilot/hooks/vgv.json', ChangeMode.own));
       expect(
         modes,
         containsPair(
