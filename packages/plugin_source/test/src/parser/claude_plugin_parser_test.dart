@@ -440,10 +440,6 @@ void main() {
       expect(hookFor('Stop').commands.last.type, 'prompt');
     });
 
-    test('drops a matcher that is not a string', () {
-      expect(hookFor('Stop').matcher, isNull);
-    });
-
     test('defaults an absent timeout to null', () {
       expect(hookFor('PostToolUse').commands.last.timeout, isNull);
     });
@@ -524,17 +520,86 @@ void main() {
       );
     });
 
-    test('skips an event whose value is not a list', () {
-      expect(assets.hooks.map((h) => h.event), isNot(contains('Malformed')));
-    });
-
     test('skips registrations that contribute no runnable command', () {
-      // An empty hooks array, an entry with no command string, and a
-      // non-object registration all appear under EmptyCommands.
+      // An empty hooks array and a prompt hook, which has no command, both
+      // appear under EmptyCommands.
       expect(
         assets.hooks.map((h) => h.event),
         isNot(contains('EmptyCommands')),
       );
+    });
+
+    group('throws, naming the file and field, for', () {
+      late Directory root;
+
+      setUp(() => root = MemoryFileSystem.test().directory('/plugin'));
+
+      /// Parses a plugin whose `hooks.json` maps events to [events].
+      void parseEvents(String events) {
+        root.childFile('hooks/hooks.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"hooks": $events}');
+        const ClaudePluginParser().parse(root);
+      }
+
+      Matcher throwsAt(String path, String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', path)
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      const hooksJson = '/plugin/hooks/hooks.json';
+
+      test('an event whose value is not a list', () {
+        expect(
+          () => parseEvents('{"Stop": "not a list"}'),
+          throwsAt(hooksJson, '#/hooks/Stop'),
+        );
+      });
+
+      test('a registration that is not an object', () {
+        expect(
+          () => parseEvents('{"Stop": ["not an object"]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0'),
+        );
+      });
+
+      test('a matcher that is not a string', () {
+        expect(
+          () => parseEvents('{"Stop": [{"matcher": 7, "hooks": []}]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0/matcher'),
+        );
+      });
+
+      test('a command that is not a string', () {
+        expect(
+          () => parseEvents('{"Stop": [{"hooks": [{"command": 1}]}]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0/hooks/0/command'),
+        );
+      });
+
+      test('a timeout that is not an integer', () {
+        expect(
+          () => parseEvents(
+            '{"Stop": [{"hooks": [{"command": "a", "timeout": "30"}]}]}',
+          ),
+          throwsAt(hooksJson, '#/hooks/Stop/0/hooks/0/timeout'),
+        );
+      });
+
+      test("a malformed hook in an agent's frontmatter", () {
+        root.childFile('agents/a.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '---\nhooks:\n  Stop:\n    - hooks:\n        - command: 1\n'
+            '---\nbody\n',
+          );
+
+        expect(
+          () => const ClaudePluginParser().parse(root),
+          throwsAt('/plugin/agents/a.md', '#/hooks/Stop/0/hooks/0/command'),
+        );
+      });
     });
 
     test('is empty when the plugin ships no hooks', () {
@@ -551,7 +616,7 @@ void main() {
           isA<PluginParseException>().having(
             (e) => e.message,
             'message',
-            contains('JSON object'),
+            contains('Expected object'),
           ),
         ),
       );

@@ -33,3 +33,25 @@ final ObjectSchema skillFrontmatterSchema = Ack.object({
   'tools': Ack.string().optional(),
   'when_to_use': Ack.string().optional(),
 }).passthrough();
+
+/// `hooks/hooks.json`, and an agent's frontmatter, which declares the hooks
+/// that fire while it runs in the same shape.
+///
+/// `hooks` maps each event to its registrations. A hook without a `command`,
+/// such as a `prompt` hook, runs nothing a harness can translate.
+final ObjectSchema hooksSchema = Ack.object({
+  'hooks': Ack.map(
+    Ack.list(
+      Ack.object({
+        'matcher': Ack.string().optional(),
+        'hooks': Ack.list(
+          Ack.object({
+            'type': Ack.string().optional(),
+            'command': Ack.string().optional(),
+            'timeout': Ack.integer().optional(),
+          }).passthrough(),
+        ),
+      }).passthrough(),
+    ),
+  ).optional(),
+}).passthrough();

@@ -10,8 +10,9 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 ///
 /// The single place that knows what "Claude-specific" means: the
 /// `user-invocable` default, how `allowed-tools` is written, and the
-/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. It tolerates the real, mutually
-/// inconsistent shapes the two plugins ship, not the documented ones.
+/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. Each file is validated against
+/// its shape in `claude_schemas.dart`, which admits the real, mutually
+/// inconsistent shapes the two plugins ship and throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   @override
@@ -193,10 +194,9 @@ class const ClaudePluginParser() implements PluginParser {
             body: frontmatter.body,
             skills: frontmatter.skills,
           ),
-          hooks: switch (frontmatter.values['hooks']) {
-            final Map<String, Object?> hooks => ConfigMap.of(hooks),
-            _ => null,
-          },
+          hooks:
+              hooksSchema.decode(frontmatter.values, path: file.path)['hooks']
+                  as Map<String, Object?>?,
         ),
       );
     }
@@ -207,26 +207,30 @@ class const ClaudePluginParser() implements PluginParser {
   /// The event map of `hooks/hooks.json` under [root], shaped
   /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
   /// or null when the plugin ships none.
-  ConfigMap? _readHookEvents(Directory root) {
+  Map<String, Object?>? _readHookEvents(Directory root) {
     final file = root.childDirectory('hooks').childFile('hooks.json');
     if (!file.existsSync()) return null;
 
-    return _readJsonObject(file).child('hooks');
+    return hooksSchema.decodeJson(
+          file.readAsStringSync(),
+          path: file.path,
+        )['hooks']
+        as Map<String, Object?>?;
   }
 
   /// The hooks under [events], an event map of registrations, declared by
   /// [plugin] at [root] and scoped to [agent] when one declared them.
   List<HookAsset> _readRegistrations(
-    ConfigMap events, {
+    Map<String, Object?> events, {
     required String plugin,
     required Directory root,
     String? agent,
   }) => [
-    for (final event in events.entries)
-      for (final registration in ConfigMap.maps(event.value))
+    for (final MapEntry(key: event, :value) in events.entries)
+      for (final registration in value! as List<Object?>)
         ?_readRegistration(
-          event.key,
-          registration,
+          event,
+          registration! as Map<String, Object?>,
           plugin: plugin,
           root: root,
           agent: agent,
@@ -236,20 +240,17 @@ class const ClaudePluginParser() implements PluginParser {
   /// One registration under [event], or null when it runs nothing.
   HookAsset? _readRegistration(
     String event,
-    ConfigMap registration, {
+    Map<String, Object?> registration, {
     required String plugin,
     required Directory root,
     required String? agent,
   }) {
-    final commands = _readHookCommands(registration['hooks']);
+    final commands = _readHookCommands(registration['hooks']! as List<Object?>);
     if (commands.isEmpty) return null;
 
-    // A matcher that is not a string is meaningless; drop it rather than
-    // stringify it, matching the tolerant shape the plugins are written in.
-    final matcher = registration['matcher'];
     return HookAsset(
       event: event,
-      matcher: matcher is String ? matcher : null,
+      matcher: registration['matcher'] as String?,
       commands: commands,
       plugin: plugin,
       pluginRoot: root,
@@ -273,25 +274,20 @@ class const ClaudePluginParser() implements PluginParser {
     return declared ?? p.basename(root.path);
   }
 
-  List<HookCommand> _readHookCommands(Object? raw) {
-    final commands = <HookCommand>[];
-    for (final entry in ConfigMap.maps(raw)) {
-      final command = entry['command'];
-      if (command is! String) continue;
-
-      commands.add(
+  /// The hooks of one registration that run a command, the only kind a
+  /// harness can translate.
+  List<HookCommand> _readHookCommands(List<Object?> hooks) => [
+    for (final hook in hooks.cast<Map<String, Object?>>())
+      if (hook case {'command': final String command})
         HookCommand(
-          type: entry.string('type') ?? 'command',
+          type: hook['type'] as String? ?? 'command',
           command: command.replaceAll(
             _claudePluginRoot,
             HookCommand.rootPlaceholder,
           ),
-          timeout: entry.integer('timeout'),
+          timeout: hook['timeout'] as int?,
         ),
-      );
-    }
-    return commands;
-  }
+  ];
 
   List<MCPServer> _readMcpServers(File mcpFile) {
     if (!mcpFile.existsSync()) return const [];
@@ -337,13 +333,10 @@ class const ClaudePluginParser() implements PluginParser {
   /// checked holds only strings.
   Map<String, String> _stringMap(Object? block) =>
       Map.from(block as Map<String, Object?>? ?? const {});
-
-  ConfigMap _readJsonObject(File file) =>
-      ConfigMap.parseJson(file.readAsStringSync(), path: file.path);
 }
 
 /// An agent file: the asset, and the hooks its frontmatter declares for it.
 class const _AgentFile({
   required final AgentAsset asset,
-  final ConfigMap? hooks,
+  final Map<String, Object?>? hooks,
 });
