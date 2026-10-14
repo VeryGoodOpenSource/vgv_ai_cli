@@ -19,9 +19,6 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
-  @override
-  bool get runsHooks => true;
-
   /// The keys Codex spells differently from `.mcp.json`.
   static const _renamedKeys = {'headers': 'http_headers'};
 
@@ -53,10 +50,52 @@ class const CodexTranslator() extends HarnessTranslator {
       );
 
   /// The plugins' hooks as `~/.codex/hooks.json` spells them: Claude's shape,
-  /// Codex's tool names, and commands pointing at the copy [hookFiles]
-  /// writes. See https://developers.openai.com/codex/hooks.
+  /// Codex's tool names, and commands pointing at Codex's copy of each
+  /// plugin's `hooks` folder under `<hooksRoot>/<plugin>`. The whole folder
+  /// comes, since scripts source their neighbours, with [codexPreamble] in
+  /// every script a hook runs and [compatScript] beside it; the plugin's
+  /// `hooks.json` does not. See https://developers.openai.com/codex/hooks.
   @override
-  String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
+  HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
+    final scan = _scan(assets);
+    final compat = hooksRoot.childFile(compatScript);
+    return HookTranslation(
+      fragment: _fragment(assets, hooksRoot: hooksRoot),
+      files: [
+        if (assets.hooks.any(_runsCommand))
+          PlannedChange.text(
+            file: compat,
+            contents: codexCompatScript,
+            harness: harness,
+          ),
+        for (final file in scan.files)
+          PlannedChange(
+            file: hooksRoot.fileSystem.file(
+              p.join(_copyRoot(file.hook, hooksRoot).path, file.relative),
+            ),
+            bytes: file.bytes(compat),
+            harness: harness,
+            source: file.source,
+          ),
+      ],
+      notes: [
+        ...scan.notes,
+        if (assets.hooks.isNotEmpty)
+          const TranslationNote(
+            subject: 'the hooks written to ~/.codex/hooks.json',
+            reason:
+                'Codex runs no hook it has not been told to trust, so run '
+                '/hooks in Codex and trust them',
+          ),
+      ],
+    );
+  }
+
+  /// The `hooks.json` fragment, or null when no plugin declares a hook.
+  static String? _fragment(
+    PluginAssets assets, {
+    required Directory hooksRoot,
+  }) {
     final events = <String, List<Object?>>{};
     for (final hook in assets.hooks.where(_safelyNamed)) {
       events.putIfAbsent(hook.event, () => []).add({
@@ -73,50 +112,6 @@ class const CodexTranslator() extends HarnessTranslator {
     }
     return events.isEmpty ? null : jsonEncode({'hooks': events});
   }
-
-  /// [compatScript], and Codex's copy of each plugin's `hooks` folder under
-  /// `<hooksRoot>/<plugin>` with [codexPreamble] in every script a hook runs.
-  /// The whole folder comes, since scripts source their neighbours; the
-  /// plugin's `hooks.json` does not. What could not be copied as intended is
-  /// reported by [notes].
-  @override
-  List<PlannedChange> hookFiles(
-    PluginAssets assets, {
-    required Directory hooksRoot,
-  }) {
-    final compat = hooksRoot.childFile(compatScript);
-    return [
-      if (assets.hooks.any(_runsCommand))
-        PlannedChange.text(
-          file: compat,
-          contents: codexCompatScript,
-          harness: harness,
-        ),
-      for (final file in _scan(assets).files)
-        PlannedChange(
-          file: hooksRoot.fileSystem.file(
-            p.join(_copyRoot(file.hook, hooksRoot).path, file.relative),
-          ),
-          bytes: file.bytes(compat),
-          harness: harness,
-          source: file.source,
-        ),
-    ];
-  }
-
-  /// What [hookFiles] could not copy as intended, and the trust step.
-  @override
-  List<TranslationNote> notes(PluginAssets assets) => [
-    ...super.notes(assets),
-    ..._scan(assets).notes,
-    if (assets.hooks.isNotEmpty)
-      const TranslationNote(
-        subject: 'the hooks written to ~/.codex/hooks.json',
-        reason:
-            'Codex runs no hook it has not been told to trust, so run /hooks '
-            'in Codex and trust them',
-      ),
-  ];
 
   /// The file under the hooks root that holds [codexCompatScript].
   static const compatScript = 'vgv-claude-compat.sh';

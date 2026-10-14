@@ -28,26 +28,15 @@ void main() {
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());
     });
 
-    test('runs none of the hooks', () {
-      expect(translator.runsHooks, isFalse);
-    });
-
-    test('spells no hooks and no files beside them, as the default', () {
-      final hooksRoot = MemoryFileSystem.test().directory('/home/.pi/hooks');
-
-      expect(translator.hooks(pluginAssets(), hooksRoot: hooksRoot), isNull);
-      expect(
-        translator.hookFiles(pluginAssets(), hooksRoot: hooksRoot),
-        isEmpty,
-      );
-    });
-
-    test('reports that nothing in its config runs a shell command', () {
+    test('runs none of the hooks, as the default', () {
       final fs = MemoryFileSystem.test();
 
       expect(
-        translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains("nothing in Pi's config runs one"),
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.pi/hooks'),
+        ),
+        isNull,
       );
     });
 

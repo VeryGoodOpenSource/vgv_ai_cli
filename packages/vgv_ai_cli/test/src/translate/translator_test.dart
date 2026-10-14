@@ -152,22 +152,6 @@ void main() {
       );
     });
 
-    test(
-      'plans no hooks for a translator that declares it runs none',
-      () async {
-        // The flag is what the notes read, so a translator that spells hooks
-        // without declaring it runs them would write them and deny it at once.
-        final plan = await const Translator(
-          translators: [DeclinedHooksTranslator()],
-        ).translate(assets: assets, home: home, selected: {Harness.pi});
-
-        expect(
-          plan.harnesses[Harness.pi]!.changes.map((c) => c.file.path),
-          isNot(contains(endsWith('declined.sh'))),
-        );
-      },
-    );
-
     test('tags every change with the harness it configures', () async {
       final plan = await translate(Harness.values.toSet());
 
@@ -206,7 +190,16 @@ void main() {
       final plan = await translate({Harness.claude, Harness.pi});
 
       expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
-      expect(plan.harnesses[Harness.pi]!.notes.first.subject, '1 hook(s)');
+      expect(plan.harnesses[Harness.pi]!.notes.last.subject, '1 hook(s)');
+    });
+
+    test('tells a harness that runs no hooks so, once', () async {
+      final plan = await translate({Harness.gemini});
+
+      expect(
+        plan.harnesses[Harness.gemini]!.notes.single.reason,
+        contains("nothing in Gemini's config runs one"),
+      );
     });
 
     group('renders contents the harness can read', () {

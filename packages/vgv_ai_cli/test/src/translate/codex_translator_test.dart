@@ -17,10 +17,6 @@ void main() {
       expect(translator.harness, Harness.codex);
     });
 
-    test('declares that it runs the hooks, which the notes read', () {
-      expect(translator.runsHooks, isTrue);
-    });
-
     test('declares MCP servers as TOML tables, headers as http_headers', () {
       final toml = translator.settings(
         pluginAssets(
@@ -94,12 +90,15 @@ void main() {
 
       setUp(() => fs = MemoryFileSystem.test());
 
+      /// What [hooks] translate to, under the hooks root.
+      HookTranslation translate(List<HookAsset> hooks) => translator.hooks(
+        pluginAssets(hooks: hooks),
+        hooksRoot: fs.directory('/home/.codex/hooks'),
+      );
+
       /// The registrations [hooks] translate to, under their event.
       Map<String, Object?> events(List<HookAsset> hooks) {
-        final json = translator.hooks(
-          pluginAssets(hooks: hooks),
-          hooksRoot: fs.directory('/home/.codex/hooks'),
-        )!;
+        final json = translate(hooks).fragment!;
         return (jsonDecode(json) as Map<String, Object?>)['hooks']!
             as Map<String, Object?>;
       }
@@ -199,10 +198,12 @@ void main() {
       });
 
       test('quote a copy root that holds a space', () {
-        final json = translator.hooks(
-          pluginAssets(hooks: [hookAsset(fs)]),
-          hooksRoot: fs.directory('/home/Jane Doe/.codex/hooks'),
-        )!;
+        final json = translator
+            .hooks(
+              pluginAssets(hooks: [hookAsset(fs)]),
+              hooksRoot: fs.directory('/home/Jane Doe/.codex/hooks'),
+            )
+            .fragment!;
 
         expect(
           json,
@@ -263,29 +264,31 @@ void main() {
         expect(registrations, hasLength(2));
       });
 
-      test('are null when the plugins ship none', () {
+      test('register nothing when the plugins ship none', () {
         expect(
-          translator.hooks(
-            pluginAssets(),
-            hooksRoot: fs.directory('/home/.codex/hooks'),
-          ),
+          translator
+              .hooks(pluginAssets(), hooksRoot: fs.directory('/home/.codex'))
+              .fragment,
           isNull,
         );
       });
     });
 
-    group('hookFiles', () {
+    group('files', () {
       late MemoryFileSystem fs;
 
       setUp(() => fs = MemoryFileSystem.test());
 
-      List<PlannedChange> files(List<HookAsset> hooks) => translator.hookFiles(
+      HookTranslation translate(List<HookAsset> hooks) => translator.hooks(
         pluginAssets(hooks: hooks),
         hooksRoot: fs.directory('/home/.codex/hooks'),
       );
 
+      List<PlannedChange> files(List<HookAsset> hooks) =>
+          translate(hooks).files;
+
       List<TranslationNote> notes(List<HookAsset> hooks) =>
-          translator.notes(pluginAssets(hooks: hooks));
+          translate(hooks).notes;
 
       PlannedChange at(List<PlannedChange> changes, String suffix) =>
           changes.singleWhere((c) => c.file.path.endsWith(suffix));
@@ -639,13 +642,7 @@ void main() {
           expect(files([hook]).map((c) => c.file.path), [
             '/home/.codex/hooks/vgv-claude-compat.sh',
           ]);
-          expect(
-            translator.hooks(
-              pluginAssets(hooks: [hook]),
-              hooksRoot: fs.directory('/home/.codex/hooks'),
-            ),
-            isNull,
-          );
+          expect(translate([hook]).fragment, isNull);
           expect(
             notes([hook]),
             contains(
@@ -664,12 +661,23 @@ void main() {
       setUp(() => fs = MemoryFileSystem.test());
 
       test('ask for the trust that lets the rest run', () {
-        final notes = translator.notes(pluginAssets(hooks: [hookAsset(fs)]));
+        final translation = translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.codex/hooks'),
+        );
 
-        expect(notes.single.reason, contains('/hooks'));
+        expect(translation.notes.single.reason, contains('/hooks'));
       });
 
-      test('say nothing about hooks when there are none', () {
+      test('say nothing when there are no hooks', () {
+        final translation = translator.hooks(
+          pluginAssets(),
+          hooksRoot: fs.directory('/home/.codex/hooks'),
+        );
+
+        expect(translation.fragment, isNull);
+        expect(translation.files, isEmpty);
+        expect(translation.notes, isEmpty);
         expect(translator.notes(pluginAssets()), isEmpty);
       });
     });

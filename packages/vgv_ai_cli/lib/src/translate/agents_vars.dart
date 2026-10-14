@@ -1,4 +1,3 @@
-import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
@@ -16,8 +15,11 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// The directory every harness is configured under.
-  required final Directory home,
+  /// Where the shared skills are written.
+  required final String skillsRoot,
+
+  /// The hooks fragment of each harness that has one.
+  final Map<Harness, String> hooks = const {},
 }) {
   /// The vars, keyed as the brick reads them.
   ///
@@ -32,24 +34,13 @@ class const AgentsVars({
     return {
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
-      for (final translator in translators) ..._harnessVars(translator),
+      for (final translator in translators) ...{
+        '${translator.harness.name}_settings': ?translator.settings(assets),
+        '${translator.harness.name}_hooks': ?hooks[translator.harness],
+      },
       if (agents.isNotEmpty) 'agents': agents,
       if (commands.isNotEmpty) 'commands': commands,
       'index': _index(),
-    };
-  }
-
-  /// The settings and hooks fragments [translator] spells, each left out
-  /// when null.
-  Map<String, Object?> _harnessVars(HarnessTranslator translator) {
-    final name = translator.harness.name;
-    return {
-      '${name}_settings': ?translator.settings(assets),
-      if (translator.runsHooks)
-        '${name}_hooks': ?translator.hooks(
-          assets,
-          hooksRoot: harnessHooksRoot(translator.harness, home: home),
-        ),
     };
   }
 
@@ -66,10 +57,7 @@ class const AgentsVars({
   };
 
   Map<String, Object?> _agent(AgentAsset agent) {
-    final instructions = agentInstructions(
-      agent,
-      skillsRoot: agentsSkillsRoot(home).path,
-    );
+    final instructions = agentInstructions(agent, skillsRoot: skillsRoot);
     return {
       'name': agent.name,
       'instructions': instructions,

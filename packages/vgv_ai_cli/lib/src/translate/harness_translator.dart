@@ -25,10 +25,6 @@ abstract class const HarnessTranslator() {
   /// `~/.agents/skills`.
   bool get readsSharedSkills => true;
 
-  /// Whether this harness runs the plugins' hooks. Declared, not derived from
-  /// [hooks], because [notes] reads it without the paths [hooks] takes.
-  bool get runsHooks => false;
-
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
@@ -43,30 +39,14 @@ abstract class const HarnessTranslator() {
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
 
-  /// The hooks fragment merged into this harness's hooks file, or null.
-  /// Only called when [runsHooks] is set; [hookFiles] writes under
-  /// [hooksRoot].
-  String? hooks(PluginAssets assets, {required Directory hooksRoot}) => null;
+  /// The plugins' hooks as this harness runs them, with the files beside
+  /// the fragment under [hooksRoot], or null for a harness whose config
+  /// cannot run a shell command: OpenCode's hooks are TypeScript callbacks,
+  /// not commands in a file.
+  HookTranslation? hooks(PluginAssets assets, {required Directory hooksRoot}) =>
+      null;
 
-  /// The files this harness needs beside [hooks], under [hooksRoot]. Planned
-  /// rather than rendered so a copied script keeps its mode. Only called when
-  /// [runsHooks] is set.
-  List<PlannedChange> hookFiles(
-    PluginAssets assets, {
-    required Directory hooksRoot,
-  }) => const [];
-
-  /// What the user needs to know about [assets] for this harness.
-  ///
-  /// A harness whose config cannot run a shell command gets no hooks:
-  /// OpenCode's hooks are TypeScript callbacks, not commands in a file.
-  List<TranslationNote> notes(PluginAssets assets) => [
-    if (!runsHooks && assets.hooks.isNotEmpty)
-      TranslationNote(
-        subject: '${assets.hooks.length} hook(s)',
-        reason:
-            'the plugins ship them as shell commands, and nothing in '
-            "${harness.displayName}'s config runs one",
-      ),
-  ];
+  /// What the user needs to know about [assets] for this harness, beyond
+  /// what [hooks] reports.
+  List<TranslationNote> notes(PluginAssets assets) => const [];
 }

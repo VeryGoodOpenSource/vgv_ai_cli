@@ -16,8 +16,16 @@ void main() {
       expect(translator.harness, Harness.opencode);
     });
 
-    test('declares that it runs no hooks, which the notes read', () {
-      expect(translator.runsHooks, isFalse);
+    test('runs none of the hooks', () {
+      final fs = MemoryFileSystem.test();
+
+      expect(
+        translator.hooks(
+          pluginAssets(hooks: [hookAsset(fs)]),
+          hooksRoot: fs.directory('/home/.config/opencode/hooks'),
+        ),
+        isNull,
+      );
     });
 
     test('types each MCP server and folds its args into the command', () {
@@ -87,13 +95,10 @@ void main() {
       });
     });
 
-    test('reports that nothing in its config runs a shell command', () {
+    test('reports nothing itself', () {
       final fs = MemoryFileSystem.test();
 
-      expect(
-        translator.notes(pluginAssets(hooks: [hookAsset(fs)])).single.reason,
-        contains("nothing in OpenCode's config runs one"),
-      );
+      expect(translator.notes(pluginAssets(hooks: [hookAsset(fs)])), isEmpty);
     });
   });
 }
