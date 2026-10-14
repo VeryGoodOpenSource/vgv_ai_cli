@@ -25,8 +25,9 @@ class const HookCommand({
 ///
 /// [event] is the lifecycle point, carried as the source harness names it.
 /// [matcher] narrows which tools it fires for. [plugin] and [pluginRoot] are
-/// the plugin's name and the directory [HookCommand.rootPlaceholder] stands
-/// for. [agent] is the agent that declared the hook for itself, or null.
+/// the plugin's name, as its manifest declares it, and the directory
+/// [HookCommand.rootPlaceholder] stands for. [agent] is the agent that
+/// declared the hook for itself, or null.
 /// {@endtemplate}
 class const HookAsset({
   required final String event,

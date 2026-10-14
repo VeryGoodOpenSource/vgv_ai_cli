@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
+import 'package:vgv_ai_cli/src/translate/codex_compat.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
@@ -58,7 +58,7 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   String? hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final events = <String, List<Object?>>{};
-    for (final hook in assets.hooks) {
+    for (final hook in assets.hooks.where(_safelyNamed)) {
       events.putIfAbsent(hook.event, () => []).add({
         'matcher': ?_matcher(hook),
         'hooks': [
@@ -74,25 +74,35 @@ class const CodexTranslator() extends HarnessTranslator {
     return events.isEmpty ? null : jsonEncode({'hooks': events});
   }
 
-  /// Codex's copy of each plugin's `hooks` folder under `<hooksRoot>/<plugin>`,
-  /// with [codexPreamble] in every script a hook runs. The whole folder comes,
-  /// since scripts source their neighbours; the plugin's `hooks.json` does
-  /// not. What could not be copied as intended is reported by [notes].
+  /// [compatScript], and Codex's copy of each plugin's `hooks` folder under
+  /// `<hooksRoot>/<plugin>` with [codexPreamble] in every script a hook runs.
+  /// The whole folder comes, since scripts source their neighbours; the
+  /// plugin's `hooks.json` does not. What could not be copied as intended is
+  /// reported by [notes].
   @override
   List<PlannedChange> hookFiles(
     PluginAssets assets, {
     required Directory hooksRoot,
-  }) => [
-    for (final file in _scan(assets).files)
-      PlannedChange(
-        file: hooksRoot.fileSystem.file(
-          p.join(_copyRoot(file.hook, hooksRoot).path, file.relative),
+  }) {
+    final compat = hooksRoot.childFile(compatScript);
+    return [
+      if (assets.hooks.any(_runsCommand))
+        PlannedChange.text(
+          file: compat,
+          contents: codexCompatScript,
+          harness: harness,
         ),
-        bytes: file.bytes,
-        harness: harness,
-        source: file.source,
-      ),
-  ];
+      for (final file in _scan(assets).files)
+        PlannedChange(
+          file: hooksRoot.fileSystem.file(
+            p.join(_copyRoot(file.hook, hooksRoot).path, file.relative),
+          ),
+          bytes: file.bytes(compat),
+          harness: harness,
+          source: file.source,
+        ),
+    ];
+  }
 
   /// What [hookFiles] could not copy as intended, and the trust step.
   @override
@@ -108,6 +118,9 @@ class const CodexTranslator() extends HarnessTranslator {
       ),
   ];
 
+  /// The file under the hooks root that holds [codexCompatScript].
+  static const compatScript = 'vgv-claude-compat.sh';
+
   /// The folder a Claude Code plugin keeps its hooks in.
   static const _hooksFolder = 'hooks';
 
@@ -117,6 +130,10 @@ class const CodexTranslator() extends HarnessTranslator {
   /// The handler type that runs a shell command; `mcp_tool` and `prompt`
   /// name no script.
   static const _commandType = 'command';
+
+  /// What a plugin may be named, since its name becomes a folder under the
+  /// hooks root.
+  static final _namePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
   /// A file under the hooks folder a command names, relative to the plugin
   /// root, quoted or not.
@@ -129,6 +146,14 @@ class const CodexTranslator() extends HarnessTranslator {
 
   /// A shebang that names bash.
   static final _bashShebang = RegExp(r'^#!.*\bbash\b');
+
+  /// Whether [hook]'s plugin name is safe as a folder name.
+  static bool _safelyNamed(HookAsset hook) =>
+      _namePattern.hasMatch(hook.plugin);
+
+  /// Whether [hook] runs a shell command, which is what needs the preamble.
+  static bool _runsCommand(HookAsset hook) =>
+      hook.commands.any((command) => command.type == _commandType);
 
   /// Where Codex's copy of [hook]'s plugin goes under [hooksRoot].
   static Directory _copyRoot(HookAsset hook, Directory hooksRoot) =>
@@ -193,8 +218,19 @@ class const CodexTranslator() extends HarnessTranslator {
     required List<TranslationNote> notes,
   }) {
     final hook = hooks.first;
-    final folder = hook.pluginRoot.childDirectory(_hooksFolder);
+    if (!_safelyNamed(hook)) {
+      notes.add(
+        TranslationNote(
+          subject: hook.plugin,
+          reason:
+              'its name is not safe as a folder name, so its hooks were not '
+              'installed',
+        ),
+      );
+      return;
+    }
 
+    final folder = hook.pluginRoot.childDirectory(_hooksFolder);
     // The cache was cleared since resolution; say so rather than throw.
     if (!folder.existsSync()) {
       notes.add(
@@ -238,21 +274,10 @@ class const CodexTranslator() extends HarnessTranslator {
     final source = _sourceFile(entity, subject, notes);
     if (source == null) return null;
 
-    final bytes = source.readAsBytesSync();
-    return _HookFile(
-      hook: hook,
-      source: source,
-      relative: relative,
-      bytes: use == null
-          ? bytes
-          : _withPreamble(
-              bytes,
-              hook.pluginRoot,
-              subject: subject,
-              use: use,
-              notes: notes,
-            ),
-    );
+    final file = _HookFile(hook: hook, source: source, relative: relative);
+    return use == null
+        ? file
+        : _withPreamble(file, subject: subject, use: use, notes: notes);
   }
 
   /// Resolves [entity] to a readable file, or reports why it cannot be.
@@ -288,18 +313,18 @@ class const CodexTranslator() extends HarnessTranslator {
     return null;
   }
 
-  /// [bytes] with the [codexPreamble] below the shebang. A script bash does not
-  /// run, or that is not UTF-8, is copied as it is and reported in [notes].
-  static List<int> _withPreamble(
-    List<int> bytes,
-    Directory pluginRoot, {
+  /// [file] with the [codexPreamble] below its shebang. A script bash does
+  /// not run, or that is not UTF-8, is copied as it is and reported in
+  /// [notes].
+  static _HookFile _withPreamble(
+    _HookFile file, {
     required String subject,
     required _ScriptUse use,
     required List<TranslationNote> notes,
   }) {
     final String script;
     try {
-      script = utf8.decode(bytes);
+      script = utf8.decode(file.source.readAsBytesSync());
     } on FormatException {
       notes.add(
         TranslationNote(
@@ -309,10 +334,9 @@ class const CodexTranslator() extends HarnessTranslator {
               'hands it its own payload',
         ),
       );
-      return bytes;
+      return file;
     }
 
-    final shebang = script.startsWith('#!') ? script.indexOf('\n') + 1 : 0;
     if (!use.bashCommand && !_bashShebang.hasMatch(script)) {
       notes.add(
         TranslationNote(
@@ -322,7 +346,7 @@ class const CodexTranslator() extends HarnessTranslator {
               'hands it its own payload',
         ),
       );
-      return bytes;
+      return file;
     }
 
     final String? agent;
@@ -340,34 +364,82 @@ class const CodexTranslator() extends HarnessTranslator {
       );
     }
 
-    final body = codexPreamble
-        .replaceAll('__ROOT__', _quoted(pluginRoot.path))
-        .replaceAll('__AGENT__', _quoted(agent ?? ''));
-    return utf8.encode(
-      '${script.substring(0, shebang)}$body${script.substring(shebang)}',
+    // A shebang-only script has no newline to split at.
+    final newline = script.indexOf('\n');
+    final shebang = !script.startsWith('#!')
+        ? 0
+        : newline < 0
+        ? script.length
+        : newline + 1;
+    final head = script.substring(0, shebang);
+    return _HookFile(
+      hook: file.hook,
+      source: file.source,
+      relative: file.relative,
+      preamble: _Preamble(
+        head: head.isNotEmpty && !head.endsWith('\n') ? '$head\n' : head,
+        tail: script.substring(shebang),
+        agent: agent,
+      ),
     );
   }
 
-  /// [hook]'s matcher as Codex spells it, null when it declares none.
-  static String? _matcher(HookAsset hook) => switch (hook.matcher) {
-    final declared? => _codexTools(declared).join('|'),
-    _ => null,
+  /// The tools Claude Code names in a matcher that Codex names differently:
+  /// it writes every edit through `apply_patch`, keeping Claude's two names
+  /// as aliases, and reads files through the shell.
+  static const _codexToolNames = {
+    'Edit': ['Edit', 'apply_patch'],
+    'Write': ['Write', 'apply_patch'],
+    'Read': ['Bash'],
+    'Glob': ['Bash'],
+    'Grep': ['Bash'],
   };
 
-  /// The tools [matcher] names, as Codex names them, each once.
-  static List<String> _codexTools(String matcher) =>
-      {for (final name in matcher.split('|')) ...CodexTool.codexNamesOf(name)}
-          .toList();
+  /// A matcher that is a flat `A|B` list of tool names, the one shape whose
+  /// names are mapped; any other regex is handed to Codex as written.
+  static final _flatList = RegExp(r'^\w+(\|\w+)*$');
+
+  /// [hook]'s matcher as Codex spells it, null when it declares none.
+  static String? _matcher(HookAsset hook) => switch (hook.matcher) {
+    final declared? when _flatList.hasMatch(declared) => {
+      for (final name in declared.split('|'))
+        ...(_codexToolNames[name] ?? [name]),
+    }.join('|'),
+    final declared => declared,
+  };
 }
 
 /// One file of a plugin's hooks folder as Codex's copy holds it; [hook] is
-/// any hook of the plugin, [relative] its path from the plugin root.
+/// any hook of the plugin, [relative] its path from the plugin root, and
+/// [preamble] the one spliced in when a hook runs it.
 class const _HookFile({
   required final HookAsset hook,
   required final File source,
   required final String relative,
-  required final List<int> bytes,
-});
+  final _Preamble? preamble,
+}) {
+  /// The copy's bytes, [compat] being the script the preamble sources.
+  List<int> bytes(File compat) => switch (preamble) {
+    final preamble? => utf8.encode(preamble.render(hook.pluginRoot, compat)),
+    _ => source.readAsBytesSync(),
+  };
+}
+
+/// Where [codexPreamble] goes in a script: between [head], the shebang or
+/// nothing, and [tail], the rest, scoped to [agent] when one is set.
+class const _Preamble({
+  required final String head,
+  required final String tail,
+  required final String? agent,
+}) {
+  String render(Directory pluginRoot, File compat) {
+    final body = codexPreamble
+        .replaceAll('__ROOT__', CodexTranslator._quoted(pluginRoot.path))
+        .replaceAll('__AGENT__', CodexTranslator._quoted(agent ?? ''))
+        .replaceAll('__COMPAT__', CodexTranslator._quoted(compat.path));
+    return '$head$body$tail';
+  }
+}
 
 /// What a pass over the plugins' hooks folders found.
 class const _HookScan({

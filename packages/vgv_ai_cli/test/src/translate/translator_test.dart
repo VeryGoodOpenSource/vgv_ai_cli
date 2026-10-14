@@ -89,6 +89,7 @@ void main() {
           'agents/review.toml',
           'config.toml',
           'hooks.json',
+          'hooks/${CodexTranslator.compatScript}',
           'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
           'hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);

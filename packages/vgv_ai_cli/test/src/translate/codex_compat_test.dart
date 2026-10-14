@@ -6,18 +6,16 @@ import 'package:file/local.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-/// Runs [codexPreamble] for real, through bash and jq, on top of a
-/// stub script that records every payload it is handed.
-///
-/// The Dart suite otherwise asserts only where the preamble is placed, and a
-/// shell program that decides when an edit gets analyzed and when a guard may
-/// deny deserves to be executed. Skipped where bash or jq is missing.
+/// Runs [codexPreamble] and [codexCompatScript] for real, through bash and
+/// jq, on top of a stub script that records every payload it is handed.
+/// Skipped where bash or jq is missing.
 void main() {
   final bash = Process.runSync('bash', ['-c', 'command -v jq']).exitCode == 0;
 
-  group('the Codex preamble', () {
+  group('the Codex compat script', () {
     late Directory temp;
     late Directory pluginRoot;
+    late File compat;
     late File script;
     late File log;
 
@@ -26,18 +24,25 @@ void main() {
     void writeScript({String agent = ''}) {
       final preamble = codexPreamble
           .replaceAll('__ROOT__', '"${pluginRoot.path}"')
-          .replaceAll('__AGENT__', '"$agent"');
+          .replaceAll('__AGENT__', '"$agent"')
+          .replaceAll('__COMPAT__', '"${compat.path}"');
       script.writeAsStringSync(
         '#!/bin/bash\n$preamble'
-        // What a plugin script would do: read the payload once, act on it.
-        // This one records the root it sees and the payload, answers when
+        // What a plugin script does: read the payload once, act on it. This
+        // one records the root it sees and the payload, answers per file when
         // asked to, and fails for the files it is told to.
         r'''
 input=$(cat)
 printf '%s\x1f%s\x1e' "$CLAUDE_PLUGIN_ROOT" "$input" >> "$LOG"
-[ -z "${ANSWER:-}" ] || printf '%s\n' "$ANSWER"
+# A pair names a file; it matches the run whose file_path ends with it, not
+# the patch text, which names every file.
+for pair in ${ANSWERS:-}; do
+  case "$input" in *"${pair%%=*}\""*)
+    printf '{"hookSpecificOutput":{"permissionDecision":"%s"}}\n' "${pair#*=}"
+  ;; esac
+done
 for pair in ${FAILURES:-}; do
-  case "$input" in *"${pair%%=*}"*) exit "${pair#*=}" ;; esac
+  case "$input" in *"${pair%%=*}\""*) exit "${pair#*=}" ;; esac
 done
 exit 0
 ''',
@@ -51,6 +56,8 @@ exit 0
       // A space and a quote, since the root is spliced into the script.
       pluginRoot = temp.childDirectory("it's a plugin")..createSync();
       log = temp.childFile('log');
+      compat = temp.childFile(CodexTranslator.compatScript)
+        ..writeAsStringSync(codexCompatScript);
       script = temp.childFile('hook.sh');
       writeScript();
     });
@@ -89,7 +96,12 @@ exit 0
     ];
 
     /// What Codex sends for an apply_patch whose headers are [lines].
-    Map<String, Object?> patch(List<String> lines, {String? cwd}) => {
+    Map<String, Object?> patch(
+      List<String> lines, {
+      String event = 'PostToolUse',
+      String? cwd,
+    }) => {
+      'hook_event_name': event,
       'cwd': cwd ?? temp.path,
       'tool_name': 'apply_patch',
       'tool_input': {
@@ -97,42 +109,47 @@ exit 0
       },
     };
 
-    test(
-      'runs the script once per file on disk, as an Edit or a Write',
-      () async {
-        temp.childFile('old.dart').writeAsStringSync('');
-        temp.childFile('renamed.dart').writeAsStringSync('');
-        temp.childDirectory('lib').createSync();
-        temp.childFile('lib/added.dart').writeAsStringSync('');
+    /// The tool and file of each run, as `Edit /path`.
+    List<String> edits() => [
+      for (final (_, payload) in runs())
+        [
+          payload['tool_name'],
+          (payload['tool_input']! as Map)['file_path'],
+        ].join(' '),
+    ];
 
-        final (code, _) = await run(
-          patch([
-            '*** Update File: old.dart',
-            '*** Delete File: gone.dart',
-            '*** Update File: was.dart',
-            '*** Move to: renamed.dart',
-            '*** Add File: lib/added.dart',
-            '*** Add File: lib/not_yet.dart',
-          ]),
-        );
+    test('runs the script once per file on disk after the tool', () async {
+      temp.childFile('old.dart').writeAsStringSync('');
+      temp.childFile('renamed.dart').writeAsStringSync('');
+      temp.childDirectory('lib').createSync();
+      temp.childFile('lib/added.dart').writeAsStringSync('');
 
-        expect(code, 0);
-        expect(
-          [
-            for (final (_, payload) in runs())
-              [
-                payload['tool_name'],
-                (payload['tool_input']! as Map)['file_path'],
-              ].join(' '),
-          ],
-          [
-            'Edit ${temp.path}/old.dart',
-            'Edit ${temp.path}/renamed.dart',
-            'Write ${temp.path}/lib/added.dart',
-          ],
-        );
-      },
-    );
+      final (code, _) = await run(
+        patch([
+          '*** Update File: old.dart',
+          '*** Delete File: gone.dart',
+          '*** Update File: was.dart',
+          '*** Move to: renamed.dart',
+          '*** Add File: lib/added.dart',
+          '*** Add File: lib/not_yet.dart',
+        ]),
+      );
+
+      expect(code, 0);
+      expect(edits(), [
+        'Edit ${temp.path}/old.dart',
+        'Edit ${temp.path}/renamed.dart',
+        'Write ${temp.path}/lib/added.dart',
+      ]);
+    });
+
+    test('hands a guard the files a patch is about to add', () async {
+      // Before the tool runs nothing is on disk yet, so the disk says
+      // nothing about which files matter.
+      await run(patch(['*** Add File: new.dart'], event: 'PreToolUse'));
+
+      expect(edits(), ['Write ${temp.path}/new.dart']);
+    });
 
     test(
       'resolves a relative path against a cwd with a trailing slash',
@@ -141,10 +158,7 @@ exit 0
 
         await run(patch(['*** Update File: a.dart'], cwd: '${temp.path}/'));
 
-        expect(
-          (runs().single.$2['tool_input']! as Map)['file_path'],
-          '${temp.path}/a.dart',
-        );
+        expect(edits(), ['Edit ${temp.path}/a.dart']);
       },
     );
 
@@ -174,20 +188,35 @@ exit 0
       expect(runs(), hasLength(3));
     });
 
-    test('prints the first answer only, so the harness sees one', () async {
+    test('lets a deny win over an earlier allow', () async {
+      temp.childFile('a.dart').writeAsStringSync('');
+      temp.childFile('b.dart').writeAsStringSync('');
+
+      final (code, out) = await run(
+        patch(['*** Update File: a.dart', '*** Update File: b.dart']),
+        env: {'ANSWERS': 'a.dart=allow b.dart=deny'},
+      );
+
+      expect(code, 0);
+      expect(jsonDecode(out), {
+        'hookSpecificOutput': {'permissionDecision': 'deny'},
+      });
+    });
+
+    test('prints one answer when every file allows', () async {
       temp.childFile('a.dart').writeAsStringSync('');
       temp.childFile('b.dart').writeAsStringSync('');
 
       final (_, out) = await run(
         patch(['*** Update File: a.dart', '*** Update File: b.dart']),
-        env: {'ANSWER': '{"decision":"deny"}'},
+        env: {'ANSWERS': 'a.dart=allow b.dart=allow'},
       );
 
-      expect(out, '{"decision":"deny"}\n');
+      expect(out, '{"hookSpecificOutput":{"permissionDecision":"allow"}}\n');
     });
 
     test('passes a patch naming no file on disk through as it came', () async {
-      final payload = patch(['*** Add File: not_yet.dart']);
+      final payload = patch(['*** Delete File: gone.dart']);
 
       final (code, _) = await run(payload);
 
@@ -198,10 +227,9 @@ exit 0
     test(
       'leaves a shell command alone, even one that looks like a patch',
       () async {
-        // A Bash heredoc holding a patch header must not turn a Bash payload
-        // into a Write, or a guard on Bash would stand aside.
         temp.childFile('a.dart').writeAsStringSync('');
         final payload = {
+          'hook_event_name': 'PreToolUse',
           'cwd': temp.path,
           'tool_name': 'Bash',
           'tool_input': {

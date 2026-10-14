@@ -15,26 +15,29 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 class const ClaudePluginParser() implements PluginParser {
   @override
   PluginAssets parse(Directory root) {
-    // Lazy: only a hook needs the name, and a hookless plugin may sit in a
-    // directory named anything.
-    late final plugin = _pluginName(root);
     final agents = _readAgents(root.childDirectory('agents'));
+    final events = _readHookEvents(root);
+    final scoped = [
+      for (final agent in agents)
+        if (agent.hooks != null) agent,
+    ];
+    // Only a hook needs the name, so a hookless plugin needs no manifest.
+    final plugin = events == null && scoped.isEmpty ? null : _pluginName(root);
     return PluginAssets(
       skills: _readSkills(root.childDirectory('skills')),
       agents: [for (final agent in agents) agent.asset],
       mcpServers: _readMcpServers(root.childFile('.mcp.json')),
       hooks: [
-        if (_readHookEvents(root) case final events?)
-          ..._readRegistrations(events, plugin: plugin, root: root),
+        if (events != null)
+          ..._readRegistrations(events, plugin: plugin!, root: root),
         // Hooks an agent declares for itself, in the shape of hooks.json.
-        for (final agent in agents)
-          if (agent.hooks case final events?)
-            ..._readRegistrations(
-              events,
-              plugin: plugin,
-              root: root,
-              agent: agent.asset.name,
-            ),
+        for (final agent in scoped)
+          ..._readRegistrations(
+            agent.hooks!,
+            plugin: plugin!,
+            root: root,
+            agent: agent.asset.name,
+          ),
       ],
     );
   }
@@ -247,8 +250,7 @@ class const ClaudePluginParser() implements PluginParser {
   }
 
   /// The manifest's name, or the directory's without one. The cache names a
-  /// directory after the version, and the name becomes a folder under the
-  /// user's home, so it is validated like a skill name.
+  /// directory after the version, so the manifest is what says vgv-wingspan.
   String _pluginName(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')
@@ -256,10 +258,7 @@ class const ClaudePluginParser() implements PluginParser {
     final declared = manifest.existsSync()
         ? _readJsonObject(manifest).string('name')
         : null;
-    return _validName(
-      declared ?? p.basename(root.path),
-      path: declared == null ? root.path : manifest.path,
-    );
+    return declared ?? p.basename(root.path);
   }
 
   List<HookCommand> _readHookCommands(Object? raw) {

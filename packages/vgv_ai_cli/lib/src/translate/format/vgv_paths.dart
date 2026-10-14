@@ -19,7 +19,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
 
-/// Where [harness] keeps its copy of the plugins' hook scripts.
+/// Where [harness] keeps the files its hooks file points at.
 Directory harnessHooksRoot(Harness harness, {required Directory home}) {
   final config = harness.configDirectory(home);
   return config.fileSystem.directory(p.join(config.path, 'hooks'));
