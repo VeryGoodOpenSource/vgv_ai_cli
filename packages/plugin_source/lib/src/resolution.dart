@@ -8,10 +8,7 @@ import 'package:plugin_source/src/plugin_ref.dart';
 /// plugin, collapsing a cache miss, a missing tag, an absent git binary and an
 /// unwritable cache root into one indistinguishable `null`.
 /// {@endtemplate}
-sealed class PluginResolution {
-  /// {@macro plugin_resolution}
-  const new();
-}
+sealed class const PluginResolution();
 
 /// {@template resolved_plugin}
 /// The plugin was found on disk at [directory].

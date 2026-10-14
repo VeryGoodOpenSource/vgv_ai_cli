@@ -22,19 +22,13 @@ class _MockPubUpdater extends Mock implements PubUpdater;
 
 class _MockProgress extends Mock implements Progress;
 
-class _FakeParser implements PluginParser {
-  const new(this.assets);
-
-  final PluginAssets assets;
-
+class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
   PluginAssets parse(Directory root) => assets;
 }
 
 /// A [ManifestAuditor] that fails to reverse every entry it is given.
-class _FailingAuditor extends ManifestAuditor {
-  const new();
-
+class const _FailingAuditor() extends ManifestAuditor {
   @override
   Reversal reverse(
     InstallManifest manifest,

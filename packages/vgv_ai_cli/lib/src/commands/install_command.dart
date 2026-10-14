@@ -23,17 +23,16 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// * `--no-<harness>` skips one detected harness. It cannot be combined with
 ///   `--only`, which already names the set.
 /// {@endtemplate}
-class InstallCommand extends Command<int> with HarnessSelection {
-  /// {@macro install_command}
-  new({
-    required this._logger,
-    this._home,
-    this._environment,
-    this._resolver = const PluginResolver(),
-    this._detector = const HarnessDetector(),
-    this._translator = const Translator(),
-    this._reconciler = const Reconciler(),
-  }) {
+class InstallCommand({
+  required final Logger _logger,
+  final Directory? _home,
+  final Map<String, String>? _environment,
+  final PluginResolver _resolver = const PluginResolver(),
+  final HarnessDetector _detector = const HarnessDetector(),
+  final Translator _translator = const Translator(),
+  final Reconciler _reconciler = const Reconciler(),
+}) extends Command<int> with HarnessSelection {
+  this {
     argParser
       ..addFlag(
         'check',
@@ -49,14 +48,6 @@ class InstallCommand extends Command<int> with HarnessSelection {
       );
     addHarnessOptions('Configure');
   }
-
-  final Logger _logger;
-  final Directory? _home;
-  final Map<String, String>? _environment;
-  final PluginResolver _resolver;
-  final HarnessDetector _detector;
-  final Translator _translator;
-  final Reconciler _reconciler;
 
   static const String commandName = 'install';
 

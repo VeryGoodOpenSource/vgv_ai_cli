@@ -11,16 +11,13 @@ import 'package:vgv_ai_cli/src/model/planned_change.dart';
 /// What VGV wrote to one file, and so what `doctor` checks and `uninstall`
 /// takes back.
 /// {@endtemplate}
-sealed class ManifestEntry extends Equatable {
-  /// {@macro manifest_entry}
-  const new({required this.path, required this.owner});
-
+sealed class const ManifestEntry({
   /// The file, as an absolute path.
-  final String path;
+  required final String path,
 
   /// The harness the file configures, or null for the shared skills.
-  final Harness? owner;
-
+  required final Harness? owner,
+}) extends Equatable {
   /// How [path] was written.
   ChangeMode get mode;
 
@@ -100,10 +97,13 @@ sealed class ManifestEntry extends Equatable {
 /// {@template owned_file}
 /// A file VGV wrote whole. It is VGV's while it still hashes to [sha256].
 /// {@endtemplate}
-final class OwnedFile extends ManifestEntry {
-  /// {@macro owned_file}
-  const new({required super.path, required super.owner, required this.sha256});
+final class const OwnedFile({
+  required super.path,
+  required super.owner,
 
+  /// The SHA-256 of what VGV last wrote.
+  required final String sha256,
+}) extends ManifestEntry {
   /// {@macro owned_file}
   ///
   /// Records [bytes] as what VGV wrote to [path].
@@ -112,9 +112,6 @@ final class OwnedFile extends ManifestEntry {
     required Harness? owner,
     required List<int> bytes,
   }) : this(path: path, owner: owner, sha256: _sha256(bytes));
-
-  /// The SHA-256 of what VGV last wrote.
-  final String sha256;
 
   /// Whether [bytes] are exactly what VGV last wrote.
   bool isUntouched(List<int> bytes) => _sha256(bytes) == sha256;
@@ -129,21 +126,16 @@ final class OwnedFile extends ManifestEntry {
 /// {@template merged_document}
 /// A JSON or TOML document VGV merged keys into.
 /// {@endtemplate}
-final class MergedDocument extends ManifestEntry {
-  /// {@macro merged_document}
-  const new({
-    required super.path,
-    required super.owner,
-    required this.format,
-    required this.contribution,
-  });
+final class const MergedDocument({
+  required super.path,
+  required super.owner,
 
   /// The format the document is parsed as.
-  final DocumentFormat format;
+  required final DocumentFormat format,
 
   /// The part of the document that is VGV's.
-  final Contribution contribution;
-
+  required final Contribution contribution,
+}) extends ManifestEntry {
   @override
   ChangeMode get mode => format.mode;
 
@@ -154,17 +146,13 @@ final class MergedDocument extends ManifestEntry {
 /// {@template markdown_sections}
 /// A markdown file VGV wrote named sections into.
 /// {@endtemplate}
-final class MarkdownSections extends ManifestEntry {
-  /// {@macro markdown_sections}
-  const new({
-    required super.path,
-    required super.owner,
-    required this.sections,
-  });
+final class const MarkdownSections({
+  required super.path,
+  required super.owner,
 
   /// Each section's name to the SHA-256 of the body VGV last wrote there.
-  final Map<String, String> sections;
-
+  required final Map<String, String> sections,
+}) extends ManifestEntry {
   /// This entry with [body] recorded as what VGV wrote into section [name].
   MarkdownSections recording(String name, String body) => MarkdownSections(
     path: path,

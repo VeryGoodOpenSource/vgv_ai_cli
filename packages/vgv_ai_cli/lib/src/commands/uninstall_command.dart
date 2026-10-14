@@ -24,14 +24,13 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// The shared skills are removed only when every harness the manifest
 /// records is, since the harnesses that are left still read them.
 /// {@endtemplate}
-class UninstallCommand extends Command<int> with HarnessSelection {
-  /// {@macro uninstall_command}
-  new({
-    required this._logger,
-    this._home,
-    this._environment,
-    this._auditor = const ManifestAuditor(),
-  }) {
+class UninstallCommand({
+  required final Logger _logger,
+  final Directory? _home,
+  final Map<String, String>? _environment,
+  final ManifestAuditor _auditor = const ManifestAuditor(),
+}) extends Command<int> with HarnessSelection {
+  this {
     argParser
       ..addFlag(
         'check',
@@ -45,11 +44,6 @@ class UninstallCommand extends Command<int> with HarnessSelection {
       );
     addHarnessOptions('Remove', only: 'just these harnesses.');
   }
-
-  final Logger _logger;
-  final Directory? _home;
-  final Map<String, String>? _environment;
-  final ManifestAuditor _auditor;
 
   static const String commandName = 'uninstall';
 

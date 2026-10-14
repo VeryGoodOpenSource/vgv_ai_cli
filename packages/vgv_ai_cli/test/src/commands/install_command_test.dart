@@ -25,18 +25,12 @@ class _MockDetector extends Mock implements HarnessDetector;
 
 class _MockPubUpdater extends Mock implements PubUpdater;
 
-class _FakeParser implements PluginParser {
-  const new(this.assets);
-
-  final PluginAssets assets;
-
+class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
   PluginAssets parse(Directory root) => assets;
 }
 
-class _ThrowingParser implements PluginParser {
-  const new();
-
+class const _ThrowingParser() implements PluginParser {
   @override
   PluginAssets parse(Directory root) =>
       throw const PluginParseException('/plugin/agents/a.md', 'bad name');
