@@ -13,14 +13,14 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings          | Instructions              | Agents              | Commands          | Hooks        |
-| -------- | ----------------- | ------------------------- | ------------------- | ----------------- | ------------ |
-| claude   | `settings.json`   |                           |                     |                   |              |
-| gemini   | `settings.json`   | `AGENTS.md`               | `agents/*.md`       | `commands/*.toml` |              |
-| codex    | `config.toml`     | `AGENTS.md`               | `agents/*.toml`     |                   | `hooks.json` |
-| opencode | `opencode.json`   | `AGENTS.md`               | `agent/*.md`        | `command/*.md`    |              |
-| pi       |                   | `AGENTS.md`               |                     | `prompts/*.md`    |              |
-| copilot  | `mcp-config.json` | `copilot-instructions.md` | `agents/*.agent.md` |                   |              |
+| Harness  | Settings          | Instructions              | Agents              | Commands          | Hooks            |
+| -------- | ----------------- | ------------------------- | ------------------- | ----------------- | ---------------- |
+| claude   | `settings.json`   |                           |                     |                   |                  |
+| gemini   | `settings.json`   | `AGENTS.md`               | `agents/*.md`       | `commands/*.toml` |                  |
+| codex    | `config.toml`     | `AGENTS.md`               | `agents/*.toml`     |                   | `hooks.json`     |
+| opencode | `opencode.json`   | `AGENTS.md`               | `agent/*.md`        | `command/*.md`    |                  |
+| pi       |                   | `AGENTS.md`               |                     | `prompts/*.md`    |                  |
+| copilot  | `mcp-config.json` | `copilot-instructions.md` | `agents/*.agent.md` |                   | `hooks/vgv.json` |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
@@ -30,6 +30,10 @@ commands point at the CLI's own copy of each plugin's `hooks/` folder under
 `~/.codex/hooks/<plugin>/`, which the CLI writes beside the brick's output.
 Every script a hook runs starts by sourcing `~/.codex/hooks/vgv-claude-compat.sh`,
 so a script written for Claude Code gets the payload Claude Code would have sent.
+Copilot's `hooks/vgv.json` is the same, written as its own file because Copilot
+reads every `*.json` under `~/.copilot/hooks/`, nested folders included, which
+is also why its scripts and compat script are copied to
+`~/.copilot/vgv_ai/hooks/` instead.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a
