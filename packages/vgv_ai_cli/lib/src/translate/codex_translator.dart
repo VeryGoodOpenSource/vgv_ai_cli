@@ -57,7 +57,7 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final compat = hooksRoot.childFile(compatScript);
-    final copy = _scripts.copy(
+    final copy = scripts.copy(
       assets.hooks,
       hooksRoot: hooksRoot,
       compat: compat,
@@ -115,10 +115,9 @@ class const CodexTranslator() extends HarnessTranslator {
   /// The file under the hooks root that holds [codexCompatScript].
   static const compatScript = 'vgv-claude-compat.sh';
 
-  static const _scripts = HookScripts(
-    harness: Harness.codex,
-    preamble: codexPreamble,
-  );
+  @override
+  HookScripts get scripts =>
+      const HookScripts(harness: Harness.codex, preamble: codexPreamble);
 
   /// The tools Claude Code names in a matcher that Codex names differently:
   /// it writes every edit through `apply_patch`, keeping Claude's two names
