@@ -71,7 +71,7 @@ class const CopilotTranslator() extends HarnessTranslator {
   HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
     final runnable = _runnable(assets);
     final compat = hooksRoot.childFile(compatScript);
-    final copy = _scripts.copy(runnable, hooksRoot: hooksRoot, compat: compat);
+    final copy = scripts.copy(runnable, hooksRoot: hooksRoot, compat: compat);
     return HookTranslation(
       fragment: _fragment(runnable, hooksRoot: hooksRoot),
       files: [
@@ -152,12 +152,12 @@ class const CopilotTranslator() extends HarnessTranslator {
     ];
   }
 
-  static const _scripts = HookScripts(
-    harness: Harness.copilot,
-    preamble: copilotPreamble,
-  );
+  @override
+  HookScripts get scripts =>
+      const HookScripts(harness: Harness.copilot, preamble: copilotPreamble);
 
-  /// How Claude Code names an MCP tool: `mcp__<server>__<tool>`.
+  /// The prefix and separator of an MCP tool's name in a plugin's matcher,
+  /// `mcp__<server>__<tool>`.
   static const _mcpPrefix = 'mcp__';
   static const _mcpSeparator = '__';
 
