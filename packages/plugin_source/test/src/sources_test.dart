@@ -277,28 +277,4 @@ void main() {
       );
     });
   });
-
-  group('resolvePluginOrThrow', () {
-    test('returns the directory on a hit', () async {
-      final cached = _seedCache(fileSystem, version: '0.0.5');
-
-      final directory = await resolvePluginOrThrow(
-        _ref,
-        source: LocalCachePluginSource(home: home),
-      );
-
-      expect(directory.path, cached.path);
-    });
-
-    test('throws with every reason when nothing resolves', () async {
-      await expectLater(
-        resolvePluginOrThrow(_ref, source: LocalCachePluginSource(home: home)),
-        throwsA(
-          isA<PluginResolutionException>()
-              .having((e) => e.ref, 'ref', _ref)
-              .having((e) => e.reasons, 'reasons', hasLength(1)),
-        ),
-      );
-    });
-  });
 }

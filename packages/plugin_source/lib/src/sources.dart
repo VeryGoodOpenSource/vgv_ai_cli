@@ -169,22 +169,3 @@ class const GitPluginSource({
     if (temp.existsSync()) temp.deleteSync(recursive: true);
   }
 }
-
-/// Resolves one [ref] through [source], or throws naming every source's reason.
-///
-/// Callers resolving several plugins are expected to let the first failure
-/// propagate rather than install a subset: a half-configured harness is worse
-/// than an unconfigured one.
-Future<Directory> resolvePluginOrThrow(
-  PluginRef ref, {
-  required PluginSource source,
-}) async {
-  final resolution = await source.resolve(ref);
-  return switch (resolution) {
-    ResolvedPlugin(:final directory) => directory,
-    UnavailablePlugin(:final reasons) => throw PluginResolutionException(
-      ref,
-      reasons,
-    ),
-  };
-}
