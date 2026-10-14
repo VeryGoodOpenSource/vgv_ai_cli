@@ -32,6 +32,7 @@ void main() {
           'codex': false,
           'opencode': false,
           'pi': true,
+          'copilot': false,
         },
       );
     });

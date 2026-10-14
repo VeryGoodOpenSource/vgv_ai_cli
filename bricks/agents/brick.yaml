@@ -32,3 +32,8 @@ vars:
     default: true
     description: Configure Pi.
     prompt: Configure Pi?
+  copilot:
+    type: boolean
+    default: true
+    description: Configure Copilot CLI.
+    prompt: Configure Copilot CLI?

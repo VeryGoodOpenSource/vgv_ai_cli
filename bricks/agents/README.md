@@ -13,13 +13,14 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings        | `AGENTS.md` | Agents          | Commands           | Hooks         |
-| -------- | --------------- | ----------- | --------------- | ------------------ | ------------- |
-| claude   | `settings.json` |             |                 |                    |               |
-| gemini   | `settings.json` | yes         | `agents/*.md`   | `commands/*.toml`  |               |
-| codex    | `config.toml`   | yes         | `agents/*.toml` |                    | `hooks.json`  |
-| opencode | `opencode.json` | yes         | `agent/*.md`    | `command/*.md`     |               |
-| pi       |                 | yes         |                 | `prompts/*.md`     |               |
+| Harness  | Settings          | Instructions              | Agents              | Commands          | Hooks        |
+| -------- | ----------------- | ------------------------- | ------------------- | ----------------- | ------------ |
+| claude   | `settings.json`   |                           |                     |                   |              |
+| gemini   | `settings.json`   | `AGENTS.md`               | `agents/*.md`       | `commands/*.toml` |              |
+| codex    | `config.toml`     | `AGENTS.md`               | `agents/*.toml`     |                   | `hooks.json` |
+| opencode | `opencode.json`   | `AGENTS.md`               | `agent/*.md`        | `command/*.md`    |              |
+| pi       |                   | `AGENTS.md`               |                     | `prompts/*.md`    |              |
+| copilot  | `mcp-config.json` | `copilot-instructions.md` | `agents/*.agent.md` |                   |              |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
@@ -37,7 +38,7 @@ subdirectory belongs to VGV and is written whole.
 ## Partials
 
 Markdown-shaped content is a partial. `{{~ instructions.md }}` opens every
-`AGENTS.md` and indexes the skills, and `{{~ agent_index.md }}` indexes the
+instructions file and indexes the skills, and `{{~ agent_index.md }}` indexes the
 agents for the harnesses that have them. Pi has no subagents, so its
 `AGENTS.md` leaves the agent index out. `{{~ agent.md }}` frames an agent
 under its frontmatter.
@@ -50,7 +51,7 @@ frontmatter block and every TOML agent or command arrives finished.
 
 | Var                      | Type    | What it is                                        |
 | ------------------------ | ------- | ------------------------------------------------- |
-| `claude` ... `pi`        | boolean | Which harnesses to render                          |
+| `claude` ... `copilot`   | boolean | Which harnesses to render                          |
 | `<harness>_settings`     | string  | That harness's settings fragment, absent for Pi   |
 | `agents`                 | list    | Each agent's `name`, `instructions`, and a map per harness |
 | `commands`               | list    | Each invocable skill's `name`, `body`, and a map per harness |

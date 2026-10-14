@@ -3,6 +3,10 @@
 - feat: render `codex/hooks.json`, so the plugins' hooks reach Codex. It is
   rendered only when the CLI supplies hooks for Codex to run; the scripts it
   points at are copied by the CLI, not the brick.
+- feat: render `copilot/` for GitHub Copilot CLI, which reads
+  `~/.copilot/copilot-instructions.md`, `~/.copilot/agents/*.agent.md` and
+  `~/.copilot/mcp-config.json`. Copilot has no custom prompts, and the skills
+  it reads from `~/.agents/skills` are invocable by name already.
 
 # 0.3.0+1
 

@@ -11,6 +11,7 @@ void main() {
         'codex',
         'opencode',
         'pi',
+        'copilot',
       ]);
     });
 
@@ -44,6 +45,7 @@ void main() {
           Harness.codex: '/home/dev/.codex',
           Harness.opencode: '/home/dev/.config/opencode',
           Harness.pi: '/home/dev/.pi/agent',
+          Harness.copilot: '/home/dev/.copilot',
         },
       );
     });
