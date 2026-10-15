@@ -2,6 +2,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
+import 'package:plugin_source/src/parser/claude_schemas.dart';
 import 'package:plugin_source/src/parser/plugin_parser.dart';
 
 /// {@template claude_plugin_parser}
@@ -9,8 +10,9 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 ///
 /// The single place that knows what "Claude-specific" means: the
 /// `user-invocable` default, how `allowed-tools` is written, and the
-/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. It tolerates the real, mutually
-/// inconsistent shapes the two plugins ship, not the documented ones.
+/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. Each file is validated against
+/// its shape in `claude_schemas.dart`, which admits the real, mutually
+/// inconsistent shapes the two plugins ship and throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   @override
@@ -46,17 +48,15 @@ class const ClaudePluginParser() implements PluginParser {
   ///
   /// The Flutter plugin omits `user-invocable` entirely yet its skills are
   /// invocable, so an absent key means `true`.
-  static bool userInvocableOf(Frontmatter frontmatter) =>
-      frontmatter.config.boolean('user-invocable') ?? true;
+  static bool userInvocableOf(SkillFrontmatter frontmatter) =>
+      frontmatter.userInvocable ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
   /// Read from `allowed-tools`, falling back to `tools`, then tokenized by
   /// [tokenizeTools].
-  static List<String> allowedToolsOf(Frontmatter frontmatter) => tokenizeTools(
-    frontmatter.config.string('allowed-tools') ??
-        frontmatter.config.string('tools'),
-  );
+  static List<String> allowedToolsOf(SkillFrontmatter frontmatter) =>
+      tokenizeTools(frontmatter.allowedTools ?? frontmatter.tools);
 
   /// Splits Claude's `allowed-tools` value into individual tool names.
   ///
@@ -78,9 +78,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// skill index, so a skill is free to keep its triggers there. No other
   /// harness reads the key, and it is outside the Agent Skills key set, so
   /// folding is the only way those phrases survive translation.
-  static String descriptionOf(Frontmatter frontmatter) => [
+  static String descriptionOf(SkillFrontmatter frontmatter) => [
     frontmatter.description,
-    ?frontmatter.oneLine(_whenToUse),
+    ?frontmatter.whenToUse,
   ].where((part) => part.isNotEmpty).join(' - ');
 
   /// The [frontmatter] values safe to write for any harness.
@@ -89,14 +89,14 @@ class const ClaudePluginParser() implements PluginParser {
   /// `effort`, `model`, `when_to_use` and `user-invocable` that no other
   /// harness reads; they are interpreted where they matter and dropped here.
   static Map<String, Object?> portableFrontmatterOf(
-    Frontmatter frontmatter,
+    SkillFrontmatter frontmatter,
   ) => {
-    for (final entry in frontmatter.config.entries)
+    for (final entry in frontmatter.values.entries)
       if (SkillAsset.portableKeys.contains(entry.key)) entry.key: entry.value,
     // Rewrites the description in place, keeping its position. Only a skill
     // that declares `when_to_use` is touched, so one that does not renders
     // exactly as it was written.
-    if (frontmatter.oneLine(_whenToUse) != null)
+    if (frontmatter.whenToUse != null)
       'description': descriptionOf(frontmatter),
   };
 
@@ -104,9 +104,6 @@ class const ClaudePluginParser() implements PluginParser {
   /// directory name under the user's home, so a separator, a `..` or a
   /// character Windows refuses would write somewhere it must not.
   static final _namePattern = RegExp(r'^[a-z0-9][a-z0-9_-]*$');
-
-  /// Claude's own key for a skill's trigger phrases.
-  static const _whenToUse = 'when_to_use';
 
   /// One tool name, plus an optional parenthesized scope that may itself
   /// contain spaces, commas and slashes.
@@ -139,8 +136,8 @@ class const ClaudePluginParser() implements PluginParser {
       // must survive any later copy.
       if (!file.existsSync()) continue;
 
-      final frontmatter = Frontmatter.parse(
-        file.readAsStringSync(),
+      final frontmatter = SkillFrontmatter.decode(
+        Frontmatter.parse(file.readAsStringSync(), path: file.path),
         path: file.path,
       );
       skills.add(
@@ -188,7 +185,7 @@ class const ClaudePluginParser() implements PluginParser {
             body: frontmatter.body,
             skills: frontmatter.skills,
           ),
-          hooks: frontmatter.config.child('hooks'),
+          hooks: HooksJson.decode(frontmatter.values, path: file.path).events,
         ),
       );
     }
@@ -196,28 +193,30 @@ class const ClaudePluginParser() implements PluginParser {
     return agents;
   }
 
-  /// The event map of `hooks/hooks.json` under [root], shaped
-  /// `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{type, command}]}]}}`,
-  /// or null when the plugin ships none.
-  ConfigMap? _readHookEvents(Directory root) {
+  /// The registrations of `hooks/hooks.json` under [root], by event, or null
+  /// when the plugin ships none.
+  Map<String, List<HookRegistrationJson>>? _readHookEvents(Directory root) {
     final file = root.childDirectory('hooks').childFile('hooks.json');
     if (!file.existsSync()) return null;
 
-    return _readJsonObject(file).child('hooks');
+    return HooksJson.decodeJson(
+      file.readAsStringSync(),
+      path: file.path,
+    ).events;
   }
 
-  /// The hooks under [events], an event map of registrations, declared by
-  /// [plugin] at [root] and scoped to [agent] when one declared them.
+  /// The hooks under [events], declared by [plugin] at [root] and scoped to
+  /// [agent] when one declared them.
   List<HookAsset> _readRegistrations(
-    ConfigMap events, {
+    Map<String, List<HookRegistrationJson>> events, {
     required String plugin,
     required Directory root,
     String? agent,
   }) => [
-    for (final event in events.entries)
-      for (final registration in ConfigMap.maps(event.value))
+    for (final MapEntry(key: event, value: registrations) in events.entries)
+      for (final registration in registrations)
         ?_readRegistration(
-          event.key,
+          event,
           registration,
           plugin: plugin,
           root: root,
@@ -228,20 +227,17 @@ class const ClaudePluginParser() implements PluginParser {
   /// One registration under [event], or null when it runs nothing.
   HookAsset? _readRegistration(
     String event,
-    ConfigMap registration, {
+    HookRegistrationJson registration, {
     required String plugin,
     required Directory root,
     required String? agent,
   }) {
-    final commands = _readHookCommands(registration['hooks']);
+    final commands = _readHookCommands(registration.hooks);
     if (commands.isEmpty) return null;
 
-    // A matcher that is not a string is meaningless; drop it rather than
-    // stringify it, matching the tolerant shape the plugins are written in.
-    final matcher = registration['matcher'];
     return HookAsset(
       event: event,
-      matcher: matcher is String ? matcher : null,
+      matcher: registration.matcher,
       commands: commands,
       plugin: plugin,
       pluginRoot: root,
@@ -256,84 +252,72 @@ class const ClaudePluginParser() implements PluginParser {
         .childDirectory('.claude-plugin')
         .childFile('plugin.json');
     final declared = manifest.existsSync()
-        ? _readJsonObject(manifest).string('name')
+        ? PluginManifestJson.decodeJson(
+            manifest.readAsStringSync(),
+            path: manifest.path,
+          ).name
         : null;
     return declared ?? p.basename(root.path);
   }
 
-  List<HookCommand> _readHookCommands(Object? raw) {
-    final commands = <HookCommand>[];
-    for (final entry in ConfigMap.maps(raw)) {
-      final command = entry['command'];
-      if (command is! String) continue;
-
-      commands.add(
+  /// The hooks of one registration that run a command, the only kind a
+  /// harness can translate.
+  List<HookCommand> _readHookCommands(List<HookJson> hooks) => [
+    for (final hook in hooks)
+      if (hook.command case final command?)
         HookCommand(
-          type: entry.string('type') ?? 'command',
+          type: hook.type ?? 'command',
           command: command.replaceAll(
             _claudePluginRoot,
             HookCommand.rootPlaceholder,
           ),
-          timeout: entry.integer('timeout'),
+          timeout: hook.timeout,
         ),
-      );
-    }
-    return commands;
-  }
+  ];
 
   List<MCPServer> _readMcpServers(File mcpFile) {
     if (!mcpFile.existsSync()) return const [];
 
-    final servers = _readJsonObject(mcpFile).child('mcpServers');
-    if (servers == null) return const [];
-
+    final file = McpFileJson.decodeJson(
+      mcpFile.readAsStringSync(),
+      path: mcpFile.path,
+    );
     return [
-      for (final MapEntry(key: name) in servers.entries)
-        // Anything that is not an object (e.g. a bare string) is not a server
-        // declaration and is skipped.
-        if (servers.child(name) case final config?) ?_mcpServer(name, config),
+      for (final MapEntry(key: name, value: server) in file.servers.entries)
+        _mcpServer(name, server, path: mcpFile.path),
     ];
   }
 
   /// Discriminates a server declaration by shape: a `url` makes it remote, a
   /// `command` makes it local. A declaration with neither is not a valid MCP
-  /// server, so it is dropped ([MCPServer] has no unknown variant).
-  MCPServer? _mcpServer(String name, ConfigMap config) {
-    final url = config.string('url');
-    if (url != null) {
-      return RemoteMCPServer(
-        name: name,
-        url: url,
-        headers: _stringMap(config.child('headers')),
-      );
-    }
-
-    final command = config.string('command');
-    if (command != null) {
-      return LocalMCPServer(
-        name: name,
-        command: command,
-        args: config.stringList('args'),
-        env: _stringMap(config.child('env')),
-      );
-    }
-
-    return null;
-  }
-
-  /// Flattens a nested config block into a string-to-string map, stringifying
-  /// each value. Used for `env` and `headers`, both of which are string maps.
-  Map<String, String> _stringMap(ConfigMap? config) => {
-    if (config != null)
-      for (final entry in config.entries) entry.key: '${entry.value}',
+  /// server ([MCPServer] has no unknown variant), so it throws, naming the
+  /// server and the file at [path].
+  MCPServer _mcpServer(
+    String name,
+    McpServerJson server, {
+    required String path,
+  }) => switch (server) {
+    McpServerJson(:final url?) => RemoteMCPServer(
+      name: name,
+      url: url,
+      headers: server.headers,
+    ),
+    McpServerJson(:final command?) => LocalMCPServer(
+      name: name,
+      command: command,
+      args: server.args,
+      env: server.env,
+    ),
+    _ => throw PluginParseException(
+      path,
+      '${jsonPointer('#/mcpServers', name)}: declares neither a url nor a '
+      'command',
+    ),
   };
-
-  ConfigMap _readJsonObject(File file) =>
-      ConfigMap.parseJson(file.readAsStringSync(), path: file.path);
 }
 
 /// An agent file: the asset, and the hooks its frontmatter declares for it.
 class const _AgentFile({
   required final AgentAsset asset,
-  final ConfigMap? hooks,
+  final Map<String, List<HookRegistrationJson>>? hooks,
 });

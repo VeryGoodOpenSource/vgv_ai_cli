@@ -23,18 +23,15 @@
     ],
     "Stop": [
       {
-        "matcher": 7,
         "hooks": [
           { "command": "bash typeless.sh" },
           { "type": "prompt", "command": "Summarize the session." }
         ]
       }
     ],
-    "Malformed": "not a list",
     "EmptyCommands": [
       { "matcher": "Bash", "hooks": [] },
-      { "matcher": "Bash", "hooks": [{ "type": "command" }] },
-      "not an object"
+      { "matcher": "Bash", "hooks": [{ "type": "prompt", "prompt": "Why?" }] }
     ]
   }
 }

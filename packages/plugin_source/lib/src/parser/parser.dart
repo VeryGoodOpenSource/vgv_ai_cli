@@ -6,4 +6,5 @@
 library;
 
 export 'claude_plugin_parser.dart';
+export 'claude_schemas.dart' show SkillFrontmatter;
 export 'plugin_parser.dart';

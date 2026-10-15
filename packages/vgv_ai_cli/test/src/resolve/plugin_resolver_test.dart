@@ -39,10 +39,16 @@ class _RecordingParser implements PluginParser {
   }
 }
 
-class const _ThrowingParser() implements PluginParser {
+/// A [PluginParser] that throws for any root under [rejected], naming the
+/// root, and otherwise parses like [_RecordingParser].
+class _RejectingParser(final String rejected) extends _RecordingParser {
   @override
-  PluginAssets parse(Directory root) =>
-      throw const PluginParseException('/plugin/agents/a.md', 'bad name');
+  PluginAssets parse(Directory root) {
+    if (root.path.startsWith(rejected)) {
+      throw PluginParseException(root.path, 'bad name');
+    }
+    return super.parse(root);
+  }
 }
 
 /// Records each process it is asked to run.
@@ -195,12 +201,28 @@ void main() {
       );
     });
 
-    test('stops at a plugin that cannot be parsed', () async {
+    test('clones the pinned tag when the cached copy does not parse', () async {
+      cache(_wingspan);
+      final rejecting = _RejectingParser(fs.path.join(home.path, '.claude'));
+      final resolver = PluginResolver(
+        runProcess: processes.clonesInto(fs),
+        parser: rejecting,
+        plugins: const [_wingspan],
+      );
+
+      final resolution = await resolver.resolve(home);
+
+      expect(resolution, isA<ResolvedAssets>());
+      expect(rejecting.roots, [cloned(_wingspan)]);
+      expect(processes.calls, hasLength(1));
+    });
+
+    test('stops at a plugin no source has a parseable copy of', () async {
       cache(_wingspan);
       cache(_flutter);
       final resolver = PluginResolver(
-        runProcess: processes.never,
-        parser: const _ThrowingParser(),
+        runProcess: processes.noGit,
+        parser: _RejectingParser(home.path),
         plugins: const [_wingspan, _flutter],
       );
 
@@ -210,7 +232,27 @@ void main() {
         resolution,
         isA<UnparseableAssets>()
             .having((r) => r.plugin, 'plugin', _wingspan)
-            .having((r) => r.error.path, 'path', '/plugin/agents/a.md'),
+            .having((r) => r.error.path, 'path', cached(_wingspan)),
+      );
+    });
+
+    test('reports the last parse error when every copy fails', () async {
+      cache(_wingspan);
+      final resolver = PluginResolver(
+        runProcess: processes.clonesInto(fs),
+        parser: _RejectingParser(home.path),
+        plugins: const [_wingspan],
+      );
+
+      final resolution = await resolver.resolve(home);
+
+      expect(
+        resolution,
+        isA<UnparseableAssets>().having(
+          (r) => r.error.path,
+          'path',
+          cloned(_wingspan),
+        ),
       );
     });
 
