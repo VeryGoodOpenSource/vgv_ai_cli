@@ -36,17 +36,17 @@ class InstallCommand({
     argParser
       ..addFlag(
         'check',
-        help: 'Print what would change without writing anything.',
+        help: 'Print what would be written without writing anything.',
         negatable: false,
       )
       ..addFlag(
         'force',
         help:
-            'Overwrite your values when they conflict with the ones install '
+            'Also overwrite your values that conflict with the ones install '
             'writes.',
         negatable: false,
       );
-    addHarnessOptions('Configure');
+    addHarnessOptions('Configure the Very Good AI tooling for');
   }
 
   static const String commandName = 'install';
@@ -66,7 +66,7 @@ class InstallCommand({
 
   @override
   String get description =>
-      'Configure Very Good AI tooling for your coding agents.';
+      'Configure the Very Good AI tooling for your coding agents.';
 
   @override
   String get name => commandName;

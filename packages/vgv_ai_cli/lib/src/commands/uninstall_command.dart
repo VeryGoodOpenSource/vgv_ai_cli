@@ -43,7 +43,10 @@ class UninstallCommand({
         help: 'Also remove what install wrote that you have changed since.',
         negatable: false,
       );
-    addHarnessOptions('Remove', only: 'just these harnesses.');
+    addHarnessOptions(
+      'Remove the Very Good AI tooling from',
+      only: 'just these harnesses.',
+    );
   }
 
   static const String commandName = 'uninstall';

@@ -14,7 +14,7 @@ class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
 
   @override
-  String get description => 'Update the CLI.';
+  String get description => 'Update vgv_ai to the latest version.';
 
   static const String commandName = 'update';
 
