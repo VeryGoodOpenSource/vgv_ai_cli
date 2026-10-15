@@ -146,7 +146,7 @@ ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u219
 Run ${lightCyan.wrap('$executableName update')} to update''');
       }
     } on Exception catch (_) {
-      _logger.err('Failed to check for updates.');
+      _logger.detail('Failed to check for updates.');
     }
   }
 }
