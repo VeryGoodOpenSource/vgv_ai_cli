@@ -49,6 +49,6 @@ must go through MCP tools rather than Bash.
 ## Agent guidance
 
 [AGENTS.md](AGENTS.md) holds the architecture, conventions, and command reference for both humans
-and coding agents. `CLAUDE.md` is a symlink to it, so Claude Code reads the same file.
+and coding agents.
 
 [pub_workspace_link]: https://dart.dev/tools/pub/workspaces
