@@ -58,7 +58,8 @@ class const ReversedEntry._({
 
   /// {@macro reversed_entry}
   ///
-  /// Nothing of [entry] was removed, because the user changed all of it.
+  /// Nothing of [entry] was removed, because the user changed all of it, or
+  /// removing it would drop their comments.
   const new skipped(ManifestEntry entry)
     : this._(entry: entry, outcome: ReverseOutcome.skipped);
 
