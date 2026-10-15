@@ -1,32 +1,17 @@
-# 0.4.0+1
-
-- feat: render `codex/hooks.json`, so the plugins' hooks reach Codex. It is
-  rendered only when the CLI supplies hooks for Codex to run; the scripts it
-  points at are copied by the CLI, not the brick.
-- feat: render `copilot/` for GitHub Copilot CLI, which reads
-  `~/.copilot/copilot-instructions.md`, `~/.copilot/agents/*.agent.md` and
-  `~/.copilot/mcp-config.json`. Copilot has no custom prompts, and the skills
-  it reads from `~/.agents/skills` are invocable by name already.
-
-# 0.3.0+1
-
-- fix: drop `codex/prompts/`. Codex removed custom prompts in 0.117.0, so the
-  folder was inert, and the skills it duplicated are already shared under
-  `~/.agents/skills`.
-
-# 0.2.0+1
-
-- refactor: own the per-harness layout. Agents, commands and prompts are
-  rendered into each harness's own directories, and a directory a harness
-  lacks is simply absent from its tree.
-- refactor: take finished settings strings from the CLI and drop the
-  `pre_gen` hook and its models.
-- feat: render `AGENTS.md` for Pi, which reads it from `~/.pi/agent`. It
-  indexes the skills only, since Pi has no subagents to delegate to.
-- fix: drop `pi/settings.json`. Pi reads `~/.agents/skills` natively, so its
-  only entry was redundant.
-
 # 0.1.0+1
 
-- feat: initial brick generating staging output for Claude Code, Gemini CLI,
-  Codex, OpenCode and Pi.
+- feat: initial brick rendering the files each harness reads to use the VGV
+  plugins, one folder per harness, rendered only when its flag is set:
+  - `claude/`: `settings.json` pointing Claude Code at the marketplace.
+  - `gemini/`: `settings.json`, `AGENTS.md`, `agents/*.md` and
+    `commands/*.toml`.
+  - `codex/`: `config.toml`, `AGENTS.md`, `agents/*.toml`, and `hooks.json`
+    when the CLI supplies hooks for Codex to run.
+  - `opencode/`: `opencode.json`, `AGENTS.md`, `agent/*.md` and
+    `command/*.md`.
+  - `pi/`: `AGENTS.md`, indexing the skills only, and `prompts/*.md`.
+  - `copilot/`: `mcp-config.json`, `copilot-instructions.md`,
+    `agents/*.agent.md`, and `hooks/vgv.json` when the CLI supplies hooks.
+  - `antigravity/`: the `plugins/vgv/` plugin, with `plugin.json`,
+    `mcp_config.json`, `agents/*.md`, and `hooks.json` when the CLI supplies
+    hooks.
