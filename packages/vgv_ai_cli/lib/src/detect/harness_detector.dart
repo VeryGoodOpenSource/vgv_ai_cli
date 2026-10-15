@@ -6,12 +6,14 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// The result of probing for a single [Harness].
 /// {@endtemplate}
 class HarnessDetection {
-  /// The harness is on the path.
+  /// {@macro harness_detection}
   ///
-  /// [version] is `null` when the binary answered but printed nothing that
-  /// looks like a version.
+  /// The harness is on the path. [version] is `null` when the binary
+  /// answered but printed nothing that looks like a version.
   const new detected({required this.version}) : installed = true;
 
+  /// {@macro harness_detection}
+  ///
   /// The harness is not usable on this machine.
   const new missing() : installed = false, version = null;
 
@@ -32,7 +34,8 @@ class const HarnessDetector({
   /// Matches the first `x.y.z` in a version banner.
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
 
-  /// Harnesses banner to either stream, so both are searched.
+  /// What [result] printed to either stream, since harnesses differ in which
+  /// one their version banner goes to.
   static String _banner(ProcessResult result) {
     return '${result.stdout}${result.stderr}';
   }
