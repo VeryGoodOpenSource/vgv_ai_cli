@@ -5,29 +5,29 @@ import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
 
 void main() {
-  Matcher throwsParseException(String path, Object message) => throwsA(
-    isA<PluginParseException>()
-        .having((e) => e.path, 'path', path)
-        .having((e) => e.message, 'message', message),
-  );
-
-  final hooks = Ack.object({
-    'hooks': Ack.map(
-      Ack.list(
-        Ack.object({
-          'hooks': Ack.list(Ack.object({'command': Ack.string()})),
-        }),
-      ),
-    ),
-  });
-
   group('PluginSchema', () {
+    Matcher throwsParseException(String path, Object message) => throwsA(
+      isA<PluginParseException>()
+          .having((e) => e.path, 'path', path)
+          .having((e) => e.message, 'message', message),
+    );
+
+    final hooks = Ack.object({
+      'hooks': Ack.map(
+        Ack.list(
+          Ack.object({
+            'hooks': Ack.list(Ack.object({'command': Ack.string()})),
+          }),
+        ),
+      ),
+    });
+
     group('decode', () {
       test('returns the validated value', () {
         final value = Ack.object({'name': Ack.string()})
             .decode({'name': 'a'}, path: 'plugin.json');
 
-        expect(value, {'name': 'a'});
+        expect(value, equals({'name': 'a'}));
       });
 
       test('throws for null, even when the schema accepts it', () {
@@ -37,11 +37,11 @@ void main() {
         );
       });
 
-      test('accepts a YamlMap', () {
+      test('accepts a $YamlMap', () {
         final value = Ack.object({'name': Ack.string()})
             .decode(loadYaml('name: a'), path: 'a.md');
 
-        expect(value['name'], 'a');
+        expect(value['name'], equals('a'));
       });
 
       test('names the deepest failing field and its leaf message', () {
@@ -101,7 +101,7 @@ void main() {
         final value = Ack.object({'name': Ack.string()})
             .decodeJson('{"name": "a"}', path: 'plugin.json');
 
-        expect(value['name'], 'a');
+        expect(value['name'], equals('a'));
       });
 
       test('names the deepest failing field', () {
@@ -143,11 +143,11 @@ void main() {
 
   group('jsonPointer', () {
     test('appends the token as a segment', () {
-      expect(jsonPointer('#/hooks', 0), '#/hooks/0');
+      expect(jsonPointer('#/hooks', 0), equals('#/hooks/0'));
     });
 
     test('escapes a tilde and a slash', () {
-      expect(jsonPointer('#', 'a/b~c'), '#/a~1b~0c');
+      expect(jsonPointer('#', 'a/b~c'), equals('#/a~1b~0c'));
     });
   });
 }

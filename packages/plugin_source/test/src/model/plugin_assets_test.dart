@@ -4,43 +4,33 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 
 void main() {
-  late FileSystem fs;
-
-  SkillAsset skill(String name) => SkillAsset(
-    name: name,
-    description: 'the $name skill',
-    body: 'body',
-    userInvocable: true,
-    allowedTools: const [],
-    portableFrontmatter: {'name': name},
-    directory: fs.directory('/plugins/$name'),
-  );
-
-  AgentAsset agent(String name) =>
-      AgentAsset(name: name, description: 'd', body: 'b', skills: const []);
-
-  HookAsset hook(String event) => HookAsset(
-    event: event,
-    commands: const [HookCommand(type: 'command', command: 'run.sh')],
-    plugin: 'hooks',
-    pluginRoot: fs.directory('/plugins/hooks'),
-  );
-
-  PluginAssets pluginAssets({
-    List<SkillAsset> skills = const [],
-    List<AgentAsset> agents = const [],
-    List<MCPServer> mcpServers = const [],
-    List<HookAsset> hooks = const [],
-  }) => PluginAssets(
-    skills: skills,
-    agents: agents,
-    mcpServers: mcpServers,
-    hooks: hooks,
-  );
-
-  setUp(() => fs = MemoryFileSystem.test());
-
   group(PluginAssets, () {
+    late FileSystem fs;
+
+    SkillAsset skill(String name) => SkillAsset(
+      name: name,
+      description: 'the $name skill',
+      body: 'body',
+      userInvocable: true,
+      allowedTools: const [],
+      portableFrontmatter: {'name': name},
+      directory: fs.directory('/plugins/$name'),
+    );
+
+    PluginAssets pluginAssets({
+      List<SkillAsset> skills = const [],
+      List<AgentAsset> agents = const [],
+      List<MCPServer> mcpServers = const [],
+      List<HookAsset> hooks = const [],
+    }) => PluginAssets(
+      skills: skills,
+      agents: agents,
+      mcpServers: mcpServers,
+      hooks: hooks,
+    );
+
+    setUp(() => fs = MemoryFileSystem.test());
+
     group('invocableSkills', () {
       test('keeps only the skills a user can invoke as a command', () {
         final assets = pluginAssets(
@@ -58,7 +48,10 @@ void main() {
           ],
         );
 
-        expect(assets.invocableSkills.map((s) => s.name), ['green-gate']);
+        expect(
+          assets.invocableSkills.map((s) => s.name),
+          equals(['green-gate']),
+        );
       });
 
       test('is empty when no skill is invocable', () {
@@ -67,6 +60,16 @@ void main() {
     });
 
     group('merge', () {
+      AgentAsset agent(String name) =>
+          AgentAsset(name: name, description: 'd', body: 'b', skills: const []);
+
+      HookAsset hook(String event) => HookAsset(
+        event: event,
+        commands: const [HookCommand(type: 'command', command: 'run.sh')],
+        plugin: 'hooks',
+        pluginRoot: fs.directory('/plugins/hooks'),
+      );
+
       test('sorts skills by name across plugins', () {
         // Each plugin sorts its own, so the merged order must not depend on
         // which plugin resolved first.
@@ -75,12 +78,10 @@ void main() {
           pluginAssets(skills: [skill('bloc'), skill('navigation')]),
         ]);
 
-        expect(merged.skills.map((s) => s.name), [
-          'bloc',
-          'navigation',
-          'testing',
-          'ui-package',
-        ]);
+        expect(
+          merged.skills.map((s) => s.name),
+          equals(['bloc', 'navigation', 'testing', 'ui-package']),
+        );
       });
 
       test('sorts agents by name across plugins', () {
@@ -89,7 +90,10 @@ void main() {
           pluginAssets(agents: [agent('architect')]),
         ]);
 
-        expect(merged.agents.map((a) => a.name), ['architect', 'reviewer']);
+        expect(
+          merged.agents.map((a) => a.name),
+          equals(['architect', 'reviewer']),
+        );
       });
 
       test('keeps the first skill of a name two plugins share', () {
@@ -99,7 +103,7 @@ void main() {
           pluginAssets(skills: [skill('testing')]),
         ]);
 
-        expect(merged.skills, [same(first)]);
+        expect(merged.skills, equals([same(first)]));
       });
 
       test('keeps the first agent of a name two plugins share', () {
@@ -109,7 +113,7 @@ void main() {
           pluginAssets(agents: [agent('reviewer')]),
         ]);
 
-        expect(merged.agents, [same(first)]);
+        expect(merged.agents, equals([same(first)]));
       });
 
       test('keeps every hook from every plugin', () {
@@ -118,7 +122,10 @@ void main() {
           pluginAssets(hooks: [hook('PostToolUse')]),
         ]);
 
-        expect(merged.hooks.map((h) => h.event), ['PreToolUse', 'PostToolUse']);
+        expect(
+          merged.hooks.map((h) => h.event),
+          equals(['PreToolUse', 'PostToolUse']),
+        );
       });
 
       test('combines MCP servers declared by different plugins', () {
@@ -132,7 +139,10 @@ void main() {
         ]);
 
         // Sorted by name, like skills and agents.
-        expect(merged.mcpServers.map((server) => server.name), ['cli', 'dart']);
+        expect(
+          merged.mcpServers.map((server) => server.name),
+          equals(['cli', 'dart']),
+        );
       });
 
       test('keeps the first declaration when two plugins claim one name', () {
@@ -145,9 +155,12 @@ void main() {
           ),
         ]);
 
-        expect(merged.mcpServers, [
-          isA<LocalMCPServer>().having((s) => s.command, 'command', 'first'),
-        ]);
+        expect(
+          merged.mcpServers,
+          equals([
+            isA<LocalMCPServer>().having((s) => s.command, 'command', 'first'),
+          ]),
+        );
       });
 
       test('merges nothing into an empty view', () {
