@@ -5,10 +5,10 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
-/// The hex SHA-256 the manifest records for [text].
-String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
-
 void main() {
+  /// The hex SHA-256 the manifest records for [text].
+  String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
+
   const home = '/home/dev';
   const owned = OwnedFile(
     path: '/home/dev/.agents/skills/a/SKILL.md',
@@ -40,7 +40,7 @@ void main() {
     'path': p.relative(entry.path, from: home),
   };
 
-  group('InstallManifest', () {
+  group(InstallManifest, () {
     test('round trips every kind of entry, and the plugin versions', () {
       final manifest = InstallManifest(
         const [owned, merged, sections],
@@ -67,10 +67,17 @@ void main() {
         ),
       );
       expect(
-        (decoded[sections.path]! as MarkdownSections).sections,
-        sections.sections,
+        decoded[sections.path],
+        isA<MarkdownSections>().having(
+          (e) => e.sections,
+          'sections',
+          sections.sections,
+        ),
       );
-      expect((decoded[owned.path]! as OwnedFile).sha256, 'abc');
+      expect(
+        decoded[owned.path],
+        isA<OwnedFile>().having((e) => e.sha256, 'sha256', 'abc'),
+      );
       expect(decoded.plugins, {
         'vgv-wingspan': '0.0.5',
         'vgv-ai-flutter-plugin': '0.0.6',
@@ -221,9 +228,12 @@ void main() {
         home: home,
       )!;
 
-      expect((manifest[sections.path]! as MarkdownSections).sections, {
-        'instructions': 'def',
-      });
+      expect(
+        manifest[sections.path],
+        isA<MarkdownSections>().having((e) => e.sections, 'sections', {
+          'instructions': 'def',
+        }),
+      );
     });
 
     test('lists the entries of one owner, null being the shared skills', () {
@@ -301,7 +311,7 @@ void main() {
     });
   });
 
-  group('OwnedFile', () {
+  group(OwnedFile, () {
     test('records the hash of what VGV wrote', () {
       final file = OwnedFile.of(
         path: owned.path,
@@ -325,7 +335,7 @@ void main() {
     });
   });
 
-  group('MarkdownSections', () {
+  group(MarkdownSections, () {
     test('records a section beside the ones it has', () {
       final file = sections.recording('b', '# B');
 

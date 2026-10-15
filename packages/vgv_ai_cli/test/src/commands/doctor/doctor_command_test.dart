@@ -71,7 +71,7 @@ class const _LockedAuditor(final String unreadable) extends ManifestAuditor {
 void main() {
   setUpAll(() => registerFallbackValue(Harness.claude));
 
-  group('doctor', () {
+  group(DoctorCommand, () {
     late Logger logger;
     late PubUpdater pubUpdater;
     late FileSystem fs;

@@ -11,7 +11,7 @@ void main() {
 
   const note = TranslationNote(subject: 'a', reason: 'b');
 
-  group('TranslationResult', () {
+  group(TranslationResult, () {
     test('defaults to no notes', () {
       expect(TranslationResult(changes: [change('/a')]).notes, isEmpty);
     });

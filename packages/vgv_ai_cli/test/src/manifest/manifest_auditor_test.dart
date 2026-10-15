@@ -98,7 +98,7 @@ void main() {
   Map<String, dynamic> readJson(File target) =>
       jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
 
-  group('ManifestAuditor', () {
+  group(ManifestAuditor, () {
     group('verify', () {
       test('reports a file that is gone as missing', () {
         final target = file('.agents/skills/a/SKILL.md');
@@ -516,7 +516,12 @@ void main() {
           expect(reverseOne(), ReverseOutcome.partial);
           expect(target.sectionBody('a'), isNull);
           expect(target.sectionBody('b'), 'edited');
-          expect((entryFor(target) as MarkdownSections).sections.keys, ['b']);
+          expect(
+            entryFor(target),
+            isA<MarkdownSections>().having((e) => e.sections.keys, 'sections', [
+              'b',
+            ]),
+          );
         });
 
         test('keeps recording an edited section it kept, for install', () {

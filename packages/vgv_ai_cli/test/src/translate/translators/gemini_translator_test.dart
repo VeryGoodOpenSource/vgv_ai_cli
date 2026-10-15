@@ -15,7 +15,7 @@ void main() {
 
   setUp(() => fs = MemoryFileSystem.test());
 
-  group('GeminiTranslator', () {
+  group(GeminiTranslator, () {
     const translator = GeminiTranslator();
 
     test('configures Gemini', () {

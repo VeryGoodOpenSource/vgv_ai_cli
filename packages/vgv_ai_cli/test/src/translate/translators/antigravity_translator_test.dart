@@ -19,7 +19,7 @@ void main() {
     home = fs.directory('/home/dev');
   });
 
-  group('AntigravityTranslator', () {
+  group(AntigravityTranslator, () {
     const translator = AntigravityTranslator();
     const hooksRoot = '/home/dev/.gemini/config/plugins/vgv/hooks';
 
@@ -136,7 +136,13 @@ void main() {
         final hooks = file([hookAsset(fs), hookAsset(fs, event: 'Stop')]);
 
         expect(hooks.keys, ['vgv-wingspan']);
-        expect((hooks['vgv-wingspan']! as Map).keys, ['PostToolUse', 'Stop']);
+        expect(
+          hooks['vgv-wingspan'],
+          isA<Map<String, Object?>>().having((e) => e.keys, 'keys', [
+            'PostToolUse',
+            'Stop',
+          ]),
+        );
       });
 
       test('name the event in the command, timed in seconds', () {
@@ -199,10 +205,13 @@ void main() {
           ),
         ], 'PostToolUse').single;
 
-        expect((entry['hooks']! as List).single, {
-          'type': 'command',
-          'command': 'VGV_HOOK_EVENT=PostToolUse a.sh',
-        });
+        expect(
+          entry['hooks'],
+          isA<List<Object?>>().having((h) => h.single, 'single', {
+            'type': 'command',
+            'command': 'VGV_HOOK_EVENT=PostToolUse a.sh',
+          }),
+        );
       });
 
       test('register nothing when nothing can run', () {

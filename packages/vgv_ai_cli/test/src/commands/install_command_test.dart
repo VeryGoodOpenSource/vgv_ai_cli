@@ -58,34 +58,34 @@ class _FakeTranslator extends Fake implements Translator {
   }
 }
 
-PluginAssets _assets(FileSystem fs) => PluginAssets(
-  skills: [
-    SkillAsset(
-      name: 'green-gate',
-      description: 'Enforces the green gate.',
-      body: 'body',
-      userInvocable: true,
-      allowedTools: const ['Bash'],
-      portableFrontmatter: const {'name': 'green-gate'},
-      directory: fs.directory('/plugin/skills/green-gate')
-        ..createSync(recursive: true),
-    ),
-  ],
-  agents: const [
-    AgentAsset(
-      name: 'reviewer',
-      description: 'Reviews code.',
-      body: 'body',
-      skills: [],
-    ),
-  ],
-  mcpServers: const [],
-);
-
 void main() {
+  PluginAssets assets(FileSystem fs) => PluginAssets(
+    skills: [
+      SkillAsset(
+        name: 'green-gate',
+        description: 'Enforces the green gate.',
+        body: 'body',
+        userInvocable: true,
+        allowedTools: const ['Bash'],
+        portableFrontmatter: const {'name': 'green-gate'},
+        directory: fs.directory('/plugin/skills/green-gate')
+          ..createSync(recursive: true),
+      ),
+    ],
+    agents: const [
+      AgentAsset(
+        name: 'reviewer',
+        description: 'Reviews code.',
+        body: 'body',
+        skills: [],
+      ),
+    ],
+    mcpServers: const [],
+  );
+
   setUpAll(() => registerFallbackValue(Harness.claude));
 
-  group('install', () {
+  group(InstallCommand, () {
     late Logger logger;
     late Progress progress;
     late HarnessDetector detector;
@@ -138,7 +138,7 @@ void main() {
         detector: detector,
         resolver: PluginResolver(
           runProcess: runProcess ?? clone,
-          parser: parser ?? _FakeParser(_assets(fs)),
+          parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
       ),

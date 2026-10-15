@@ -61,7 +61,13 @@ void main() {
     ]..sort();
   }
 
-  group('Translator', () {
+  /// Parses [contents] as the JSON or TOML that [path] names.
+  Object? parseStructured(String path, String contents) =>
+      path.endsWith('.json')
+      ? jsonDecode(contents)
+      : TomlDocument.parse(contents);
+
+  group(Translator, () {
     test('lists every harness once, in reporting order', () {
       expect(harnessTranslators.map((t) => t.harness), Harness.values);
     });
@@ -466,7 +472,7 @@ void main() {
         expect(structured, isNotEmpty);
         for (final MapEntry(key: path, value: contents) in structured) {
           expect(
-            () => _parseStructured(path, contents),
+            () => parseStructured(path, contents),
             returnsNormally,
             reason: path,
           );
@@ -475,8 +481,3 @@ void main() {
     });
   });
 }
-
-/// Parses [contents] as the JSON or TOML that [path] names.
-Object? _parseStructured(String path, String contents) => path.endsWith('.json')
-    ? jsonDecode(contents)
-    : TomlDocument.parse(contents);

@@ -46,7 +46,7 @@ class const _FailingAuditor() extends ManifestAuditor {
 }
 
 void main() {
-  group('uninstall', () {
+  group(UninstallCommand, () {
     late Logger logger;
     late PubUpdater pubUpdater;
     late FileSystem fs;

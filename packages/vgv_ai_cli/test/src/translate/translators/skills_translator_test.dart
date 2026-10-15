@@ -54,7 +54,7 @@ void main() {
   PlannedChange changeAt(TranslationResult result, String suffix) =>
       result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
 
-  group('SkillsTranslator', () {
+  group(SkillsTranslator, () {
     test('plans one SKILL.md per skill under ~/.agents/skills', () {
       final result = translate([skill('testing'), skill('bloc')]);
 
@@ -79,16 +79,19 @@ void main() {
     test('leaves the shared copy owned by no harness', () {
       // Four harnesses read this one copy, so it belongs to none of them.
       expect(
-        translate([skill('testing')]).changes.every((c) => c.harness == null),
-        isTrue,
+        translate([skill('testing')]).changes,
+        everyElement(
+          isA<PlannedChange>().having((c) => c.harness, 'harness', isNull),
+        ),
       );
     });
 
     test('owns the files it writes, so a rerun rewrites them wholesale', () {
       expect(
-        translate([skill('testing')]).changes
-            .every((c) => c.mode == ChangeMode.own),
-        isTrue,
+        translate([skill('testing')]).changes,
+        everyElement(
+          isA<PlannedChange>().having((c) => c.mode, 'mode', ChangeMode.own),
+        ),
       );
     });
 

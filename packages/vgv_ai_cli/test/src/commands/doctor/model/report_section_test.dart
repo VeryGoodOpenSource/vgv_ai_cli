@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('ReportSection', () {
+  group(ReportSection, () {
     test('has problems only when something wrong was found', () {
       expect(
         const ReportSection(

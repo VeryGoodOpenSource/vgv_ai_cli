@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 void main() {
   const note = TranslationNote(subject: 'a', reason: 'b');
 
-  group('TranslationNote', () {
+  group(TranslationNote, () {
     test('compares by value, so tests can assert with contains', () {
       expect(note, const TranslationNote(subject: 'a', reason: 'b'));
       expect(

@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('Reversal', () {
+  group(Reversal, () {
     const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');
 
     test('carries its entries and the manifest they left', () {

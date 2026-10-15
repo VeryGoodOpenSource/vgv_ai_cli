@@ -9,7 +9,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('OpenCodeTranslator', () {
+  group(OpenCodeTranslator, () {
     const translator = OpenCodeTranslator();
 
     test('configures OpenCode', () {

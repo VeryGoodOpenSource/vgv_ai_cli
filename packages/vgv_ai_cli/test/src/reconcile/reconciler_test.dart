@@ -14,10 +14,10 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 import '../document/_markdown_file.dart';
 
-/// The hex SHA-256 the manifest records for [text].
-String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
-
 void main() {
+  /// The hex SHA-256 the manifest records for [text].
+  String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
+
   const reconciler = Reconciler();
 
   late FileSystem fileSystem;
@@ -74,7 +74,7 @@ void main() {
   Map<String, dynamic> readJson(File target) =>
       jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
 
-  group('Reconciler', () {
+  group(Reconciler, () {
     group('own', () {
       test('creates a file that did not exist', () {
         final target = file('.agents/skills/testing/SKILL.md');
@@ -175,7 +175,7 @@ void main() {
 
         final result = readJson(target);
         expect(result['model'], 'opus');
-        expect((result['permissions'] as Map)['allow'], ['Bash(git *)']);
+        expect(result['permissions'], containsPair('allow', ['Bash(git *)']));
         expect(result, contains('enabledPlugins'));
       });
 
@@ -202,11 +202,10 @@ void main() {
         );
 
         final result = readJson(target);
-        expect((result['permissions'] as Map)['allow'], [
-          'Bash(git *)',
-          'Read',
-          'Bash(dart *)',
-        ]);
+        expect(
+          result['permissions'],
+          containsPair('allow', ['Bash(git *)', 'Read', 'Bash(dart *)']),
+        );
       });
 
       test('keeps the existing scalar on a conflict', () {
@@ -390,8 +389,8 @@ void main() {
 
         final result = readJson(target);
         expect(
-          ((result['hooks'] as Map)['PostToolUse'] as List).length,
-          1,
+          result['hooks'],
+          containsPair('PostToolUse', hasLength(1)),
           reason: 'an object entry must not be re-appended on every install',
         );
         expect(second.outcome, ChangeOutcome.unchanged);
@@ -519,7 +518,10 @@ void main() {
 
         final result = readToml(target);
         expect(result['model'], 'gpt');
-        expect((result['mcp_servers'] as Map)['dart'], {'command': 'dart'});
+        expect(
+          result['mcp_servers'],
+          containsPair('dart', {'command': 'dart'}),
+        );
       });
 
       test('adds a bare top-level key', () {
@@ -563,10 +565,10 @@ void main() {
           force: true,
         );
 
-        expect((readToml(target)['mcp_servers'] as Map)['dart'], {
-          'command': 'dart',
-          'extra': 'mine',
-        });
+        expect(
+          readToml(target)['mcp_servers'],
+          containsPair('dart', {'command': 'dart', 'extra': 'mine'}),
+        );
         expect(applied.outcome, ChangeOutcome.updated);
       });
 
@@ -589,7 +591,13 @@ void main() {
 
         expect(applied.outcome, ChangeOutcome.updated);
         expect(target.readAsStringSync(), startsWith(original));
-        expect((readToml(target)['mcp_servers'] as Map).keys, ['mine', 'dart']);
+        expect(
+          readToml(target)['mcp_servers'],
+          isA<Map<String, dynamic>>().having((m) => m.keys, 'keys', [
+            'mine',
+            'dart',
+          ]),
+        );
       });
 
       test('adds a table and reports the value it kept as partial', () {
@@ -770,9 +778,12 @@ void main() {
         );
 
         expect(applied.outcome, ChangeOutcome.updated);
-        expect((readToml(target)['mcp_servers'] as Map)['dart'], {
-          'enabled_tools': ['a', 'b'],
-        });
+        expect(
+          readToml(target)['mcp_servers'],
+          containsPair('dart', {
+            'enabled_tools': ['a', 'b'],
+          }),
+        );
       });
 
       test('unions arrays of tables', () {
@@ -1077,8 +1088,12 @@ void main() {
         ]);
 
         final [owned, merged, sections] = manifest.entries.toList();
-        expect(owned, isA<OwnedFile>().having((e) => e.owner, 'owner', null));
-        expect((owned as OwnedFile).sha256, hashText('body'));
+        expect(
+          owned,
+          isA<OwnedFile>()
+              .having((e) => e.owner, 'owner', null)
+              .having((e) => e.sha256, 'sha256', hashText('body')),
+        );
         expect(
           merged,
           isA<MergedDocument>()

@@ -2,7 +2,7 @@ import 'package:plugin_source/src/format/plugin_parse_exception.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('PluginParseException', () {
+  group(PluginParseException, () {
     test('is not a FormatException', () {
       // The command runner catches FormatException and renders it as a CLI
       // usage error. YamlException and jsonDecode both throw FormatException,

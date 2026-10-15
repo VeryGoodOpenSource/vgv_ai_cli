@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('ReversedEntry', () {
+  group(ReversedEntry, () {
     const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');
 
     test('carries its entry and outcome, and no error unless it failed', () {

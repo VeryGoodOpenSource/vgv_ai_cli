@@ -7,20 +7,6 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 
-const _wingspan = PluginRef(
-  name: 'wingspan',
-  repo: 'acme/wingspan',
-  version: '1.0.0',
-  gitRef: 'v1.0.0',
-);
-
-const _flutter = PluginRef(
-  name: 'flutter',
-  repo: 'acme/flutter',
-  version: '2.0.0',
-  gitRef: 'v2.0.0',
-);
-
 /// A [PluginParser] that gives each plugin root one agent named after the
 /// root's path, and records the roots it was asked to parse.
 class _RecordingParser implements PluginParser {
@@ -77,7 +63,21 @@ class _Processes {
 }
 
 void main() {
-  group('PluginResolver', () {
+  const wingspan = PluginRef(
+    name: 'wingspan',
+    repo: 'acme/wingspan',
+    version: '1.0.0',
+    gitRef: 'v1.0.0',
+  );
+
+  const flutter = PluginRef(
+    name: 'flutter',
+    repo: 'acme/flutter',
+    version: '2.0.0',
+    gitRef: 'v2.0.0',
+  );
+
+  group(PluginResolver, () {
     late FileSystem fs;
     late Directory home;
     late _RecordingParser parser;
@@ -117,25 +117,25 @@ void main() {
     });
 
     test('prefers a complete Claude Code cache, and runs no git', () async {
-      cache(_wingspan);
-      cache(_flutter);
+      cache(wingspan);
+      cache(flutter);
       final resolver = PluginResolver(
         runProcess: processes.never,
         parser: parser,
-        plugins: const [_wingspan, _flutter],
+        plugins: const [wingspan, flutter],
       );
 
       final resolution = await resolver.resolve(home);
 
-      expect(parser.roots, [cached(_wingspan), cached(_flutter)]);
+      expect(parser.roots, [cached(wingspan), cached(flutter)]);
       expect(
         resolution,
         isA<ResolvedAssets>()
-            .having((r) => r.plugins, 'plugins', [_wingspan, _flutter])
+            .having((r) => r.plugins, 'plugins', [wingspan, flutter])
             .having(
               (r) => r.assets.agents.map((agent) => agent.name),
               'agents',
-              [cached(_flutter), cached(_wingspan)],
+              [cached(flutter), cached(wingspan)],
             ),
       );
     });
@@ -144,13 +144,13 @@ void main() {
       final resolver = PluginResolver(
         runProcess: processes.clonesInto(fs),
         parser: parser,
-        plugins: const [_wingspan],
+        plugins: const [wingspan],
       );
 
       final resolution = await resolver.resolve(home);
 
       expect(resolution, isA<ResolvedAssets>());
-      expect(parser.roots, [cloned(_wingspan)]);
+      expect(parser.roots, [cloned(wingspan)]);
       expect(processes.calls, [
         [
           'git',
@@ -160,32 +160,32 @@ void main() {
           '--branch',
           'v1.0.0',
           'https://github.com/acme/wingspan.git',
-          startsWith('${cloned(_wingspan)}.tmp.'),
+          startsWith('${cloned(wingspan)}.tmp.'),
         ],
       ]);
     });
 
     test('reuses an earlier clone without running git again', () async {
-      fs.directory(cloned(_wingspan)).createSync(recursive: true);
+      fs.directory(cloned(wingspan)).createSync(recursive: true);
       final resolver = PluginResolver(
         runProcess: processes.never,
         parser: parser,
-        plugins: const [_wingspan],
+        plugins: const [wingspan],
       );
 
       await expectLater(
         resolver.resolve(home),
         completion(isA<ResolvedAssets>()),
       );
-      expect(parser.roots, [cloned(_wingspan)]);
+      expect(parser.roots, [cloned(wingspan)]);
     });
 
     test('names every reason when no source has the plugin', () async {
-      cache(_wingspan);
+      cache(wingspan);
       final resolver = PluginResolver(
         runProcess: processes.noGit,
         parser: parser,
-        plugins: const [_wingspan, _flutter],
+        plugins: const [wingspan, flutter],
       );
 
       final resolution = await resolver.resolve(home);
@@ -193,7 +193,7 @@ void main() {
       expect(
         resolution,
         isA<UnavailableAssets>()
-            .having((r) => r.plugin, 'plugin', _flutter)
+            .having((r) => r.plugin, 'plugin', flutter)
             .having((r) => r.reasons, 'reasons', [
               startsWith('No Claude Code cache for flutter'),
               startsWith('git is not installed'),
@@ -202,28 +202,28 @@ void main() {
     });
 
     test('clones the pinned tag when the cached copy does not parse', () async {
-      cache(_wingspan);
+      cache(wingspan);
       final rejecting = _RejectingParser(fs.path.join(home.path, '.claude'));
       final resolver = PluginResolver(
         runProcess: processes.clonesInto(fs),
         parser: rejecting,
-        plugins: const [_wingspan],
+        plugins: const [wingspan],
       );
 
       final resolution = await resolver.resolve(home);
 
       expect(resolution, isA<ResolvedAssets>());
-      expect(rejecting.roots, [cloned(_wingspan)]);
+      expect(rejecting.roots, [cloned(wingspan)]);
       expect(processes.calls, hasLength(1));
     });
 
     test('stops at a plugin no source has a parseable copy of', () async {
-      cache(_wingspan);
-      cache(_flutter);
+      cache(wingspan);
+      cache(flutter);
       final resolver = PluginResolver(
         runProcess: processes.noGit,
         parser: _RejectingParser(home.path),
-        plugins: const [_wingspan, _flutter],
+        plugins: const [wingspan, flutter],
       );
 
       final resolution = await resolver.resolve(home);
@@ -231,17 +231,17 @@ void main() {
       expect(
         resolution,
         isA<UnparseableAssets>()
-            .having((r) => r.plugin, 'plugin', _wingspan)
-            .having((r) => r.error.path, 'path', cached(_wingspan)),
+            .having((r) => r.plugin, 'plugin', wingspan)
+            .having((r) => r.error.path, 'path', cached(wingspan)),
       );
     });
 
     test('reports the last parse error when every copy fails', () async {
-      cache(_wingspan);
+      cache(wingspan);
       final resolver = PluginResolver(
         runProcess: processes.clonesInto(fs),
         parser: _RejectingParser(home.path),
-        plugins: const [_wingspan],
+        plugins: const [wingspan],
       );
 
       final resolution = await resolver.resolve(home);
@@ -251,16 +251,16 @@ void main() {
         isA<UnparseableAssets>().having(
           (r) => r.error.path,
           'path',
-          cloned(_wingspan),
+          cloned(wingspan),
         ),
       );
     });
 
     test('parses with the Claude Code parser by default', () async {
-      cache(_wingspan);
+      cache(wingspan);
       final resolver = PluginResolver(
         runProcess: processes.never,
-        plugins: const [_wingspan],
+        plugins: const [wingspan],
       );
 
       final resolution = await resolver.resolve(home);

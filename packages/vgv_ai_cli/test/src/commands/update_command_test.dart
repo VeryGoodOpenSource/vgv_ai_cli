@@ -17,7 +17,7 @@ class _MockPubUpdater extends Mock implements PubUpdater;
 void main() {
   const latestVersion = '0.0.0';
 
-  group('update', () {
+  group(UpdateCommand, () {
     late PubUpdater pubUpdater;
     late Logger logger;
     late VgvAiCliCommandRunner commandRunner;

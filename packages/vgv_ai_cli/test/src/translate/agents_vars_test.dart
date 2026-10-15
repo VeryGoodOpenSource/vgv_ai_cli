@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '_assets.dart';
 
 void main() {
-  group('AgentsVars', () {
+  group(AgentsVars, () {
     final fs = MemoryFileSystem.test();
 
     Map<String, Object?> varsFor(

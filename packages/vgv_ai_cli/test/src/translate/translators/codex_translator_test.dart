@@ -10,7 +10,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('CodexTranslator', () {
+  group(CodexTranslator, () {
     const translator = CodexTranslator();
 
     test('configures Codex', () {
@@ -111,8 +111,8 @@ void main() {
                 as List<Object?>;
 
         expect(
-          (registrations.single! as Map)['matcher'],
-          'Edit|apply_patch|Write',
+          registrations.single,
+          containsPair('matcher', 'Edit|apply_patch|Write'),
         );
       });
 
@@ -125,7 +125,7 @@ void main() {
                 ])['PreToolUse']!
                 as List<Object?>;
 
-        expect((registrations.single! as Map)['matcher'], 'Bash');
+        expect(registrations.single, containsPair('matcher', 'Bash'));
       });
 
       test('carry over a matcher Codex spells the same way', () {
@@ -136,7 +136,7 @@ void main() {
                   ])['PreToolUse']!
                   as List<Object?>;
 
-          expect((registrations.single! as Map)['matcher'], matcher);
+          expect(registrations.single, containsPair('matcher', matcher));
         }
       });
 
@@ -147,7 +147,10 @@ void main() {
             events([hookAsset(fs, matcher: r'^(Edit|Write)$')])['PostToolUse']!
                 as List<Object?>;
 
-        expect((registrations.single! as Map)['matcher'], r'^(Edit|Write)$');
+        expect(
+          registrations.single,
+          containsPair('matcher', r'^(Edit|Write)$'),
+        );
       });
 
       test('leave a hook that matches no tool with no matcher', () {
@@ -155,7 +158,7 @@ void main() {
             events([hookAsset(fs, event: 'SessionStart')])['SessionStart']!
                 as List<Object?>;
 
-        expect(registrations.single! as Map, isNot(contains('matcher')));
+        expect(registrations.single, isNot(contains('matcher')));
       });
 
       test("point a command at Codex's copy of the plugin", () {
@@ -167,8 +170,11 @@ void main() {
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
         expect(
-          (commands.single! as Map)['command'],
-          'bash "/home/.codex/hooks/vgv-wingspan"/hooks/scripts/analyze.sh',
+          commands.single,
+          containsPair(
+            'command',
+            'bash "/home/.codex/hooks/vgv-wingspan"/hooks/scripts/analyze.sh',
+          ),
         );
       });
 
@@ -192,8 +198,11 @@ void main() {
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
         expect(
-          (commands.single! as Map)['command'],
-          'dart run "/plugins/vgv-wingspan"/scripts/check.dart',
+          commands.single,
+          containsPair(
+            'command',
+            'dart run "/plugins/vgv-wingspan"/scripts/check.dart',
+          ),
         );
       });
 
@@ -228,7 +237,7 @@ void main() {
         final commands =
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
-        expect((commands.single! as Map)['command'], 'say-hello');
+        expect(commands.single, containsPair('command', 'say-hello'));
       });
 
       test('carry the type and the timeout, and leave an absent one out', () {
@@ -246,11 +255,11 @@ void main() {
         final commands =
             (registrations.single! as Map)['hooks']! as List<Object?>;
 
-        expect(commands.first! as Map, containsPair('type', 'command'));
-        expect(commands.first! as Map, containsPair('timeout', 5));
-        expect(commands.last! as Map, containsPair('type', 'prompt'));
-        expect(commands.last! as Map, containsPair('command', 'b.sh'));
-        expect(commands.last! as Map, isNot(contains('timeout')));
+        expect(commands.first, containsPair('type', 'command'));
+        expect(commands.first, containsPair('timeout', 5));
+        expect(commands.last, containsPair('type', 'prompt'));
+        expect(commands.last, containsPair('command', 'b.sh'));
+        expect(commands.last, isNot(contains('timeout')));
       });
 
       test('group every registration of one event together', () {

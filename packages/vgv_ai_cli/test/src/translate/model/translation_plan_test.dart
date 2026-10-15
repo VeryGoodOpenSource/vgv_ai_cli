@@ -9,7 +9,7 @@ void main() {
   PlannedChange change(String path, Harness? harness) =>
       PlannedChange.text(file: fs.file(path), contents: '', harness: harness);
 
-  group('TranslationPlan', () {
+  group(TranslationPlan, () {
     test('plans nothing by default', () {
       const plan = TranslationPlan();
 
