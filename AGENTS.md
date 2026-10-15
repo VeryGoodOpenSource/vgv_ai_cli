@@ -123,7 +123,7 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 `.claude/settings.json` is committed and enables two plugins from the VGV marketplace: `vgv-wingspan` (brainstorm → plan → build → review workflows) and `vgv-ai-flutter-plugin` (Dart quality gates, MCP tools, hooks).
 
-It pins the marketplace catalog to commit `842e9458` (marketplace `1.0.5`), which declares **both plugins at `0.0.5`**. That pins the versions the catalog *declares*; each plugin entry sources from its own repo without a ref of its own, so plugin content still tracks those default branches. Expect some drift, and re-pin the SHA when you want a newer catalog.
+It pins the marketplace catalog to commit `ecfa5e93` (marketplace `1.1.0`), which declares **both plugins at `0.0.5`** (it also lists a third plugin, which is not enabled here). That pins the versions the catalog *declares*; each plugin entry sources from its own repo without a ref of its own, so plugin content still tracks those default branches. Expect some drift, and re-pin the SHA when you want a newer catalog.
 
 The flutter plugin runs `dart analyze` and `dart format` automatically after **every** `.dart` Edit or Write. Analyze failures come back as work to do, which is why the SDK requirement above matters so much.
 
