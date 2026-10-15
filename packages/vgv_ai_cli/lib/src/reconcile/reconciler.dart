@@ -326,13 +326,16 @@ class _Run({
       _ when !base.containsKey(key) => KeyMerge.added(value),
       // VGV's own and untouched since: VGV's to write.
       _ when managed.owns(key, existing) => KeyMerge.replaced(value),
-      (final List<dynamic> existing, final List<dynamic> value) =>
+      (final List<dynamic> existing, final List<dynamic> value)
+          when codec.mergesEntries(key) =>
         KeyMerge.union(existing, [
           for (final item in value)
             if (!codec.listContains(existing, item)) item,
         ]),
+      // Anything else, an argv included, is one value: VGV's only when
+      // forced.
       _ when force => KeyMerge.replaced(value),
-      _ => KeyMerge.kept(declined: existing != value),
+      _ => KeyMerge.kept(declined: !codec.deepEquality.equals(existing, value)),
     };
   }
 }

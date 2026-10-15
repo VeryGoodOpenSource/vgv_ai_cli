@@ -240,6 +240,90 @@ void main() {
         expect(readJson(target)['model'], 'y');
       });
 
+      group('an argv', () {
+        Map<String, dynamic> server(List<String> command) => {
+          'mcp': {
+            'context7': {'type': 'local', 'command': command},
+          },
+        };
+        const vgv = ['npx', '-y', '@upstash/context7-mcp@latest'];
+
+        test('keeps the one the user set, rather than merging into it', () {
+          final target = seed(
+            '.config/opencode/opencode.json',
+            jsonEncode(server(['my-own-context7'])),
+          );
+
+          final applied = applyOne(
+            change(target, jsonEncode(server(vgv)), ChangeMode.mergeJson),
+          );
+
+          expect(applied.outcome, ChangeOutcome.skipped);
+          expect(readJson(target), server(['my-own-context7']));
+        });
+
+        test('replaces the one the user set when forced', () {
+          final target = seed(
+            '.config/opencode/opencode.json',
+            jsonEncode(server(['my-own-context7'])),
+          );
+
+          final applied = applyOne(
+            change(target, jsonEncode(server(vgv)), ChangeMode.mergeJson),
+            force: true,
+          );
+
+          expect(applied.outcome, ChangeOutcome.updated);
+          expect(readJson(target), server(vgv));
+        });
+
+        test('declines nothing when the user set the same one', () {
+          final target = seed(
+            '.config/opencode/opencode.json',
+            jsonEncode(server(vgv)),
+          );
+
+          final applied = applyOne(
+            change(target, jsonEncode(server(vgv)), ChangeMode.mergeJson),
+          );
+
+          expect(applied.outcome, ChangeOutcome.unchanged);
+        });
+
+        test('treats args the same way', () {
+          final target = seed(
+            '.gemini/settings.json',
+            jsonEncode({
+              'mcpServers': {
+                'dart': {
+                  'args': ['mine'],
+                },
+              },
+            }),
+          );
+
+          applyOne(
+            change(
+              target,
+              jsonEncode({
+                'mcpServers': {
+                  'dart': {
+                    'args': ['mcp-server'],
+                  },
+                },
+              }),
+              ChangeMode.mergeJson,
+            ),
+          );
+
+          expect(readJson(target)['mcpServers'], {
+            'dart': {
+              'args': ['mine'],
+            },
+          });
+        });
+      });
+
       test('reports a write that kept a user value as partial', () {
         final target = seed(
           '.gemini/settings.json',
@@ -534,14 +618,14 @@ void main() {
       test('grows an inline array in place, keeping comments', () {
         final target = seed(
           '.codex/config.toml',
-          '# mine\n[mcp_servers.dart]\nargs = ["a"] # first\n'
+          '# mine\n[mcp_servers.dart]\nenabled_tools = ["a"] # first\n'
               '\n[other]\nx = 1\n',
         );
 
         final applied = applyOne(
           change(
             target,
-            '[mcp_servers.dart]\nargs = ["b"]',
+            '[mcp_servers.dart]\nenabled_tools = ["b"]',
             ChangeMode.mergeToml,
           ),
         );
@@ -549,8 +633,30 @@ void main() {
         expect(applied.outcome, ChangeOutcome.updated);
         expect(
           target.readAsStringSync(),
-          "# mine\n[mcp_servers.dart]\nargs = ['a', 'b'] # first\n"
+          "# mine\n[mcp_servers.dart]\nenabled_tools = ['a', 'b'] # first\n"
           '\n[other]\nx = 1\n',
+        );
+      });
+
+      test('replaces an argv in place when forced, keeping comments', () {
+        final target = seed(
+          '.codex/config.toml',
+          '# mine\n[mcp_servers.dart]\nargs = ["a"] # first\n',
+        );
+        final planned = change(
+          target,
+          '[mcp_servers.dart]\nargs = ["b"]',
+          ChangeMode.mergeToml,
+        );
+
+        final kept = applyOne(planned);
+        expect(kept.outcome, ChangeOutcome.skipped);
+
+        final forced = applyOne(planned, force: true);
+        expect(forced.outcome, ChangeOutcome.updated);
+        expect(
+          target.readAsStringSync(),
+          "# mine\n[mcp_servers.dart]\nargs = ['b'] # first\n",
         );
       });
 
@@ -606,13 +712,13 @@ void main() {
       });
 
       test('skips an edit it cannot make without rewriting the file', () {
-        const original = '# mine\nmcp_servers.dart.args = ["a"]\n';
+        const original = '# mine\nmcp_servers.dart.enabled_tools = ["a"]\n';
         final target = seed('.codex/config.toml', original);
 
         final applied = applyOne(
           change(
             target,
-            '[mcp_servers.dart]\nargs = ["b"]',
+            '[mcp_servers.dart]\nenabled_tools = ["b"]',
             ChangeMode.mergeToml,
           ),
         );
@@ -628,13 +734,14 @@ void main() {
       });
 
       test('skips growing an array that has a comment inside it', () {
-        const original = '[mcp_servers.dart]\nargs = [\n  "a", # mine\n]\n';
+        const original =
+            '[mcp_servers.dart]\nenabled_tools = [\n  "a", # mine\n]\n';
         final target = seed('.codex/config.toml', original);
 
         final applied = applyOne(
           change(
             target,
-            '[mcp_servers.dart]\nargs = ["b"]',
+            '[mcp_servers.dart]\nenabled_tools = ["b"]',
             ChangeMode.mergeToml,
           ),
         );
@@ -650,13 +757,13 @@ void main() {
       test('rewrites the file when forced and no edit fits', () {
         final target = seed(
           '.codex/config.toml',
-          '# mine\nmcp_servers.dart.args = ["a"]\n',
+          '# mine\nmcp_servers.dart.enabled_tools = ["a"]\n',
         );
 
         final applied = applyOne(
           change(
             target,
-            '[mcp_servers.dart]\nargs = ["b"]',
+            '[mcp_servers.dart]\nenabled_tools = ["b"]',
             ChangeMode.mergeToml,
           ),
           force: true,
@@ -664,7 +771,7 @@ void main() {
 
         expect(applied.outcome, ChangeOutcome.updated);
         expect((readToml(target)['mcp_servers'] as Map)['dart'], {
-          'args': ['a', 'b'],
+          'enabled_tools': ['a', 'b'],
         });
       });
 
@@ -1269,6 +1376,39 @@ void main() {
               'gh': {'command': 'gh'},
             },
           });
+        });
+      });
+
+      test('reports an argv the user changed until it is kept or forced', () {
+        final settings = file('.config/opencode/opencode.json');
+        final planned = change(
+          settings,
+          jsonEncode({
+            'command': ['npx', 'context7'],
+          }),
+          ChangeMode.mergeJson,
+        );
+        applyOne(planned);
+        settings.writeAsStringSync(
+          jsonEncode({
+            'command': ['mine'],
+          }),
+        );
+
+        final drift = entryFor<MergedDocument>(settings).contribution
+            .compare(readJson(settings));
+        expect(drift.drifted, ['command']);
+        expect(drift.missing, isEmpty);
+
+        expect(applyOne(planned).outcome, ChangeOutcome.skipped);
+        expect(readJson(settings), {
+          'command': ['mine'],
+        });
+        expect(manifest.entryOf<MergedDocument>(settings.path), isNull);
+
+        expect(applyOne(planned, force: true).outcome, ChangeOutcome.updated);
+        expect(readJson(settings), {
+          'command': ['npx', 'context7'],
         });
       });
 

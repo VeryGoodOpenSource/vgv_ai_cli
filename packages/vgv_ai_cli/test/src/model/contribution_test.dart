@@ -30,11 +30,11 @@ void main() {
 
     test('has appended to a list only the entries it contributed', () {
       const managed = Contribution({
-        'args': ['--vgv'],
+        'allow': ['--vgv'],
         'theme': 'vgv',
       });
 
-      expect(managed.appendedTo('args'), ['--vgv']);
+      expect(managed.appendedTo('allow'), ['--vgv']);
       expect(managed.appendedTo('theme'), isEmpty);
       expect(managed.appendedTo('model'), isEmpty);
     });
@@ -109,6 +109,21 @@ void main() {
         );
       });
 
+      test('owns no entry of an argv the user had, as of a scalar', () {
+        expect(
+          Contribution.of(
+            {
+              'command': ['mine'],
+            },
+            {
+              'command': ['npx', 'vgv'],
+            },
+            Contribution.none,
+          ).isEmpty,
+          isTrue,
+        );
+      });
+
       test('owns nothing of a scalar the user had, or of an empty part', () {
         expect(
           Contribution.of(
@@ -159,6 +174,25 @@ void main() {
         expect(drift.missing, ['mcp.gh', 'allow']);
         expect(drift.drifted, ['theme']);
       });
+
+      test('names an argv that differs at all as changed', () {
+        const contribution = Contribution({
+          'command': ['npx', 'vgv'],
+        });
+
+        expect(
+          contribution.compare({
+            'command': ['mine', 'npx', 'vgv'],
+          }).drifted,
+          ['command'],
+        );
+        expect(
+          contribution.compare({
+            'command': ['npx', 'vgv'],
+          }).isEmpty,
+          isTrue,
+        );
+      });
     });
 
     group('subtract', () {
@@ -192,6 +226,27 @@ void main() {
         expect(unforced.kept, isTrue);
         expect(forced.remaining, isEmpty);
         expect(forced.kept, isFalse);
+      });
+
+      test('removes an argv whole, or keeps it whole once changed', () {
+        const contribution = Contribution({
+          'args': ['mcp-server'],
+        });
+
+        expect(
+          contribution.subtract({
+            'args': ['mcp-server'],
+          }, force: false).remaining,
+          isEmpty,
+        );
+
+        final changed = contribution.subtract({
+          'args': ['mcp-server', '--mine'],
+        }, force: false);
+        expect(changed.remaining, {
+          'args': ['mcp-server', '--mine'],
+        });
+        expect(changed.kept, isTrue);
       });
     });
   });
