@@ -13,15 +13,15 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings          | Instructions              | Agents              | Commands          | Hooks            |
-| -------- | ----------------- | ------------------------- | ------------------- | ----------------- | ---------------- |
-| claude   | `settings.json`   |                           |                     |                   |                  |
-| gemini   | `settings.json`   | `AGENTS.md`               | `agents/*.md`       | `commands/*.toml` |                  |
-| codex    | `config.toml`     | `AGENTS.md`               | `agents/*.toml`     |                   | `hooks.json`     |
-| opencode | `opencode.json`   | `AGENTS.md`               | `agent/*.md`        | `command/*.md`    |                  |
-| pi       |                   | `AGENTS.md`               |                     | `prompts/*.md`    |                  |
-| copilot  | `mcp-config.json` | `copilot-instructions.md` | `agents/*.agent.md` |                   | `hooks/vgv.json` |
-| antigravity | `plugins/vgv/mcp_config.json` | | `plugins/vgv/agents/*.md` | | `plugins/vgv/hooks.json` |
+| Harness     | Settings                      | Instructions              | Agents                    | Commands          | Hooks                    |
+| ----------- | ----------------------------- | ------------------------- | ------------------------- | ----------------- | ------------------------ |
+| claude      | `settings.json`               |                           |                           |                   |                          |
+| gemini      | `settings.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.toml` |                          |
+| codex       | `config.toml`                 | `AGENTS.md`               | `agents/*.toml`           |                   | `hooks.json`             |
+| opencode    | `opencode.json`               | `AGENTS.md`               | `agent/*.md`              | `command/*.md`    |                          |
+| pi          |                               | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
+| copilot     | `mcp-config.json`             | `copilot-instructions.md` | `agents/*.agent.md`       |                   | `hooks/vgv.json`         |
+| antigravity | `plugins/vgv/mcp_config.json` |                           | `plugins/vgv/agents/*.md` |                   | `plugins/vgv/hooks.json` |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
