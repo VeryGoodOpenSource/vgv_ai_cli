@@ -4,22 +4,23 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
 /// {@template skills_translator}
-/// Writes the one shared copy of the skills, not a per-harness copy.
+/// Writes a copy of the skills under one root: the shared one most harnesses
+/// read, or a harness's own.
 ///
-/// Planned once rather than inside each translator, which is why it is not a
-/// `HarnessTranslator`: the changes it produces belong to no single harness.
+/// Not a `HarnessTranslator`, because the shared copy belongs to no single
+/// harness.
 /// {@endtemplate}
 class const SkillsTranslator() {
-  /// Plans every skill, plus the files each one ships alongside its `SKILL.md`.
+  /// Plans every skill under [root], plus the files each one ships alongside
+  /// its `SKILL.md`, owned by [harness] or shared when null.
   TranslationResult translate({
     required PluginAssets assets,
-    required Directory home,
+    required Directory root,
+    Harness? harness,
   }) {
-    final root = agentsSkillsRoot(home);
     final changes = <PlannedChange>[];
     final notes = <TranslationNote>[];
 
@@ -30,10 +31,10 @@ class const SkillsTranslator() {
           PlannedChange(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
             bytes: _expandSkillDir(utf8.encode(_skillDocument(skill)), target),
-            harness: null,
+            harness: harness,
           ),
         )
-        ..addAll(_bundledFiles(skill, target, notes));
+        ..addAll(_bundledFiles(skill, target, notes, harness: harness));
     }
 
     return TranslationResult(changes: changes, notes: notes);
@@ -62,8 +63,9 @@ class const SkillsTranslator() {
   List<PlannedChange> _bundledFiles(
     SkillAsset skill,
     Directory target,
-    List<TranslationNote> notes,
-  ) {
+    List<TranslationNote> notes, {
+    required Harness? harness,
+  }) {
     // The parser only builds a skill from a directory holding a SKILL.md, so
     // this is not the normal case. A plugin cache cleared between resolution
     // and translation is, and it should report rather than throw a raw
@@ -101,7 +103,7 @@ class const SkillsTranslator() {
         PlannedChange(
           file: target.fileSystem.file(p.join(target.path, relative)),
           bytes: _expandSkillDir(source.readAsBytesSync(), target),
-          harness: null,
+          harness: harness,
           source: source,
         ),
       );

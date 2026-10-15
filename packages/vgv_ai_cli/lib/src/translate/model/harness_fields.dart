@@ -13,10 +13,18 @@ class const HarnessFields({
 
   /// The whole TOML document of an agent or command.
   final String? toml,
+
+  /// An agent's instructions, for a harness that spells its skills in the
+  /// frontmatter rather than through the shared pointer.
+  final String? instructions,
 }) extends Equatable {
   /// The fields keyed as the brick reads them, leaving out every null one.
-  Map<String, String> toMap() => {'frontmatter': ?frontmatter, 'toml': ?toml};
+  Map<String, String> toMap() => {
+    'frontmatter': ?frontmatter,
+    'toml': ?toml,
+    'instructions': ?instructions,
+  };
 
   @override
-  List<Object?> get props => [frontmatter, toml];
+  List<Object?> get props => [frontmatter, toml, instructions];
 }
