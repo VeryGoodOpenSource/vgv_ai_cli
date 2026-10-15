@@ -4,6 +4,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
+import 'package:vgv_ai_cli/src/translate/antigravity_translator.dart';
 import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
 import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
 import 'package:vgv_ai_cli/src/translate/copilot_translator.dart';
@@ -24,6 +25,7 @@ const harnessTranslators = <HarnessTranslator>[
   OpenCodeTranslator(),
   PiTranslator(),
   CopilotTranslator(),
+  AntigravityTranslator(),
 ];
 
 /// {@template translator}
@@ -69,7 +71,7 @@ class const Translator({
 
     return TranslationPlan(
       shared: chosen.any((translator) => translator.readsSharedSkills)
-          ? skills.translate(assets: assets, home: home)
+          ? skills.translate(assets: assets, root: agentsSkillsRoot(home))
           : null,
       harnesses: {
         for (final translator in chosen)
@@ -78,31 +80,45 @@ class const Translator({
             rendered: changes[translator.harness],
             hooks: hooks[translator.harness],
             assets: assets,
+            home: home,
           ),
       },
     );
   }
 
-  /// [translator]'s [rendered] files and the ones beside its [hooks], with
-  /// its notes. A harness that runs no hooks is told so here, since every
-  /// translator would otherwise say it the same way.
+  /// [translator]'s [rendered] files, the ones beside its [hooks], and its
+  /// own copy of the skills when it keeps one, with its notes. A harness
+  /// that runs no hooks is told so here, since every translator would
+  /// otherwise say it the same way.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,
     required HookTranslation? hooks,
     required PluginAssets assets,
-  }) => TranslationResult(
-    changes: [...?rendered, ...?hooks?.files],
-    notes: [
-      ...translator.notes(assets),
-      ...?hooks?.notes,
-      if (hooks == null && assets.hooks.isNotEmpty)
-        TranslationNote(
-          subject: '${assets.hooks.length} hook(s)',
-          reason:
-              'the plugins ship them as shell commands, and nothing in '
-              "${translator.harness.displayName}'s config runs one",
-        ),
-    ],
-  );
+    required Directory home,
+  }) {
+    final own = switch (translator.skillsRoot(home)) {
+      final root? => skills.translate(
+        assets: assets,
+        root: root,
+        harness: translator.harness,
+      ),
+      _ => null,
+    };
+    return TranslationResult(
+      changes: [...?rendered, ...?hooks?.files, ...?own?.changes],
+      notes: [
+        ...translator.notes(assets),
+        ...?hooks?.notes,
+        ...?own?.notes,
+        if (hooks == null && assets.hooks.isNotEmpty)
+          TranslationNote(
+            subject: '${assets.hooks.length} hook(s)',
+            reason:
+                'the plugins ship them as shell commands, and nothing in '
+                "${translator.harness.displayName}'s config runs one",
+          ),
+      ],
+    );
+  }
 }

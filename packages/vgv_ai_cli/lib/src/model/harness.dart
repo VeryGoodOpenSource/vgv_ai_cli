@@ -47,7 +47,15 @@ enum Harness({
   pi(displayName: 'Pi', executable: 'pi', config: '.pi/agent'),
 
   /// GitHub Copilot CLI.
-  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot');
+  copilot(displayName: 'Copilot', executable: 'copilot', config: '.copilot'),
+
+  /// Antigravity CLI, which keeps the config it shares with the Antigravity
+  /// IDE beside Gemini's.
+  antigravity(
+    displayName: 'Antigravity',
+    executable: 'agy',
+    config: '.gemini/config',
+  );
 
   /// The directory this harness reads its user-level config from.
   Directory configDirectory(Directory home) => home.fileSystem.directory(

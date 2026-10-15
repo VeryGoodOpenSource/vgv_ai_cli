@@ -13,14 +13,15 @@ What a folder contains is what that harness supports. Pi's folder has
 `AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
 out of agents and settings.
 
-| Harness  | Settings          | Instructions              | Agents              | Commands          | Hooks            |
-| -------- | ----------------- | ------------------------- | ------------------- | ----------------- | ---------------- |
-| claude   | `settings.json`   |                           |                     |                   |                  |
-| gemini   | `settings.json`   | `AGENTS.md`               | `agents/*.md`       | `commands/*.toml` |                  |
-| codex    | `config.toml`     | `AGENTS.md`               | `agents/*.toml`     |                   | `hooks.json`     |
-| opencode | `opencode.json`   | `AGENTS.md`               | `agent/*.md`        | `command/*.md`    |                  |
-| pi       |                   | `AGENTS.md`               |                     | `prompts/*.md`    |                  |
-| copilot  | `mcp-config.json` | `copilot-instructions.md` | `agents/*.agent.md` |                   | `hooks/vgv.json` |
+| Harness     | Settings                      | Instructions              | Agents                    | Commands          | Hooks                    |
+| ----------- | ----------------------------- | ------------------------- | ------------------------- | ----------------- | ------------------------ |
+| claude      | `settings.json`               |                           |                           |                   |                          |
+| gemini      | `settings.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.toml` |                          |
+| codex       | `config.toml`                 | `AGENTS.md`               | `agents/*.toml`           |                   | `hooks.json`             |
+| opencode    | `opencode.json`               | `AGENTS.md`               | `agent/*.md`              | `command/*.md`    |                          |
+| pi          |                               | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
+| copilot     | `mcp-config.json`             | `copilot-instructions.md` | `agents/*.agent.md`       |                   | `hooks/vgv.json`         |
+| antigravity | `plugins/vgv/mcp_config.json` |                           | `plugins/vgv/agents/*.md` |                   | `plugins/vgv/hooks.json` |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
@@ -34,6 +35,13 @@ Copilot's `hooks/vgv.json` is the same, written as its own file because Copilot
 reads every `*.json` under `~/.copilot/hooks/`, nested folders included, which
 is also why its scripts and compat script are copied to
 `~/.copilot/vgv_ai/hooks/` instead.
+
+Antigravity's whole folder is one plugin, `plugins/vgv/` under
+`~/.gemini/config/`, which is how Antigravity bundles skills, agents, MCP
+servers and hooks and loads them. Its skills are copied into the plugin by the
+CLI, since Antigravity does not read `~/.agents/skills`, and each one becomes
+a `/<name>` command on its own, so there is no commands folder. The skills and
+agents register natively, so there is no instructions file either.
 
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a
