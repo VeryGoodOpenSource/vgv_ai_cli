@@ -35,7 +35,9 @@ class const PluginResolver({
       switch (await _resolveOne(plugin, sources)) {
         case ResolvedAssets(:final assets):
           parsed.add(assets);
-        case final failure:
+        case final UnavailableAssets failure:
+          return failure;
+        case final UnparseableAssets failure:
           return failure;
       }
     }
