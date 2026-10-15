@@ -7,9 +7,16 @@ import 'package:plugin_source/src/model/skill_asset.dart';
 /// Everything one or more plugins contribute, in a harness-neutral shape.
 /// {@endtemplate}
 class const PluginAssets({
+  /// The skills, sorted by name.
   required final List<SkillAsset> skills,
+
+  /// The subagents, sorted by name.
   required final List<AgentAsset> agents,
+
+  /// The MCP servers, sorted by name once merged.
   required final List<MCPServer> mcpServers,
+
+  /// The hooks, in the order the plugins declare them.
   final List<HookAsset> hooks = const [],
 }) {
   /// Combines what several plugins contribute into one [PluginAssets].
