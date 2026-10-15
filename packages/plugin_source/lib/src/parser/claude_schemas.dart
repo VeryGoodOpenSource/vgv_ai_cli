@@ -137,6 +137,11 @@ extension type HookJson(Map<String, Object?> _json) {
 extension type SkillFrontmatter._(Frontmatter _frontmatter)
     implements Frontmatter {
   /// Validates [frontmatter], read from the file at [path].
+  ///
+  /// The decoded map is discarded: decoding moves the declared keys ahead of
+  /// the rest, which would reorder the portable frontmatter written for every
+  /// harness. The schema neither coerces nor defaults, so [values] holds
+  /// exactly what it checked.
   factory decode(Frontmatter frontmatter, {required String path}) {
     _schema.decode(frontmatter.values, path: path);
     return SkillFrontmatter._(frontmatter);
