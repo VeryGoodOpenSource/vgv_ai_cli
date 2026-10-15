@@ -4,10 +4,11 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// The canonical directory the translated skills are written to.
 ///
-/// Gemini, Codex, OpenCode and Pi all read `~/.agents/skills` with no
-/// configuration, so one copy serves four harnesses. Claude Code needs none: it
-/// installs the same plugins from the marketplace, and a second copy would
-/// drift from the first.
+/// Gemini, Codex, OpenCode, Pi and Copilot all read `~/.agents/skills` with
+/// no configuration, so one copy serves five harnesses. Claude Code needs
+/// none: it installs the same plugins from the marketplace, and a second copy
+/// would drift from the first. Antigravity reads neither, so it keeps its own
+/// copy inside its plugin.
 ///
 /// The whole shared-copy strategy rests on that, so each harness's own
 /// documentation for it:
@@ -16,6 +17,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// - Codex: https://developers.openai.com/codex/skills
 /// - OpenCode: https://opencode.ai/docs/skills/
 /// - Pi: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md
+/// - Copilot: https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
 
