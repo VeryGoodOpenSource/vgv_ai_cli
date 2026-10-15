@@ -4,10 +4,10 @@ import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/codex_compat.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/hook_scripts.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/translators/codex_compat.dart';
 
 /// {@template codex_translator}
 /// Configures Codex.
