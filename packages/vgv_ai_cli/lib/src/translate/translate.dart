@@ -15,6 +15,7 @@ export 'codex_compat.dart';
 export 'codex_translator.dart';
 export 'copilot_compat.dart';
 export 'copilot_translator.dart';
+export 'copy_source.dart';
 export 'format/format.dart';
 export 'gemini_translator.dart';
 export 'harness_translator.dart';
