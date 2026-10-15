@@ -37,3 +37,8 @@ vars:
     default: true
     description: Configure Copilot CLI.
     prompt: Configure Copilot CLI?
+  antigravity:
+    type: boolean
+    default: true
+    description: Configure Antigravity CLI.
+    prompt: Configure Antigravity CLI?

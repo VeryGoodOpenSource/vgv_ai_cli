@@ -56,7 +56,8 @@ void main() {
     final root = harness.configDirectory(home).path;
     return [
       for (final change in plan.harnesses[harness]!.changes)
-        change.file.path.substring(root.length + 1),
+        if (change.file.path.startsWith('$root/'))
+          change.file.path.substring(root.length + 1),
     ]..sort();
   }
 
@@ -128,6 +129,23 @@ void main() {
           'vgv_ai/hooks/vgv-wingspan/hooks/scripts/common.sh',
         ]);
       });
+
+      test('Antigravity gets one plugin holding everything', () async {
+        expect(await tree(Harness.antigravity), [
+          'plugins/vgv/agents/planner.md',
+          'plugins/vgv/agents/review.md',
+          'plugins/vgv/hooks.json',
+          'plugins/vgv/hooks/${AntigravityTranslator.compatScript}',
+          'plugins/vgv/hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'plugins/vgv/hooks/vgv-wingspan/hooks/scripts/common.sh',
+          'plugins/vgv/mcp_config.json',
+          'plugins/vgv/plugin.json',
+          'plugins/vgv/skills/plan/SKILL.md',
+          'plugins/vgv/skills/quiet/SKILL.md',
+          'plugins/vgv/skills/review/SKILL.md',
+          'plugins/vgv/skills/testing/SKILL.md',
+        ]);
+      });
     });
 
     test('renders no nameless file when there are no agents or commands', () {
@@ -175,6 +193,10 @@ void main() {
         modes,
         containsPair('.agents/skills/plan/SKILL.md', ChangeMode.own),
       );
+      expect(
+        modes,
+        containsPair('.gemini/config/plugins/vgv/plugin.json', ChangeMode.own),
+      );
     });
 
     test('tags every change with the harness it configures', () async {
@@ -210,6 +232,20 @@ void main() {
       expect(plan.shared, isNull);
       expect(plan.harnesses.keys, [Harness.claude]);
     });
+
+    test(
+      'plans Antigravity its own copy of the skills, not the shared one',
+      () async {
+        final plan = await translate({Harness.antigravity});
+        final documents = plan.harnesses[Harness.antigravity]!.changes
+            .where((c) => c.file.path.endsWith('SKILL.md'))
+            .map((c) => c.harness);
+
+        expect(plan.shared, isNull);
+        expect(documents, everyElement(Harness.antigravity));
+        expect(documents, hasLength(assets.skills.length));
+      },
+    );
 
     test('carries each harness its own notes', () async {
       final plan = await translate({Harness.claude, Harness.pi});
@@ -317,6 +353,19 @@ void main() {
               ],
             },
           });
+        },
+      );
+
+      test(
+        'an Antigravity agent names its skills and keeps its body',
+        () async {
+          final agent = await contents(
+            Harness.antigravity,
+            'plugins/vgv/agents/review.md',
+          );
+
+          expect(frontmatterValues(agent)['skills'], ['skills/plan']);
+          expect(agent, endsWith('---\n\nYou review code.\n'));
         },
       );
 
