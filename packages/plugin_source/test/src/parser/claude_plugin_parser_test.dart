@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:plugin_source/src/format/format.dart';
 import 'package:plugin_source/src/model/model.dart';
 import 'package:plugin_source/src/parser/claude_plugin_parser.dart';
+import 'package:plugin_source/src/parser/claude_schemas.dart';
 import 'package:test/test.dart';
 
 const _fs = LocalFileSystem();
@@ -104,6 +105,37 @@ void main() {
         'Best practices for Dart unit tests. Second line folds away. - '
         'Use when writing or reviewing tests.',
       );
+    });
+
+    group('throws, naming the file and field, for', () {
+      /// Parses a plugin whose one skill declares [frontmatter].
+      void parseSkill(String frontmatter) {
+        final root = MemoryFileSystem.test().directory('/plugin');
+        root.childFile('skills/a/SKILL.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('---\n$frontmatter\n---\nbody\n');
+        const ClaudePluginParser().parse(root);
+      }
+
+      Matcher throwsAt(String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', '/plugin/skills/a/SKILL.md')
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      test('a non-boolean user-invocable', () {
+        expect(
+          () => parseSkill('user-invocable: nope'),
+          throwsAt('#/user-invocable'),
+        );
+      });
+
+      test('a non-string allowed-tools', () {
+        expect(
+          () => parseSkill('allowed-tools: [Read]'),
+          throwsAt('#/allowed-tools'),
+        );
+      });
     });
 
     test('falls back to the directory name when frontmatter has none', () {
@@ -280,14 +312,68 @@ void main() {
       expect(authed.headers, {'Authorization': 'Bearer token'});
     });
 
-    test('skips an entry that is not an object', () {
-      expect(server('ignored'), isNull);
-    });
+    group('throws, naming the file and field, for', () {
+      /// Parses a plugin whose `.mcp.json` declares [servers].
+      void parseServers(String servers) {
+        final root = MemoryFileSystem.test().directory('/plugin');
+        root.childFile('.mcp.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"mcpServers": $servers}');
+        const ClaudePluginParser().parse(root);
+      }
 
-    test('skips a declaration that is neither local nor remote', () {
-      // No `url` and no `command`: not a valid MCP server, and the union has
-      // no unknown fallback, so it is dropped.
-      expect(server('broken'), isNull);
+      Matcher throwsAt(String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', '/plugin/.mcp.json')
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      test('a server that is not an object', () {
+        expect(
+          () => parseServers('{"dart": "not an object"}'),
+          throwsAt('#/mcpServers/dart'),
+        );
+      });
+
+      test('a server that is neither local nor remote', () {
+        // No `url` and no `command`: not a valid MCP server, and the union
+        // has no unknown fallback.
+        expect(
+          () => parseServers('{"broken": {}}'),
+          throwsAt('#/mcpServers/broken: declares neither'),
+        );
+      });
+
+      test('a server whose name holds a slash or tilde, escaped', () {
+        expect(
+          () => parseServers('{"a/b~c": {}}'),
+          throwsAt('#/mcpServers/a~1b~0c: declares neither'),
+        );
+      });
+
+      test('args that are not a list of strings', () {
+        expect(
+          () => parseServers('{"dart": {"command": "dart", "args": [1]}}'),
+          throwsAt('#/mcpServers/dart/args/0'),
+        );
+      });
+
+      test('a non-string env value', () {
+        expect(
+          () => parseServers(
+            '{"dart": {"command": "dart", "env": {"TOKEN": 1}}}',
+          ),
+          throwsAt('#/mcpServers/dart/env/TOKEN'),
+        );
+      });
+
+      test('a non-string header value', () {
+        expect(
+          () =>
+              parseServers('{"r": {"url": "https://x", "headers": {"A": 1}}}'),
+          throwsAt('#/mcpServers/r/headers/A'),
+        );
+      });
     });
 
     test('is empty when the plugin has no .mcp.json', () {
@@ -304,7 +390,7 @@ void main() {
           isA<PluginParseException>().having(
             (e) => e.message,
             'message',
-            contains('JSON object'),
+            contains('Expected object'),
           ),
         ),
       );
@@ -360,10 +446,6 @@ void main() {
 
     test('keeps an explicit non-command type', () {
       expect(hookFor('Stop').commands.last.type, 'prompt');
-    });
-
-    test('drops a matcher that is not a string', () {
-      expect(hookFor('Stop').matcher, isNull);
     });
 
     test('defaults an absent timeout to null', () {
@@ -425,17 +507,107 @@ void main() {
       );
     });
 
-    test('skips an event whose value is not a list', () {
-      expect(assets.hooks.map((h) => h.event), isNot(contains('Malformed')));
+    test('throws when the manifest name is not a string', () {
+      final root = MemoryFileSystem.test().directory('/plugin');
+      root.childDirectory('hooks').childFile('hooks.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '{"hooks":{"Stop":[{"hooks":[{"command":"run.sh"}]}]}}',
+        );
+      root.childDirectory('.claude-plugin').childFile('plugin.json')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('{"name": 1}');
+
+      expect(
+        () => const ClaudePluginParser().parse(root),
+        throwsA(
+          isA<PluginParseException>()
+              .having((e) => e.path, 'path', contains('plugin.json'))
+              .having((e) => e.message, 'message', contains('#/name')),
+        ),
+      );
     });
 
     test('skips registrations that contribute no runnable command', () {
-      // An empty hooks array, an entry with no command string, and a
-      // non-object registration all appear under EmptyCommands.
+      // An empty hooks array and a prompt hook, which has no command, both
+      // appear under EmptyCommands.
       expect(
         assets.hooks.map((h) => h.event),
         isNot(contains('EmptyCommands')),
       );
+    });
+
+    group('throws, naming the file and field, for', () {
+      late Directory root;
+
+      setUp(() => root = MemoryFileSystem.test().directory('/plugin'));
+
+      /// Parses a plugin whose `hooks.json` maps events to [events].
+      void parseEvents(String events) {
+        root.childFile('hooks/hooks.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"hooks": $events}');
+        const ClaudePluginParser().parse(root);
+      }
+
+      Matcher throwsAt(String path, String field) => throwsA(
+        isA<PluginParseException>()
+            .having((e) => e.path, 'path', path)
+            .having((e) => e.message, 'message', contains(field)),
+      );
+
+      const hooksJson = '/plugin/hooks/hooks.json';
+
+      test('an event whose value is not a list', () {
+        expect(
+          () => parseEvents('{"Stop": "not a list"}'),
+          throwsAt(hooksJson, '#/hooks/Stop'),
+        );
+      });
+
+      test('a registration that is not an object', () {
+        expect(
+          () => parseEvents('{"Stop": ["not an object"]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0'),
+        );
+      });
+
+      test('a matcher that is not a string', () {
+        expect(
+          () => parseEvents('{"Stop": [{"matcher": 7, "hooks": []}]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0/matcher'),
+        );
+      });
+
+      test('a command that is not a string', () {
+        expect(
+          () => parseEvents('{"Stop": [{"hooks": [{"command": 1}]}]}'),
+          throwsAt(hooksJson, '#/hooks/Stop/0/hooks/0/command'),
+        );
+      });
+
+      test('a timeout that is not an integer', () {
+        expect(
+          () => parseEvents(
+            '{"Stop": [{"hooks": [{"command": "a", "timeout": "30"}]}]}',
+          ),
+          throwsAt(hooksJson, '#/hooks/Stop/0/hooks/0/timeout'),
+        );
+      });
+
+      test("a malformed hook in an agent's frontmatter", () {
+        root.childFile('agents/a.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '---\nhooks:\n  Stop:\n    - hooks:\n        - command: 1\n'
+            '---\nbody\n',
+          );
+
+        expect(
+          () => const ClaudePluginParser().parse(root),
+          throwsAt('/plugin/agents/a.md', '#/hooks/Stop/0/hooks/0/command'),
+        );
+      });
     });
 
     test('is empty when the plugin ships no hooks', () {
@@ -452,7 +624,7 @@ void main() {
           isA<PluginParseException>().having(
             (e) => e.message,
             'message',
-            contains('JSON object'),
+            contains('Expected object'),
           ),
         ),
       );
@@ -579,8 +751,10 @@ void main() {
   });
 
   group('Claude-specific interpretation', () {
-    Frontmatter fm(String body) =>
-        Frontmatter.parse('---\n$body\n---\n', path: 'a.md');
+    SkillFrontmatter fm(String body) => SkillFrontmatter.decode(
+      Frontmatter.parse('---\n$body\n---\n', path: 'a.md'),
+      path: 'a.md',
+    );
 
     test('portableFrontmatterOf keeps exactly the spec keys', () {
       final portable = ClaudePluginParser.portableFrontmatterOf(
@@ -673,13 +847,6 @@ void main() {
       test('is true when explicitly true', () {
         expect(
           ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
-          isTrue,
-        );
-      });
-
-      test('treats a non-boolean value as absent', () {
-        expect(
-          ClaudePluginParser.userInvocableOf(fm('user-invocable: nope')),
           isTrue,
         );
       });

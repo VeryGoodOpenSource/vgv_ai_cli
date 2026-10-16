@@ -8,10 +8,10 @@ import 'package:vgv_ai_cli/src/resolve/model/model.dart';
 /// {@template plugin_resolver}
 /// Resolves and parses the pinned VGV plugins into one asset bundle.
 ///
-/// Each plugin comes from the Claude Code cache when it holds a complete copy,
-/// and is otherwise cloned at its `gitRef` into `~/.vgv_ai/plugins`, where it
-/// is kept for later runs. This is the one place both `install` and `doctor`
-/// get their plugins from.
+/// Each plugin comes from the Claude Code cache when it holds a complete copy
+/// that parses, and is otherwise cloned at its `gitRef` into
+/// `~/.vgv_ai/plugins`, where it is kept for later runs. This is the one place
+/// both `install` and `doctor` get their plugins from.
 /// {@endtemplate}
 class const PluginResolver({
   final RunProcess _runProcess = Process.run,
@@ -22,25 +22,23 @@ class const PluginResolver({
   /// resolved or parsed: a half-configured harness is worse than an
   /// unconfigured one.
   Future<AssetResolution> resolve(Directory home) async {
-    final source = ChainedPluginSource([
+    final sources = [
       LocalCachePluginSource(home: home),
       GitPluginSource(
         cacheRoot: home.childDirectory('.vgv_ai').childDirectory('plugins'),
         runGit: (args) => _runProcess('git', args),
       ),
-    ]);
+    ];
 
     final parsed = <PluginAssets>[];
     for (final plugin in _plugins) {
-      switch (await source.resolve(plugin)) {
-        case ResolvedPlugin(:final directory):
-          try {
-            parsed.add(_parser.parse(directory));
-          } on PluginParseException catch (error) {
-            return UnparseableAssets(plugin, error);
-          }
-        case UnavailablePlugin(:final reasons):
-          return UnavailableAssets(plugin, reasons);
+      switch (await _resolveOne(plugin, sources)) {
+        case ResolvedAssets(:final assets):
+          parsed.add(assets);
+        case final UnavailableAssets failure:
+          return failure;
+        case final UnparseableAssets failure:
+          return failure;
       }
     }
 
@@ -48,5 +46,36 @@ class const PluginResolver({
       assets: PluginAssets.merge(parsed),
       plugins: _plugins,
     );
+  }
+
+  /// [plugin] parsed from the first of [sources] holding a copy that parses.
+  ///
+  /// A copy that fails to parse falls through to the next source rather than
+  /// failing the run: Claude Code fills its cache from the plugin's default
+  /// branch, not the pinned tag, so the cache can hold content the pin never
+  /// vetted. When no copy parses, the last parse error is reported, since a
+  /// copy that exists says more than a source that has none.
+  Future<AssetResolution> _resolveOne(
+    PluginRef plugin,
+    List<PluginSource> sources,
+  ) async {
+    final reasons = <String>[];
+    UnparseableAssets? unparseable;
+    for (final source in sources) {
+      switch (await source.resolve(plugin)) {
+        case ResolvedPlugin(:final directory):
+          try {
+            return ResolvedAssets(
+              assets: _parser.parse(directory),
+              plugins: [plugin],
+            );
+          } on PluginParseException catch (error) {
+            unparseable = UnparseableAssets(plugin, error);
+          }
+        case UnavailablePlugin(reasons: final unavailable):
+          reasons.addAll(unavailable);
+      }
+    }
+    return unparseable ?? UnavailableAssets(plugin, reasons);
   }
 }
