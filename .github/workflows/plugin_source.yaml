@@ -18,10 +18,10 @@ on:
 
 jobs:
   semantic-pull-request:
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v2.0.0
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@a4f875e7f3138aac36bfbce27cd45aeb29afcc5e
 
   build:
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v2.0.0
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@a4f875e7f3138aac36bfbce27cd45aeb29afcc5e
     with:
       dart_sdk: "3.13.0"
       working_directory: packages/plugin_source
