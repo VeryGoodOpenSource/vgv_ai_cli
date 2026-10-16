@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template claude_translator}
 /// Configures Claude Code, which needs no assets translated.
