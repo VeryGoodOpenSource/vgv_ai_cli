@@ -143,10 +143,11 @@ This is a pure Dart CLI with no widgets, so the rule is: any skill gated on Flut
 
 ## CI
 
-Each workflow under `.github/workflows/` is path-filtered, and every reusable workflow comes from very_good_workflows `v1.21.1`.
+Each workflow under `.github/workflows/` is path-filtered, and every reusable workflow comes from very_good_workflows through the floating `@v2` tag.
 
 - `vgv_ai_cli.yaml` runs on changes to itself, `.github/cspell.json`, `packages/vgv_ai_cli/lib/**`, `packages/vgv_ai_cli/test/**`, `packages/vgv_ai_cli/pubspec.yaml`, `packages/plugin_source/lib/**`, `packages/plugin_source/pubspec.yaml`, `bricks/**` and `tool/**`. Its jobs are `semantic-pull-request`, `build` (the reusable `dart_package.yml` in `packages/vgv_ai_cli`), `spell-check`, `verify-bundle`, `verify-version` and `verify-pins`.
 - `plugin_source.yaml` runs on changes to itself and `packages/plugin_source/**`. Its jobs are `semantic-pull-request` and `build` (the reusable `dart_package.yml` in `packages/plugin_source`).
+- Both `build` jobs also run the cognitive complexity check on their package's `lib`, which fails when any function scores above 15. Split a function that crosses it into smaller ones rather than raising the threshold. Run it locally with the `cognitive_complexity` scanner from [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/main/packages/cognitive_complexity).
 - `license_check.yaml` runs on changes to itself and either package's `pubspec.yaml`. Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
 - A PR that touches only markdown or other files outside these filters triggers no CI at all.
 - PR titles must be [conventional commits](https://www.conventionalcommits.org). The `semantic-pull-request` job checks this, but only on PRs that trigger one of the first two workflows.

@@ -221,52 +221,84 @@ class DoctorCommand({
   }) {
     final readsShared = installed.intersection(_readShared);
 
-    List<Finding> verifyEntries(Harness? owner) => [
-      for (final entry in manifest.entriesFor(owner))
-        ?_entryFinding(entry, home, plan),
-      for (final path in plan.additions(owner, manifest))
-        Finding.stale('new ${_display(path, home)}'),
-    ];
-
     return [
-      if (installed.isNotEmpty)
-        ReportSection(
-          title: 'Plugins',
-          installs: installed,
-          findings: [
-            for (final plugin in vgvPlugins)
-              PluginVersion.of(
-                plugin,
-                installed: manifest.plugins[plugin.name],
-              ).finding,
-            ?plan.skipped,
-          ],
-        ),
+      if (installed.isNotEmpty) _pluginsSection(manifest, installed, plan),
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
         ReportSection(
           title: 'Shared',
           installs: readsShared,
-          findings: verifyEntries(null),
+          findings: _entryFindings(null, manifest, home, plan),
         ),
       for (final harness in Harness.values)
         if (installed.contains(harness) || detected.contains(harness))
-          ReportSection(
-            title: harness.displayName,
-            installs: {harness},
-            findings: [
-              if (!detected.contains(harness))
-                const Finding.warning(
-                  'not installed on this machine, but VGV AI CLI configured it',
-                ),
-              if (!installed.contains(harness))
-                const Finding.suggestion(
-                  "installed, but VGV AI CLI hasn't configured it",
-                ),
-              ...verifyEntries(harness),
-            ],
+          _harnessSection(
+            harness,
+            manifest,
+            home,
+            plan,
+            isInstalled: installed.contains(harness),
+            isDetected: detected.contains(harness),
           ),
     ];
   }
+
+  /// The plugin versions [installed] read, and why content was not checked
+  /// if [plan] was not.
+  ReportSection _pluginsSection(
+    InstallManifest manifest,
+    Set<Harness> installed,
+    ContentPlan plan,
+  ) => ReportSection(
+    title: 'Plugins',
+    installs: installed,
+    findings: [
+      for (final plugin in vgvPlugins)
+        PluginVersion.of(
+          plugin,
+          installed: manifest.plugins[plugin.name],
+        ).finding,
+      ?plan.skipped,
+    ],
+  );
+
+  /// The section for [harness], which VGV configured when [isInstalled] and
+  /// is on this machine when [isDetected].
+  ReportSection _harnessSection(
+    Harness harness,
+    InstallManifest manifest,
+    Directory home,
+    ContentPlan plan, {
+    required bool isInstalled,
+    required bool isDetected,
+  }) => ReportSection(
+    title: harness.displayName,
+    installs: {harness},
+    findings: [
+      if (!isDetected)
+        const Finding.warning(
+          'not installed on this machine, but VGV AI CLI configured it',
+        ),
+      if (!isInstalled)
+        const Finding.suggestion(
+          "installed, but VGV AI CLI hasn't configured it",
+        ),
+      ..._entryFindings(harness, manifest, home, plan),
+    ],
+  );
+
+  /// What is wrong with the entries [owner] has in [manifest], and the
+  /// files [plan] would add for it.
+  List<Finding> _entryFindings(
+    Harness? owner,
+    InstallManifest manifest,
+    Directory home,
+    ContentPlan plan,
+  ) => [
+    for (final entry in manifest.entriesFor(owner))
+      ?_entryFinding(entry, home, plan),
+    for (final path in plan.additions(owner, manifest))
+      Finding.stale('new ${_display(path, home)}'),
+  ];
 
   /// What is wrong with [entry], or null when nothing is.
   ///

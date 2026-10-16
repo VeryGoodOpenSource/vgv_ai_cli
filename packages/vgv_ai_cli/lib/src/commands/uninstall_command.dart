@@ -103,12 +103,7 @@ class UninstallCommand({
     }
 
     final recorded = {for (final entry in manifest.entries) ?entry.owner};
-    for (final harness in (only ?? const {}).difference(recorded)) {
-      _logger.info(
-        'Nothing to remove for ${harness.displayName}: VGV AI CLI has not '
-        'configured it.',
-      );
-    }
+    _reportUnconfigured((only ?? const {}).difference(recorded));
 
     // The harnesses left behind still read the shared skills, so they go
     // only with the last of them.
@@ -117,11 +112,7 @@ class UninstallCommand({
     final hasSharedSkills = manifest.entriesFor(null).isNotEmpty;
     final skillsRoot = agentsSkillsRoot(home);
     if (full && hasSharedSkills) {
-      _logger.info(
-        'The skills in ${skillsRoot.path} were installed by VGV '
-        'AI CLI and are shared by all your coding agents, so they '
-        '${dryRun ? 'would be' : 'are being'} removed.',
-      );
+      _reportSharedSkillsRemoved(skillsRoot, dryRun: dryRun);
     }
     final reversal = _auditor.reverse(
       manifest,
@@ -135,20 +126,8 @@ class UninstallCommand({
     if (reversal.entries.isEmpty && only == null) {
       _logger.info('Nothing to remove for the selected harnesses.');
     }
-    if (!full && hasSharedSkills) {
-      _logger.info(
-        'The shared skills VGV AI CLI installed are still in '
-        '${skillsRoot.path}. Run '
-        "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.",
-      );
-    }
-    if (reversal.entries.any((entry) => _changed.contains(entry.outcome))) {
-      _logger.info(
-        dryRun
-            ? '\n${lightYellow.wrap('--check')} so nothing was removed.'
-            : '\nRestart your coding agents to pick up the changes.',
-      );
-    }
+    if (!full && hasSharedSkills) _reportSharedSkillsKept(skillsRoot);
+    _reportNextStep(reversal.entries, dryRun: dryRun);
 
     final saved = dryRun || store.save(from: manifest, to: reversal.manifest);
     final anyFailed = reversal.entries.any(
@@ -182,6 +161,52 @@ class UninstallCommand({
         );
       }
     }
+  }
+
+  /// Says there is nothing to remove for each of [harnesses], which VGV
+  /// never configured.
+  void _reportUnconfigured(Set<Harness> harnesses) {
+    for (final harness in harnesses) {
+      _logger.info(
+        'Nothing to remove for ${harness.displayName}: VGV AI CLI has not '
+        'configured it.',
+      );
+    }
+  }
+
+  /// Says the shared skills in [skillsRoot] are removed, or, for a [dryRun],
+  /// would be, and why.
+  void _reportSharedSkillsRemoved(
+    Directory skillsRoot, {
+    required bool dryRun,
+  }) {
+    _logger.info(
+      'The skills in ${skillsRoot.path} were installed by VGV '
+      'AI CLI and are shared by all your coding agents, so they '
+      '${dryRun ? 'would be' : 'are being'} removed.',
+    );
+  }
+
+  /// Says the shared skills in [skillsRoot] were kept, and how to remove
+  /// them.
+  void _reportSharedSkillsKept(Directory skillsRoot) {
+    _logger.info(
+      'The shared skills VGV AI CLI installed are still in '
+      '${skillsRoot.path}. Run '
+      "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.",
+    );
+  }
+
+  /// Says what to do next when reversing [entries] took something of VGV's
+  /// out of a file, or, for a [dryRun], would have.
+  void _reportNextStep(List<ReversedEntry> entries, {required bool dryRun}) {
+    if (!entries.any((entry) => _changed.contains(entry.outcome))) return;
+
+    _logger.info(
+      dryRun
+          ? '\n${lightYellow.wrap('--check')} so nothing was removed.'
+          : '\nRestart your coding agents to pick up the changes.',
+    );
   }
 
   /// Reports what reversing each of [entries] did, and what [dryRun] means
