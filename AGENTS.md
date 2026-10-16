@@ -133,7 +133,7 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 `.claude/settings.json` is committed and enables two plugins from the VGV marketplace: `vgv-wingspan` (brainstorm → plan → build → review workflows) and `vgv-ai-flutter-plugin` (Dart quality gates, MCP tools, hooks).
 
-It pins the marketplace catalog to commit `842e9458` (marketplace `1.0.5`), which declares **both plugins at `0.0.5`**. That pins the versions the catalog *declares*; each plugin entry sources from its own repo without a ref of its own, so plugin content still tracks those default branches. Expect some drift, and re-pin the SHA when you want a newer catalog.
+It pins the marketplace catalog to commit `ecfa5e93` (marketplace `1.1.0`), which declares **both plugins at `0.0.5`** (it also lists a third plugin, which is not enabled here). That pins the versions the catalog *declares*; each plugin entry sources from its own repo without a ref of its own, so plugin content still tracks those default branches. Expect some drift, and re-pin the SHA when you want a newer catalog.
 
 The flutter plugin runs `dart analyze` and `dart format` automatically after **every** `.dart` Edit or Write. Analyze failures come back as work to do, which is why the SDK requirement above matters so much.
 
@@ -149,6 +149,6 @@ This is a pure Dart CLI with no widgets, so the rule is: any skill gated on Flut
 - Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
 - Markdown is spell-checked with cspell against the VGV dictionaries; add project-specific words to `words` in `.github/cspell.json`. The job runs with `modified_files_only: false`, so it lints **every** markdown file whenever it runs.
 - Every job lives in `.github/workflows/vgv_ai_cli.yaml`, which is path-filtered to `lib/**`, `test/**`, `pubspec.yaml`, and itself. A docs- or config-only PR triggers no CI at all.
-- The `build` job is currently inlined with a manual `very_good_cli ^1.5.0` pin instead of the reusable `dart_package.yml` workflow, pending very_good_workflows 1.21.1 (pub workspace coverage support). See the TODO in that file before changing it.
+- The `build` job uses the reusable `dart_package.yml` workflow from very_good_workflows 1.21.1, which supports pub workspace coverage.
 - The pinned plugins in `vgvPlugins` (`packages/plugin_source/lib/src/plugin_ref.dart`) are bumped by `.github/workflows/bot_bump_plugin_pins.yaml`. Every Monday it runs `packages/plugin_source/tool/bump_plugin_pins.dart`, which moves each pin to its plugin's latest GitHub release, and opens or updates one PR on `vgvbot/bump_plugin_pins`. The tool rewrites the `version` and `gitRef` lines of each `PluginRef(...)` block in place, so keep that shape when editing the file by hand.
 - The bot PR is opened with the default `GITHUB_TOKEN`, so CI does not start on it by itself. Push a commit to it, or close and reopen it, before merging. Its `verify-pins` job runs `test/pinned_plugins_test.dart` (tagged `pinned-plugins`, skipped by default), which clones the real pinned plugins and translates them for every harness. Run it locally with `dart run test --run-skipped -t pinned-plugins`.
