@@ -21,6 +21,15 @@ void main() {
       });
     });
 
+    group('mergesEntries', () {
+      test('merges every list but an argv entry by entry', () {
+        expect(codec.mergesEntries('instructions'), isTrue);
+        expect(codec.mergesEntries('PreToolUse'), isTrue);
+        expect(codec.mergesEntries('command'), isFalse);
+        expect(codec.mergesEntries('args'), isFalse);
+      });
+    });
+
     group('listContains', () {
       test('finds an entry that is structurally equal', () {
         final list = [

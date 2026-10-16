@@ -56,7 +56,8 @@ extension type const Contribution(Map<String, dynamic> keys) {
   /// What of this [current] no longer holds, and what it holds changed.
   ///
   /// A list is missing when any entry VGV appended is gone. Entries the user
-  /// added beside VGV's are theirs and do not count.
+  /// added beside VGV's are theirs and do not count. A list that is one
+  /// value, such as an argv, has changed when it differs at all.
   Drift compare(Map<String, dynamic> current) {
     final missing = <String>[];
     final drifted = <String>[];
@@ -79,7 +80,8 @@ extension type const Contribution(Map<String, dynamic> keys) {
             final Map<String, dynamic> now,
           ):
             compare(ours, now, keyPath);
-          case (final List<dynamic> ours, final List<dynamic> now):
+          case (final List<dynamic> ours, final List<dynamic> now)
+              when _codec.mergesEntries(key):
             if (!ours.every((item) => _codec.listContains(now, item))) {
               missing.add(keyPath.join('.'));
             }
@@ -105,7 +107,7 @@ extension type const Contribution(Map<String, dynamic> keys) {
     for (final MapEntry(:key, :value) in keys.entries) {
       if (!result.containsKey(key)) continue;
 
-      final inner = _subtract(result[key], value, force: force);
+      final inner = _subtract(key, result[key], value, force: force);
       kept = kept || inner.kept;
       if (inner.remaining
           case null || Map(isEmpty: true) || List(isEmpty: true)) {
@@ -133,6 +135,7 @@ Map<String, dynamic> _of(
     }
 
     final part = _partOf(
+      key,
       prior: before[key],
       value: value,
       within: managed.within(key),
@@ -147,8 +150,10 @@ Map<String, dynamic> _of(
 
 /// What of [value], written over the user's [prior], is VGV's: what it owns
 /// inside a table, given VGV last contributed [within] it, and the entries
-/// it added to a list, given VGV last [appended] those.
-Object? _partOf({
+/// it added to a list, given VGV last [appended] those. A list that is one
+/// value at [key], such as an argv, is the user's, as a scalar is.
+Object? _partOf(
+  String key, {
   required Object? prior,
   required Object? value,
   required Contribution within,
@@ -157,7 +162,9 @@ Object? _partOf({
   if (prior is Map<String, dynamic> && value is Map<String, dynamic>) {
     return _of(prior, value, within);
   }
-  if (prior is List<dynamic> && value is List<dynamic>) {
+  if (prior is List<dynamic> &&
+      value is List<dynamic> &&
+      _codec.mergesEntries(key)) {
     return [
       for (final item in value)
         if (_isOwnedEntry(item, prior: prior, appended: appended)) item,
@@ -174,28 +181,36 @@ bool _isOwnedEntry(
   required List<dynamic> appended,
 }) => !_codec.listContains(prior, item) || _codec.listContains(appended, item);
 
-/// What is left of [now] once [ours] is taken out of it, or null when
-/// nothing is.
-_Subtracted _subtract(Object? now, Object? ours, {required bool force}) =>
-    switch ((now, ours)) {
-      (final Map<String, dynamic> now, final Map<String, dynamic> ours) =>
-        switch (Contribution(ours).subtract(now, force: force)) {
-          Subtraction(:final remaining, :final kept) => _Subtracted(
-            remaining: remaining,
-            kept: kept,
-          ),
-        },
-      (final List<dynamic> now, final List<dynamic> ours) => _Subtracted(
-        remaining: [
-          for (final item in now)
-            if (!_codec.listContains(ours, item)) item,
-        ],
-        kept: false,
+/// What is left of [now], the value at [key], once [ours] is taken out of
+/// it, or null when nothing is.
+_Subtracted _subtract(
+  String key,
+  Object? now,
+  Object? ours, {
+  required bool force,
+}) => switch ((now, ours)) {
+  (final Map<String, dynamic> now, final Map<String, dynamic> ours) =>
+    switch (Contribution(ours).subtract(now, force: force)) {
+      Subtraction(:final remaining, :final kept) => _Subtracted(
+        remaining: remaining,
+        kept: kept,
       ),
-      _ when force || _codec.deepEquality.equals(now, ours) =>
-        const _Subtracted(remaining: null, kept: false),
-      _ => _Subtracted(remaining: now, kept: true),
-    };
+    },
+  (final List<dynamic> now, final List<dynamic> ours)
+      when _codec.mergesEntries(key) =>
+    _Subtracted(
+      remaining: [
+        for (final item in now)
+          if (!_codec.listContains(ours, item)) item,
+      ],
+      kept: false,
+    ),
+  _ when force || _codec.deepEquality.equals(now, ours) => const _Subtracted(
+    remaining: null,
+    kept: false,
+  ),
+  _ => _Subtracted(remaining: now, kept: true),
+};
 
 /// One value with VGV's part taken out, or null when all of it was VGV's.
 class const _Subtracted({
