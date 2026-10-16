@@ -27,3 +27,4 @@ jobs:
       working_directory: packages/plugin_source
       run_cognitive_complexity: true
       cognitive_complexity_targets: packages/plugin_source/lib
+      cognitive_complexity_diff_base: HEAD

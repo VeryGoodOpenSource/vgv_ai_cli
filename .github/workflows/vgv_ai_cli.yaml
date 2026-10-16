@@ -41,6 +41,7 @@ jobs:
       working_directory: packages/vgv_ai_cli
       run_cognitive_complexity: true
       cognitive_complexity_targets: packages/vgv_ai_cli/lib
+      cognitive_complexity_diff_base: HEAD
 
   spell-check:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/spell_check.yml@a4f875e7f3138aac36bfbce27cd45aeb29afcc5e
