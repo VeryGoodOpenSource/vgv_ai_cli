@@ -8,7 +8,7 @@ import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-import '_assets.dart';
+import '../_assets.dart';
 
 void main() {
   late FileSystem fs;

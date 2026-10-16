@@ -1,7 +1,6 @@
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
-import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template pi_translator}
 /// Configures Pi.

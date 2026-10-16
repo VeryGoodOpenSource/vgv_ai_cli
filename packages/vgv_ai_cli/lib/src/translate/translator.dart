@@ -4,29 +4,11 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
-import 'package:vgv_ai_cli/src/translate/antigravity_translator.dart';
-import 'package:vgv_ai_cli/src/translate/claude_translator.dart';
-import 'package:vgv_ai_cli/src/translate/codex_translator.dart';
-import 'package:vgv_ai_cli/src/translate/copilot_translator.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
-import 'package:vgv_ai_cli/src/translate/gemini_translator.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/opencode_translator.dart';
-import 'package:vgv_ai_cli/src/translate/pi_translator.dart';
 import 'package:vgv_ai_cli/src/translate/rendered_change.dart';
-import 'package:vgv_ai_cli/src/translate/skills_translator.dart';
-
-/// Every harness translator, in reporting order.
-const harnessTranslators = <HarnessTranslator>[
-  ClaudeTranslator(),
-  GeminiTranslator(),
-  CodexTranslator(),
-  OpenCodeTranslator(),
-  PiTranslator(),
-  CopilotTranslator(),
-  AntigravityTranslator(),
-];
+import 'package:vgv_ai_cli/src/translate/translators/translators.dart';
 
 /// {@template translator}
 /// Plans every change that installs the plugins into the selected harnesses.
