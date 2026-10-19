@@ -8,6 +8,7 @@ library;
 
 export 'agents_brick.dart';
 export 'agents_vars.dart';
+export 'copy_source.dart';
 export 'format/format.dart';
 export 'harness_translator.dart';
 export 'hook_scripts.dart';
