@@ -44,9 +44,7 @@ own copy inside its plugin.
 
 ## Commands
 
-`vgv_ai` has four commands. Every command exits with `64` when you pass an
-unknown flag or combine flags that can't go together, and `install`, `doctor`,
-and `uninstall` exit with `78` when they can't find your home directory.
+`vgv_ai` has four commands.
 
 ### install
 
@@ -85,15 +83,6 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   same path that `install` didn't write, is kept unless you pass `--force`.
 - **Selection:** `--only` and `--no-<harness>` can't be combined.
 
-`install` exits with one of these codes:
-
-| Code | Meaning                                                          |
-| ---- | ---------------------------------------------------------------- |
-| `0`  | Everything was written, or was already up to date.               |
-| `64` | No harness was selected, such as when none is detected.          |
-| `69` | A plugin couldn't be resolved or parsed, so nothing was written. |
-| `74` | A file or the manifest couldn't be read or written.              |
-
 ### doctor
 
 `doctor` checks that the Very Good AI tooling `install` wrote is still there,
@@ -123,13 +112,6 @@ harness it names.
 
 To check whether files are current, `doctor` resolves the plugins the same way
 `install` does, so it may clone them into `~/.vgv_ai/plugins`.
-
-`doctor` exits with one of these codes:
-
-| Code | Meaning                                                                                                                    |
-| ---- | -------------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Nothing is wrong. The report may still hold suggestions or warnings.                                                       |
-| `70` | A problem was found, the plugins couldn't be resolved, or the manifest couldn't be read or was written by a newer version. |
 
 ### uninstall
 
@@ -165,13 +147,6 @@ vgv_ai uninstall --force
 - **Manifest:** it keeps whatever is left to remove, and it's deleted once
   nothing is. `--check` changes nothing, not even the manifest.
 
-`uninstall` exits with one of these codes:
-
-| Code | Meaning                                                                           |
-| ---- | --------------------------------------------------------------------------------- |
-| `0`  | Everything selected was removed, or warnings only, such as a file it can't parse. |
-| `74` | A file or the manifest couldn't be read or written.                               |
-
 ### update
 
 `update` updates `vgv_ai` to the latest version on pub.dev. It takes no flags.
@@ -179,9 +154,6 @@ vgv_ai uninstall --force
 ```sh
 vgv_ai update
 ```
-
-`update` exits with `0` when `vgv_ai` is updated or already current, and with
-`70` when the latest version can't be checked or installed.
 
 Every other command also checks pub.dev for a newer version when it finishes,
 and prints how to update when there is one.
@@ -204,9 +176,8 @@ vgv_ai install --verbose
 
 ## Contributing
 
-To work on `vgv_ai`, see the [repository README](../../README.md) for setup
-and [AGENTS.md](../../AGENTS.md) for the architecture, conventions, and test
-commands.
+To work on `vgv_ai`, see the
+[contributing guide](../../CONTRIBUTING.md).
 
 [coverage_badge]: coverage_badge.svg
 [license_badge]: https://img.shields.io/badge/license-MIT-blue.svg

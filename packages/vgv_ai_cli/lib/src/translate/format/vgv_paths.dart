@@ -11,13 +11,14 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// copy inside its plugin.
 ///
 /// The whole shared-copy strategy rests on that, so each harness's own
-/// documentation for it:
+/// documentation for where it reads skills from:
 ///
 /// - Gemini: https://geminicli.com/docs/cli/skills/
 /// - Codex: https://developers.openai.com/codex/skills
 /// - OpenCode: https://opencode.ai/docs/skills/
 /// - Pi: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md
 /// - Copilot: https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
+/// - Antigravity: https://antigravity.google/docs/plugins/
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
 
