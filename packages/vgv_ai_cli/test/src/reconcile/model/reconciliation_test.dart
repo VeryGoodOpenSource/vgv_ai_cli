@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
-  group('Reconciliation', () {
+  group(Reconciliation, () {
     test('carries its changes and the manifest they left', () {
       final applied = AppliedChange(
         change: PlannedChange.text(

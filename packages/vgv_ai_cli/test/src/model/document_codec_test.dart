@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('DocumentCodec', () {
+  group(DocumentCodec, () {
     const codec = DocumentCodec();
 
     test('compares structurally and byte by byte by default', () {

@@ -5,7 +5,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
-  group('ContentPlan', () {
+  group(ContentPlan, () {
     final fs = MemoryFileSystem.test();
 
     AppliedChange applied(

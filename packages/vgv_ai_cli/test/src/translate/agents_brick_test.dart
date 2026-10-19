@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  group('AgentsBrick', () {
+  group(AgentsBrick, () {
     Map<String, Object?> only(Harness selected, Map<String, Object?> vars) => {
       for (final harness in Harness.values) harness.name: harness == selected,
       'index': {'has_skills': false, 'has_agents': false},

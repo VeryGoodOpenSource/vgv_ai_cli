@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('Contribution', () {
+  group(Contribution, () {
     test('owns only a key it contributed that nobody changed', () {
       const managed = Contribution({'theme': 'vgv'});
 

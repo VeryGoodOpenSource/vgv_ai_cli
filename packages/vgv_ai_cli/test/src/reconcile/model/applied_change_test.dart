@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 
 void main() {
-  group('AppliedChange', () {
+  group(AppliedChange, () {
     final change = PlannedChange.text(
       file: MemoryFileSystem.test().file('/home/user/.claude/settings.json'),
       contents: '{}',

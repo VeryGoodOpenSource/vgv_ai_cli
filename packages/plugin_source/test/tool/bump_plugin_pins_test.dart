@@ -6,14 +6,15 @@ import 'package:test/test.dart';
 
 import '../../tool/bump_plugin_pins.dart';
 
-const _wingspan = PluginRef(
-  name: 'vgv-wingspan',
-  repo: 'VeryGoodOpenSource/vgv-wingspan',
-  version: '0.0.5',
-  gitRef: 'v0.0.5',
-);
+void main() {
+  const wingspan = PluginRef(
+    name: 'vgv-wingspan',
+    repo: 'VeryGoodOpenSource/vgv-wingspan',
+    version: '0.0.5',
+    gitRef: 'v0.0.5',
+  );
 
-const _source = '''
+  const pinsSource = '''
 const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-wingspan',
@@ -30,33 +31,31 @@ const vgvPlugins = <PluginRef>[
 ];
 ''';
 
-void main() {
+  ProcessResult ok(String stdout) => ProcessResult(0, 0, stdout, '');
+
   group('bumpFor', () {
     test('is null when the release is the pin', () {
       expect(
-        bumpFor(
-          _wingspan,
-          const PluginRelease(tag: 'v0.0.5', version: '0.0.5'),
-        ),
+        bumpFor(wingspan, const PluginRelease(tag: 'v0.0.5', version: '0.0.5')),
         isNull,
       );
     });
 
     test('moves the pin to the release tag and plugin.json version', () {
       final bump = bumpFor(
-        _wingspan,
+        wingspan,
         const PluginRelease(tag: 'v0.1.0', version: '0.1.0'),
       );
 
-      expect(bump?.name, _wingspan.name);
-      expect(bump?.repo, _wingspan.repo);
+      expect(bump?.name, wingspan.name);
+      expect(bump?.repo, wingspan.repo);
       expect(bump?.version, '0.1.0');
       expect(bump?.gitRef, 'v0.1.0');
     });
 
     test('bumps when only the tag differs', () {
       final bump = bumpFor(
-        _wingspan,
+        wingspan,
         const PluginRelease(tag: 'v0.0.5-fix', version: '0.0.5'),
       );
 
@@ -67,7 +66,7 @@ void main() {
   group('rewritePin', () {
     test('rewrites only the block whose repo matches', () {
       final rewritten = rewritePin(
-        _source,
+        pinsSource,
         const PluginRef(
           name: 'vgv-wingspan',
           repo: 'VeryGoodOpenSource/vgv-wingspan',
@@ -78,7 +77,7 @@ void main() {
 
       expect(
         rewritten,
-        _source.replaceFirst(
+        pinsSource.replaceFirst(
           "version: '0.0.5',\n    gitRef: 'v0.0.5',",
           "version: '0.1.0',\n    gitRef: 'v0.1.0',",
         ),
@@ -94,7 +93,7 @@ void main() {
     test('throws when no block has the repo', () {
       expect(
         () => rewritePin(
-          _source,
+          pinsSource,
           const PluginRef(
             name: 'other',
             repo: 'VeryGoodOpenSource/other',
@@ -108,7 +107,7 @@ void main() {
 
     test('throws when several blocks have the repo', () {
       expect(
-        () => rewritePin('$_source$_source', _wingspan),
+        () => rewritePin('$pinsSource$pinsSource', wingspan),
         throwsA(isA<FormatException>()),
       );
     });
@@ -116,8 +115,8 @@ void main() {
     test('throws when the block has no version', () {
       expect(
         () => rewritePin(
-          _source.replaceFirst("    version: '0.0.5',\n", ''),
-          _wingspan,
+          pinsSource.replaceFirst("    version: '0.0.5',\n", ''),
+          wingspan,
         ),
         throwsA(isA<FormatException>()),
       );
@@ -126,8 +125,8 @@ void main() {
     test('throws when the block has no gitRef', () {
       expect(
         () => rewritePin(
-          _source.replaceFirst("    gitRef: 'v0.0.5',\n", ''),
-          _wingspan,
+          pinsSource.replaceFirst("    gitRef: 'v0.0.5',\n", ''),
+          wingspan,
         ),
         throwsA(isA<FormatException>()),
       );
@@ -138,12 +137,12 @@ void main() {
     test('reads the release tag and the plugin.json version at it', () async {
       final calls = <List<String>>[];
       final release = await latestRelease(
-        _wingspan,
+        wingspan,
         runGh: (args) async {
           calls.add(args);
           return args[1].contains('releases/latest')
-              ? _ok('v0.1.0\n')
-              : _ok(jsonEncode({'name': 'vgv-wingspan', 'version': '0.1.0'}));
+              ? ok('v0.1.0\n')
+              : ok(jsonEncode({'name': 'vgv-wingspan', 'version': '0.1.0'}));
         },
       );
 
@@ -155,7 +154,7 @@ void main() {
     test('throws with stderr when gh fails', () {
       expect(
         () => latestRelease(
-          _wingspan,
+          wingspan,
           runGh: (args) async => ProcessResult(0, 1, '', 'HTTP 404'),
         ),
         throwsA(
@@ -171,9 +170,9 @@ void main() {
     test('throws when plugin.json has no version', () {
       expect(
         () => latestRelease(
-          _wingspan,
+          wingspan,
           runGh: (args) async =>
-              args[1].contains('releases/latest') ? _ok('v0.1.0') : _ok('{}'),
+              args[1].contains('releases/latest') ? ok('v0.1.0') : ok('{}'),
         ),
         throwsA(isA<FormatException>()),
       );
@@ -186,7 +185,8 @@ void main() {
 
     setUp(() {
       temp = Directory.systemTemp.createTempSync('bump_plugin_pins_test.');
-      file = File('${temp.path}/plugin_ref.dart')..writeAsStringSync(_source);
+      file = File('${temp.path}/plugin_ref.dart')
+        ..writeAsStringSync(pinsSource);
     });
 
     tearDown(() => temp.deleteSync(recursive: true));
@@ -195,8 +195,8 @@ void main() {
       final repo = tags.keys.firstWhere((repo) => args[1].contains(repo));
       final tag = tags[repo]!;
       return args[1].contains('releases/latest')
-          ? _ok(tag)
-          : _ok(jsonEncode({'version': tag.substring(1)}));
+          ? ok(tag)
+          : ok(jsonEncode({'version': tag.substring(1)}));
     };
 
     test('leaves the file untouched when every pin is current', () async {
@@ -211,7 +211,7 @@ void main() {
       );
 
       expect(bumps, isEmpty);
-      expect(file.readAsStringSync(), _source);
+      expect(file.readAsStringSync(), pinsSource);
       expect(file.lastModifiedSync(), modified);
     });
 
@@ -231,7 +231,7 @@ void main() {
       );
       expect(
         file.readAsStringSync(),
-        _source.replaceFirst(
+        pinsSource.replaceFirst(
           "version: '0.0.5',\n    gitRef: 'v0.0.5',",
           "version: '0.1.0',\n    gitRef: 'v0.1.0',",
         ),
@@ -239,5 +239,3 @@ void main() {
     });
   });
 }
-
-ProcessResult _ok(String stdout) => ProcessResult(0, 0, stdout, '');

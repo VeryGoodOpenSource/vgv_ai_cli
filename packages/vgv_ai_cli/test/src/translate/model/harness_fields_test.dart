@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  group('HarnessFields', () {
+  group(HarnessFields, () {
     test('keys every field it has as the brick reads it', () {
       const fields = HarnessFields(frontmatter: '---\n---\n', toml: 'a = 1\n');
 
