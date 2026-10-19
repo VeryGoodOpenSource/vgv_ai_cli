@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/document/model/model.dart';
 
 void main() {
-  group('TomlRegion', () {
+  group(TomlRegion, () {
     TomlStatement statement(TomlStatementKind kind, List<String> path) =>
         TomlStatement(
           kind: kind,

@@ -273,7 +273,11 @@ HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
         ),
       ...copy.files,
     ],
-    notes: [...copy.notes, ..._scopedNotes(assets), ..._handlerNotes(runnable)],
+    notes: [
+      ...copy.notes,
+      ..._scopedNotes(assets),
+      ...scripts.handlerNotes(runnable),
+    ],
   );
 }
 ```
@@ -287,6 +291,7 @@ HookTranslation hooks(PluginAssets assets, {required Directory hooksRoot}) {
 | `HookScripts.runsCommand(hook)` | Whether the hook runs a shell command at all |
 | `HookScripts.safelyNamed(hook)` | Whether the plugin's name is safe as a folder name |
 | `HookScripts.quoted(value)` | One double-quoted shell word |
+| `scripts.handlerNotes(hooks)` | A note per handler type that runs no shell command. Shared — do not write your own |
 
 Leave out what the harness can't express and say so in a note — a hook an agent declared for
 itself, an event the harness lacks, a handler type that isn't a shell command.

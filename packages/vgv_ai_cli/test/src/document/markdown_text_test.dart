@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
-  group('MarkdownText', () {
+  group(MarkdownText, () {
     final start = MarkdownText.sectionStart('a');
     final end = MarkdownText.sectionEnd('a');
     final b =

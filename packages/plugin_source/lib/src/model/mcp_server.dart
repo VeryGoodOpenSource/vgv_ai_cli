@@ -5,8 +5,8 @@
 /// The transport is a closed set: a server is either a [RemoteMCPServer]
 /// (reached over a URL) or a [LocalMCPServer] (launched as a subprocess over
 /// stdio). MCP defines no third transport, so the union has no unknown
-/// fallback — a declaration that is neither is dropped at parse time rather
-/// than modeled.
+/// fallback: a parser rejects a declaration that is neither rather than
+/// modeling it.
 /// {@endtemplate}
 sealed class const MCPServer({
   /// The name the plugin declares the server under, unique across plugins.

@@ -15,9 +15,9 @@ class _MockProgress extends Mock implements Progress;
 class _MockPubUpdater extends Mock implements PubUpdater;
 
 void main() {
-  const latestVersion = '0.0.0';
+  group(UpdateCommand, () {
+    const latestVersion = '0.0.0';
 
-  group('update', () {
     late PubUpdater pubUpdater;
     late Logger logger;
     late VgvAiCliCommandRunner commandRunner;
@@ -64,7 +64,7 @@ void main() {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenThrow(Exception('oops'));
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Exception: oops'));
       verifyNever(
@@ -85,7 +85,7 @@ void main() {
         ),
       ).thenThrow(Exception('oops'));
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Exception: oops'));
       verify(
@@ -111,7 +111,7 @@ void main() {
 
       final result = await commandRunner.run(['update']);
 
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Error updating CLI: $error'));
       verify(
@@ -135,7 +135,7 @@ void main() {
       );
       when(() => logger.progress(any())).thenReturn(_MockProgress());
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.progress('Updating to $latestVersion')).called(1);
       verify(
@@ -151,7 +151,7 @@ void main() {
           .thenAnswer((_) async => packageVersion);
       when(() => logger.progress(any())).thenReturn(_MockProgress());
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verify(() => logger.info('CLI is already at the latest version.'))
           .called(1);
       verifyNever(() => logger.progress('Updating to $latestVersion'));

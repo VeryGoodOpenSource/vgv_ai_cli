@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('ManifestStore', () {
+  group(ManifestStore, () {
     const entry = OwnedFile(
       path: '/home/dev/.agents/skills/a/SKILL.md',
       owner: null,
@@ -42,10 +42,11 @@ void main() {
       moved.file.parent.createSync(recursive: true);
       store.file.copySync(moved.file.path);
 
-      final json = jsonDecode(store.file.readAsStringSync()) as Map;
       expect(
-        (json['entries'] as List).single,
-        containsPair('path', '.agents/skills/a/SKILL.md'),
+        jsonDecode(store.file.readAsStringSync()),
+        containsPair('entries', [
+          containsPair('path', '.agents/skills/a/SKILL.md'),
+        ]),
       );
       expect(
         moved.load()!.entries.single.path,

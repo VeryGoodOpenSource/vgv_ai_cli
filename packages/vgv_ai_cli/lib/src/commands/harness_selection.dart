@@ -9,15 +9,16 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// instead, so the two cannot be combined.
 /// {@endtemplate}
 mixin HarnessSelection on Command<int> {
-  /// Adds the options, with [verb] saying what the command does to each
-  /// harness, such as `Configure`, and [only] finishing the `--only` help.
+  /// Adds the options, with [action] saying what the command does to each
+  /// harness, such as `Configure the Very Good AI tooling for`, and [only]
+  /// finishing the `--only` help.
   void addHarnessOptions(
-    String verb, {
+    String action, {
     String only = 'just these harnesses, whether or not they are detected.',
   }) {
     argParser.addMultiOption(
       'only',
-      help: '$verb $only',
+      help: '$action $only',
       allowed: Harness.values.map((harness) => harness.name),
     );
 
@@ -28,7 +29,7 @@ mixin HarnessSelection on Command<int> {
       argParser.addFlag(
         harness.name,
         defaultsTo: true,
-        help: '$verb ${harness.displayName}.',
+        help: '$action ${harness.displayName}.',
       );
     }
   }

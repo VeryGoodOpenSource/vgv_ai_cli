@@ -4,12 +4,12 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  final fs = MemoryFileSystem.test();
+  group(TranslationPlan, () {
+    final fs = MemoryFileSystem.test();
 
-  PlannedChange change(String path, Harness? harness) =>
-      PlannedChange.text(file: fs.file(path), contents: '', harness: harness);
+    PlannedChange change(String path, Harness? harness) =>
+        PlannedChange.text(file: fs.file(path), contents: '', harness: harness);
 
-  group('TranslationPlan', () {
     test('plans nothing by default', () {
       const plan = TranslationPlan();
 

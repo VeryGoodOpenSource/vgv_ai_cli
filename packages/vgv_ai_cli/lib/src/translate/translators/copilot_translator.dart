@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
@@ -83,7 +82,7 @@ class const CopilotTranslator() extends HarnessTranslator {
       notes: [
         ...copy.notes,
         ..._scopedNotes(assets),
-        ..._handlerNotes(runnable),
+        ...scripts.handlerNotes(runnable),
       ],
     );
   }
@@ -129,25 +128,6 @@ class const CopilotTranslator() extends HarnessTranslator {
               'declares for itself cannot be scoped to it and is left out',
         ),
   ];
-
-  /// One note per handler type that runs no shell command.
-  static List<TranslationNote> _handlerNotes(List<HookAsset> hooks) {
-    final counts = hooks
-        .expand((hook) => hook.commands)
-        .map((command) => command.type)
-        .where((type) => type != HookScripts.commandType)
-        .groupFoldBy<String, int>(
-          (type) => type,
-          (count, _) => (count ?? 0) + 1,
-        );
-    return [
-      for (final MapEntry(key: type, value: count) in counts.entries)
-        TranslationNote(
-          subject: '$count $type handler(s)',
-          reason: 'Copilot runs a shell command only, so they are left out',
-        ),
-    ];
-  }
 
   @override
   HookScripts get scripts =>

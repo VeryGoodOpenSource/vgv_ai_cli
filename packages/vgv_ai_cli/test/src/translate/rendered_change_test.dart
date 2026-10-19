@@ -4,12 +4,12 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  final home = MemoryFileSystem.test().directory('/home/dev');
-
-  PlannedChange plan(String path) =>
-      renderedChange(path, contents: 'x', home: home);
-
   group('renderedChange', () {
+    final home = MemoryFileSystem.test().directory('/home/dev');
+
+    PlannedChange plan(String path) =>
+        renderedChange(path, contents: 'x', home: home);
+
     test('lands a folder in its harness config directory', () {
       final change = plan('opencode/agent/review.md');
 

@@ -98,6 +98,9 @@ calls `scripts.copy(...)` itself and puts `copy.files` and `copy.notes` into the
 it returns. Overriding `scripts` alone copies nothing. Model the method on
 `copilot_translator.dart`, which also plans the compat script as a file of its own.
 
+Use `scripts.handlerNotes(hooks)` for the handler types the harness cannot run rather than
+writing that note yourself — it is shared, and it already names the harness.
+
 Write `<harness>_compat.dart` beside the translator for the preamble and the compat script, and
 export it too. Start from `copilot_compat.dart`.
 

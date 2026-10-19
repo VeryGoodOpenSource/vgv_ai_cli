@@ -116,20 +116,16 @@ exit "${EXIT:-0}"
       );
 
       expect(code, 0);
-      expect(
-        [
-          for (final (_, payload) in runs())
-            [
-              payload['tool_name'],
-              (payload['tool_input']! as Map)['file_path'],
-            ].join(' '),
-        ],
-        [
-          'Edit ${temp.path}/old.dart',
-          'Edit ${temp.path}/renamed.dart',
-          'Write ${temp.path}/lib/added.dart',
-        ],
+      Matcher fileTool(String tool, String path) => allOf(
+        containsPair('tool_name', tool),
+        containsPair('tool_input', containsPair('file_path', path)),
       );
+
+      expect(runs().map((run) => run.$2), [
+        fileTool('Edit', '${temp.path}/old.dart'),
+        fileTool('Edit', '${temp.path}/renamed.dart'),
+        fileTool('Write', '${temp.path}/lib/added.dart'),
+      ]);
     });
 
     test(
@@ -160,9 +156,13 @@ exit "${EXIT:-0}"
     test('names the edited file under file_path as well', () async {
       await run(edit('${temp.path}/a.dart'));
 
-      final input = runs().single.$2['tool_input']! as Map;
-      expect(input['file_path'], '${temp.path}/a.dart');
-      expect(input['path'], '${temp.path}/a.dart');
+      expect(
+        runs().single.$2['tool_input'],
+        allOf(
+          containsPair('file_path', '${temp.path}/a.dart'),
+          containsPair('path', '${temp.path}/a.dart'),
+        ),
+      );
     });
 
     test("passes Claude Code's own payload through as it came", () async {
@@ -321,8 +321,8 @@ exit "${EXIT:-0}"
       await run(edit('${temp.path}/a.dart'), direct: true);
 
       expect(
-        (runs().single.$2['tool_input']! as Map)['file_path'],
-        '${temp.path}/a.dart',
+        runs().single.$2['tool_input'],
+        containsPair('file_path', '${temp.path}/a.dart'),
       );
     });
   }, skip: bash ? null : 'needs bash and jq on PATH');

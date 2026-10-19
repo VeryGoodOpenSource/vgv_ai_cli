@@ -163,7 +163,7 @@ class PlannedChange {
   /// How [bytes] lands on [file].
   final ChangeMode mode;
 
-  /// Null when the change is shared rather than owned by one harness.
+  /// The harness that owns the change, or null when it is shared.
   final Harness? harness;
 
   /// The file [bytes] was copied from, whose permissions [file] takes when

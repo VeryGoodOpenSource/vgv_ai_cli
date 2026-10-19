@@ -46,7 +46,7 @@ class const _FailingAuditor() extends ManifestAuditor {
 }
 
 void main() {
-  group('uninstall', () {
+  group(UninstallCommand, () {
     late Logger logger;
     late PubUpdater pubUpdater;
     late FileSystem fs;
@@ -294,8 +294,7 @@ void main() {
 
         expect(
           command.argParser.options['only']!.help,
-          'Remove just these '
-          'harnesses.',
+          'Remove the Very Good AI tooling from just these harnesses.',
         );
       });
     });

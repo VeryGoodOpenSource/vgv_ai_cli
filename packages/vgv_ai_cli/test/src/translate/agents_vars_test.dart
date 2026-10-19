@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '_assets.dart';
 
 void main() {
-  group('AgentsVars', () {
+  group(AgentsVars, () {
     final fs = MemoryFileSystem.test();
 
     Map<String, Object?> varsFor(
@@ -77,12 +77,21 @@ void main() {
           ],
         ),
       );
-      final agent = (vars['agents']! as List).single as Map<String, Object?>;
 
-      expect(agent['name'], 'review');
-      expect(agent['instructions'], contains('`/home/dev/.agents/skills`'));
-      expect(agent['opencode'], contains('frontmatter'));
-      expect(agent['pi'], isEmpty);
+      expect(
+        vars,
+        containsPair('agents', [
+          allOf(
+            containsPair('name', 'review'),
+            containsPair(
+              'instructions',
+              contains('`/home/dev/.agents/skills`'),
+            ),
+            containsPair('opencode', contains('frontmatter')),
+            containsPair('pi', isEmpty),
+          ),
+        ]),
+      );
     });
 
     test('lists only invocable skills as commands', () {
@@ -95,10 +104,13 @@ void main() {
           ],
         ),
       );
-      final commands = vars['commands']! as List;
 
-      expect(commands.map((c) => (c as Map)['name']), ['plan']);
-      expect((commands.single as Map)['codex'], isEmpty);
+      expect(
+        vars,
+        containsPair('commands', [
+          allOf(containsPair('name', 'plan'), containsPair('codex', isEmpty)),
+        ]),
+      );
     });
 
     test('indexes every skill and agent for AGENTS.md', () {

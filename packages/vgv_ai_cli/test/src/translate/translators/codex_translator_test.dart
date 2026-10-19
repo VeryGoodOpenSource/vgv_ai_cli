@@ -10,7 +10,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('CodexTranslator', () {
+  group(CodexTranslator, () {
     const translator = CodexTranslator();
 
     test('configures Codex', () {
@@ -106,94 +106,91 @@ void main() {
       test("spell a file-edit matcher with Codex's own tool name", () {
         // Codex writes every edit through apply_patch, and Claude's two names
         // are kept because Codex documents all three as interchangeable.
-        final registrations =
-            events([hookAsset(fs, matcher: 'Edit|Write')])['PostToolUse']!
-                as List<Object?>;
-
         expect(
-          (registrations.single! as Map)['matcher'],
-          'Edit|apply_patch|Write',
+          events([hookAsset(fs, matcher: 'Edit|Write')]),
+          containsPair('PostToolUse', [
+            containsPair('matcher', 'Edit|apply_patch|Write'),
+          ]),
         );
       });
 
       test('watch the shell for a hook that watches reads', () {
         // Codex reads files through the shell, so wingspan's Read|Glob|Grep
         // hook fires on the first command instead of the first read.
-        final registrations =
-            events([
-                  hookAsset(fs, event: 'PreToolUse', matcher: 'Read|Glob|Grep'),
-                ])['PreToolUse']!
-                as List<Object?>;
-
-        expect((registrations.single! as Map)['matcher'], 'Bash');
+        expect(
+          events([
+            hookAsset(fs, event: 'PreToolUse', matcher: 'Read|Glob|Grep'),
+          ]),
+          containsPair('PreToolUse', [containsPair('matcher', 'Bash')]),
+        );
       });
 
       test('carry over a matcher Codex spells the same way', () {
         for (final matcher in ['Bash', 'mcp__.*very-good-cli__.*']) {
-          final registrations =
-              events([
-                    hookAsset(fs, event: 'PreToolUse', matcher: matcher),
-                  ])['PreToolUse']!
-                  as List<Object?>;
-
-          expect((registrations.single! as Map)['matcher'], matcher);
+          expect(
+            events([hookAsset(fs, event: 'PreToolUse', matcher: matcher)]),
+            containsPair('PreToolUse', [containsPair('matcher', matcher)]),
+          );
         }
       });
 
       test('hand Codex a matcher that is more than a list of names', () {
         // Splitting a regex on | would break its alternation, and Codex reads
         // the same regex, so it goes as written.
-        final registrations =
-            events([hookAsset(fs, matcher: r'^(Edit|Write)$')])['PostToolUse']!
-                as List<Object?>;
-
-        expect((registrations.single! as Map)['matcher'], r'^(Edit|Write)$');
+        expect(
+          events([hookAsset(fs, matcher: r'^(Edit|Write)$')]),
+          containsPair('PostToolUse', [
+            containsPair('matcher', r'^(Edit|Write)$'),
+          ]),
+        );
       });
 
       test('leave a hook that matches no tool with no matcher', () {
-        final registrations =
-            events([hookAsset(fs, event: 'SessionStart')])['SessionStart']!
-                as List<Object?>;
-
-        expect(registrations.single! as Map, isNot(contains('matcher')));
+        expect(
+          events([hookAsset(fs, event: 'SessionStart')]),
+          containsPair('SessionStart', [isNot(contains('matcher'))]),
+        );
       });
 
       test("point a command at Codex's copy of the plugin", () {
         // The copy is where the preamble lives, so the command has to run
         // that script and not the plugin's own.
-        final registrations =
-            events([hookAsset(fs)])['PostToolUse']! as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
         expect(
-          (commands.single! as Map)['command'],
-          'bash "/home/.codex/hooks/vgv-wingspan"/hooks/scripts/analyze.sh',
+          events([hookAsset(fs)]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                'bash "/home/.codex/hooks/vgv-wingspan"/hooks/scripts/analyze.sh',
+              ),
+            ]),
+          ]),
         );
       });
 
       test('point a file outside the hooks folder at the plugin itself', () {
         // Only the hooks folder is copied, so anything else a command names
         // is still read from where the plugin keeps it.
-        final registrations =
-            events([
-                  hookAsset(
-                    fs,
-                    commands: const [
-                      HookCommand(
-                        type: 'command',
-                        command: r'dart run ${PLUGIN_ROOT}/scripts/check.dart',
-                      ),
-                    ],
-                  ),
-                ])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
         expect(
-          (commands.single! as Map)['command'],
-          'dart run "/plugins/vgv-wingspan"/scripts/check.dart',
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'dart run ${PLUGIN_ROOT}/scripts/check.dart',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                'dart run "/plugins/vgv-wingspan"/scripts/check.dart',
+              ),
+            ]),
+          ]),
         );
       });
 
@@ -214,54 +211,57 @@ void main() {
       test('carry a handler that runs no shell command as it is', () {
         // Codex takes an mcp_tool handler and Claude a prompt one. Neither
         // names a script, so there is nothing to point elsewhere.
-        final registrations =
-            events([
-                  hookAsset(
-                    fs,
-                    matcher: 'Edit',
-                    commands: const [
-                      HookCommand(type: 'prompt', command: 'say-hello'),
-                    ],
-                  ),
-                ])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
-        expect((commands.single! as Map)['command'], 'say-hello');
+        expect(
+          events([
+            hookAsset(
+              fs,
+              matcher: 'Edit',
+              commands: const [
+                HookCommand(type: 'prompt', command: 'say-hello'),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [containsPair('command', 'say-hello')]),
+          ]),
+        );
       });
 
       test('carry the type and the timeout, and leave an absent one out', () {
-        final registrations =
-            events([
-                  hookAsset(
-                    fs,
-                    commands: const [
-                      HookCommand(type: 'command', command: 'a.sh', timeout: 5),
-                      HookCommand(type: 'prompt', command: 'b.sh'),
-                    ],
-                  ),
-                ])['PostToolUse']!
-                as List<Object?>;
-        final commands =
-            (registrations.single! as Map)['hooks']! as List<Object?>;
-
-        expect(commands.first! as Map, containsPair('type', 'command'));
-        expect(commands.first! as Map, containsPair('timeout', 5));
-        expect(commands.last! as Map, containsPair('type', 'prompt'));
-        expect(commands.last! as Map, containsPair('command', 'b.sh'));
-        expect(commands.last! as Map, isNot(contains('timeout')));
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(type: 'command', command: 'a.sh', timeout: 5),
+                HookCommand(type: 'prompt', command: 'b.sh'),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              allOf(
+                containsPair('type', 'command'),
+                containsPair('timeout', 5),
+              ),
+              allOf(
+                containsPair('type', 'prompt'),
+                containsPair('command', 'b.sh'),
+                isNot(contains('timeout')),
+              ),
+            ]),
+          ]),
+        );
       });
 
       test('group every registration of one event together', () {
-        final registrations =
-            events([
-                  hookAsset(fs, matcher: 'Edit'),
-                  hookAsset(fs, matcher: 'Write'),
-                ])['PostToolUse']!
-                as List<Object?>;
-
-        expect(registrations, hasLength(2));
+        expect(
+          events([
+            hookAsset(fs, matcher: 'Edit'),
+            hookAsset(fs, matcher: 'Write'),
+          ]),
+          containsPair('PostToolUse', hasLength(2)),
+        );
       });
 
       test('register nothing when the plugins ship none', () {
