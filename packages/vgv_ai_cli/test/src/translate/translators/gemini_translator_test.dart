@@ -34,59 +34,60 @@ void main() {
 
     group('settings', () {
       test('declares each MCP server by name', () {
-        final settings = jsonDecode(
-          translator.settings(
-            pluginAssets(
-              mcpServers: [
-                const LocalMCPServer(
-                  name: 'dart',
-                  command: 'dart',
-                  args: ['mcp-server'],
-                ),
-              ],
-            ),
+        final settings = translator.settings(
+          pluginAssets(
+            mcpServers: [
+              const LocalMCPServer(
+                name: 'dart',
+                command: 'dart',
+                args: ['mcp-server'],
+              ),
+            ],
           ),
-        ) as Map<String, dynamic>;
+        );
 
-        expect(settings['mcpServers'], {
-          'dart': {
-            'command': 'dart',
-            'args': ['mcp-server'],
-          },
-        });
+        expect(
+          jsonDecode(settings),
+          containsPair('mcpServers', {
+            'dart': {
+              'command': 'dart',
+              'args': ['mcp-server'],
+            },
+          }),
+        );
       });
 
       test("writes a remote server's headers as headers", () {
-        final settings = jsonDecode(
-          translator.settings(
-            pluginAssets(
-              mcpServers: [
-                const RemoteMCPServer(
-                  name: 'docs',
-                  url: 'https://docs.example',
-                  headers: {'X-Region': 'us'},
-                ),
-              ],
-            ),
+        final settings = translator.settings(
+          pluginAssets(
+            mcpServers: [
+              const RemoteMCPServer(
+                name: 'docs',
+                url: 'https://docs.example',
+                headers: {'X-Region': 'us'},
+              ),
+            ],
           ),
-        ) as Map<String, dynamic>;
+        );
 
-        expect(settings['mcpServers'], {
-          'docs': {
-            'url': 'https://docs.example',
-            'headers': {'X-Region': 'us'},
-          },
-        });
+        expect(
+          jsonDecode(settings),
+          containsPair('mcpServers', {
+            'docs': {
+              'url': 'https://docs.example',
+              'headers': {'X-Region': 'us'},
+            },
+          }),
+        );
       });
 
       test('reads AGENTS.md without giving up its own GEMINI.md', () {
-        final settings = jsonDecode(
-          translator.settings(pluginAssets()),
-        ) as Map<String, dynamic>;
-
-        expect(settings['context'], {
-          'fileName': ['AGENTS.md', 'GEMINI.md'],
-        });
+        expect(
+          jsonDecode(translator.settings(pluginAssets())),
+          containsPair('context', {
+            'fileName': ['AGENTS.md', 'GEMINI.md'],
+          }),
+        );
       });
     });
 

@@ -42,9 +42,8 @@ void main() {
       moved.file.parent.createSync(recursive: true);
       store.file.copySync(moved.file.path);
 
-      final json = jsonDecode(store.file.readAsStringSync()) as Map;
       expect(
-        json,
+        jsonDecode(store.file.readAsStringSync()),
         containsPair('entries', [
           containsPair('path', '.agents/skills/a/SKILL.md'),
         ]),
