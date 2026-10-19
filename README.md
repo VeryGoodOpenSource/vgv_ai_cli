@@ -7,6 +7,9 @@ This is a [pub workspace][pub_workspace_link] monorepo. The CLI lives in
 
 ## Contributor setup
 
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the commands, conventions, and PR rules, and
+[ADDING_A_HARNESS.md](ADDING_A_HARNESS.md) walks through adding a new coding agent.
+
 Install the prerequisites listed in [AGENTS.md](AGENTS.md#prerequisites) first. The Dart version
 matters more than it looks: on 3.12 the analyze hook reports errors against this codebase's
 Dart 3.13 syntax, and those errors read as real ones.
