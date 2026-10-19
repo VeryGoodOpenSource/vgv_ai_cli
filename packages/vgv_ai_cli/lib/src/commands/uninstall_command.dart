@@ -19,8 +19,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 ///
 /// * `--check` prints what would be removed without removing anything.
 /// * `--force` also removes what VGV wrote that you have changed since.
-/// * `--only` removes just the named harnesses.
-/// * `--no-<harness>` keeps one harness. It cannot be combined with `--only`.
+/// * `--only` removes the tooling from just the named harnesses.
+/// * `--no-<harness>` leaves one harness's tooling in place. It cannot be
+///   combined with `--only`.
 ///
 /// The shared skills are removed only when every harness the manifest
 /// records is, since the harnesses that are left still read them.

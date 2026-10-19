@@ -6,13 +6,19 @@ import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
+/// The name the CLI is run by.
 const executableName = 'vgv_ai';
+
+/// The package the CLI is published as, which update checks look up.
 const packageName = 'vgv_ai_cli';
+
+/// What the CLI does, as `--help` prints it.
 const description =
     'A CLI that configures Very Good AI coding agents and tooling';
 
 /// {@template vgv_ai_cli_command_runner}
-/// A [CommandRunner] for the CLI.
+/// Runs the `vgv_ai` commands, and checks for a newer version of the CLI
+/// after every command but `update`.
 ///
 /// ```bash
 /// $ vgv_ai --version

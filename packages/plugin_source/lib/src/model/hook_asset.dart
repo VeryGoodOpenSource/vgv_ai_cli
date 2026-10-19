@@ -3,6 +3,8 @@ import 'package:file/file.dart';
 /// {@template hook_command}
 /// One command a hook runs when its event fires.
 ///
+/// [type] is the handler type as the source harness names it, such as
+/// `command`. [timeout] is in seconds, or null for the harness default.
 /// [command] is a shell command. Where it references the plugin's own files it
 /// uses the [rootPlaceholder], which no harness understands natively;
 /// substituting the real location is a translator's job.
