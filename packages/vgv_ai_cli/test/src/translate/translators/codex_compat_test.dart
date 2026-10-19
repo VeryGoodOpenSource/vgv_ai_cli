@@ -112,10 +112,11 @@ exit 0
     /// The tool and file of each run, as `Edit /path`.
     List<String> edits() => [
       for (final (_, payload) in runs())
-        [
-          payload['tool_name'],
-          (payload['tool_input']! as Map)['file_path'],
-        ].join(' '),
+        switch (payload) {
+          {'tool_name': final tool, 'tool_input': {'file_path': final path}} =>
+            '$tool $path',
+          _ => throw StateError('no file in $payload'),
+        },
     ];
 
     test('runs the script once per file on disk after the tool', () async {

@@ -9,31 +9,31 @@ import 'package:plugin_source/src/parser/claude_schemas.dart';
 import 'package:test/test.dart';
 
 void main() {
-  const localFileSystem = LocalFileSystem();
+  group(ClaudePluginParser, () {
+    const localFileSystem = LocalFileSystem();
 
-  /// The fixture reproduces the inconsistencies the real plugins have, so a
-  /// reader that only handles the documented shape fails here.
-  Directory fixture(String name) =>
-      localFileSystem.directory(p.join('test', 'fixtures', name));
+    /// The fixture reproduces the inconsistencies the real plugins have, so a
+    /// reader that only handles the documented shape fails here.
+    Directory fixture(String name) =>
+        localFileSystem.directory(p.join('test', 'fixtures', name));
 
-  /// Copies [from] into [to] without shelling out, so the test runs anywhere.
-  void copyInto(Directory from, Directory to) {
-    to.createSync(recursive: true);
-    for (final entity in from.listSync()) {
-      final target = p.join(to.path, p.basename(entity.path));
-      if (entity is Directory) {
-        copyInto(entity, localFileSystem.directory(target));
-      } else if (entity is File) {
-        entity.copySync(target);
+    /// Copies [from] into [to] without shelling out, so the test runs anywhere.
+    void copyInto(Directory from, Directory to) {
+      to.createSync(recursive: true);
+      for (final entity in from.listSync()) {
+        final target = p.join(to.path, p.basename(entity.path));
+        if (entity is Directory) {
+          copyInto(entity, localFileSystem.directory(target));
+        } else if (entity is File) {
+          entity.copySync(target);
+        }
       }
     }
-  }
 
-  late PluginAssets assets;
+    late PluginAssets assets;
 
-  setUp(() => assets = const ClaudePluginParser().parse(fixture('plugin')));
+    setUp(() => assets = const ClaudePluginParser().parse(fixture('plugin')));
 
-  group(ClaudePluginParser, () {
     group('skills', () {
       test('reads every directory holding a SKILL.md, sorted by name', () {
         expect(assets.skills.map((s) => s.name), [
@@ -47,7 +47,6 @@ void main() {
       });
 
       test('skips skills/shared, which has no SKILL.md', () {
-        // It is a pooled link target, not a skill.
         expect(assets.skills.map((s) => s.name), isNot(contains('shared')));
       });
 
@@ -140,8 +139,6 @@ void main() {
       });
 
       test('falls back to the directory name when frontmatter has none', () {
-        // The fixture skill's SKILL.md declares no name, so the only way it can
-        // be called 'unnamed-skill' is the directory-name fallback.
         expect(assets.skills.map((s) => s.name), contains('unnamed-skill'));
       });
     });
@@ -159,8 +156,6 @@ void main() {
       });
 
       test('drops keys outside the Agent Skills spec, such as model', () {
-        // `model: sonnet` is a Claude Code routing hint. A denylist would have
-        // let it through into every other harness's skill file.
         expect(testing.portableFrontmatter, isNot(contains('model')));
       });
 
@@ -224,8 +219,6 @@ void main() {
       });
 
       test('falls back to the filename when frontmatter has no name', () {
-        // The fixture agent declares no name, so being called 'unnamed-agent'
-        // proves the filename fallback fired.
         expect(assets.agents.map((a) => a.name), contains('unnamed-agent'));
       });
 
@@ -343,8 +336,6 @@ void main() {
         });
 
         test('a server that is neither local nor remote', () {
-          // No `url` and no `command`: not a valid MCP server, and the union
-          // has no unknown fallback.
           expect(
             () => parseServers('{"broken": {}}'),
             throwsAt('#/mcpServers/broken: declares neither'),
@@ -407,8 +398,6 @@ void main() {
       });
 
       test('throws a PluginParseException on invalid JSON', () {
-        // jsonDecode throws FormatException, which the runner would render as a
-        // CLI usage error.
         expect(
           () => const ClaudePluginParser().parse(fixture('plugin_bad_mcp')),
           throwsA(
@@ -436,14 +425,10 @@ void main() {
       });
 
       test('reads an event with no matcher', () {
-        // SessionStart does not match against a tool.
         expect(hookFor('SessionStart').matcher, isNull);
       });
 
       test('rewrites CLAUDE_PLUGIN_ROOT to the neutral placeholder', () {
-        // Expanding the placeholder belongs to a translator, which knows where
-        // the scripts landed for its harness. It must never have to know
-        // Claude's spelling of it.
         expect(
           hookFor('SessionStart').commands.single.command,
           'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
@@ -463,8 +448,6 @@ void main() {
       });
 
       test('carries the plugin root the placeholder stands for', () {
-        // HookCommand.rootPlaceholder is spelled relative to the plugin root,
-        // not the hooks directory, so this is what a translator substitutes.
         final root = hookFor('SessionStart').pluginRoot;
 
         expect(
@@ -478,8 +461,6 @@ void main() {
       });
 
       test("reads an agent's own hooks, scoped to the agent", () {
-        // flutter-reviewer declares a PreToolUse hook in its frontmatter, the
-        // same shape as hooks.json, which fires only while it runs.
         final scoped = assets.hooks.where((h) => h.agent != null);
 
         expect(scoped.map((h) => h.agent), ['flutter-reviewer']);
@@ -497,8 +478,6 @@ void main() {
       });
 
       test('names the plugin from its manifest', () {
-        // The cache files a plugin under its version, so the directory name
-        // would say 0.0.5 where a translator needs vgv-wingspan.
         expect(hookFor('SessionStart').plugin, 'fixture-plugin');
       });
 
@@ -539,8 +518,6 @@ void main() {
       });
 
       test('skips registrations that contribute no runnable command', () {
-        // An empty hooks array and a prompt hook, which has no command, both
-        // appear under EmptyCommands.
         expect(
           assets.hooks.map((h) => h.event),
           isNot(contains('EmptyCommands')),
@@ -715,8 +692,6 @@ void main() {
 
     group('empty plugin', () {
       test('reads as empty rather than throwing', () {
-        // The reader stays total. Whether an empty plugin is a problem is the
-        // caller's judgement, because only it knows which plugin it asked for.
         final empty = const ClaudePluginParser().parse(fixture('plugin_empty'));
 
         expect(empty.skills, isEmpty);
@@ -729,9 +704,6 @@ void main() {
       late Directory temp;
 
       setUpAll(() {
-        // Built here rather than committed: a git checkout on Windows without
-        // developer mode materializes a committed symlink as a text file
-        // holding the target path, so the regression would silently pass there.
         temp = localFileSystem.systemTempDirectory.createTempSync(
           'vgv_symlink_',
         );
@@ -751,12 +723,6 @@ void main() {
       tearDownAll(() => temp.deleteSync(recursive: true));
 
       test('stay resolvable through the directory the reader returns', () {
-        // A tripwire for #19 rather than a test of reader logic: the reader
-        // does not read references/, so this guards against it ever
-        // canonicalizing or rewriting the directory it hands on. 21 reference
-        // files across 8 wingspan skills link into skills/shared, and a copy
-        // that does not follow them produces dangling links in
-        // ~/.agents/skills.
         final linked = const ClaudePluginParser()
             .parse(localFileSystem.directory(p.join(temp.path, 'plugin')))
             .skills
@@ -808,8 +774,6 @@ void main() {
 
       test('portableFrontmatterOf writes a description with no triggers as '
           'the plugin wrote it', () {
-        // Byte-identical output for a plugin that folds its triggers into the
-        // description already: a block scalar stays a block scalar.
         final portable = ClaudePluginParser.portableFrontmatterOf(
           fm('description: |\n  First line.\n  Second line.'),
         );

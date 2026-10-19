@@ -3,14 +3,14 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 
 void main() {
-  const plugin = PluginRef(
-    name: 'wingspan',
-    repo: 'acme/wingspan',
-    version: '0.2.0',
-    gitRef: 'v0.2.0',
-  );
-
   group(PluginVersion, () {
+    const plugin = PluginRef(
+      name: 'wingspan',
+      repo: 'acme/wingspan',
+      version: '0.2.0',
+      gitRef: 'v0.2.0',
+    );
+
     Matcher isFinding(FindingKind kind, String message) => isA<Finding>()
         .having((f) => f.kind, 'kind', kind)
         .having((f) => f.message, 'message', message);

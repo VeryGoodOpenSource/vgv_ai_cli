@@ -7,54 +7,54 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  late FileSystem fs;
-  late Directory home;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-  });
-
-  /// Builds a skill directory and the [SkillAsset] that points at it.
-  SkillAsset skill(
-    String name, {
-    String body = '# Body\n',
-    Map<String, Object?>? frontmatter,
-    Map<String, String> files = const {},
-  }) {
-    final directory = fs.directory('/plugins/wingspan/skills/$name')
-      ..createSync(recursive: true);
-    directory.childFile('SKILL.md').writeAsStringSync('---\n---\n$body');
-    for (final MapEntry(:key, :value) in files.entries) {
-      fs.file(p.join(directory.path, key))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(value);
-    }
-    return SkillAsset(
-      name: name,
-      description: 'the $name skill',
-      body: body,
-      userInvocable: true,
-      allowedTools: const [],
-      portableFrontmatter: frontmatter ?? {'name': name},
-      directory: directory,
-    );
-  }
-
-  TranslationResult translate(List<SkillAsset> skills) =>
-      const SkillsTranslator().translate(
-        assets: PluginAssets(
-          skills: skills,
-          agents: const [],
-          mcpServers: const [],
-        ),
-        root: agentsSkillsRoot(home),
-      );
-
-  PlannedChange changeAt(TranslationResult result, String suffix) =>
-      result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
-
   group(SkillsTranslator, () {
+    late FileSystem fs;
+    late Directory home;
+
+    setUp(() {
+      fs = MemoryFileSystem.test();
+      home = fs.directory('/home/dev')..createSync(recursive: true);
+    });
+
+    /// Builds a skill directory and the [SkillAsset] that points at it.
+    SkillAsset skill(
+      String name, {
+      String body = '# Body\n',
+      Map<String, Object?>? frontmatter,
+      Map<String, String> files = const {},
+    }) {
+      final directory = fs.directory('/plugins/wingspan/skills/$name')
+        ..createSync(recursive: true);
+      directory.childFile('SKILL.md').writeAsStringSync('---\n---\n$body');
+      for (final MapEntry(:key, :value) in files.entries) {
+        fs.file(p.join(directory.path, key))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(value);
+      }
+      return SkillAsset(
+        name: name,
+        description: 'the $name skill',
+        body: body,
+        userInvocable: true,
+        allowedTools: const [],
+        portableFrontmatter: frontmatter ?? {'name': name},
+        directory: directory,
+      );
+    }
+
+    TranslationResult translate(List<SkillAsset> skills) =>
+        const SkillsTranslator().translate(
+          assets: PluginAssets(
+            skills: skills,
+            agents: const [],
+            mcpServers: const [],
+          ),
+          root: agentsSkillsRoot(home),
+        );
+
+    PlannedChange changeAt(TranslationResult result, String suffix) =>
+        result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
+
     test('plans one SKILL.md per skill under ~/.agents/skills', () {
       final result = translate([skill('testing'), skill('bloc')]);
 

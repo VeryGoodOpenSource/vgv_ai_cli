@@ -63,21 +63,21 @@ class _Processes {
 }
 
 void main() {
-  const wingspan = PluginRef(
-    name: 'wingspan',
-    repo: 'acme/wingspan',
-    version: '1.0.0',
-    gitRef: 'v1.0.0',
-  );
-
-  const flutter = PluginRef(
-    name: 'flutter',
-    repo: 'acme/flutter',
-    version: '2.0.0',
-    gitRef: 'v2.0.0',
-  );
-
   group(PluginResolver, () {
+    const wingspan = PluginRef(
+      name: 'wingspan',
+      repo: 'acme/wingspan',
+      version: '1.0.0',
+      gitRef: 'v1.0.0',
+    );
+
+    const flutter = PluginRef(
+      name: 'flutter',
+      repo: 'acme/flutter',
+      version: '2.0.0',
+      gitRef: 'v2.0.0',
+    );
+
     late FileSystem fs;
     late Directory home;
     late _RecordingParser parser;

@@ -12,62 +12,62 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '_assets.dart';
 
 void main() {
-  late FileSystem fs;
-  late Directory home;
-  late PluginAssets assets;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-
-    // Two plugins, merged the way install will merge them. `review` is
-    // deliberately both an agent and a command name.
-    assets = PluginAssets.merge([
-      pluginAssets(
-        skills: [skillAsset(fs, 'review'), skillAsset(fs, 'plan')],
-        agents: [
-          agentAsset('review', skills: ['plan']),
-          agentAsset('planner'),
-        ],
-        mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
-      ),
-      pluginAssets(
-        skills: [
-          skillAsset(fs, 'testing'),
-          skillAsset(fs, 'quiet', userInvocable: false),
-        ],
-        hooks: [hookAsset(fs)],
-      ),
-    ]);
-  });
-
-  Future<TranslationPlan> translate(
-    Set<Harness> selected, {
-    PluginAssets? using,
-  }) => const Translator().translate(
-    assets: using ?? assets,
-    home: home,
-    selected: selected,
-  );
-
-  /// Every planned path under [harness]'s config directory, relative to it.
-  Future<List<String>> tree(Harness harness, {PluginAssets? using}) async {
-    final plan = await translate({harness}, using: using);
-    final root = harness.configDirectory(home).path;
-    return [
-      for (final change in plan.harnesses[harness]!.changes)
-        if (change.file.path.startsWith('$root/'))
-          change.file.path.substring(root.length + 1),
-    ]..sort();
-  }
-
-  /// Parses [contents] as the JSON or TOML that [path] names.
-  Object? parseStructured(String path, String contents) =>
-      path.endsWith('.json')
-      ? jsonDecode(contents)
-      : TomlDocument.parse(contents);
-
   group(Translator, () {
+    late FileSystem fs;
+    late Directory home;
+    late PluginAssets assets;
+
+    setUp(() {
+      fs = MemoryFileSystem.test();
+      home = fs.directory('/home/dev')..createSync(recursive: true);
+
+      // Two plugins, merged the way install will merge them. `review` is
+      // deliberately both an agent and a command name.
+      assets = PluginAssets.merge([
+        pluginAssets(
+          skills: [skillAsset(fs, 'review'), skillAsset(fs, 'plan')],
+          agents: [
+            agentAsset('review', skills: ['plan']),
+            agentAsset('planner'),
+          ],
+          mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+        ),
+        pluginAssets(
+          skills: [
+            skillAsset(fs, 'testing'),
+            skillAsset(fs, 'quiet', userInvocable: false),
+          ],
+          hooks: [hookAsset(fs)],
+        ),
+      ]);
+    });
+
+    Future<TranslationPlan> translate(
+      Set<Harness> selected, {
+      PluginAssets? using,
+    }) => const Translator().translate(
+      assets: using ?? assets,
+      home: home,
+      selected: selected,
+    );
+
+    /// Every planned path under [harness]'s config directory, relative to it.
+    Future<List<String>> tree(Harness harness, {PluginAssets? using}) async {
+      final plan = await translate({harness}, using: using);
+      final root = harness.configDirectory(home).path;
+      return [
+        for (final change in plan.harnesses[harness]!.changes)
+          if (change.file.path.startsWith('$root/'))
+            change.file.path.substring(root.length + 1),
+      ]..sort();
+    }
+
+    /// Parses [contents] as the JSON or TOML that [path] names.
+    Object? parseStructured(String path, String contents) =>
+        path.endsWith('.json')
+        ? jsonDecode(contents)
+        : TomlDocument.parse(contents);
+
     test('lists every harness once, in reporting order', () {
       expect(harnessTranslators.map((t) => t.harness), Harness.values);
     });

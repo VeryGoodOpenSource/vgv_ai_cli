@@ -2,25 +2,25 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
-  Matcher statement(
-    TomlStatementKind kind, {
-    required List<String> path,
-    required int start,
-    required int end,
-    String comment = '',
-    bool hasInnerComment = false,
-  }) => isA<TomlStatement>()
-      .having((s) => s.kind, 'kind', kind)
-      .having((s) => s.path, 'path', path)
-      .having((s) => s.start, 'start', start)
-      .having((s) => s.end, 'end', end)
-      .having((s) => s.comment, 'comment', comment)
-      .having((s) => s.hasInnerComment, 'hasInnerComment', hasInnerComment);
-
-  List<TomlStatement> topLevel(List<String> lines) =>
-      TomlScanner(lines).region(table: const [])!.body;
-
   group(TomlScanner, () {
+    Matcher statement(
+      TomlStatementKind kind, {
+      required List<String> path,
+      required int start,
+      required int end,
+      String comment = '',
+      bool hasInnerComment = false,
+    }) => isA<TomlStatement>()
+        .having((s) => s.kind, 'kind', kind)
+        .having((s) => s.path, 'path', path)
+        .having((s) => s.start, 'start', start)
+        .having((s) => s.end, 'end', end)
+        .having((s) => s.comment, 'comment', comment)
+        .having((s) => s.hasInnerComment, 'hasInnerComment', hasInnerComment);
+
+    List<TomlStatement> topLevel(List<String> lines) =>
+        TomlScanner(lines).region(table: const [])!.body;
+
     const lines = [
       'model = "o3"',
       '',

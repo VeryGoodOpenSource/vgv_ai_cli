@@ -4,14 +4,17 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  final fs = MemoryFileSystem.test();
-
-  PlannedChange change(String path) =>
-      PlannedChange.text(file: fs.file(path), contents: 'body', harness: null);
-
-  const note = TranslationNote(subject: 'a', reason: 'b');
-
   group(TranslationResult, () {
+    final fs = MemoryFileSystem.test();
+
+    PlannedChange change(String path) => PlannedChange.text(
+      file: fs.file(path),
+      contents: 'body',
+      harness: null,
+    );
+
+    const note = TranslationNote(subject: 'a', reason: 'b');
+
     test('defaults to no notes', () {
       expect(TranslationResult(changes: [change('/a')]).notes, isEmpty);
     });

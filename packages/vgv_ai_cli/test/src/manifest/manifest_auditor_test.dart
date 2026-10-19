@@ -14,91 +14,91 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import '../document/_markdown_file.dart';
 
 void main() {
-  const auditor = ManifestAuditor();
-  const reconciler = Reconciler();
-
-  late FileSystem fs;
-  late Directory home;
-  late ManifestStore manifest;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev')..createSync(recursive: true);
-    manifest = ManifestStore(home);
-  });
-
-  File file(String relative) => fs.file(p.join(home.path, relative));
-
-  File seed(String relative, String contents) => file(relative)
-    ..createSync(recursive: true)
-    ..writeAsStringSync(contents);
-
-  /// Installs [changes] with the real reconciler, recording the manifest.
-  void install(List<PlannedChange> changes) => manifest.save(
-    reconciler.apply(changes, manifest: manifest.load()!).manifest,
-  );
-
-  PlannedChange owned(File target, String contents, {Harness? harness}) =>
-      PlannedChange.text(file: target, contents: contents, harness: harness);
-
-  PlannedChange json(File target, Object contents, {Harness? harness}) =>
-      PlannedChange.text(
-        file: target,
-        contents: jsonEncode(contents),
-        harness: harness,
-        mode: ChangeMode.mergeJson,
-      );
-
-  PlannedChange toml(File target, String contents) => PlannedChange.text(
-    file: target,
-    contents: contents,
-    harness: Harness.codex,
-    mode: ChangeMode.mergeToml,
-  );
-
-  PlannedChange markdown(File target, String body, {String name = 'a'}) =>
-      PlannedChange.markdown(
-        file: target,
-        contents: body,
-        harness: Harness.gemini,
-        section: name,
-      );
-
-  ManifestEntry entryFor(File target) => manifest.load()![target.path]!;
-
-  EntryHealth verify(File target) => auditor.verify(entryFor(target), fs);
-
-  /// Reverses the manifest and keeps what it left, unless it was a dry run,
-  /// as `uninstall` does.
-  Reversal reversal({
-    Set<Harness?>? owners,
-    bool force = false,
-    bool dryRun = false,
-  }) {
-    final result = auditor.reverse(
-      manifest.load()!,
-      fs,
-      owners: owners,
-      force: force,
-      dryRun: dryRun,
-    );
-    if (!dryRun) manifest.save(result.manifest);
-    return result;
-  }
-
-  List<ReversedEntry> reverse({
-    Set<Harness?>? owners,
-    bool force = false,
-    bool dryRun = false,
-  }) => reversal(owners: owners, force: force, dryRun: dryRun).entries;
-
-  ReverseOutcome reverseOne({bool force = false}) =>
-      reverse(force: force).single.outcome;
-
-  Map<String, dynamic> readJson(File target) =>
-      jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
-
   group(ManifestAuditor, () {
+    const auditor = ManifestAuditor();
+    const reconciler = Reconciler();
+
+    late FileSystem fs;
+    late Directory home;
+    late ManifestStore manifest;
+
+    setUp(() {
+      fs = MemoryFileSystem.test();
+      home = fs.directory('/home/dev')..createSync(recursive: true);
+      manifest = ManifestStore(home);
+    });
+
+    File file(String relative) => fs.file(p.join(home.path, relative));
+
+    File seed(String relative, String contents) => file(relative)
+      ..createSync(recursive: true)
+      ..writeAsStringSync(contents);
+
+    /// Installs [changes] with the real reconciler, recording the manifest.
+    void install(List<PlannedChange> changes) => manifest.save(
+      reconciler.apply(changes, manifest: manifest.load()!).manifest,
+    );
+
+    PlannedChange owned(File target, String contents, {Harness? harness}) =>
+        PlannedChange.text(file: target, contents: contents, harness: harness);
+
+    PlannedChange json(File target, Object contents, {Harness? harness}) =>
+        PlannedChange.text(
+          file: target,
+          contents: jsonEncode(contents),
+          harness: harness,
+          mode: ChangeMode.mergeJson,
+        );
+
+    PlannedChange toml(File target, String contents) => PlannedChange.text(
+      file: target,
+      contents: contents,
+      harness: Harness.codex,
+      mode: ChangeMode.mergeToml,
+    );
+
+    PlannedChange markdown(File target, String body, {String name = 'a'}) =>
+        PlannedChange.markdown(
+          file: target,
+          contents: body,
+          harness: Harness.gemini,
+          section: name,
+        );
+
+    ManifestEntry entryFor(File target) => manifest.load()![target.path]!;
+
+    EntryHealth verify(File target) => auditor.verify(entryFor(target), fs);
+
+    /// Reverses the manifest and keeps what it left, unless it was a dry run,
+    /// as `uninstall` does.
+    Reversal reversal({
+      Set<Harness?>? owners,
+      bool force = false,
+      bool dryRun = false,
+    }) {
+      final result = auditor.reverse(
+        manifest.load()!,
+        fs,
+        owners: owners,
+        force: force,
+        dryRun: dryRun,
+      );
+      if (!dryRun) manifest.save(result.manifest);
+      return result;
+    }
+
+    List<ReversedEntry> reverse({
+      Set<Harness?>? owners,
+      bool force = false,
+      bool dryRun = false,
+    }) => reversal(owners: owners, force: force, dryRun: dryRun).entries;
+
+    ReverseOutcome reverseOne({bool force = false}) =>
+        reverse(force: force).single.outcome;
+
+    Map<String, dynamic> readJson(File target) =>
+        jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
+
     group('verify', () {
       test('reports a file that is gone as missing', () {
         final target = file('.agents/skills/a/SKILL.md');

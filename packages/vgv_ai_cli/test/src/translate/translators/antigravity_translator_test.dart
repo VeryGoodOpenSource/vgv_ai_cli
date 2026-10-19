@@ -11,15 +11,15 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  late FileSystem fs;
-  late Directory home;
-
-  setUp(() {
-    fs = MemoryFileSystem.test();
-    home = fs.directory('/home/dev');
-  });
-
   group(AntigravityTranslator, () {
+    late FileSystem fs;
+    late Directory home;
+
+    setUp(() {
+      fs = MemoryFileSystem.test();
+      home = fs.directory('/home/dev');
+    });
+
     const translator = AntigravityTranslator();
     const hooksRoot = '/home/dev/.gemini/config/plugins/vgv/hooks';
 
@@ -205,13 +205,9 @@ void main() {
           ),
         ], 'PostToolUse').single;
 
-        expect(
-          entry['hooks'],
-          isA<List<Object?>>().having((h) => h.single, 'single', {
-            'type': 'command',
-            'command': 'VGV_HOOK_EVENT=PostToolUse a.sh',
-          }),
-        );
+        expect(entry['hooks'], [
+          {'type': 'command', 'command': 'VGV_HOOK_EVENT=PostToolUse a.sh'},
+        ]);
       });
 
       test('register nothing when nothing can run', () {

@@ -6,19 +6,19 @@ import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  RunProcess responds(ProcessResult result) =>
-      (executable, arguments, {runInShell = false}) async => result;
-
-  ProcessResult exits(int code, {String stdout = '', String stderr = ''}) =>
-      ProcessResult(0, code, stdout, stderr);
-
-  /// Exit codes that must all read as a missing harness, not just `127`.
-  const missingExitCodes = [1, 2, 127];
-
-  Matcher hasVersion(String version) =>
-      isA<HarnessDetection>().having((d) => d.version, 'version', version);
-
   group(HarnessDetector, () {
+    RunProcess responds(ProcessResult result) =>
+        (executable, arguments, {runInShell = false}) async => result;
+
+    ProcessResult exits(int code, {String stdout = '', String stderr = ''}) =>
+        ProcessResult(0, code, stdout, stderr);
+
+    /// Exit codes that must all read as a missing harness, not just `127`.
+    const missingExitCodes = [1, 2, 127];
+
+    Matcher hasVersion(String version) =>
+        isA<HarnessDetection>().having((d) => d.version, 'version', version);
+
     test('uses the real Process.run when none is injected', () {
       expect(const HarnessDetector(), isNotNull);
     });

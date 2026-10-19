@@ -116,20 +116,16 @@ exit "${EXIT:-0}"
       );
 
       expect(code, 0);
-      expect(
-        [
-          for (final (_, payload) in runs())
-            [
-              payload['tool_name'],
-              (payload['tool_input']! as Map)['file_path'],
-            ].join(' '),
-        ],
-        [
-          'Edit ${temp.path}/old.dart',
-          'Edit ${temp.path}/renamed.dart',
-          'Write ${temp.path}/lib/added.dart',
-        ],
+      Matcher fileTool(String tool, String path) => allOf(
+        containsPair('tool_name', tool),
+        containsPair('tool_input', containsPair('file_path', path)),
       );
+
+      expect(runs().map((run) => run.$2), [
+        fileTool('Edit', '${temp.path}/old.dart'),
+        fileTool('Edit', '${temp.path}/renamed.dart'),
+        fileTool('Write', '${temp.path}/lib/added.dart'),
+      ]);
     });
 
     test(

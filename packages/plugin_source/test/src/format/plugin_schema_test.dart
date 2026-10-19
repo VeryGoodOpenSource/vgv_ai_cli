@@ -27,7 +27,7 @@ void main() {
         final value = Ack.object({'name': Ack.string()})
             .decode({'name': 'a'}, path: 'plugin.json');
 
-        expect(value, equals({'name': 'a'}));
+        expect(value, {'name': 'a'});
       });
 
       test('throws for null, even when the schema accepts it', () {
@@ -41,7 +41,7 @@ void main() {
         final value = Ack.object({'name': Ack.string()})
             .decode(loadYaml('name: a'), path: 'a.md');
 
-        expect(value['name'], equals('a'));
+        expect(value['name'], 'a');
       });
 
       test('names the deepest failing field and its leaf message', () {
@@ -101,7 +101,7 @@ void main() {
         final value = Ack.object({'name': Ack.string()})
             .decodeJson('{"name": "a"}', path: 'plugin.json');
 
-        expect(value['name'], equals('a'));
+        expect(value['name'], 'a');
       });
 
       test('names the deepest failing field', () {
@@ -128,8 +128,6 @@ void main() {
       });
 
       test('converts invalid JSON into a PluginParseException', () {
-        // jsonDecode throws FormatException, which the command runner renders
-        // as a CLI usage error.
         expect(
           () => hooks.decodeJson('{not json', path: '.mcp.json'),
           allOf(
@@ -143,11 +141,11 @@ void main() {
 
   group('jsonPointer', () {
     test('appends the token as a segment', () {
-      expect(jsonPointer('#/hooks', 0), equals('#/hooks/0'));
+      expect(jsonPointer('#/hooks', 0), '#/hooks/0');
     });
 
     test('escapes a tilde and a slash', () {
-      expect(jsonPointer('#', 'a/b~c'), equals('#/a~1b~0c'));
+      expect(jsonPointer('#', 'a/b~c'), '#/a~1b~0c');
     });
   });
 }

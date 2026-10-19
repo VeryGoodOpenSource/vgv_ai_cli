@@ -2,20 +2,20 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 
 void main() {
-  Matcher keyMerge({
-    required bool writes,
-    required Object? value,
-    required bool adds,
-    required Object? added,
-    required bool declined,
-  }) => isA<KeyMerge>()
-      .having((m) => m.writes, 'writes', writes)
-      .having((m) => m.value, 'value', value)
-      .having((m) => m.adds, 'adds', adds)
-      .having((m) => m.added, 'added', added)
-      .having((m) => m.declined, 'declined', declined);
-
   group(KeyMerge, () {
+    Matcher keyMerge({
+      required bool writes,
+      required Object? value,
+      required bool adds,
+      required Object? added,
+      required bool declined,
+    }) => isA<KeyMerge>()
+        .having((m) => m.writes, 'writes', writes)
+        .having((m) => m.value, 'value', value)
+        .having((m) => m.adds, 'adds', adds)
+        .having((m) => m.added, 'added', added)
+        .having((m) => m.declined, 'declined', declined);
+
     test('added writes the value and adds all of it', () {
       expect(
         const KeyMerge.added('vgv'),

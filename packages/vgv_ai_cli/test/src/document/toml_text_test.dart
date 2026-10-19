@@ -5,16 +5,16 @@ import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  String upsert(
-    String text, {
-    required String key,
-    required Object value,
-    List<String> table = const [],
-  }) => TomlText(text).upsert(table: table, key: key, value: value).source;
-
-  Map<String, dynamic> parse(String text) => TomlDocument.parse(text).toMap();
-
   group(TomlText, () {
+    String upsert(
+      String text, {
+      required String key,
+      required Object value,
+      List<String> table = const [],
+    }) => TomlText(text).upsert(table: table, key: key, value: value).source;
+
+    Map<String, dynamic> parse(String text) => TomlDocument.parse(text).toMap();
+
     group('upsert', () {
       test('writes a new table into an empty document', () {
         expect(

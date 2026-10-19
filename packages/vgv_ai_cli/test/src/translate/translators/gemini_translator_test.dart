@@ -11,11 +11,11 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  late FileSystem fs;
-
-  setUp(() => fs = MemoryFileSystem.test());
-
   group(GeminiTranslator, () {
+    late FileSystem fs;
+
+    setUp(() => fs = MemoryFileSystem.test());
+
     const translator = GeminiTranslator();
 
     test('configures Gemini', () {

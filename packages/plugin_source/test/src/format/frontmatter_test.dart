@@ -19,26 +19,21 @@ void main() {
       test('splits frontmatter from body', () {
         final frontmatter = parse('---\nname: a\n---\n\n# Body\n');
 
-        expect(frontmatter.name, equals('a'));
-        expect(frontmatter.body, equals('# Body\n'));
+        expect(frontmatter.name, 'a');
+        expect(frontmatter.body, '# Body\n');
       });
 
       test('does not treat a horizontal rule as the closing fence', () {
-        // The prototype searched for the substring '\n---' and swallowed half
-        // the document on any skill whose body used a rule.
         final frontmatter = parse(
           '---\nname: a\n---\n\n# Body\n\n---\n\nStill body.\n',
         );
 
-        expect(frontmatter.name, equals('a'));
+        expect(frontmatter.name, 'a');
         expect(frontmatter.body, contains('Still body.'));
       });
 
       test('handles CRLF line endings', () {
-        expect(
-          parse('---\r\nname: a\r\n---\r\n\r\n# Body\r\n').name,
-          equals('a'),
-        );
+        expect(parse('---\r\nname: a\r\n---\r\n\r\n# Body\r\n').name, 'a');
       });
 
       group('rejects', () {
@@ -86,8 +81,6 @@ void main() {
       });
 
       test('never throws a FormatException', () {
-        // YamlException implements FormatException, which the command runner
-        // renders as a CLI usage error. Every failure mode must be converted.
         const malformed = [
           '# no fence\n',
           '---\nname: a\n',
@@ -107,8 +100,6 @@ void main() {
       });
 
       test('rejects a non-string key, naming it', () {
-        // YAML admits an unquoted `2:`, which the schema would reject without
-        // naming the key.
         expect(
           () => parse('---\n2: x\n---\n'),
           throwsParseException('#: key 2 must be a string'),
@@ -151,9 +142,6 @@ void main() {
       });
 
       test('converts nested structures to plain Dart collections', () {
-        // Agents nest `hooks:` that no other harness reads back. loadYaml
-        // returns YamlMap/YamlList, which downstream writers serialize
-        // inconsistently, so the boundary normalizes them here.
         final frontmatter = parse(
           '---\nname: a\nhooks:\n  PreToolUse:\n    - matcher: "Bash"\n---\n',
         );
@@ -182,13 +170,13 @@ void main() {
       test('flattens a literal block onto one line', () {
         final frontmatter = parse('---\ndescription: |\n  One.\n  Two.\n---\n');
 
-        expect(frontmatter.description, equals('One. Two.'));
+        expect(frontmatter.description, 'One. Two.');
       });
 
       test('flattens a folded block onto one line', () {
         final frontmatter = parse('---\ndescription: >\n  One.\n  Two.\n---\n');
 
-        expect(frontmatter.description, equals('One. Two.'));
+        expect(frontmatter.description, 'One. Two.');
       });
 
       test('is empty when absent', () {
@@ -198,7 +186,7 @@ void main() {
 
     group('oneLine', () {
       test('flattens folded and literal text onto one line', () {
-        expect(Frontmatter.oneLine('  One.\n  Two.\n'), equals('One. Two.'));
+        expect(Frontmatter.oneLine('  One.\n  Two.\n'), 'One. Two.');
       });
 
       test('is null for null', () {
@@ -208,22 +196,19 @@ void main() {
 
     group('skills', () {
       test('parses an inline list', () {
-        expect(parse('---\nskills: [a, b]\n---\n').skills, equals(['a', 'b']));
+        expect(parse('---\nskills: [a, b]\n---\n').skills, ['a', 'b']);
       });
 
       test('parses a block sequence', () {
-        expect(
-          parse('---\nskills:\n  - a\n  - b\n---\n').skills,
-          equals(['a', 'b']),
-        );
+        expect(parse('---\nskills:\n  - a\n  - b\n---\n').skills, ['a', 'b']);
       });
 
       test('splits a comma-separated string', () {
-        expect(parse('---\nskills: a, b\n---\n').skills, equals(['a', 'b']));
+        expect(parse('---\nskills: a, b\n---\n').skills, ['a', 'b']);
       });
 
       test('parses a bare scalar as one entry', () {
-        expect(parse('---\nskills: a\n---\n').skills, equals(['a']));
+        expect(parse('---\nskills: a\n---\n').skills, ['a']);
       });
 
       test('is empty when absent', () {
@@ -231,16 +216,9 @@ void main() {
       });
 
       test('drops blank entries', () {
-        expect(
-          parse('---\nskills: [a, "", b]\n---\n').skills,
-          equals(['a', 'b']),
-        );
+        expect(parse('---\nskills: [a, "", b]\n---\n').skills, ['a', 'b']);
       });
     });
-
-    // allowed-tools and user-invocable are Claude-specific interpretations and
-    // live in ClaudePluginParser; their tests are in
-    // parser/claude_plugin_parser_test.dart.
 
     group('name', () {
       test('is null when absent', () {
@@ -255,15 +233,11 @@ void main() {
           parse('${Frontmatter.render(values)}\nbody\n');
 
       test('renders nothing for an empty map', () {
-        // An empty fence is not a valid frontmatter block, so emit no block.
         expect(Frontmatter.render(const {}), isEmpty);
       });
 
       test('round-trips a plain string', () {
-        expect(
-          roundTrip({'name': 'testing'}).values['name'],
-          equals('testing'),
-        );
+        expect(roundTrip({'name': 'testing'}).values['name'], 'testing');
       });
 
       test('round-trips a string carrying YAML indicator characters', () {
@@ -271,36 +245,31 @@ void main() {
 
         expect(
           roundTrip({'description': awkward}).values['description'],
-          equals(awkward),
+          awkward,
         );
       });
 
       test('round-trips a string that looks like a bool', () {
-        // Emitted plain, `yes` parses back as a boolean rather than a string.
-        expect(roundTrip({'name': 'yes'}).values['name'], equals('yes'));
+        expect(roundTrip({'name': 'yes'}).values['name'], 'yes');
       });
 
       test('round-trips a string that looks like a number', () {
-        expect(roundTrip({'name': '1.0'}).values['name'], equals('1.0'));
+        expect(roundTrip({'name': '1.0'}).values['name'], '1.0');
       });
 
       test('round-trips a string containing a quote and a backslash', () {
         const awkward = r'He said "run C:\dart" loudly';
 
-        expect(roundTrip({'name': awkward}).values['name'], equals(awkward));
+        expect(roundTrip({'name': awkward}).values['name'], awkward);
       });
 
       test('round-trips a multi-line string as a literal block', () {
-        // The plugins write descriptions as folded and literal block scalars.
         const multi = 'First line.\nSecond line.';
 
         final rendered = Frontmatter.render({'description': multi});
 
         expect(rendered, contains('|2-'));
-        expect(
-          roundTrip({'description': multi}).values['description'],
-          equals(multi),
-        );
+        expect(roundTrip({'description': multi}).values['description'], multi);
       });
 
       test('round-trips a multi-line string whose first line is indented', () {
@@ -308,7 +277,7 @@ void main() {
 
         expect(
           roundTrip({'description': indented}).values['description'],
-          equals(indented),
+          indented,
         );
       });
 
@@ -319,7 +288,7 @@ void main() {
           roundTrip({
             'notes': [multi, 'single'],
           }).values['notes'],
-          equals([multi, 'single']),
+          [multi, 'single'],
         );
       });
 
@@ -330,7 +299,7 @@ void main() {
           roundTrip({
             'outer': {'inner': multi},
           }).values['outer'],
-          equals({'inner': multi}),
+          {'inner': multi},
         );
       });
 
@@ -346,7 +315,7 @@ void main() {
       });
 
       test('round-trips a string containing a tab', () {
-        expect(roundTrip({'name': 'a\tb'}).values['name'], equals('a\tb'));
+        expect(roundTrip({'name': 'a\tb'}).values['name'], 'a\tb');
       });
 
       test('round-trips a list', () {
@@ -354,7 +323,7 @@ void main() {
           roundTrip({
             'keywords': ['a', 'b'],
           }).values['keywords'],
-          equals(['a', 'b']),
+          ['a', 'b'],
         );
       });
 
@@ -363,10 +332,7 @@ void main() {
           'metadata': {'type': 'reference', 'level': 2},
         });
 
-        expect(
-          parsed.values['metadata'],
-          equals({'type': 'reference', 'level': 2}),
-        );
+        expect(parsed.values['metadata'], {'type': 'reference', 'level': 2});
         expect(parsed.values['metadata'], isA<Map<String, Object?>>());
       });
 
@@ -374,7 +340,7 @@ void main() {
         final parsed = roundTrip({'enabled': true, 'weight': 3});
 
         expect(parsed.values['enabled'], isTrue);
-        expect(parsed.values['weight'], equals(3));
+        expect(parsed.values['weight'], 3);
       });
 
       test('renders a null as an empty value', () {
@@ -382,18 +348,16 @@ void main() {
       });
 
       test('renders an empty list and map as quoted scalars', () {
-        // Neither has a useful block form; stringifying keeps the document
-        // parseable instead of emitting a dangling key.
         final parsed = roundTrip({'a': <String>[], 'b': <String, Object?>{}});
 
-        expect(parsed.values['a'], equals('[]'));
-        expect(parsed.values['b'], equals('{}'));
+        expect(parsed.values['a'], '[]');
+        expect(parsed.values['b'], '{}');
       });
 
       test('round-trips the body beneath it', () {
         final rendered = Frontmatter.render({'name': 'a'});
 
-        expect(parse('$rendered\n# Body\n').body, equals('# Body\n'));
+        expect(parse('$rendered\n# Body\n').body, '# Body\n');
       });
     });
   });

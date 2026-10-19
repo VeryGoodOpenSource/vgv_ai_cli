@@ -15,66 +15,67 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import '../document/_markdown_file.dart';
 
 void main() {
-  /// The hex SHA-256 the manifest records for [text].
-  String hashText(String text) => sha256.convert(utf8.encode(text)).toString();
-
-  const reconciler = Reconciler();
-
-  late FileSystem fileSystem;
-  late Directory home;
-  late InstallManifest manifest;
-
-  setUp(() {
-    fileSystem = MemoryFileSystem.test();
-    home = fileSystem.directory('/home/dev')..createSync(recursive: true);
-    manifest = InstallManifest();
-  });
-
-  /// Applies [changes] against [manifest], and keeps what they recorded
-  /// unless it was a dry run, as `install` does.
-  List<AppliedChange> applyAll(
-    List<PlannedChange> changes, {
-    bool force = false,
-    bool dryRun = false,
-  }) {
-    final reconciliation = reconciler.apply(
-      changes,
-      manifest: manifest,
-      force: force,
-      dryRun: dryRun,
-    );
-    if (!dryRun) manifest = reconciliation.manifest;
-    return reconciliation.changes;
-  }
-
-  AppliedChange applyOne(
-    PlannedChange change, {
-    bool force = false,
-    bool dryRun = false,
-  }) => applyAll([change], force: force, dryRun: dryRun).single;
-
-  File file(String relative) => fileSystem.file(p.join(home.path, relative));
-
-  T entryFor<T extends ManifestEntry>(File target) =>
-      manifest.entryOf<T>(target.path)!;
-
-  File seed(String relative, String contents) {
-    final f = file(relative)..parent.createSync(recursive: true);
-    return f..writeAsStringSync(contents);
-  }
-
-  PlannedChange change(File target, String contents, ChangeMode mode) =>
-      PlannedChange.text(
-        file: target,
-        contents: contents,
-        harness: null,
-        mode: mode,
-      );
-
-  Map<String, dynamic> readJson(File target) =>
-      jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
-
   group(Reconciler, () {
+    /// The hex SHA-256 the manifest records for [text].
+    String hashText(String text) =>
+        sha256.convert(utf8.encode(text)).toString();
+
+    const reconciler = Reconciler();
+
+    late FileSystem fileSystem;
+    late Directory home;
+    late InstallManifest manifest;
+
+    setUp(() {
+      fileSystem = MemoryFileSystem.test();
+      home = fileSystem.directory('/home/dev')..createSync(recursive: true);
+      manifest = InstallManifest();
+    });
+
+    /// Applies [changes] against [manifest], and keeps what they recorded
+    /// unless it was a dry run, as `install` does.
+    List<AppliedChange> applyAll(
+      List<PlannedChange> changes, {
+      bool force = false,
+      bool dryRun = false,
+    }) {
+      final reconciliation = reconciler.apply(
+        changes,
+        manifest: manifest,
+        force: force,
+        dryRun: dryRun,
+      );
+      if (!dryRun) manifest = reconciliation.manifest;
+      return reconciliation.changes;
+    }
+
+    AppliedChange applyOne(
+      PlannedChange change, {
+      bool force = false,
+      bool dryRun = false,
+    }) => applyAll([change], force: force, dryRun: dryRun).single;
+
+    File file(String relative) => fileSystem.file(p.join(home.path, relative));
+
+    T entryFor<T extends ManifestEntry>(File target) =>
+        manifest.entryOf<T>(target.path)!;
+
+    File seed(String relative, String contents) {
+      final f = file(relative)..parent.createSync(recursive: true);
+      return f..writeAsStringSync(contents);
+    }
+
+    PlannedChange change(File target, String contents, ChangeMode mode) =>
+        PlannedChange.text(
+          file: target,
+          contents: contents,
+          harness: null,
+          mode: mode,
+        );
+
+    Map<String, dynamic> readJson(File target) =>
+        jsonDecode(target.readAsStringSync()) as Map<String, dynamic>;
+
     group('own', () {
       test('creates a file that did not exist', () {
         final target = file('.agents/skills/testing/SKILL.md');
