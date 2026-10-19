@@ -132,8 +132,8 @@ extension type HookJson(Map<String, Object?> _json) {
 /// A skill's `SKILL.md` frontmatter, validated for the keys Claude adds
 /// beyond the ones every format shares.
 ///
-/// Built only through [SkillFrontmatter.decode], so holding one means its
-/// keys were validated.
+/// Built only through its `decode` factory, so holding one means its keys
+/// were validated.
 extension type SkillFrontmatter._(Frontmatter _frontmatter)
     implements Frontmatter {
   /// Validates [frontmatter], read from the file at [path].
@@ -154,10 +154,15 @@ extension type SkillFrontmatter._(Frontmatter _frontmatter)
     'when_to_use': Ack.string().optional(),
   }).passthrough();
 
+  /// Whether a user can invoke the skill as a command, or `null` when the
+  /// `user-invocable` key is absent.
   bool? get userInvocable => values['user-invocable'] as bool?;
 
+  /// The `allowed-tools` value, tool names separated by spaces or commas.
   String? get allowedTools => values['allowed-tools'] as String?;
 
+  /// The `tools` value, which some skills write in place of
+  /// `allowed-tools`.
   String? get tools => values['tools'] as String?;
 
   /// Claude's own key for the skill's trigger phrases, flattened onto one

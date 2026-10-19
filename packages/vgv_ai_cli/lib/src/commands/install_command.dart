@@ -15,7 +15,7 @@ import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template install_command}
-/// Configures Very Good AI tooling across the detected coding-agent harnesses.
+/// Configures the Very Good AI tooling for the detected coding-agent harnesses.
 ///
 /// * `--check` prints the changes without writing them.
 /// * `--force` takes VGV's values where they conflict with the user's.

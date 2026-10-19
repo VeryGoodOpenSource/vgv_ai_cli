@@ -53,7 +53,8 @@ extension type const Contribution(Map<String, dynamic> keys) {
     _ => const [],
   };
 
-  /// What of this [current] no longer holds, and what it holds changed.
+  /// The parts of this contribution that [current] no longer holds, and
+  /// those it holds with a different value.
   ///
   /// A list is missing when any entry VGV appended is gone. Entries the user
   /// added beside VGV's are theirs and do not count. A list that is one
