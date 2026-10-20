@@ -5,6 +5,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_cli/src/translate/copy_source.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 
 /// {@template hook_scripts}
@@ -59,6 +60,28 @@ class const HookScripts({
   /// Whether [hook] runs a shell command, which is what needs the preamble.
   static bool runsCommand(HookAsset hook) =>
       hook.commands.any((command) => command.type == commandType);
+
+  /// One note per handler type in [hooks] that runs no shell command, which
+  /// [harness] leaves out.
+  List<TranslationNote> handlerNotes(List<HookAsset> hooks) {
+    final counts = hooks
+        .expand((hook) => hook.commands)
+        .map((command) => command.type)
+        .where((type) => type != commandType)
+        .groupFoldBy<String, int>(
+          (type) => type,
+          (count, _) => (count ?? 0) + 1,
+        );
+    return [
+      for (final MapEntry(key: type, value: count) in counts.entries)
+        TranslationNote(
+          subject: '$count $type handler(s)',
+          reason:
+              '${harness.displayName} runs a shell command only, so they are '
+              'left out',
+        ),
+    ];
+  }
 
   /// Where the copy of [hook]'s plugin goes under [hooksRoot].
   static Directory copyRoot(HookAsset hook, Directory hooksRoot) =>
@@ -194,7 +217,7 @@ class const HookScripts({
     required List<TranslationNote> notes,
   }) {
     final subject = '${hook.plugin}/$relative';
-    final source = _sourceFile(entity, subject, notes);
+    final source = entity.copySource(subject, notes);
     if (source == null) return null;
 
     final file = _HookFile(
@@ -206,39 +229,6 @@ class const HookScripts({
     return use == null
         ? file
         : _withPreamble(file, subject: subject, use: use, notes: notes);
-  }
-
-  /// Resolves [entity] to a readable file, or reports why it cannot be.
-  static File? _sourceFile(
-    FileSystemEntity entity,
-    String subject,
-    List<TranslationNote> notes,
-  ) {
-    if (entity is File) return entity;
-
-    final String resolved;
-    try {
-      resolved = entity.resolveSymbolicLinksSync();
-    } on FileSystemException {
-      notes.add(
-        TranslationNote(
-          subject: subject,
-          reason: 'the symlink points at something that does not exist',
-        ),
-      );
-      return null;
-    }
-
-    final file = entity.fileSystem.file(resolved);
-    if (file.existsSync()) return file;
-
-    notes.add(
-      TranslationNote(
-        subject: subject,
-        reason: 'the symlink points at a directory, which is not copied',
-      ),
-    );
-    return null;
   }
 
   /// [file] with the [preamble] below its shebang. A script bash does not

@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('FixCommand', () {
+  group(FixCommand, () {
     test('names each harness with --only, in harness order', () {
       expect(
         const FixCommand(harnesses: {Harness.gemini, Harness.codex}).toString(),

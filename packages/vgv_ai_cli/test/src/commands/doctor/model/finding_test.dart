@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 
 void main() {
-  group('Finding', () {
+  group(Finding, () {
     test('missing is fixed by install', () {
       const finding = Finding.missing('missing ~/a');
 

@@ -11,9 +11,9 @@ import 'package:vgv_ai_cli/src/version.dart';
 import '../../helpers/command_helper.dart';
 
 void main() {
-  const latestVersion = '0.0.0';
+  group(UpdateCommand, () {
+    const latestVersion = '0.0.0';
 
-  group('update', () {
     late PubUpdater pubUpdater;
     late Logger logger;
     late VgvAiCliCommandRunner commandRunner;
@@ -43,7 +43,7 @@ void main() {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenThrow(Exception('oops'));
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Exception: oops'));
       verifyNever(
@@ -64,7 +64,7 @@ void main() {
         ),
       ).thenThrow(Exception('oops'));
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Exception: oops'));
       verify(
@@ -90,7 +90,7 @@ void main() {
 
       final result = await commandRunner.run(['update']);
 
-      expect(result, equals(ExitCode.software.code));
+      expect(result, ExitCode.software.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.err('Error updating CLI: $error'));
       verify(
@@ -113,7 +113,7 @@ void main() {
         (_) async => ProcessResult(0, ExitCode.success.code, null, null),
       );
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verify(() => logger.progress('Checking for updates')).called(1);
       verify(() => logger.progress('Updating to $latestVersion')).called(1);
       verify(
@@ -128,7 +128,7 @@ void main() {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenAnswer((_) async => packageVersion);
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verify(() => logger.info('CLI is already at the latest version.'))
           .called(1);
       verifyNever(() => logger.progress('Updating to $latestVersion'));

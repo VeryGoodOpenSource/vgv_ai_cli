@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 void main() {
   final fileSystem = MemoryFileSystem.test();
 
-  group('PlannedChange', () {
+  group(PlannedChange, () {
     test('toString names the mode, the owner and the path', () {
       final change = PlannedChange.text(
         file: fileSystem.file('/home/user/.codex/config.toml'),
@@ -125,7 +125,7 @@ void main() {
     });
   });
 
-  group('ChangeMode', () {
+  group(ChangeMode, () {
     test('has the format of each document merge, and of nothing else', () {
       expect(ChangeMode.mergeJson.format, DocumentFormat.json);
       expect(ChangeMode.mergeToml.format, DocumentFormat.toml);
@@ -134,7 +134,7 @@ void main() {
     });
   });
 
-  group('DocumentFormat', () {
+  group(DocumentFormat, () {
     test('has the mode that merges into it', () {
       expect(DocumentFormat.json.mode, ChangeMode.mergeJson);
       expect(DocumentFormat.toml.mode, ChangeMode.mergeToml);

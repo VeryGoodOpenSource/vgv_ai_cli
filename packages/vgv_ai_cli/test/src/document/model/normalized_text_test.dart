@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 
 void main() {
-  group('NormalizedText', () {
+  group(NormalizedText, () {
     group('from', () {
       test('makes CRLF text LF, and restores an edit of it to CRLF', () {
         final normalized = NormalizedText.from('a\r\nb\r\n');

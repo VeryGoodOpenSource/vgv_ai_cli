@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
@@ -16,8 +17,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 ///
 /// * `--check` prints what would be removed without removing anything.
 /// * `--force` also removes what VGV wrote that you have changed since.
-/// * `--only` removes just the named harnesses.
-/// * `--no-<harness>` keeps one harness. It cannot be combined with `--only`.
+/// * `--only` removes the tooling from just the named harnesses.
+/// * `--no-<harness>` leaves one harness's tooling in place. It cannot be
+///   combined with `--only`.
 ///
 /// The shared skills are removed only when every harness the manifest
 /// records is, since the harnesses that are left still read them.
@@ -41,7 +43,10 @@ class UninstallCommand({
         help: 'Also remove what install wrote that you have changed since.',
         negatable: false,
       );
-    addHarnessOptions('Remove', only: 'just these harnesses.');
+    addHarnessOptions(
+      'Remove the Very Good AI tooling from',
+      only: 'just these harnesses.',
+    );
   }
 
   /// The name the CLI registers `uninstall` under, so other code can name it
@@ -83,8 +88,14 @@ class UninstallCommand({
       return ExitCode.config.code;
     }
 
-    final store = ManifestStore(home);
-    final manifest = _load(store);
+    final store = ReportingManifestStore(
+      ManifestStore(home),
+      _logger,
+      nothingDone: 'Removed nothing',
+      done: 'removed',
+      retry: 'uninstall',
+    );
+    final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
     if (manifest.entries.isEmpty) {
       _logger.info(
@@ -121,58 +132,11 @@ class UninstallCommand({
     if (!full && hasSharedSkills) _reportSharedSkillsKept(skillsRoot);
     _reportNextStep(reversal.entries, dryRun: dryRun);
 
-    final saved =
-        dryRun || _record(store, from: manifest, to: reversal.manifest);
+    final saved = dryRun || store.save(from: manifest, to: reversal.manifest);
     final anyFailed = reversal.entries.any(
       (entry) => entry.outcome == ReverseOutcome.failed,
     );
     return !saved || anyFailed ? ExitCode.ioError.code : ExitCode.success.code;
-  }
-
-  /// The manifest in [store], or null, having said why, when it cannot be
-  /// read or was written by a newer version.
-  InstallManifest? _load(ManifestStore store) {
-    try {
-      final manifest = store.load();
-      if (manifest == null) {
-        _logger
-          ..err(
-            'Removed nothing, because ${ManifestStore.unreadable}: '
-            '${store.file.path}',
-          )
-          ..err(
-            'Run ${lightCyan.wrap('vgv_ai update')}, then run uninstall '
-            'again.',
-          );
-      }
-      return manifest;
-    } on FileSystemException catch (error) {
-      _logger.err(
-        'Removed nothing, because ${store.file.path} could not be read: '
-        '${error.description}',
-      );
-      return null;
-    }
-  }
-
-  /// Saves [to] in [store] unless it is [from], and returns whether it could.
-  bool _record(
-    ManifestStore store, {
-    required InstallManifest from,
-    required InstallManifest to,
-  }) {
-    if (to == from) return true;
-
-    try {
-      store.save(to);
-      return true;
-    } on FileSystemException catch (error) {
-      _logger.err(
-        'Could not record what was removed in ${store.file.path}: '
-        '${error.description}',
-      );
-      return false;
-    }
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up

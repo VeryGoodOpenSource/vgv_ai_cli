@@ -120,7 +120,7 @@ class const AntigravityTranslator() extends HarnessTranslator {
                 'Antigravity reads nothing a hook says after a tool, so they '
                 'run but the agent hears none of it',
           ),
-        ..._handlerNotes(runnable),
+        ...scripts.handlerNotes(runnable),
       ],
     );
   }
@@ -202,25 +202,6 @@ class const AntigravityTranslator() extends HarnessTranslator {
       );
     }
     return null;
-  }
-
-  /// One note per handler type that runs no shell command.
-  static List<TranslationNote> _handlerNotes(List<HookAsset> hooks) {
-    final counts = hooks
-        .expand((hook) => hook.commands)
-        .map((command) => command.type)
-        .where((type) => type != HookScripts.commandType)
-        .groupFoldBy<String, int>(
-          (type) => type,
-          (count, _) => (count ?? 0) + 1,
-        );
-    return [
-      for (final MapEntry(key: type, value: count) in counts.entries)
-        TranslationNote(
-          subject: '$count $type handler(s)',
-          reason: 'Antigravity runs a shell command only, so they are left out',
-        ),
-    ];
   }
 
   @override

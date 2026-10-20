@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 void main() {
-  group('HookTranslation', () {
+  group(HookTranslation, () {
     test('defaults to nothing to register, no files and no notes', () {
       const translation = HookTranslation();
 

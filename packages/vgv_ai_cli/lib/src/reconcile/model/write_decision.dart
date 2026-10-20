@@ -13,8 +13,8 @@ class const WriteDecision({
   required final HeldBack held,
 
   /// What the manifest records for the file. Null leaves the manifest's
-  /// entry as it is, and an empty contribution drops it, since nothing in
-  /// the file is VGV's.
+  /// entry as it is, and a [MergedDocument] with an empty contribution drops
+  /// it, since nothing in the file is VGV's.
   final ManifestEntry? entry,
 }) {
   /// {@macro write_decision}

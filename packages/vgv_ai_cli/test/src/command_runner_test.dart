@@ -26,16 +26,17 @@ class _FlagCommand() extends Command<int> {
   Future<int> run() async => ExitCode.success.code;
 }
 
-const latestVersion = '0.0.0';
+void main() {
+  group(VgvAiCliCommandRunner, () {
+    const latestVersion = '0.0.0';
 
-final updatePrompt =
-    // We need to ignore this lint in order to match the exact message format.
-    // ignore: leading_newlines_in_multiline_strings
-    '''${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u2192 ${lightCyan.wrap(latestVersion)}
+    final updatePrompt =
+        // We need to ignore this lint in order to match the exact message
+        // format.
+        // ignore: leading_newlines_in_multiline_strings
+        '''${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u2192 ${lightCyan.wrap(latestVersion)}
 Run ${lightCyan.wrap('$executableName update')} to update''';
 
-void main() {
-  group('VgvAiCliCommandRunner', () {
     late PubUpdater pubUpdater;
     late Logger logger;
     late VgvAiCliCommandRunner commandRunner;
@@ -52,7 +53,7 @@ void main() {
           .thenAnswer((_) async => latestVersion);
 
       final result = await commandRunner.run(['--version']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verify(() => logger.info(updatePrompt)).called(1);
     });
 
@@ -71,7 +72,7 @@ void main() {
           .thenAnswer((_) async => latestVersion);
 
       final result = await commandRunner.run(['completion']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verifyNever(() => logger.info(updatePrompt));
     });
 
@@ -94,7 +95,7 @@ void main() {
       ).thenAnswer((_) async => true);
 
       final result = await commandRunner.run(['update']);
-      expect(result, equals(ExitCode.success.code));
+      expect(result, ExitCode.success.code);
       verifyNever(() => logger.info(updatePrompt));
     });
 
@@ -117,7 +118,7 @@ void main() {
         }
       });
       final result = await commandRunner.run(['--version']);
-      expect(result, equals(ExitCode.usage.code));
+      expect(result, ExitCode.usage.code);
       verify(() => logger.err(exception.message)).called(1);
       verify(() => logger.info(commandRunner.usage)).called(1);
     });
@@ -132,7 +133,7 @@ void main() {
         }
       });
       final result = await commandRunner.run(['--version']);
-      expect(result, equals(ExitCode.usage.code));
+      expect(result, ExitCode.usage.code);
       verify(() => logger.err(exception.message)).called(1);
       verify(() => logger.info('exception usage')).called(1);
     });
@@ -140,7 +141,7 @@ void main() {
     group('--version', () {
       test('outputs current version', () async {
         final result = await commandRunner.run(['--version']);
-        expect(result, equals(ExitCode.success.code));
+        expect(result, ExitCode.success.code);
         verify(() => logger.info(packageVersion)).called(1);
       });
     });
@@ -148,7 +149,7 @@ void main() {
     group('--verbose', () {
       test('enables verbose logging', () async {
         final result = await commandRunner.run(['--verbose']);
-        expect(result, equals(ExitCode.success.code));
+        expect(result, ExitCode.success.code);
 
         verify(() => logger.detail('Argument information:')).called(1);
         verify(() => logger.detail('  Top level options:')).called(1);
@@ -163,7 +164,7 @@ void main() {
           'flagged',
           '--flag',
         ]);
-        expect(result, equals(ExitCode.success.code));
+        expect(result, ExitCode.success.code);
 
         verify(() => logger.detail('Argument information:')).called(1);
         verify(() => logger.detail('  Top level options:')).called(1);

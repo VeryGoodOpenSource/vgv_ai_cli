@@ -102,7 +102,7 @@ exit "${EXIT:-0}"
       final payload = runs().single.$2;
       expect(payload['hook_event_name'], 'PreToolUse');
       expect(payload['tool_name'], 'Bash');
-      expect((payload['tool_input']! as Map)['command'], 'dart test');
+      expect(payload['tool_input'], containsPair('command', 'dart test'));
       expect(payload['cwd'], temp.path);
       expect(payload['session_id'], 'c1');
     });
@@ -118,10 +118,10 @@ exit "${EXIT:-0}"
         await run(call('view_file', {'AbsolutePath': '/c.dart'}));
 
         expect(runs().map((r) => r.$2['tool_name']), ['Edit', 'Write', 'Read']);
-        expect(runs().map((r) => (r.$2['tool_input']! as Map)['file_path']), [
-          '/a.dart',
-          '/b.dart',
-          '/c.dart',
+        expect(runs().map((r) => r.$2['tool_input']), [
+          containsPair('file_path', '/a.dart'),
+          containsPair('file_path', '/b.dart'),
+          containsPair('file_path', '/c.dart'),
         ]);
         expect(runs().first.$2['hook_event_name'], 'PostToolUse');
       },

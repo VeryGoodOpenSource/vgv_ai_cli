@@ -10,7 +10,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('CopilotTranslator', () {
+  group(CopilotTranslator, () {
     const translator = CopilotTranslator();
 
     test('configures Copilot', () {
@@ -107,7 +107,13 @@ void main() {
         final hooks = file([hookAsset(fs), hookAsset(fs, event: 'Stop')]);
 
         expect(hooks['version'], 1);
-        expect((hooks['hooks']! as Map).keys, ['PostToolUse', 'Stop']);
+        expect(
+          hooks['hooks'],
+          isA<Map<String, Object?>>().having((e) => e.keys, 'keys', [
+            'PostToolUse',
+            'Stop',
+          ]),
+        );
       });
 
       test('spell each command as one entry under bash, timed in seconds', () {

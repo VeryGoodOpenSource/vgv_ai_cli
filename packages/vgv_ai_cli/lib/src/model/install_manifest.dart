@@ -24,7 +24,7 @@ sealed class const ManifestEntry({
   /// How [path] was written.
   ChangeMode get mode;
 
-  /// This entry as the JSON written into `~/.vgv_ai/manifest.json`.
+  /// The entry as [fromJson] reads it, with [path] still absolute.
   Map<String, Object?> toJson() => {
     'path': path,
     'owner': owner?.name,
@@ -207,10 +207,10 @@ class InstallManifest extends Equatable {
   /// vgv_ai wrote it.
   ///
   /// A malformed manifest is empty: an unrecorded file is the user's, which
-  /// is the safe way to be wrong. So is an entry whose path is absolute or
-  /// leads out of [home]. A version 1 manifest is read as one that records
-  /// no plugin versions. One from a newer version is null, because writing
-  /// over it would lose everything it records.
+  /// is the safe way to be wrong. For the same reason, an entry whose path
+  /// is absolute or leads out of [home] is dropped. A version 1 manifest is
+  /// read as one that records no plugin versions. One from a newer version
+  /// is null, because writing over it would lose everything it records.
   static InstallManifest? decode(String source, {required String home}) {
     final Object? json;
     try {

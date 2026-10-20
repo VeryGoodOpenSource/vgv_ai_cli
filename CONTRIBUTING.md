@@ -1,45 +1,104 @@
 # Contributing to vgv_ai_cli
 
-Thanks for taking the time! This guide is the short version — [AGENTS.md](AGENTS.md) holds the
-architecture, conventions and the full command reference, and it applies to humans as much as to
-coding agents.
+This guide covers setting up the repository and the commands you need to work
+on it. For what the repository holds, see the [README](README.md).
 
-## Open an issue first
+## Prerequisites
 
-Please [open an issue](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/new/choose) before
-you open a pull request, so we can agree on the fix before you put work into it.
+| Requirement                                     | Why                                               |
+| ----------------------------------------------- | ------------------------------------------------- |
+| [Dart SDK](https://dart.dev/get-dart) `^3.13.0` | The code uses Dart 3.13 syntax.                   |
+| [Very Good CLI](https://cli.vgv.dev) `^1.5.0`   | The coverage run needs its pub workspace support. |
+| [jq](https://jqlang.org)                        | The agent hooks parse their payloads with it.     |
+| [GitHub CLI](https://cli.github.com), signed in | Pushing branches and opening pull requests.       |
 
-## Set up
+The Dart version matters more than it looks: on 3.12 the analyze hook reports
+errors against this codebase's Dart 3.13 syntax, and those errors read as real
+ones. Fix the SDK, not the code.
 
-Install the prerequisites in [AGENTS.md](AGENTS.md#prerequisites) — the Dart version matters, on
-3.12 the analyzer reports errors against this codebase's 3.13 syntax. Then, from the repo root:
+## Contributor setup
+
+This repo ships a committed agent configuration in `.claude/settings.json`,
+which declares the `very-good-claude-code-marketplace` and enables two VGV
+plugins: `vgv-wingspan` and `vgv-ai-flutter-plugin`.
+
+### 1. Trust the folder
+
+Open the repo in Claude Code and accept the trust prompt. The marketplace
+resolves from the committed settings, so you don't need to run
+`/plugin marketplace add`.
+
+One exception: if you already have a marketplace registered under the name
+`very-good-claude-code-marketplace`, that registration wins and the committed
+pin is ignored. Check that `/plugin` shows the GitHub source. If it shows a
+local directory instead, remove yours first.
+
+### 2. Confirm the plugins installed, then restart
+
+Run `/plugin` and check that both plugins show as enabled. Then restart the
+session: settings apply immediately, but hooks and MCP servers only bind at
+session start.
+
+This step isn't optional bookkeeping. Wingspan normally nudges you when a
+companion plugin is missing, but it decides "already installed" by looking for
+the plugin name in `.claude/settings.json`, which this repo commits. If your
+install silently failed, nothing tells you, and the agent carries on without
+the hooks or quality gates.
+
+### 3. Verify
+
+Run this from `packages/vgv_ai_cli`:
 
 ```sh
-dart pub get
+dart pub get && dart analyze --fatal-infos --fatal-warnings lib test
 ```
 
-The [repo README](README.md#contributor-setup) covers the committed agent configuration.
+## Common commands
 
-## Before you open the pull request
+Run these from `packages/vgv_ai_cli`:
 
 ```sh
-# From packages/vgv_ai_cli
-dart format .
+# Format code
+dart format --set-exit-if-changed .
+
+# Analyze code (warnings and infos are fatal)
 dart analyze --fatal-infos --fatal-warnings lib test
+
+# Run a single test file
+dart run test test/src/commands/update_command_test.dart
+
+# Run the CLI from source
+dart run bin/vgv_ai.dart --help
 ```
 
-Run the test suite as [AGENTS.md](AGENTS.md#common-commands) describes. Pull requests without 100%
-coverage will not be merged.
+CI runs the full suite with a 100% coverage gate:
 
-Branch from `main`, and use a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0)
-message — the `semantic-pull-request` check enforces it on the PR title, and release-please reads
-it to build the changelog.
+```sh
+very_good dart test -j 4 --coverage --min-coverage 100 --optimization
+```
+
+With the VGV AI Flutter plugin active, a hook blocks that command in the shell,
+so a coding agent runs it through the `very_good_cli` MCP `test` tool instead.
+
+To browse a coverage report after a coverage run, generate it with
+[lcov](https://github.com/linux-test-project/lcov):
+
+```sh
+genhtml coverage/lcov.info -o coverage/
+open coverage/index.html
+```
+
+## Pull requests
+
+- New code needs tests: both packages keep 100% test coverage.
+- Commits and pull request titles follow
+  [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## Releases
 
-[release-please](https://github.com/googleapis/release-please) owns versions and changelogs. Every
-push to `main` opens or updates a release pull request that bumps `pubspec.yaml`, regenerates
-`lib/src/version.dart` and writes `CHANGELOG.md`. Merge it only when a release is intended; merging
-it tags the release and publishes the GitHub release notes.
+[release-please](https://github.com/googleapis/release-please) owns versions and changelogs.
+Every push to `main` opens or updates a release pull request that bumps `pubspec.yaml`,
+regenerates `lib/src/version.dart` and writes `CHANGELOG.md`. Merge it only when a release is
+intended; merging it tags the release and publishes the notes.
 
-Do not bump versions or edit a `CHANGELOG.md` by hand.
+Do not bump a version or edit a `CHANGELOG.md` by hand.

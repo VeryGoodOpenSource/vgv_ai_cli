@@ -7,7 +7,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('PiTranslator', () {
+  group(PiTranslator, () {
     const translator = PiTranslator();
 
     test('configures Pi', () {

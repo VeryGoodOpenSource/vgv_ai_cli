@@ -3,7 +3,7 @@ import 'package:plugin_source/src/resolution.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('UnavailablePlugin', () {
+  group(UnavailablePlugin, () {
     test('single wraps one reason', () {
       expect(UnavailablePlugin.single('nope').reasons, ['nope']);
     });
@@ -13,7 +13,7 @@ void main() {
     });
   });
 
-  group('PluginRef', () {
+  group(PluginRef, () {
     test('keeps the cache version and the git ref distinct', () {
       for (final ref in vgvPlugins) {
         expect(ref.gitRef, isNot(ref.version));

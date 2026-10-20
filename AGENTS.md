@@ -17,7 +17,7 @@ Good code has...
 
 `vgv_ai_cli` is a Dart command-line tool by Very Good Ventures that configures Very Good AI coding agents and tooling. The executable is `vgv_ai`.
 
-The repo is a **pub workspace** monorepo: the root `pubspec.yaml` declares `workspace: [packages/vgv_ai_cli]`, the package uses `resolution: workspace`, and there is one shared `pubspec.lock` at the root.
+The repo is a **pub workspace** monorepo: the root `pubspec.yaml` declares `workspace: [packages/plugin_source, packages/vgv_ai_cli]`, each package uses `resolution: workspace`, and there is one shared `pubspec.lock` at the root. `plugin_source` resolves the pinned VGV Claude Code plugins and parses them into a harness-neutral asset model; `vgv_ai_cli` depends on it.
 
 ## Prerequisites
 
@@ -65,10 +65,10 @@ dart run build_runner build
 dart run bin/vgv_ai.dart --help
 ```
 
-**Full test run with coverage** is the one exception. With the VGV AI Flutter Plugin active, a hook denies `dart test`, `flutter test`, `very_good test`, `dart create`, `flutter create`, `very_good create`, and `very_good packages` when they are the first two tokens of a Bash command (note `very_good packages get` is blocked while `dart pub get` is not), so run it through the `very_good_cli` MCP `test` tool instead. That tool takes no file path and no name filter, which is why the single-test commands above use `dart run test` — a form the hook does not catch, and the one CI itself uses for `verify-version`. The equivalent CI step is:
+**Full test run with coverage** is the one exception. With the VGV AI Flutter Plugin active, a hook denies `dart test`, `flutter test`, `very_good test`, `dart create`, `flutter create`, `very_good create`, and `very_good packages` when they are the first two tokens of a Bash command (note `very_good packages get` is blocked while `dart pub get` is not), so run it through the `very_good_cli` MCP `test` tool instead. That tool takes no file path and no name filter, which is why the single-test commands above use `dart run test` — a form the hook does not catch, and the one CI itself uses for `verify-version`. The CI step, from the reusable `dart_package.yml` workflow, is equivalent to:
 
 ```bash
-very_good test -j 4 --coverage --min-coverage 100 --optimization
+very_good dart test -j 4 --coverage --min-coverage 100 --optimization
 ```
 
 ## Architecture
@@ -91,7 +91,7 @@ Under `lib/src/`, each folder is one layer, and the rule for where a type lives 
 
 - `model/` holds only the types two or more feature layers share: `Harness`, `PlannedChange` with `ChangeMode` and `DocumentFormat`, `InstallManifest` with its entries, `Contribution` with the `Drift` and `Subtraction` its methods return, and `DocumentCodec`, the one definition of how documents are decoded and compared. A value a shared type returns lives beside it, even when only one feature reads it. It imports nothing else under `src/`.
 - `document/` edits config text through `TomlText` and `MarkdownText`, and writes files safely through the `File` extensions. It imports `model/`.
-- `detect/`, `translate/`, `reconcile/` and `manifest/` are the features: finding the installed harnesses, turning the plugins into each harness's files, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
+- `detect/`, `resolve/`, `translate/`, `reconcile/` and `manifest/` are the features: finding the installed harnesses, fetching and parsing the pinned plugins, turning the plugins into each harness's files, applying planned changes, and verifying or reversing what the manifest records. Each imports `model/` and `document/`, never another feature.
 - `<feature>/model/` holds every type the feature itself defines, its public results and the values it passes between its own steps alike, one class per file, exported from `<feature>/model/model.dart`. A status enum lives in the file of the result it describes, as `ReverseOutcome` does beside `ReversedEntry` and `ChangeOutcome` beside `AppliedChange`. A service such as `Reconciler` takes the `DocumentCodec` through its constructor, while a value type such as `TomlText` uses the default. The classes that do the work sit at the feature's root.
 - `commands/` orchestrate the features and own persistence and reporting. `install` loads and saves the manifest through `ManifestStore`, while `Reconciler.apply` and `ManifestAuditor.reverse` take the manifest and return it updated.
 - A command big enough to define its own types gets a folder, `commands/<command>/`, with those types in `commands/<command>/model/` under the same rules as `<feature>/model/`. `doctor` is the example: `Finding`, `ReportSection` and `ContentPlan` describe its report and nothing else reads them. Helpers several commands share, such as `HarnessSelection` and `userHome`, sit at the root of `commands/`.
@@ -149,17 +149,19 @@ This is a pure Dart CLI with no widgets, so the rule is: any skill gated on Flut
 
 `main` has no branch protection yet. The `permissions.deny` entries blocking force-push are a guardrail against accident, not enforcement; they do not stop `git -C . push --force` or similar.
 
-`CLAUDE.md` is a symlink to this file, so Claude Code and any agent that reads `AGENTS.md` get the same guidance.
-
 ## CI
 
-- PR titles must be [conventional commits](https://www.conventionalcommits.org). The `semantic_pull_request` job checks this, but see the path-filter note below — it does not run on every PR.
-- Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
-- Markdown is spell-checked with cspell against the VGV dictionaries; add project-specific words to `words` in `.github/cspell.json`. The job runs with `modified_files_only: false`, so it lints **every** markdown file whenever it runs.
-- Every job lives in `.github/workflows/vgv_ai_cli.yaml`, which is path-filtered to `lib/**`, `test/**`, `pubspec.yaml`, and itself. A docs- or config-only PR triggers no CI at all.
-- The `build` job uses the reusable `dart_package.yml` workflow from very_good_workflows, referenced by the floating `@v2` tag, which supports pub workspace coverage.
-- Versions and changelogs belong to release-please (`.release-please-config.json`, `.release-please-manifest.json`, `.github/workflows/release_please.yaml`). Every push to `main` opens or updates one release PR covering both packages; merging it tags `vgv_ai_cli-vX.Y.Z` and `plugin_source-vX.Y.Z`. Never bump a version or edit a `CHANGELOG.md` by hand.
-- `.github/workflows/check_links.yaml` runs lychee over every markdown and Dart file on PRs and weekly. Placeholder URLs in fixtures, and links into private sibling repos, are listed in `.lycheeignore`.
-- The `build` jobs also run the cognitive complexity check on `lib`, which fails when any function scores above 15. Split a function that crosses it into smaller ones rather than raising the threshold. Run it locally with the `cognitive_complexity` scanner from [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/main/packages/cognitive_complexity).
+Each workflow under `.github/workflows/` is path-filtered, and every reusable workflow comes from very_good_workflows through the floating `@v2` tag.
+
+- `vgv_ai_cli.yaml` runs on changes to itself, `.github/cspell.json`, `packages/vgv_ai_cli/lib/**`, `packages/vgv_ai_cli/test/**`, `packages/vgv_ai_cli/pubspec.yaml`, `packages/plugin_source/lib/**`, `packages/plugin_source/pubspec.yaml`, `bricks/**` and `tool/**`. Its jobs are `semantic-pull-request`, `build` (the reusable `dart_package.yml` in `packages/vgv_ai_cli`), `spell-check`, `verify-bundle`, `verify-version` and `verify-pins`.
+- `plugin_source.yaml` runs on changes to itself and `packages/plugin_source/**`. Its jobs are `semantic-pull-request` and `build` (the reusable `dart_package.yml` in `packages/plugin_source`).
+- Both `build` jobs also run the cognitive complexity check on their package's `lib`, which fails when any function scores above 15. Split a function that crosses it into smaller ones rather than raising the threshold. Run it locally with the `cognitive_complexity` scanner from [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/main/packages/cognitive_complexity).
+- `release_please.yaml` runs on every push to `main`. release-please owns versions and changelogs (`.release-please-config.json`, `.release-please-manifest.json`); it opens or updates one release PR covering both packages, and merging it tags `vgv_ai_cli-vX.Y.Z` and `plugin_source-vX.Y.Z`. Never bump a version or edit a `CHANGELOG.md` by hand. Because the bump lands straight in `pubspec.yaml`, the workflow regenerates `lib/src/version.dart` on the release branch, otherwise `verify-version` fails on the release PR.
+- `check_links.yaml` runs lychee over every markdown and Dart file on PRs and weekly. Placeholder URLs in fixtures, and links into private sibling repos, are listed in `.lycheeignore`.
+- `license_check.yaml` runs on changes to itself and either package's `pubspec.yaml`. Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
+- A PR that touches only markdown or other files outside these filters triggers no CI at all.
+- PR titles must be [conventional commits](https://www.conventionalcommits.org). The `semantic-pull-request` job checks this, but only on PRs that trigger one of the first two workflows.
+- Markdown is spell-checked with cspell against the VGV dictionaries; add project-specific words to `words` in `.github/cspell.json`. The job includes `**/*.md` and `.*/**/*.md`, excludes `bricks/**/__brick__/**`, and runs with `modified_files_only: false`, so it lints **every** markdown file whenever it runs.
+- `verify-bundle` regenerates `packages/vgv_ai_cli/lib/src/templates` with `tool/generate_agents_bundle.sh` (mason_cli `0.1.3`) and fails if the committed bundle differs. Run the script whenever `bricks/agents` changes.
 - The pinned plugins in `vgvPlugins` (`packages/plugin_source/lib/src/plugin_ref.dart`) are bumped by `.github/workflows/bot_bump_plugin_pins.yaml`. Every Monday it runs `packages/plugin_source/tool/bump_plugin_pins.dart`, which moves each pin to its plugin's latest GitHub release, and opens or updates one PR on `vgvbot/bump_plugin_pins`. The tool rewrites the `version` and `gitRef` lines of each `PluginRef(...)` block in place, so keep that shape when editing the file by hand.
 - The bot PR is opened with the default `GITHUB_TOKEN`, so CI does not start on it by itself. Push a commit to it, or close and reopen it, before merging. Its `verify-pins` job runs `test/pinned_plugins_test.dart` (tagged `pinned-plugins`, skipped by default), which clones the real pinned plugins and translates them for every harness. Run it locally with `dart run test --run-skipped -t pinned-plugins`.

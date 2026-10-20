@@ -43,7 +43,7 @@ class DoctorCommand({
 }) extends Command<int> with HarnessSelection {
   /// {@macro doctor_command}
   this {
-    addHarnessOptions('Check');
+    addHarnessOptions('Check the Very Good AI tooling for');
   }
 
   /// The name the CLI registers `doctor` under, so other code can name it

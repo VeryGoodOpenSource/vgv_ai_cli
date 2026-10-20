@@ -10,7 +10,7 @@ import 'package:plugin_source/src/resolution.dart';
 /// Required rather than defaulted to a real `Process.run`. A default would be
 /// a line no test can execute, since the suite must pass with no git binary
 /// installed, and this repo does not enable coverage-ignore comments. The
-/// process wiring belongs with the command that owns the rest of it.
+/// process wiring belongs with the caller that owns the rest of it.
 typedef RunGit = Future<ProcessResult> Function(List<String> args);
 
 /// Reports a line worth showing only under `--verbose`.

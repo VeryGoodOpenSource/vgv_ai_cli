@@ -99,7 +99,7 @@ class const SkillsTranslator() {
       final relative = p.relative(entity.path, from: skill.directory.path);
       if (relative == 'SKILL.md') continue;
 
-      final source = _sourceFile(entity, skill.name, relative, notes);
+      final source = entity.copySource('${skill.name}/$relative', notes);
       if (source == null) continue;
 
       changes.add(
@@ -127,43 +127,5 @@ class const SkillsTranslator() {
     } on FormatException {
       return bytes;
     }
-  }
-
-  /// Resolves [entity] to a readable file.
-  ///
-  /// Wingspan pools shared references under `skills/shared/` and symlinks them
-  /// into each skill. `skills/shared` is not a skill and is never copied, so
-  /// the link has to be materialized here or the copy lands broken.
-  File? _sourceFile(
-    FileSystemEntity entity,
-    String skill,
-    String relative,
-    List<TranslationNote> notes,
-  ) {
-    if (entity is File) return entity;
-
-    final String resolved;
-    try {
-      resolved = entity.resolveSymbolicLinksSync();
-    } on FileSystemException {
-      notes.add(
-        TranslationNote(
-          subject: '$skill/$relative',
-          reason: 'the symlink points at something that does not exist',
-        ),
-      );
-      return null;
-    }
-
-    final file = entity.fileSystem.file(resolved);
-    if (file.existsSync()) return file;
-
-    notes.add(
-      TranslationNote(
-        subject: '$skill/$relative',
-        reason: 'the symlink points at a directory, which is not copied',
-      ),
-    );
-    return null;
   }
 }
