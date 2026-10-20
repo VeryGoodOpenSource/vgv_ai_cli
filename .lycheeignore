@@ -1,0 +1,21 @@
+# Lychee ignore patterns
+# See https://github.com/lycheeverse/lychee for documentation
+
+# Dart string interpolation in source, picked up as literal link text
+\$\{
+
+# Placeholder hosts used in tests and doc examples
+^https://docs$
+^https://docs\.example
+^https://example\.com
+^https://open\.example
+^https://x$
+^https://x\.example
+^https://mcp\.example\.com
+^https://github\.com/acme/
+
+# Private sibling repositories the workflow token cannot read
+^https://github\.com/VeryGoodOpenSource/vgv-wingspan
+
+# MCP endpoints answer 405 to the GET lychee sends
+^https://mcp\.context7\.com

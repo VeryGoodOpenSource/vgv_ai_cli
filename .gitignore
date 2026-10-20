@@ -28,3 +28,7 @@ coverage/
 docs/
 
 tasks/
+
+# Mason
+.mason/
+mason-lock.json
