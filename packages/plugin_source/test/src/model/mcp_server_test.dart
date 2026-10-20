@@ -2,7 +2,7 @@ import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('LocalMCPServer', () {
+  group(LocalMCPServer, () {
     test('spells itself as .mcp.json does, leaving out empty args and env', () {
       expect(const LocalMCPServer(name: 'dart', command: 'dart').toJson(), {
         'command': 'dart',
@@ -26,7 +26,7 @@ void main() {
     });
   });
 
-  group('RemoteMCPServer', () {
+  group(RemoteMCPServer, () {
     test('spells itself by its url, leaving out empty headers', () {
       expect(
         const RemoteMCPServer(

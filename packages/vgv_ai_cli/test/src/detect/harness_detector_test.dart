@@ -5,20 +5,20 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
-RunProcess _responds(ProcessResult result) =>
-    (executable, arguments, {runInShell = false}) async => result;
-
-ProcessResult _exits(int code, {String stdout = '', String stderr = ''}) =>
-    ProcessResult(0, code, stdout, stderr);
-
-/// Exit codes that must all read as a missing harness, not just `127`.
-const missingExitCodes = [1, 2, 127];
-
-Matcher _hasVersion(String version) =>
-    isA<HarnessDetection>().having((d) => d.version, 'version', version);
-
 void main() {
-  group('HarnessDetector', () {
+  group(HarnessDetector, () {
+    RunProcess responds(ProcessResult result) =>
+        (executable, arguments, {runInShell = false}) async => result;
+
+    ProcessResult exits(int code, {String stdout = '', String stderr = ''}) =>
+        ProcessResult(0, code, stdout, stderr);
+
+    /// Exit codes that must all read as a missing harness, not just `127`.
+    const missingExitCodes = [1, 2, 127];
+
+    Matcher hasVersion(String version) =>
+        isA<HarnessDetection>().having((d) => d.version, 'version', version);
+
     test('uses the real Process.run when none is injected', () {
       expect(const HarnessDetector(), isNotNull);
     });
@@ -38,7 +38,7 @@ void main() {
       for (final harness in banners.keys) {
         test('reads ${versions[harness]} out of the $harness banner', () async {
           final detector = HarnessDetector(
-            runProcess: _responds(_exits(0, stdout: banners[harness]!)),
+            runProcess: responds(exits(0, stdout: banners[harness]!)),
           );
 
           final detection = await detector.detect(Harness.claude);
@@ -50,25 +50,25 @@ void main() {
 
       test('reads the version from stderr when stdout is empty', () async {
         final detector = HarnessDetector(
-          runProcess: _responds(_exits(0, stderr: 'opencode 1.4.2')),
+          runProcess: responds(exits(0, stderr: 'opencode 1.4.2')),
         );
 
         await expectLater(
           detector.detect(Harness.opencode),
-          completion(_hasVersion('1.4.2')),
+          completion(hasVersion('1.4.2')),
         );
       });
 
       test('prefers stdout over stderr when both carry a version', () async {
         final detector = HarnessDetector(
-          runProcess: _responds(
-            _exits(0, stdout: '1.2.3', stderr: 'warning from 9.9.9'),
+          runProcess: responds(
+            exits(0, stdout: '1.2.3', stderr: 'warning from 9.9.9'),
           ),
         );
 
         await expectLater(
           detector.detect(Harness.pi),
-          completion(_hasVersion('1.2.3')),
+          completion(hasVersion('1.2.3')),
         );
       });
 
@@ -76,7 +76,7 @@ void main() {
         'is installed without a version when the banner has no number',
         () async {
           final detector = HarnessDetector(
-            runProcess: _responds(_exits(0, stdout: 'nightly build')),
+            runProcess: responds(exits(0, stdout: 'nightly build')),
           );
 
           final detection = await detector.detect(Harness.pi);
@@ -95,7 +95,7 @@ void main() {
             executable = exe;
             arguments = args;
             usedShell = runInShell;
-            return _exits(0, stdout: '0.52.0');
+            return exits(0, stdout: '0.52.0');
           },
         );
 
@@ -113,7 +113,7 @@ void main() {
       for (final code in missingExitCodes) {
         test('is missing when the probe exits $code', () async {
           final detector = HarnessDetector(
-            runProcess: _responds(_exits(code, stdout: '1.2.3')),
+            runProcess: responds(exits(code, stdout: '1.2.3')),
           );
 
           final detection = await detector.detect(Harness.opencode);
@@ -165,7 +165,7 @@ void main() {
         final detector = HarnessDetector(
           runProcess: (executable, arguments, {runInShell = false}) async {
             probed.add(executable);
-            return _exits(0, stdout: '1.2.3');
+            return exits(0, stdout: '1.2.3');
           },
         );
 
@@ -186,8 +186,8 @@ void main() {
         final detector = HarnessDetector(
           runProcess: (executable, arguments, {runInShell = false}) async =>
               present.contains(executable)
-              ? _exits(0, stdout: '1.2.3')
-              : _exits(127, stderr: 'command not found'),
+              ? exits(0, stdout: '1.2.3')
+              : exits(127, stderr: 'command not found'),
         );
 
         final detections = await detector.detectAll();

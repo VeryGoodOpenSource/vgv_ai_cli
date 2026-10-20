@@ -17,7 +17,7 @@ import 'package:path/path.dart' as p;
 enum Harness({
   /// A human readable name, for output.
   ///
-  /// The enum's own [name] is the flag and reporting name, e.g. `opencode`,
+  /// The enum's own [name] is the flag and reporting name, such as `opencode`,
   /// and the folder the `agents` brick renders this harness into.
   required final String displayName,
 

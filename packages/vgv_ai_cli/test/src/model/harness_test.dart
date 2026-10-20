@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('Harness', () {
+  group(Harness, () {
     test('lists every known harness in reporting order', () {
       expect(Harness.values.map((harness) => harness.name), [
         'claude',

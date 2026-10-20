@@ -3,7 +3,7 @@ import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 void main() {
-  group('EntryHealth', () {
+  group(EntryHealth, () {
     const entry = OwnedFile(path: '/a', owner: null, sha256: 'hash');
 
     test('is intact, missing, drifted or unparseable with nothing else', () {

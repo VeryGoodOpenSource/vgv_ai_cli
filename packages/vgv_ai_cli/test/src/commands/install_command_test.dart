@@ -58,34 +58,34 @@ class _FakeTranslator extends Fake implements Translator {
   }
 }
 
-PluginAssets _assets(FileSystem fs) => PluginAssets(
-  skills: [
-    SkillAsset(
-      name: 'green-gate',
-      description: 'Enforces the green gate.',
-      body: 'body',
-      userInvocable: true,
-      allowedTools: const ['Bash'],
-      portableFrontmatter: const {'name': 'green-gate'},
-      directory: fs.directory('/plugin/skills/green-gate')
-        ..createSync(recursive: true),
-    ),
-  ],
-  agents: const [
-    AgentAsset(
-      name: 'reviewer',
-      description: 'Reviews code.',
-      body: 'body',
-      skills: [],
-    ),
-  ],
-  mcpServers: const [],
-);
-
 void main() {
-  setUpAll(() => registerFallbackValue(Harness.claude));
+  group(InstallCommand, () {
+    PluginAssets assets(FileSystem fs) => PluginAssets(
+      skills: [
+        SkillAsset(
+          name: 'green-gate',
+          description: 'Enforces the green gate.',
+          body: 'body',
+          userInvocable: true,
+          allowedTools: const ['Bash'],
+          portableFrontmatter: const {'name': 'green-gate'},
+          directory: fs.directory('/plugin/skills/green-gate')
+            ..createSync(recursive: true),
+        ),
+      ],
+      agents: const [
+        AgentAsset(
+          name: 'reviewer',
+          description: 'Reviews code.',
+          body: 'body',
+          skills: [],
+        ),
+      ],
+      mcpServers: const [],
+    );
 
-  group('install', () {
+    setUpAll(() => registerFallbackValue(Harness.claude));
+
     late Logger logger;
     late Progress progress;
     late HarnessDetector detector;
@@ -138,7 +138,7 @@ void main() {
         detector: detector,
         resolver: PluginResolver(
           runProcess: runProcess ?? clone,
-          parser: parser ?? _FakeParser(_assets(fs)),
+          parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
       ),
@@ -635,10 +635,10 @@ void main() {
           );
       }
 
-      Map<String, dynamic> enabledPlugins() =>
-          (jsonDecode(settings().readAsStringSync())
-                  as Map<String, dynamic>)['enabledPlugins']
-              as Map<String, dynamic>;
+      Object? settingsJson() => jsonDecode(settings().readAsStringSync());
+
+      Matcher enablesPlugin({required bool enabled}) =>
+          containsPair('enabledPlugins', containsPair(pluginKey(), enabled));
 
       test('points Claude Code at the marketplace', () async {
         final exitCode = await runInstall([
@@ -647,7 +647,7 @@ void main() {
         ], using: const Translator());
 
         expect(exitCode, ExitCode.success.code);
-        expect(enabledPlugins()[pluginKey()], isTrue);
+        expect(settingsJson(), enablesPlugin(enabled: true));
         verify(() => logger.info('  Claude Code: 1 file(s)')).called(1);
       });
 
@@ -656,7 +656,7 @@ void main() {
 
         await runInstall(['--only', 'claude'], using: const Translator());
 
-        expect(enabledPlugins()[pluginKey()], isFalse);
+        expect(settingsJson(), enablesPlugin(enabled: false));
         verify(() => logger.warn('Kept your values in ${settings().path}'))
             .called(1);
         verify(() => logger.info(any(that: contains('--force')))).called(1);
@@ -671,7 +671,7 @@ void main() {
           '--force',
         ], using: const Translator());
 
-        expect(enabledPlugins()[pluginKey()], isTrue);
+        expect(settingsJson(), enablesPlugin(enabled: true));
         verifyNever(() => logger.warn(any()));
       });
     });

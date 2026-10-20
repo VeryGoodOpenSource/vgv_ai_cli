@@ -44,7 +44,7 @@ class DoctorCommand({
   final Reconciler _reconciler = const Reconciler(),
 }) extends Command<int> with HarnessSelection {
   this {
-    addHarnessOptions('Check');
+    addHarnessOptions('Check the Very Good AI tooling for');
   }
 
   static const String commandName = 'doctor';

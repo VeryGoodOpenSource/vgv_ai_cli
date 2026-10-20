@@ -38,8 +38,8 @@ is also why its scripts and compat script are copied to
 `~/.copilot/vgv_ai/hooks/` instead.
 
 Antigravity's whole folder is one plugin, `plugins/vgv/` under
-`~/.gemini/config/`, which is how Antigravity bundles skills, agents, MCP
-servers and hooks and loads them. Its skills are copied into the plugin by the
+`~/.gemini/config/`, described by its `plugin.json` manifest, which is how
+Antigravity bundles skills, agents, MCP servers and hooks and loads them. Its skills are copied into the plugin by the
 CLI, since Antigravity does not read `~/.agents/skills`, and each one becomes
 a `/<name>` command on its own, so there is no commands folder. The skills and
 agents register natively, so there is no instructions file either.
@@ -68,13 +68,14 @@ frontmatter block and every TOML agent or command arrives finished.
 
 ## Variables
 
-| Var                      | Type    | What it is                                        |
-| ------------------------ | ------- | ------------------------------------------------- |
-| `claude` ... `copilot`   | boolean | Which harnesses to render                          |
-| `<harness>_settings`     | string  | That harness's settings fragment, absent for Pi   |
-| `agents`                 | list    | Each agent's `name`, `instructions`, and a map per harness |
-| `commands`               | list    | Each invocable skill's `name`, `body`, and a map per harness |
-| `index`                  | map     | `skills` and `agents` to list in `AGENTS.md`        |
+| Var                        | Type    | What it is                                                        |
+| -------------------------- | ------- | ----------------------------------------------------------------- |
+| `claude` ... `devin`       | boolean | Which harnesses to render, one var per harness                    |
+| `<harness>_settings`       | string  | That harness's settings fragment, absent for Pi                   |
+| `<harness>_hooks`          | string  | That harness's hooks file, absent when it has no hooks it can run |
+| `agents`                   | list    | Each agent's `name`, `instructions`, and a map per harness        |
+| `commands`                 | list    | Each invocable skill's `name`, `body`, and a map per harness      |
+| `index`                    | map     | `skills` and `agents` to list in `AGENTS.md`, with `has_` flags   |
 
 `agents` and `commands` are the only top-level lists, and the CLI leaves either
 out when it is empty. Mason renders a path loop once for every combination of

@@ -8,7 +8,7 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 import '../_assets.dart';
 
 void main() {
-  group('ClaudeTranslator', () {
+  group(ClaudeTranslator, () {
     const translator = ClaudeTranslator();
 
     test('configures Claude Code', () {

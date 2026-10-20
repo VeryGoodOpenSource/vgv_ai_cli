@@ -1,25 +1,25 @@
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/reconcile/model/model.dart';
 
-Matcher _keyMerge({
-  required bool writes,
-  required Object? value,
-  required bool adds,
-  required Object? added,
-  required bool declined,
-}) => isA<KeyMerge>()
-    .having((m) => m.writes, 'writes', writes)
-    .having((m) => m.value, 'value', value)
-    .having((m) => m.adds, 'adds', adds)
-    .having((m) => m.added, 'added', added)
-    .having((m) => m.declined, 'declined', declined);
-
 void main() {
-  group('KeyMerge', () {
+  group(KeyMerge, () {
+    Matcher keyMerge({
+      required bool writes,
+      required Object? value,
+      required bool adds,
+      required Object? added,
+      required bool declined,
+    }) => isA<KeyMerge>()
+        .having((m) => m.writes, 'writes', writes)
+        .having((m) => m.value, 'value', value)
+        .having((m) => m.adds, 'adds', adds)
+        .having((m) => m.added, 'added', added)
+        .having((m) => m.declined, 'declined', declined);
+
     test('added writes the value and adds all of it', () {
       expect(
         const KeyMerge.added('vgv'),
-        _keyMerge(
+        keyMerge(
           writes: true,
           value: 'vgv',
           adds: true,
@@ -32,7 +32,7 @@ void main() {
     test('added adds a null value too', () {
       expect(
         const KeyMerge.added(null),
-        _keyMerge(
+        keyMerge(
           writes: true,
           value: null,
           adds: true,
@@ -45,7 +45,7 @@ void main() {
     test('replaced writes the value and adds nothing', () {
       expect(
         const KeyMerge.replaced('vgv'),
-        _keyMerge(
+        keyMerge(
           writes: true,
           value: 'vgv',
           adds: false,
@@ -64,7 +64,7 @@ void main() {
 
       expect(
         KeyMerge.table(inner),
-        _keyMerge(
+        keyMerge(
           writes: true,
           value: {'a': 1, 'b': 2},
           adds: true,
@@ -83,7 +83,7 @@ void main() {
     test('union appends the gained entries and adds them', () {
       expect(
         KeyMerge.union(['a'], ['b']),
-        _keyMerge(
+        keyMerge(
           writes: true,
           value: ['a', 'b'],
           adds: true,
@@ -100,7 +100,7 @@ void main() {
     test('kept writes nothing and reports whether it declined', () {
       expect(
         const KeyMerge.kept(declined: true),
-        _keyMerge(
+        keyMerge(
           writes: false,
           value: null,
           adds: false,

@@ -7,14 +7,14 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 /// {@template update_command}
-/// A command which updates the CLI.
+/// Updates `vgv_ai` to the latest version on pub.dev.
 /// {@endtemplate}
 class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
     extends Command<int> {
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
 
   @override
-  String get description => 'Update the CLI.';
+  String get description => 'Update vgv_ai to the latest version.';
 
   static const String commandName = 'update';
 
