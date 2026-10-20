@@ -73,6 +73,26 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
       "type": "text",
     },
     {
+      "path": "{{#devin}}devin/AGENTS.md{{/devin}}",
+      "data": "e3s+IGluc3RydWN0aW9ucy5tZCB9fXt7PiBhZ2VudF9pbmRleC5tZCB9fQ==",
+      "type": "text",
+    },
+    {
+      "path": "{{#devin}}devin/agents/{{#agents}}{{{name}}}.md{{/agents}}{{/devin}}",
+      "data": "e3sjYWdlbnRzfX17eyNkZXZpbn19e3s+IGFnZW50Lm1kIH19e3svZGV2aW59fXt7L2FnZW50c319",
+      "type": "text",
+    },
+    {
+      "path": "{{#devin}}devin/mcp_config.json{{/devin}}",
+      "data": "e3t7ZGV2aW5fc2V0dGluZ3N9fX0=",
+      "type": "text",
+    },
+    {
+      "path": "{{#devin}}devin/{{#devin_hooks}}config.json{{/devin_hooks}}{{/devin}}",
+      "data": "e3t7ZGV2aW5faG9va3N9fX0=",
+      "type": "text",
+    },
+    {
       "path": "{{#gemini}}gemini/AGENTS.md{{/gemini}}",
       "data": "e3s+IGluc3RydWN0aW9ucy5tZCB9fXt7PiBhZ2VudF9pbmRleC5tZCB9fQ==",
       "type": "text",
@@ -198,6 +218,12 @@ final agentsBundle = MasonBundle.fromJson(<String, dynamic>{
       "description": "Configure Antigravity CLI.",
       "default": true,
       "prompt": "Configure Antigravity CLI?",
+    },
+    "devin": {
+      "type": "boolean",
+      "description": "Configure Devin CLI.",
+      "default": true,
+      "prompt": "Configure Devin CLI?",
     },
   },
 });

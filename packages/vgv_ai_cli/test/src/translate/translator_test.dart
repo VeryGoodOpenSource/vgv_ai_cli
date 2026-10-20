@@ -146,6 +146,19 @@ void main() {
           'plugins/vgv/skills/testing/SKILL.md',
         ]);
       });
+
+      test('Devin gets MCP config, rules, agents and hooks', () async {
+        expect(await tree(Harness.devin), [
+          'AGENTS.md',
+          'agents/planner.md',
+          'agents/review.md',
+          'config.json',
+          'hooks/${DevinTranslator.compatScript}',
+          'hooks/vgv-wingspan/hooks/scripts/analyze.sh',
+          'hooks/vgv-wingspan/hooks/scripts/common.sh',
+          'mcp_config.json',
+        ]);
+      });
     });
 
     test('renders no nameless file when there are no agents or commands', () {

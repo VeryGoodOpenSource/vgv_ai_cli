@@ -16,6 +16,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// - Codex: https://developers.openai.com/codex/skills
 /// - OpenCode: https://opencode.ai/docs/skills/
 /// - Pi: https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md
+/// - Devin: https://docs.devin.ai/cli/extensibility/skills/creating-skills
 Directory agentsSkillsRoot(Directory home) =>
     home.fileSystem.directory(p.join(home.path, '.agents', 'skills'));
 
