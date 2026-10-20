@@ -13,6 +13,9 @@ class const DocumentCodec({
   /// Compares decoded documents, and the values inside them, structurally.
   final DeepCollectionEquality deepEquality = const DeepCollectionEquality(),
 }) {
+  /// {@macro document_codec}
+  this;
+
   /// The keys whose list is an argv: a command and its arguments.
   static const Set<String> _argvKeys = {'command', 'args'};
 

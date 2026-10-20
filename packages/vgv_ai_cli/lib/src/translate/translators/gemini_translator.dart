@@ -14,6 +14,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// argument placeholder.
 /// {@endtemplate}
 class const GeminiTranslator() extends HarnessTranslator {
+  /// {@macro gemini_translator}
+  this;
+
   /// Gemini's argument placeholder. Codex, OpenCode and Pi all keep Claude's
   /// `$ARGUMENTS`, so this substitution belongs to Gemini alone.
   static const _arguments = r'$ARGUMENTS';

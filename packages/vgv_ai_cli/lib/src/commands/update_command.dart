@@ -11,11 +11,16 @@ import 'package:vgv_ai_cli/src/version.dart';
 /// {@endtemplate}
 class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
     extends Command<int> {
+  /// {@macro update_command}
+  this;
+
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
 
   @override
   String get description => 'Update the CLI.';
 
+  /// The name the CLI registers `update` under, so other code can name it
+  /// without constructing one. The runner skips its update check for it.
   static const String commandName = 'update';
 
   @override

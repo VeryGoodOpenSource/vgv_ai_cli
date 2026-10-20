@@ -3,7 +3,10 @@ import 'package:plugin_source/plugin_source.dart';
 /// {@template asset_resolution}
 /// What resolving and parsing every pinned plugin produced.
 /// {@endtemplate}
-sealed class const AssetResolution();
+sealed class const AssetResolution() {
+  /// {@macro asset_resolution}
+  this;
+}
 
 /// {@template resolved_assets}
 /// Every plugin in [plugins] resolved and parsed, merged into [assets].
@@ -14,7 +17,10 @@ final class const ResolvedAssets({
 
   /// The plugins that were resolved, at the versions they were pinned to.
   required final List<PluginRef> plugins,
-}) extends AssetResolution;
+}) extends AssetResolution {
+  /// {@macro resolved_assets}
+  this;
+}
 
 /// {@template unavailable_assets}
 /// No source could supply [plugin], for each of [reasons].
@@ -25,7 +31,10 @@ final class const UnavailableAssets(
 
   /// Why, one reason per source tried, in the order they were tried.
   final List<String> reasons,
-) extends AssetResolution;
+) extends AssetResolution {
+  /// {@macro unavailable_assets}
+  this;
+}
 
 /// {@template unparseable_assets}
 /// [plugin] resolved, but could not be parsed because of [error].
@@ -36,4 +45,7 @@ final class const UnparseableAssets(
 
   /// Why it could not be parsed.
   final PluginParseException error,
-) extends AssetResolution;
+) extends AssetResolution {
+  /// {@macro unparseable_assets}
+  this;
+}

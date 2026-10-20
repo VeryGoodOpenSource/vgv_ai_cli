@@ -20,6 +20,9 @@ class const PluginRef({
   required final String version,
   required final String gitRef,
 }) {
+  /// {@macro plugin_ref}
+  this;
+
   @override
   String toString() => '$name@$version';
 }

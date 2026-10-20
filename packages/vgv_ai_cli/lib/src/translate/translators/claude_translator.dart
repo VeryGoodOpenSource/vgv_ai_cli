@@ -14,6 +14,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// does, and the two copies would drift apart on the next plugin release.
 /// {@endtemplate}
 class const ClaudeTranslator() extends HarnessTranslator {
+  /// {@macro claude_translator}
+  this;
+
   @override
   Harness get harness => Harness.claude;
 

@@ -21,6 +21,7 @@ extension type PluginManifestJson(Map<String, Object?> _json) {
     'name': Ack.string().optional(),
   }).passthrough();
 
+  /// The plugin's name as the manifest declares it, or null when unset.
   String? get name => _json['name'] as String?;
 }
 
@@ -53,14 +54,19 @@ extension type McpServerJson(Map<String, Object?> _json) {
     'env': Ack.map(Ack.string()).optional(),
   }).passthrough();
 
+  /// The endpoint a remote server is reached at, or null for a local one.
   String? get url => _json['url'] as String?;
 
+  /// Headers sent with each request to [url].
   Map<String, String> get headers => _strings(_json['headers']);
 
+  /// The executable a local server launches, or null for a remote one.
   String? get command => _json['command'] as String?;
 
+  /// Arguments passed to [command].
   List<String> get args => [...?_json['args'] as List<String>?];
 
+  /// Environment variables set for the subprocess launched by [command].
   Map<String, String> get env => _strings(_json['env']);
 
   static Map<String, String> _strings(Object? block) =>
@@ -105,8 +111,10 @@ extension type HookRegistrationJson(Map<String, Object?> _json) {
     'hooks': Ack.list(HookJson._schema),
   }).passthrough();
 
+  /// Which tools this registration fires for, or null for every tool.
   String? get matcher => _json['matcher'] as String?;
 
+  /// The hooks this registration runs.
   List<HookJson> get hooks => [
     for (final hook in _json['hooks']! as List<Object?>)
       HookJson(hook! as Map<String, Object?>),
@@ -122,10 +130,14 @@ extension type HookJson(Map<String, Object?> _json) {
     'timeout': Ack.integer().optional(),
   }).passthrough();
 
+  /// The hook's kind, such as `command`.
   String? get type => _json['type'] as String?;
 
+  /// The shell command this hook runs, or null when it runs nothing
+  /// translatable.
   String? get command => _json['command'] as String?;
 
+  /// How long the command may run, or null for no limit.
   int? get timeout => _json['timeout'] as int?;
 }
 
@@ -154,10 +166,14 @@ extension type SkillFrontmatter._(Frontmatter _frontmatter)
     'when_to_use': Ack.string().optional(),
   }).passthrough();
 
+  /// Whether the skill is invoked explicitly as a command, or null when
+  /// unset.
   bool? get userInvocable => values['user-invocable'] as bool?;
 
+  /// The tools the skill may use, as `allowed-tools` declares them.
   String? get allowedTools => values['allowed-tools'] as String?;
 
+  /// The legacy key read when `allowed-tools` is absent.
   String? get tools => values['tools'] as String?;
 
   /// Claude's own key for the skill's trigger phrases, flattened onto one

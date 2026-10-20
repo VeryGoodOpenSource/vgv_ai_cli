@@ -12,6 +12,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// Codex reads `~/.agents/skills` natively. Its agents are TOML.
 /// {@endtemplate}
 class const CodexTranslator() extends HarnessTranslator {
+  /// {@macro codex_translator}
+  this;
+
   @override
   Harness get harness => Harness.codex;
 

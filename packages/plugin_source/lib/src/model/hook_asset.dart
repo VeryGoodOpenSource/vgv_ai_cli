@@ -12,6 +12,9 @@ class const HookCommand({
   required final String command,
   final int? timeout,
 }) {
+  /// {@macro hook_command}
+  this;
+
   /// Stands in for the plugin's root directory inside [command].
   ///
   /// Parsers rewrite their harness's own placeholder to this one, so
@@ -36,4 +39,7 @@ class const HookAsset({
   required final Directory pluginRoot,
   final String? matcher,
   final String? agent,
-});
+}) {
+  /// {@macro hook_asset}
+  this;
+}

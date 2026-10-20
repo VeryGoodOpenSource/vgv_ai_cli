@@ -29,6 +29,9 @@ class const HarnessDetector({
   final RunProcess _runProcess = Process.run,
   final Duration _timeout = const Duration(seconds: 5),
 }) {
+  /// {@macro harness_detector}
+  this;
+
   /// Matches the first `x.y.z` in a version banner.
   static final _versionPattern = RegExp(r'\d+\.\d+\.\d+');
 

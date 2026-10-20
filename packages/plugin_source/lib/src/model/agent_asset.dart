@@ -6,4 +6,7 @@ class const AgentAsset({
   required final String description,
   required final String body,
   required final List<String> skills,
-});
+}) {
+  /// {@macro agent_asset}
+  this;
+}

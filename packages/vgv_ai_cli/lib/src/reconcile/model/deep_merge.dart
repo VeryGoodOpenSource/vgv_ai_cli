@@ -11,4 +11,7 @@ class const DeepMerge({
 
   /// Whether the merge kept a value the user set in place of VGV's.
   required final bool declined,
-});
+}) {
+  /// {@macro deep_merge}
+  this;
+}

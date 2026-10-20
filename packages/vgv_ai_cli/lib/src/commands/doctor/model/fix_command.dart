@@ -10,6 +10,9 @@ class const FixCommand({
   /// Whether VGV's values must replace ones changed since install.
   final bool force = false,
 }) {
+  /// {@macro fix_command}
+  this;
+
   /// One command that does what every one of [fixes] does, or null when
   /// there are none.
   static FixCommand? combine(Iterable<FixCommand?> fixes) {

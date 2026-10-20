@@ -14,6 +14,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// harness.
 /// {@endtemplate}
 class const SkillsTranslator() {
+  /// {@macro skills_translator}
+  this;
+
   /// Plans every skill under [root], plus the files each one ships alongside
   /// its `SKILL.md`, owned by [harness] or shared when null.
   TranslationResult translate({

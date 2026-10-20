@@ -20,6 +20,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// See https://antigravity.google/docs/plugins/.
 /// {@endtemplate}
 class const AntigravityTranslator() extends HarnessTranslator {
+  /// {@macro antigravity_translator}
+  this;
+
   /// The plugin everything is installed as.
   static const plugin = 'vgv';
 

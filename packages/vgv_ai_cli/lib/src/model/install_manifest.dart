@@ -18,9 +18,13 @@ sealed class const ManifestEntry({
   /// The harness the file configures, or null for the shared skills.
   required final Harness? owner,
 }) extends Equatable {
+  /// {@macro manifest_entry}
+  this;
+
   /// How [path] was written.
   ChangeMode get mode;
 
+  /// This entry as the JSON written into `~/.vgv_ai/manifest.json`.
   Map<String, Object?> toJson() => {
     'path': path,
     'owner': owner?.name,
@@ -105,6 +109,9 @@ final class const OwnedFile({
   required final String sha256,
 }) extends ManifestEntry {
   /// {@macro owned_file}
+  this;
+
+  /// {@macro owned_file}
   ///
   /// Records [bytes] as what VGV wrote to [path].
   new of({
@@ -136,6 +143,9 @@ final class const MergedDocument({
   /// The part of the document that is VGV's.
   required final Contribution contribution,
 }) extends ManifestEntry {
+  /// {@macro merged_document}
+  this;
+
   @override
   ChangeMode get mode => format.mode;
 
@@ -153,6 +163,9 @@ final class const MarkdownSections({
   /// Each section's name to the SHA-256 of the body VGV last wrote there.
   required final Map<String, String> sections,
 }) extends ManifestEntry {
+  /// {@macro markdown_sections}
+  this;
+
   /// This entry with [body] recorded as what VGV wrote into section [name].
   MarkdownSections recording(String name, String body) => MarkdownSections(
     path: path,

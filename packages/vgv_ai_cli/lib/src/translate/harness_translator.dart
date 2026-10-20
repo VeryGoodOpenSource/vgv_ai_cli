@@ -20,6 +20,9 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// See `Harness` for every step of adding a harness.
 /// {@endtemplate}
 abstract class const HarnessTranslator() {
+  /// {@macro harness_translator}
+  this;
+
   /// Which harness this configures.
   Harness get harness;
 
