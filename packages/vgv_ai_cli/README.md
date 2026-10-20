@@ -12,17 +12,17 @@ A CLI that configures Very Good AI coding agents and tooling.
 
 ## Getting Started 🚀
 
-If the CLI application is available on [pub](https://pub.dev), activate globally via:
-
-```sh
-dart pub global activate vgv_ai_cli
-```
-
-Or locally via:
+The CLI is not published on [pub.dev](https://pub.dev) yet. Install it from a checkout of this
+repository:
 
 ```sh
 dart pub global activate --source=path <path to this package>
 ```
+
+macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and Antigravity hooks are
+`#!/bin/bash` scripts that call `jq`, so `jq` must be on `PATH`. Native Windows, including Git
+Bash, is untested: the CLI builds paths with the host separator and the hook scripts expect POSIX
+ones.
 
 ## Usage
 
@@ -82,6 +82,14 @@ files, keys, comments, and sections stay.
   changes nothing, not even the manifest.
 - **Exit codes:** `74` when a file or the manifest can't be read or written, and `0` when it only
   warns, for example about a file it can't parse.
+
+## Shell completion
+
+```sh
+$ vgv_ai install-completion-files
+```
+
+Installs shell completion for bash and zsh. Remove it with `vgv_ai uninstall-completion-files`.
 
 ## Running Tests with coverage 🧪
 
