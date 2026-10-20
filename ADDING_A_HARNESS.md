@@ -11,6 +11,11 @@ difference another harness has is answered in one place, its **translator**.
 The plugins contribute skills, agents, MCP servers and hooks. Before writing code, find out from
 the harness's own docs how it spells each one. Your answers decide what you write.
 
+Work from the harness's **current** documentation, not from what another harness does and not from
+memory — these tools change their config format between minor releases. Install the latest version,
+run `<executable> --version`, and record that version in the PR. It is what the next person needs
+in order to tell a format that changed from a translator that was always wrong.
+
 | Question | Where the answer goes |
 | --- | --- |
 | What does the binary answer `--version` with? | `executable` on the enum |
@@ -326,6 +331,43 @@ Run it against the real plugins before opening the PR:
 dart run test --run-skipped -t pinned-plugins
 ```
 
+## The green gate
+
+The plugins contribute four kinds of asset. The harness is finished when every one of them is
+either **ported** or **reported as unsupported**. Nothing may be silently missing.
+
+| Asset | Ported when | Reported when |
+| --- | --- | --- |
+| Skills | It reads `~/.agents/skills`, or gets its own copy under `skillsRoot()` | It has no skill concept |
+| Subagents | `agent()` renders one file per agent into its agents folder | It has no subagents |
+| Hooks | `hooks()` returns a fragment and `scripts.copy(...)` wrote the scripts | Nothing in its config runs a shell command, or it lacks the event |
+| MCP servers | `settings()` writes them under the key it reads | It has no MCP support |
+
+Reported means a `TranslationNote` the user actually sees, naming what was left out and why.
+`install` prints every note, `--check` included.
+
+**The only acceptable reason for not porting something is that the harness does not support it**,
+with its documentation as the evidence. "Not implemented yet", "awkward to map" and "the schema
+wasn't clear" are unfinished work, not reasons. If the docs do not settle whether the harness
+supports something, say so and leave the harness out rather than shipping a half-translated one.
+
+Check the gate against the real harness, at the version you researched:
+
+```sh
+# Record this version in the PR
+<executable> --version
+
+# What install would write, and every note, without writing anything
+dart run bin/vgv_ai.dart install --only <harness> --check
+
+# Then for real
+dart run bin/vgv_ai.dart install --only <harness>
+```
+
+Files on disk are not the gate — the harness has to **load** them. Start it and check its own skill
+list, agent list and MCP server list, and make a hook actually fire. A settings key in the wrong
+place writes cleanly and does nothing.
+
 ## What you don't have to touch
 
 These are all driven by `Harness.values` or by the manifest, and need no per-harness code:
@@ -360,8 +402,9 @@ packages/vgv_ai_cli/lib/src/model/harness.dart            enum value
 …/test/src/translate/translator_test.dart                 rendered tree
 ```
 
-Then: `tool/generate_agents_bundle.sh`, the full coverage run, and
-`dart run test --run-skipped -t pinned-plugins`.
+Then: `tool/generate_agents_bundle.sh`, the full coverage run,
+`dart run test --run-skipped -t pinned-plugins`, and the green gate against the real harness, with
+its version in the PR.
 
 [antigravity]: packages/vgv_ai_cli/lib/src/translate/translators/antigravity_translator.dart
 [assets]: packages/vgv_ai_cli/test/src/translate/_assets.dart

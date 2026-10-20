@@ -14,8 +14,12 @@ it is generated.
 
 ## Step 0: research, then report before writing code
 
-You cannot write the translator from the codebase alone. Find the harness's own documentation and
-answer these, with a source for each:
+You cannot write the translator from the codebase alone. Install the harness's **latest** version,
+record what `<executable> --version` prints, and read its **current** documentation — these tools
+change their config format between minor releases, so neither your memory nor another harness's
+layout is evidence. Fetch the page and quote it.
+
+Answer these, with a source for each:
 
 - The binary name, and what `<binary> --version` prints.
 - The config directory under `$HOME`.
@@ -141,9 +145,41 @@ is why the pinned-plugins command above works.
 including the new one. It is the check that the translator survives real input rather than
 fixtures, and it is skipped by default, so run it explicitly.
 
-Then report: the files you changed, the harness's capabilities you could not translate and the
-note each one produces, and the output of the commands above. If you did not run one, say so
-rather than implying it passed.
+## Step 7: the green gate
+
+The suite passing is not the gate. The gate is that all four kinds of asset the plugins
+contribute — **skills, subagents, hooks, MCP servers** — are each either ported or reported as
+unsupported, with nothing silently missing.
+
+Run it against the real harness, at the version you recorded in step 0:
+
+```sh
+<executable> --version
+dart run bin/vgv_ai.dart install --only <harness> --check
+dart run bin/vgv_ai.dart install --only <harness>
+```
+
+Then go through the four, one at a time:
+
+| Asset | Passes when |
+| --- | --- |
+| Skills | The harness lists them, from `~/.agents/skills` or its own `skillsRoot()` |
+| Subagents | The harness lists them, one file per agent |
+| Hooks | A hook actually fires — not just that the files were written |
+| MCP servers | The harness lists the servers as connected |
+
+**The only acceptable reason for not porting one is that the harness does not support it**, with
+its documentation as the evidence, and a `TranslationNote` saying so. "Not implemented yet",
+"awkward to map" and "the schema wasn't clear" are unfinished work, not reasons. If the docs do not
+settle it, say so and stop — do not ship a half-translated harness.
+
+Files on disk prove nothing: a settings key in the wrong place writes cleanly and does nothing.
+Confirm the harness loaded each one.
+
+Then report: the harness version you tested, the four assets and how you confirmed each, every note
+`install` printed and why that capability is genuinely unsupported, the files you changed, and the
+output of the commands above. If you did not run one, or could not confirm one of the four, say so
+plainly rather than implying it passed.
 
 ## Before opening a PR
 
