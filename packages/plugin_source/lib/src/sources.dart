@@ -1,3 +1,4 @@
+import 'dart:async' show TimeoutException;
 import 'dart:io' show ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
@@ -12,10 +13,19 @@ import 'package:plugin_source/src/resolution.dart';
 /// process wiring belongs with the command that owns the rest of it.
 typedef RunGit = Future<ProcessResult> Function(List<String> args);
 
+/// Reports a line worth showing only under `--verbose`.
+///
+/// Kept as a function rather than a `Logger` so this package does not depend
+/// on the CLI's logging package.
+typedef LogDetail = void Function(String message);
+
 /// {@template plugin_source}
 /// Resolves a [PluginRef] to a directory on disk.
 /// {@endtemplate}
 abstract class const PluginSource() {
+  /// {@macro plugin_source}
+  this;
+
   /// Resolves [ref] from this source.
   Future<PluginResolution> resolve(PluginRef ref);
 }
@@ -35,6 +45,9 @@ class const LocalCachePluginSource({
   required final Directory home,
   final String marketplace = vgvMarketplaceName,
 }) extends PluginSource {
+  /// {@macro local_cache_plugin_source}
+  this;
+
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = home.fileSystem;
@@ -90,12 +103,19 @@ class const LocalCachePluginSource({
 /// Resolves plugins by cloning them at their pinned tag.
 ///
 /// [cacheRoot] is where clones are kept between runs. [runGit] runs git, and is
-/// required so tests never hit the network.
+/// required so tests never hit the network. A clone that takes longer than
+/// [timeout] is given up on, so an unreachable host cannot hang the command
+/// that is waiting. [log] receives the command line and git's stderr.
 /// {@endtemplate}
 class const GitPluginSource({
   required final Directory cacheRoot,
   required final RunGit runGit,
+  final Duration timeout = const Duration(minutes: 2),
+  final LogDetail? log,
 }) extends PluginSource {
+  /// {@macro git_plugin_source}
+  this;
+
   @override
   Future<PluginResolution> resolve(PluginRef ref) async {
     final fileSystem = cacheRoot.fileSystem;
@@ -121,17 +141,28 @@ class const GitPluginSource({
       );
     }
 
+    final args = [
+      'clone',
+      '--depth',
+      '1',
+      '--branch',
+      ref.gitRef,
+      'https://github.com/${ref.repo}.git',
+      temp.path,
+    ];
+    log?.call('Running: git ${args.join(' ')}');
+
     final ProcessResult result;
     try {
-      result = await runGit([
-        'clone',
-        '--depth',
-        '1',
-        '--branch',
-        ref.gitRef,
-        'https://github.com/${ref.repo}.git',
-        temp.path,
-      ]);
+      result = await runGit(args).timeout(timeout);
+    } on TimeoutException {
+      // The git process is not killed, but nothing waits on it any more and
+      // the temp directory it was filling is thrown away.
+      _deleteTemp(temp);
+      return UnavailablePlugin.single(
+        'Cloning ${ref.repo} took longer than ${timeout.inSeconds} seconds '
+        'and was given up on. Check your connection to github.com.',
+      );
     } on ProcessException {
       // Process.run throws rather than returning a non-zero exit code when the
       // executable is missing, so this is specifically "no git", not "the
@@ -143,6 +174,7 @@ class const GitPluginSource({
     }
 
     if (result.exitCode != 0) {
+      log?.call('git stderr:\n${result.stderr}');
       _deleteTemp(temp);
       return UnavailablePlugin.single(
         'Could not clone ${ref.repo} at ${ref.gitRef}: ${result.stderr}',
