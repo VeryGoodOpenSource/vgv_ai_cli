@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
@@ -32,6 +30,7 @@ class InstallCommand({
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
 }) extends Command<int> with HarnessSelection {
+  /// {@macro install_command}
   this {
     argParser
       ..addFlag(
@@ -49,6 +48,8 @@ class InstallCommand({
     addHarnessOptions('Configure');
   }
 
+  /// The name the CLI registers `install` under, so other code can name it
+  /// without constructing one.
   static const String commandName = 'install';
 
   /// The outcomes that leave a file with VGV's contributions in it.
@@ -72,9 +73,7 @@ class InstallCommand({
   String get name => commandName;
 
   /// The directory install configures, or null when it cannot be found.
-  Directory? get home {
-    return _home ?? userHome(_environment ?? Platform.environment);
-  }
+  Directory? get home => commandHome(_home, _environment);
 
   @override
   Future<int> run() async {
@@ -148,10 +147,15 @@ class InstallCommand({
     try {
       final manifest = store.load();
       if (manifest == null) {
-        _logger.err(
-          'Installed nothing, because ${ManifestStore.unreadable}: '
-          '${store.file.path}',
-        );
+        _logger
+          ..err(
+            'Installed nothing, because ${ManifestStore.unreadable}: '
+            '${store.file.path}',
+          )
+          ..err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run install '
+            'again.',
+          );
       }
       return manifest;
     } on FileSystemException catch (error) {
@@ -234,7 +238,7 @@ class InstallCommand({
   Future<ResolvedAssets?> _resolveAssets(Directory home) async {
     final progress = _logger.progress('Resolving plugins');
 
-    switch (await _resolver.resolve(home)) {
+    switch (await _resolver.resolve(home, log: _logger.detail)) {
       case final ResolvedAssets resolved:
         progress.complete(
           'Resolved ${resolved.assets.skills.length} skills and '

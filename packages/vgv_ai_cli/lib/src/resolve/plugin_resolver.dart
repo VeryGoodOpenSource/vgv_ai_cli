@@ -18,15 +18,21 @@ class const PluginResolver({
   final PluginParser _parser = const ClaudePluginParser(),
   final List<PluginRef> _plugins = vgvPlugins,
 }) {
+  /// {@macro plugin_resolver}
+  this;
+
   /// Resolves every plugin for [home], stopping at the first that cannot be
   /// resolved or parsed: a half-configured harness is worse than an
   /// unconfigured one.
-  Future<AssetResolution> resolve(Directory home) async {
+  ///
+  /// [log] receives the git command line and its stderr, for `--verbose`.
+  Future<AssetResolution> resolve(Directory home, {LogDetail? log}) async {
     final sources = [
       LocalCachePluginSource(home: home),
       GitPluginSource(
         cacheRoot: home.childDirectory('.vgv_ai').childDirectory('plugins'),
         runGit: (args) => _runProcess('git', args),
+        log: log,
       ),
     ];
 

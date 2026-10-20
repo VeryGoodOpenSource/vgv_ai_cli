@@ -6,24 +6,17 @@ import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
-import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockProgress extends Mock implements Progress;
+import '../../helpers/command_helper.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
@@ -86,26 +79,22 @@ void main() {
   setUpAll(() => registerFallbackValue(Harness.claude));
 
   group('install', () {
+    late TestRunner harness;
     late Logger logger;
     late Progress progress;
     late HarnessDetector detector;
     late FileSystem fs;
     late Directory home;
     late _FakeTranslator translator;
-    late PubUpdater pubUpdater;
 
     setUp(() {
-      logger = _MockLogger();
-      progress = _MockProgress();
+      harness = TestRunner();
+      logger = harness.logger;
+      progress = harness.progress;
       detector = _MockDetector();
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
       translator = _FakeTranslator();
-      pubUpdater = _MockPubUpdater();
-
-      when(() => logger.progress(any())).thenReturn(progress);
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
     });
 
     /// Clones every plugin by creating its target, since there is no
@@ -120,11 +109,7 @@ void main() {
     }
 
     Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
-        VgvAiCliCommandRunner(
-          logger: logger,
-          pubUpdater: pubUpdater,
-          installCommand: command,
-        ).run(['install', ...args]);
+        harness.run(['install', ...args], installCommand: command);
 
     Future<int> runInstall(
       List<String> args, {
@@ -573,6 +558,11 @@ void main() {
           () => logger.err(
             'Installed nothing, because ${ManifestStore.unreadable}: '
             '${manifestFile().path}',
+          ),
+        ).called(1);
+        verify(
+          () => logger.err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run install again.',
           ),
         ).called(1);
       });

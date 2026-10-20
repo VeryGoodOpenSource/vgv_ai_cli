@@ -6,8 +6,13 @@ import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
+/// The name the CLI is invoked by, which its usage and update prompt print.
 const executableName = 'vgv_ai';
+
+/// The package the update check asks pub.dev about.
 const packageName = 'vgv_ai_cli';
+
+/// The one-line summary `--help` prints above the usage.
 const description =
     'A CLI that configures Very Good AI coding agents and tooling';
 
@@ -146,7 +151,9 @@ ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u219
 Run ${lightCyan.wrap('$executableName update')} to update''');
       }
     } on Exception catch (_) {
-      _logger.err('Failed to check for updates.');
+      // Best effort: the check runs after every command, so a user who is
+      // offline should not be told about it. `vgv_ai_cli` is not published on
+      // pub.dev either, which is why every run takes this path today.
     }
   }
 }
