@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
@@ -32,6 +30,7 @@ class UninstallCommand({
   final Map<String, String>? _environment,
   final ManifestAuditor _auditor = const ManifestAuditor(),
 }) extends Command<int> with HarnessSelection {
+  /// {@macro uninstall_command}
   this {
     argParser
       ..addFlag(
@@ -50,6 +49,8 @@ class UninstallCommand({
     );
   }
 
+  /// The name the CLI registers `uninstall` under, so other code can name it
+  /// without constructing one.
   static const String commandName = 'uninstall';
 
   /// The outcomes where something the user changed was kept.
@@ -78,7 +79,7 @@ class UninstallCommand({
     final only = onlyHarnesses;
     final selected = only ?? Harness.values.where(isEnabled).toSet();
 
-    final home = _home ?? userHome(_environment ?? Platform.environment);
+    final home = commandHome(_home, _environment);
     if (home == null) {
       _logger.err(
         'Could not find your home directory. Set HOME and run uninstall '
@@ -92,6 +93,7 @@ class UninstallCommand({
       _logger,
       nothingDone: 'Removed nothing',
       done: 'removed',
+      retry: 'uninstall',
     );
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;

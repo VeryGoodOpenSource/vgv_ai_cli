@@ -5,9 +5,7 @@ import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
@@ -15,15 +13,10 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
-import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
+import '../../../helpers/command_helper.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
-
-class _MockProgress extends Mock implements Progress;
 
 /// A [PluginResolver] that answers with [resolution], and counts its calls.
 class _FakeResolver extends Fake implements PluginResolver {
@@ -41,10 +34,18 @@ class _FakeResolver extends Fake implements PluginResolver {
   /// The plugins each call asked for, in order.
   final resolved = <Set<String>?>[];
 
+  /// The sink the command passed for `--verbose` output.
+  LogDetail? log;
+
   @override
-  Future<AssetResolution> resolve(Directory home, {Set<String>? only}) async {
+  Future<AssetResolution> resolve(
+    Directory home, {
+    Set<String>? only,
+    LogDetail? log,
+  }) async {
     calls++;
     resolved.add(only);
+    this.log = log;
     return resolution;
   }
 }
@@ -80,8 +81,8 @@ void main() {
   group(DoctorCommand, () {
     setUpAll(() => registerFallbackValue(Harness.claude));
 
+    late TestRunner harness;
     late Logger logger;
-    late PubUpdater pubUpdater;
     late FileSystem fs;
     late Directory home;
     late ManifestStore store;
@@ -104,28 +105,20 @@ void main() {
     }
 
     setUp(() {
-      logger = _MockLogger();
-      pubUpdater = _MockPubUpdater();
+      harness = TestRunner();
+      logger = harness.logger;
+      progress = harness.progress;
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
       detector = _MockDetector();
       detect();
-      progress = _MockProgress();
-      when(() => logger.progress(any())).thenReturn(progress);
       resolver = _FakeResolver();
       translator = _FakeTranslator();
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
     });
 
     Future<int> runThroughRunner(DoctorCommand command, List<String> args) =>
-        VgvAiCliCommandRunner(
-          logger: logger,
-          pubUpdater: pubUpdater,
-          doctorCommand: command,
-        ).run(['doctor', ...args]);
+        harness.run(['doctor', ...args], doctorCommand: command);
 
     Future<int> runDoctor({
       List<String> args = const [],
@@ -560,6 +553,17 @@ void main() {
         },
       );
 
+      test('hands the resolver a sink for its verbose output', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        await runDoctor();
+
+        expect(resolver.calls, 1);
+        expect(resolver.log, isNotNull);
+        resolver.log!('cloning something');
+        verify(() => logger.detail('cloning something')).called(1);
+      });
+
       test('is not checked when nothing in scope is configured', () async {
         install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
         detect(const [Harness.pi]);
@@ -859,9 +863,9 @@ void main() {
       String combined(String command) =>
           'Run $command to fix everything install can.';
 
-      const forceNote =
-          '--force applies to every harness listed, replacing your values '
-          "wherever they conflict with VGV's.";
+      final forceNote =
+          '${lightCyan.wrap('--force')} applies to every harness listed, '
+          "replacing your values wherever they conflict with VGV's.";
 
       void verifyNoCombined() => verifyNever(
         () =>

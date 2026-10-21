@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
@@ -44,10 +42,13 @@ class DoctorCommand({
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
 }) extends Command<int> with HarnessSelection {
+  /// {@macro doctor_command}
   this {
     addHarnessOptions('Check the Very Good AI tooling for');
   }
 
+  /// The name the CLI registers `doctor` under, so other code can name it
+  /// without constructing one.
   static const String commandName = 'doctor';
 
   /// The harnesses that load the shared skills, so whose `install` fixes
@@ -66,7 +67,7 @@ class DoctorCommand({
 
   @override
   Future<int> run() async {
-    final home = _home ?? userHome(_environment ?? Platform.environment);
+    final home = commandHome(_home, _environment);
     if (home == null) {
       _logger.err(
         'Could not find your home directory. Set HOME and run doctor again.',
@@ -105,8 +106,8 @@ class DoctorCommand({
         ..info('Run ${lightCyan.wrap('$fix')} to fix everything install can.');
       if (fix.force) {
         _logger.info(
-          '--force applies to every harness listed, replacing your values '
-          "wherever they conflict with VGV's.",
+          '${lightCyan.wrap('--force')} applies to every harness listed, '
+          "replacing your values wherever they conflict with VGV's.",
         );
       }
     }
@@ -180,7 +181,7 @@ class DoctorCommand({
       manifest,
       selected,
     ).entries) {
-      switch (await _resolver.resolve(home, only: only)) {
+      switch (await _resolver.resolve(home, only: only, log: _logger.detail)) {
         case ResolvedAssets(:final assets):
           final translation = await _translator.translate(
             assets: assets,
