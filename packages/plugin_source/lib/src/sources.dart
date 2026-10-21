@@ -13,10 +13,10 @@ import 'package:plugin_source/src/resolution.dart';
 /// process wiring belongs with the caller that owns the rest of it.
 typedef RunGit = Future<ProcessResult> Function(List<String> args);
 
-/// Reports a line worth showing only under `--verbose`.
+/// Reports a line worth showing only when the caller asks for detail.
 ///
-/// Kept as a function rather than a `Logger` so this package does not depend
-/// on the CLI's logging package.
+/// A function rather than a logger, so this package stays independent of how
+/// its caller logs.
 typedef LogDetail = void Function(String message);
 
 /// {@template plugin_source}
