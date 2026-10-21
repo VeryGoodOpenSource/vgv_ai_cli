@@ -18,6 +18,9 @@ class const HarnessFields({
   /// frontmatter rather than through the shared pointer.
   final String? instructions,
 }) extends Equatable {
+  /// {@macro harness_fields}
+  this;
+
   /// The fields keyed as the brick reads them, leaving out every null one.
   Map<String, String> toMap() => {
     'frontmatter': ?frontmatter,

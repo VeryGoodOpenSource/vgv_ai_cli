@@ -25,6 +25,9 @@ class const HookScripts({
   /// What goes below the shebang of a script a hook runs.
   required final String preamble,
 }) {
+  /// {@macro hook_scripts}
+  this;
+
   /// The folder a Claude Code plugin keeps its hooks in.
   static const hooksFolder = 'hooks';
 
@@ -307,7 +310,10 @@ class const HookScripts({
 class const HookCopy({
   required final List<PlannedChange> files,
   required final List<TranslationNote> notes,
-});
+}) {
+  /// {@macro hook_copy}
+  this;
+}
 
 /// One file of a plugin's hooks folder as the copy holds it; [hook] is any
 /// hook of the plugin, [relative] its path from the plugin root, and

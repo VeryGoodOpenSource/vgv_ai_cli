@@ -21,6 +21,9 @@ class const AgentsVars({
   /// The hooks fragment of each harness that has one.
   final Map<Harness, String> hooks = const {},
 }) {
+  /// {@macro agents_vars}
+  this;
+
   /// The vars, keyed as the brick reads them.
   ///
   /// `agents` and `commands` are left out when empty: the brick loops a file

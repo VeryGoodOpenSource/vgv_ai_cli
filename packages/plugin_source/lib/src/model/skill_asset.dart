@@ -17,6 +17,9 @@ class const SkillAsset({
   required final Map<String, Object?> portableFrontmatter,
   required final Directory directory,
 }) {
+  /// {@macro skill_asset}
+  this;
+
   /// The frontmatter keys every harness understands: the open Agent Skills
   /// specification's key set. Parsers keep exactly these and drop everything
   /// else, so a harness-specific key never reaches another harness's skill.

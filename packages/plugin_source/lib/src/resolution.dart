@@ -7,13 +7,19 @@ import 'package:file/file.dart';
 /// plugin, collapsing a cache miss, a missing tag, an absent git binary and an
 /// unwritable cache root into one indistinguishable `null`.
 /// {@endtemplate}
-sealed class const PluginResolution();
+sealed class const PluginResolution() {
+  /// {@macro plugin_resolution}
+  this;
+}
 
 /// {@template resolved_plugin}
 /// The plugin was found on disk at [directory].
 /// {@endtemplate}
 final class const ResolvedPlugin(final Directory directory)
-    extends PluginResolution;
+    extends PluginResolution {
+  /// {@macro resolved_plugin}
+  this;
+}
 
 /// {@template unavailable_plugin}
 /// No source could supply the plugin.
@@ -24,6 +30,9 @@ final class const ResolvedPlugin(final Directory directory)
 /// {@endtemplate}
 final class const UnavailablePlugin(final List<String> reasons)
     extends PluginResolution {
+  /// {@macro unavailable_plugin}
+  this;
+
   /// {@macro unavailable_plugin}
   ///
   /// Convenience for a single source, which has exactly one reason.

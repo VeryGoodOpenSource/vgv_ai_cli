@@ -8,4 +8,7 @@ class const SectionSpan({
 
   /// The offset just past the section's end marker.
   required final int end,
-});
+}) {
+  /// {@macro section_span}
+  this;
+}

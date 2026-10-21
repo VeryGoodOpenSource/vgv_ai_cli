@@ -24,6 +24,9 @@ class const PluginAssets({
   /// itself names in its settings.
   final List<PluginRef> plugins = const [],
 }) {
+  /// {@macro plugin_assets}
+  this;
+
   /// Combines what the [plugins] contribute into one [PluginAssets].
   ///
   /// Each skill, agent and MCP server is written to a path or key derived

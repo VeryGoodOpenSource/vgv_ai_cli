@@ -18,6 +18,9 @@ class const MarkdownText(
   /// The file's text, as written.
   final String source,
 ) {
+  /// {@macro markdown_text}
+  this;
+
   /// Opens the section named [name].
   static String sectionStart(String name) => '<!-- vgv-ai-cli:$name -->';
 

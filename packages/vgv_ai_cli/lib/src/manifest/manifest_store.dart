@@ -14,6 +14,9 @@ class const ManifestStore(
   /// The home directory the manifest records, and is kept under.
   final Directory home,
 ) {
+  /// {@macro manifest_store}
+  this;
+
   /// Why a manifest this version cannot read is left as it is.
   static const unreadable =
       'the manifest was written by a newer version of vgv_ai, so it was '
