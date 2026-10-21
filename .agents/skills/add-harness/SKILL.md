@@ -77,7 +77,8 @@ fixes the last one; step 5 fixes the other two.
    bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
    bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
    ```
-3. Add a row to the capability matrix in `bricks/agents/README.md`.
+3. Add a row to the capability matrix in `bricks/agents/README.md`. Leave
+   `bricks/agents/CHANGELOG.md` alone — release automation owns it.
 4. Regenerate: `tool/generate_agents_bundle.sh` from the repo root.
 
 Check: `git status` shows `packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart` modified. If
@@ -231,7 +232,8 @@ plainly rather than implying it passed.
 ## Before opening a PR
 
 Branch as `feat/<harness>-harness`, never commit to `main`, conventional commit messages. Do not
-touch `CHANGELOG.md` or bump versions. Fill in `.github/PULL_REQUEST_TEMPLATE.md` and nothing more.
+touch any `CHANGELOG.md` — `bricks/agents/CHANGELOG.md` included — or bump any version. Release
+automation owns them. Fill in `.github/PULL_REQUEST_TEMPLATE.md` and nothing more.
 See [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 
 ## Common failures
