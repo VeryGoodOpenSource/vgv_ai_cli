@@ -126,7 +126,7 @@ You should not need to bump the version by hand at all: release-please owns it. 
 
 - Linting: `very_good_analysis` ^11.0.0 with no rule overrides, the same as Very Good CLI. Generated files are excluded in the `analyzer` section rather than by turning rules off.
 - Every public class carries `/// {@template name}` / `/// {@endtemplate}`, and declares its constructor in the body under `/// {@macro name}` — `this;`, or `this { ... }` when it has one. The declaration is not optional: `public_member_api_docs` reads a primary constructor as an undocumented member, and the class's own doc comment does not satisfy it.
-- The codebase uses **Dart 3.13 syntax**. Unnamed constructors are declared with the `new` keyword — `new({required this._logger})`, not `UpdateCommand({...})`. Empty class bodies use a semicolon — `class _MockLogger extends Mock implements Logger;`.
+- The codebase uses **Dart 3.13 syntax**. Unnamed constructors are declared with the `new` keyword — `new({required this._logger})`, not `UpdateCommand({...})`. Empty class bodies use a semicolon — `class _MockLogger extends Mock implements Logger;`. That is for private classes such as test doubles; a public class still needs a body to hold the documented constructor above.
 - Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 ### Testing
