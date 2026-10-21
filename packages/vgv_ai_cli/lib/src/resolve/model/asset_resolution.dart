@@ -6,14 +6,11 @@ import 'package:plugin_source/plugin_source.dart';
 sealed class const AssetResolution();
 
 /// {@template resolved_assets}
-/// Every plugin in [plugins] resolved and parsed, merged into [assets].
+/// Every plugin resolved and parsed, merged into [assets], which names them.
 /// {@endtemplate}
 final class const ResolvedAssets({
   /// What the plugins contribute, merged.
   required final PluginAssets assets,
-
-  /// The plugins that were resolved, at the versions they were pinned to.
-  required final List<PluginRef> plugins,
 }) extends AssetResolution;
 
 /// {@template unavailable_assets}

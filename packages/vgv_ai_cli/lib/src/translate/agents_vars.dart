@@ -15,9 +15,6 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// The plugins being installed.
-  required final List<PluginRef> plugins,
-
   /// Where the shared skills are written.
   required final String skillsRoot,
 
@@ -38,10 +35,7 @@ class const AgentsVars({
       for (final harness in Harness.values)
         harness.name: translators.any((t) => t.harness == harness),
       for (final translator in translators) ...{
-        '${translator.harness.name}_settings': ?translator.settings(
-          assets,
-          plugins: plugins,
-        ),
+        '${translator.harness.name}_settings': ?translator.settings(assets),
         '${translator.harness.name}_hooks': ?hooks[translator.harness],
       },
       if (agents.isNotEmpty) 'agents': agents,

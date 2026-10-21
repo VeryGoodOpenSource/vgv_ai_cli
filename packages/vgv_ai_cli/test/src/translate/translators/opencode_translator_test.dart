@@ -48,7 +48,6 @@ void main() {
               const RemoteMCPServer(name: 'open', url: 'https://open.example'),
             ],
           ),
-          plugins: vgvPlugins,
         ),
       );
 

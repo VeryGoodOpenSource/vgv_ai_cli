@@ -15,7 +15,7 @@ void main() {
     });
 
     test('has no settings, since Pi reads the shared skills natively', () {
-      expect(translator.settings(pluginAssets(), plugins: vgvPlugins), isNull);
+      expect(translator.settings(pluginAssets()), isNull);
     });
 
     test('spells nothing else, since Pi reads prompts as written', () {

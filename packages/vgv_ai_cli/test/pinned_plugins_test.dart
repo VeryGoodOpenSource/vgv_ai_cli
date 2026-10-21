@@ -43,7 +43,6 @@ void main() {
     test('translates $vgvPlugins for ${harness.name}', () async {
       final plan = await const Translator().translate(
         assets: assets,
-        plugins: vgvPlugins,
         home: home,
         selected: {harness},
       );

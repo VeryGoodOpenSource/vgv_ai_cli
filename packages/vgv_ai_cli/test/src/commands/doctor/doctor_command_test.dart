@@ -28,8 +28,12 @@ class _MockProgress extends Mock implements Progress;
 /// A [PluginResolver] that answers with [resolution], and counts its calls.
 class _FakeResolver extends Fake implements PluginResolver {
   AssetResolution resolution = const ResolvedAssets(
-    assets: PluginAssets(skills: [], agents: [], mcpServers: []),
-    plugins: vgvPlugins,
+    assets: PluginAssets(
+      skills: [],
+      agents: [],
+      mcpServers: [],
+      plugins: vgvPlugins,
+    ),
   );
 
   int calls = 0;
@@ -50,7 +54,6 @@ class _FakeTranslator extends Fake implements Translator {
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required List<PluginRef> plugins,
     required Directory home,
     required Set<Harness> selected,
   }) async {

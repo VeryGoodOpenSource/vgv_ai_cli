@@ -29,7 +29,32 @@ void main() {
       hooks: hooks,
     );
 
+    const wingspan = PluginRef(
+      name: 'wingspan',
+      repo: 'acme/wingspan',
+      version: '1.0.0',
+      gitRef: 'v1.0.0',
+    );
+
+    const flutter = PluginRef(
+      name: 'flutter',
+      repo: 'acme/flutter',
+      version: '2.0.0',
+      gitRef: 'v2.0.0',
+    );
+
     setUp(() => fs = MemoryFileSystem.test());
+
+    group('withPlugin', () {
+      test('credits the plugin for what it contributes', () {
+        final assets = pluginAssets(skills: [skill('green-gate')]);
+
+        final credited = assets.withPlugin(wingspan);
+
+        expect(credited.plugins, [wingspan]);
+        expect(credited.skills, assets.skills);
+      });
+    });
 
     group('invocableSkills', () {
       test('keeps only the skills a user can invoke as a command', () {
@@ -57,6 +82,15 @@ void main() {
     });
 
     group('merge', () {
+      test('names every plugin that contributed', () {
+        final merged = PluginAssets.merge([
+          pluginAssets().withPlugin(wingspan),
+          pluginAssets().withPlugin(flutter),
+        ]);
+
+        expect(merged.plugins, [wingspan, flutter]);
+      });
+
       AgentAsset agent(String name) =>
           AgentAsset(name: name, description: 'd', body: 'b', skills: const []);
 

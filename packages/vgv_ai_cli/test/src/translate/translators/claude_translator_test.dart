@@ -18,7 +18,7 @@ void main() {
 
     test('points Claude Code at the marketplace and enables both plugins', () {
       final settings = jsonDecode(
-        translator.settings(pluginAssets(), plugins: vgvPlugins),
+        translator.settings(pluginAssets(plugins: vgvPlugins)),
       );
 
       expect(settings, {
@@ -37,10 +37,10 @@ void main() {
       });
     });
 
-    test('enables only the plugins it is given', () {
+    test('enables only the plugins the assets came from', () {
       final wingspan = vgvPlugins.first;
       final settings = jsonDecode(
-        translator.settings(pluginAssets(), plugins: [wingspan]),
+        translator.settings(pluginAssets(plugins: [wingspan])),
       ) as Map<String, dynamic>;
 
       expect(settings['enabledPlugins'], {

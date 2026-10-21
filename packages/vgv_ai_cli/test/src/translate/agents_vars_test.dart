@@ -17,7 +17,6 @@ void main() {
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      plugins: vgvPlugins,
       skillsRoot: '/home/dev/.agents/skills',
       hooks: hooks,
     ).toMap();

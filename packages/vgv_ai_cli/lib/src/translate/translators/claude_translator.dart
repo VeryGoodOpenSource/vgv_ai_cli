@@ -22,18 +22,17 @@ class const ClaudeTranslator() extends HarnessTranslator {
   bool get readsSharedSkills => false;
 
   @override
-  String settings(PluginAssets assets, {required List<PluginRef> plugins}) =>
-      jsonEncode({
-        'extraKnownMarketplaces': {
-          vgvMarketplaceName: {
-            'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
-          },
-        },
-        'enabledPlugins': {
-          for (final plugin in plugins)
-            '${plugin.name}@$vgvMarketplaceName': true,
-        },
-      });
+  String settings(PluginAssets assets) => jsonEncode({
+    'extraKnownMarketplaces': {
+      vgvMarketplaceName: {
+        'source': {'source': 'github', 'repo': vgvMarketplaceRepo},
+      },
+    },
+    'enabledPlugins': {
+      for (final plugin in assets.plugins)
+        '${plugin.name}@$vgvMarketplaceName': true,
+    },
+  });
 
   /// Nothing to write: the plugin system runs the hooks as their authors
   /// wrote them.

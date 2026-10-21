@@ -2,6 +2,7 @@ import 'package:plugin_source/src/model/agent_asset.dart';
 import 'package:plugin_source/src/model/hook_asset.dart';
 import 'package:plugin_source/src/model/mcp_server.dart';
 import 'package:plugin_source/src/model/skill_asset.dart';
+import 'package:plugin_source/src/plugin_ref.dart';
 
 /// {@template plugin_assets}
 /// Everything one or more plugins contribute, in a harness-neutral shape.
@@ -18,6 +19,10 @@ class const PluginAssets({
 
   /// The hooks, in the order the plugins declare them.
   final List<HookAsset> hooks = const [],
+
+  /// The plugins these come from, which the harness that installs them
+  /// itself names in its settings.
+  final List<PluginRef> plugins = const [],
 }) {
   /// Combines what several plugins contribute into one [PluginAssets].
   ///
@@ -31,6 +36,16 @@ class const PluginAssets({
       for (final a in assets) ...a.mcpServers,
     ], (s) => s.name),
     hooks: [for (final a in assets) ...a.hooks],
+    plugins: [for (final a in assets) ...a.plugins],
+  );
+
+  /// These assets, with [plugin] credited for them.
+  PluginAssets withPlugin(PluginRef plugin) => PluginAssets(
+    skills: skills,
+    agents: agents,
+    mcpServers: mcpServers,
+    hooks: hooks,
+    plugins: [...plugins, plugin],
   );
 
   /// The skills a user can invoke as a command.

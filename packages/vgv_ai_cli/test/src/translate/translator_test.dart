@@ -47,7 +47,6 @@ void main() {
       PluginAssets? using,
     }) => const Translator().translate(
       assets: using ?? assets,
-      plugins: vgvPlugins,
       home: home,
       selected: selected,
     );

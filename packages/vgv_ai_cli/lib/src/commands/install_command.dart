@@ -125,7 +125,6 @@ class InstallCommand({
 
     final plan = await _translator.translate(
       assets: resolved.assets,
-      plugins: resolved.plugins,
       home: home,
       selected: selected,
     );
@@ -144,7 +143,7 @@ class InstallCommand({
         store.save(
           from: manifest,
           to: reconciliation.manifest.withPlugins(
-            _pluginVersions(manifest, resolved.plugins),
+            _pluginVersions(manifest, resolved.assets.plugins),
           ),
         );
     final anyChangeFailed = applied.any(

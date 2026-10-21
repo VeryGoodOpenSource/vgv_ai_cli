@@ -43,18 +43,15 @@ class _FakeTranslator extends Fake implements Translator {
 
   Set<Harness>? selected;
   PluginAssets? assets;
-  List<PluginRef>? plugins;
   Directory? home;
 
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required List<PluginRef> plugins,
     required Directory home,
     required Set<Harness> selected,
   }) async {
     this.assets = assets;
-    this.plugins = plugins;
     this.home = home;
     this.selected = selected;
     return plan;
@@ -271,7 +268,7 @@ void main() {
         ]);
 
         expect(exitCode, ExitCode.success.code);
-        expect(translator.plugins, [vgvPlugins.first]);
+        expect(translator.assets?.plugins, [vgvPlugins.first]);
         expect(ManifestStore(home).load()!.plugins, {
           vgvPlugins.first.name: vgvPlugins.first.version,
         });
@@ -301,7 +298,7 @@ void main() {
         ]);
 
         expect(exitCode, ExitCode.usage.code);
-        expect(translator.plugins, isNull);
+        expect(translator.assets, isNull);
       });
     });
 

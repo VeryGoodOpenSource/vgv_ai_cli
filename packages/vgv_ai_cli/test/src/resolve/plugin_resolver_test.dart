@@ -131,7 +131,7 @@ void main() {
       expect(
         resolution,
         isA<ResolvedAssets>()
-            .having((r) => r.plugins, 'plugins', [wingspan, flutter])
+            .having((r) => r.assets.plugins, 'plugins', [wingspan, flutter])
             .having(
               (r) => r.assets.agents.map((agent) => agent.name),
               'agents',
@@ -284,7 +284,9 @@ void main() {
       expect(parser.roots, [cached(wingspan)]);
       expect(
         resolution,
-        isA<ResolvedAssets>().having((r) => r.plugins, 'plugins', [wingspan]),
+        isA<ResolvedAssets>().having((r) => r.assets.plugins, 'plugins', [
+          wingspan,
+        ]),
       );
     });
 
@@ -299,7 +301,11 @@ void main() {
 
       expect(
         resolution,
-        isA<ResolvedAssets>().having((r) => r.plugins, 'plugins', vgvPlugins),
+        isA<ResolvedAssets>().having(
+          (r) => r.assets.plugins,
+          'plugins',
+          vgvPlugins,
+        ),
       );
     });
   });
