@@ -33,6 +33,7 @@ void main() {
             ),
           ],
         ),
+        plugins: vgvPlugins,
       );
 
       expect(TomlDocument.parse(toml).toMap(), {

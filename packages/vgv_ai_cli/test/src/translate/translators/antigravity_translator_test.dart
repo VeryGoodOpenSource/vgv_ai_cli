@@ -56,6 +56,7 @@ void main() {
             ),
           ],
         ),
+        plugins: vgvPlugins,
       );
 
       expect(jsonDecode(json), {

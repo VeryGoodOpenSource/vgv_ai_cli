@@ -20,8 +20,11 @@ class const Translator({
 }) {
   /// The changes and notes for each of [selected], plus the shared skills
   /// when any of them reads them.
+  ///
+  /// [plugins] are the ones [assets] were resolved from.
   Future<TranslationPlan> translate({
     required PluginAssets assets,
+    required List<PluginRef> plugins,
     required Directory home,
     required Set<Harness> selected,
   }) async {
@@ -39,6 +42,7 @@ class const Translator({
     final vars = AgentsVars(
       translators: chosen,
       assets: assets,
+      plugins: plugins,
       skillsRoot: agentsSkillsRoot(home).path,
       hooks: {
         for (final MapEntry(key: harness, value: translation) in hooks.entries)

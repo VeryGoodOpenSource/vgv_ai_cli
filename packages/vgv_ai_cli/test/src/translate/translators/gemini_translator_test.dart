@@ -44,6 +44,7 @@ void main() {
               ),
             ],
           ),
+          plugins: vgvPlugins,
         );
 
         expect(
@@ -68,6 +69,7 @@ void main() {
               ),
             ],
           ),
+          plugins: vgvPlugins,
         );
 
         expect(
@@ -83,7 +85,7 @@ void main() {
 
       test('reads AGENTS.md without giving up its own GEMINI.md', () {
         expect(
-          jsonDecode(translator.settings(pluginAssets())),
+          jsonDecode(translator.settings(pluginAssets(), plugins: vgvPlugins)),
           containsPair('context', {
             'fileName': ['AGENTS.md', 'GEMINI.md'],
           }),

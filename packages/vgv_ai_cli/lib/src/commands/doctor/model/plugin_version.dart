@@ -67,8 +67,10 @@ class const PluginVersion._({
       PluginStatus.newer => Finding.stale(
         '$name $installed installed, newer than the pinned $pinned',
       ),
-      PluginStatus.unrecorded => Finding.stale(
-        '$name not recorded, $pinned pinned',
+      // A plugin the manifest never recorded was not installed, which
+      // `install --plugin` makes a choice rather than a fault.
+      PluginStatus.unrecorded => Finding.suggestion(
+        '$name $pinned not installed',
       ),
     };
   }

@@ -271,6 +271,23 @@ void main() {
       );
     });
 
+    test('resolves only the plugins `only` names', () async {
+      cache(wingspan);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan, flutter],
+      );
+
+      final resolution = await resolver.resolve(home, only: {wingspan.name});
+
+      expect(parser.roots, [cached(wingspan)]);
+      expect(
+        resolution,
+        isA<ResolvedAssets>().having((r) => r.plugins, 'plugins', [wingspan]),
+      );
+    });
+
     test('resolves the pinned VGV plugins by default', () async {
       vgvPlugins.forEach(cache);
       final resolver = PluginResolver(

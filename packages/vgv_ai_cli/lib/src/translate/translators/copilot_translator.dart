@@ -31,18 +31,19 @@ class const CopilotTranslator() extends HarnessTranslator {
 
   /// Copilot documents a `type` on every server.
   @override
-  String settings(PluginAssets assets) => jsonEncode({
-    'mcpServers': {
-      for (final server in assets.mcpServers)
-        server.name: {
-          'type': switch (server) {
-            LocalMCPServer() => 'local',
-            RemoteMCPServer() => 'http',
-          },
-          ...server.toJson(),
+  String settings(PluginAssets assets, {required List<PluginRef> plugins}) =>
+      jsonEncode({
+        'mcpServers': {
+          for (final server in assets.mcpServers)
+            server.name: {
+              'type': switch (server) {
+                LocalMCPServer() => 'local',
+                RemoteMCPServer() => 'http',
+              },
+              ...server.toJson(),
+            },
         },
-    },
-  });
+      });
 
   @override
   HarnessFields agent(AgentAsset agent, {required String instructions}) =>

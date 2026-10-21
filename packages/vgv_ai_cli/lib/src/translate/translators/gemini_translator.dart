@@ -26,14 +26,15 @@ class const GeminiTranslator() extends HarnessTranslator {
   /// `AGENTS.md` is listed so Gemini reads the VGV section, and `GEMINI.md`
   /// so naming a second file does not stop it reading its default one.
   @override
-  String settings(PluginAssets assets) => jsonEncode({
-    'mcpServers': {
-      for (final server in assets.mcpServers) server.name: server.toJson(),
-    },
-    'context': {
-      'fileName': ['AGENTS.md', 'GEMINI.md'],
-    },
-  });
+  String settings(PluginAssets assets, {required List<PluginRef> plugins}) =>
+      jsonEncode({
+        'mcpServers': {
+          for (final server in assets.mcpServers) server.name: server.toJson(),
+        },
+        'context': {
+          'fileName': ['AGENTS.md', 'GEMINI.md'],
+        },
+      });
 
   @override
   HarnessFields agent(AgentAsset agent, {required String instructions}) =>

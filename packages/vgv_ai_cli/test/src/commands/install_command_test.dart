@@ -43,15 +43,18 @@ class _FakeTranslator extends Fake implements Translator {
 
   Set<Harness>? selected;
   PluginAssets? assets;
+  List<PluginRef>? plugins;
   Directory? home;
 
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
+    required List<PluginRef> plugins,
     required Directory home,
     required Set<Harness> selected,
   }) async {
     this.assets = assets;
+    this.plugins = plugins;
     this.home = home;
     this.selected = selected;
     return plan;
@@ -243,6 +246,62 @@ void main() {
         expect(translator.selected, isNull);
         verify(() => logger.err(any(that: contains('No harness selected'))))
             .called(1);
+      });
+    });
+
+    group('--plugin', () {
+      // The manifest is only written once something is, so every run here
+      // writes one file.
+      setUp(() {
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+            ),
+          },
+        );
+      });
+
+      test('installs just the plugins it names', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          vgvPlugins.first.name,
+        ]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.plugins, [vgvPlugins.first]);
+        expect(ManifestStore(home).load()!.plugins, {
+          vgvPlugins.first.name: vgvPlugins.first.version,
+        });
+      });
+
+      test('keeps the recorded version of a plugin it skips', () async {
+        await runInstall(['--only', 'claude']);
+
+        await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          vgvPlugins.first.name,
+        ]);
+
+        expect(ManifestStore(home).load()!.plugins, {
+          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        });
+      });
+
+      test('rejects a plugin it does not pin', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          'vgv-unknown',
+        ]);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.plugins, isNull);
       });
     });
 

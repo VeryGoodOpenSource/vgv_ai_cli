@@ -35,7 +35,7 @@ class _FakeResolver extends Fake implements PluginResolver {
   int calls = 0;
 
   @override
-  Future<AssetResolution> resolve(Directory home) async {
+  Future<AssetResolution> resolve(Directory home, {Set<String>? only}) async {
     calls++;
     return resolution;
   }
@@ -50,6 +50,7 @@ class _FakeTranslator extends Fake implements Translator {
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
+    required List<PluginRef> plugins,
     required Directory home,
     required Set<Harness> selected,
   }) async {
@@ -668,15 +669,13 @@ void main() {
         verifyInfo('    Run vgv_ai install --only codex');
       });
 
-      test('a pinned plugin that was never recorded exits 70', () async {
+      test('a pinned plugin that was never installed is only noted', () async {
         installWith({});
 
         final exitCode = await runDoctor();
 
-        expect(exitCode, ExitCode.software.code);
-        verifyInfo(
-          '    ${wingspan.name} not recorded, ${wingspan.version} pinned',
-        );
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('    ${wingspan.name} ${wingspan.version} not installed');
       });
 
       test(

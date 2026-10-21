@@ -167,10 +167,11 @@ class DoctorCommand({
   ) async {
     final progress = _logger.progress('Resolving plugins');
     switch (await _resolver.resolve(home)) {
-      case ResolvedAssets(:final assets):
+      case ResolvedAssets(:final assets, :final plugins):
         progress.complete('Resolved plugins');
         final translation = await _translator.translate(
           assets: assets,
+          plugins: plugins,
           home: home,
           selected: selected,
         );

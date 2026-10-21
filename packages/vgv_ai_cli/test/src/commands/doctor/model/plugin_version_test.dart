@@ -63,7 +63,7 @@ void main() {
       expect(version.status, PluginStatus.unrecorded);
       expect(
         version.finding,
-        isFinding(FindingKind.stale, 'wingspan not recorded, 0.2.0 pinned'),
+        isFinding(FindingKind.suggestion, 'wingspan 0.2.0 not installed'),
       );
     });
   });

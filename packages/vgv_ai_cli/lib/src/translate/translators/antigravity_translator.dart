@@ -49,18 +49,19 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// The plugin's `mcp_config.json`. A remote server's endpoint is
   /// `serverUrl`.
   @override
-  String settings(PluginAssets assets) => jsonEncode({
-    'mcpServers': {
-      for (final server in assets.mcpServers)
-        server.name: switch (server) {
-          LocalMCPServer() => server.toJson(),
-          RemoteMCPServer(:final url, :final headers) => {
-            'serverUrl': url,
-            if (headers.isNotEmpty) 'headers': headers,
-          },
+  String settings(PluginAssets assets, {required List<PluginRef> plugins}) =>
+      jsonEncode({
+        'mcpServers': {
+          for (final server in assets.mcpServers)
+            server.name: switch (server) {
+              LocalMCPServer() => server.toJson(),
+              RemoteMCPServer(:final url, :final headers) => {
+                'serverUrl': url,
+                if (headers.isNotEmpty) 'headers': headers,
+              },
+            },
         },
-    },
-  });
+      });
 
   /// An agent names its skills in the frontmatter, relative to the plugin,
   /// so its instructions are the body alone rather than the shared pointer.

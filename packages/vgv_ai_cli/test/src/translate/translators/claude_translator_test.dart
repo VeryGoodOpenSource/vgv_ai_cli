@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file/memory.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
@@ -16,7 +17,9 @@ void main() {
     });
 
     test('points Claude Code at the marketplace and enables both plugins', () {
-      final settings = jsonDecode(translator.settings(pluginAssets()));
+      final settings = jsonDecode(
+        translator.settings(pluginAssets(), plugins: vgvPlugins),
+      );
 
       expect(settings, {
         'extraKnownMarketplaces': {
@@ -31,6 +34,17 @@ void main() {
           'vgv-wingspan@very-good-claude-code-marketplace': true,
           'vgv-ai-flutter-plugin@very-good-claude-code-marketplace': true,
         },
+      });
+    });
+
+    test('enables only the plugins it is given', () {
+      final wingspan = vgvPlugins.first;
+      final settings = jsonDecode(
+        translator.settings(pluginAssets(), plugins: [wingspan]),
+      ) as Map<String, dynamic>;
+
+      expect(settings['enabledPlugins'], {
+        '${wingspan.name}@very-good-claude-code-marketplace': true,
       });
     });
 
