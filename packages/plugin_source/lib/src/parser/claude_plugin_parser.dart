@@ -15,6 +15,9 @@ import 'package:plugin_source/src/parser/plugin_parser.dart';
 /// inconsistent shapes the two plugins ship and throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
+  /// {@macro claude_plugin_parser}
+  this;
+
   @override
   PluginAssets parse(Directory root) {
     final agents = _readAgents(root.childDirectory('agents'));

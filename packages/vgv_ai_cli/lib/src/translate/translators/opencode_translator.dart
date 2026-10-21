@@ -11,6 +11,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// `mode: subagent` so it is delegated to rather than driven directly.
 /// {@endtemplate}
 class const OpenCodeTranslator() extends HarnessTranslator {
+  /// {@macro opencode_translator}
+  this;
+
   @override
   Harness get harness => Harness.opencode;
 

@@ -7,6 +7,9 @@
 /// {@endtemplate}
 class const PluginParseException(final String path, final String message)
     implements Exception {
+  /// {@macro plugin_parse_exception}
+  this;
+
   @override
   String toString() => 'Could not parse $path: $message';
 }

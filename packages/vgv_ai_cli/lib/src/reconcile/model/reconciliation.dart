@@ -12,4 +12,7 @@ class const Reconciliation({
   /// The manifest the changes were applied against, updated with what they
   /// wrote. On a dry run it records what they would have written.
   required final InstallManifest manifest,
-});
+}) {
+  /// {@macro reconciliation}
+  this;
+}

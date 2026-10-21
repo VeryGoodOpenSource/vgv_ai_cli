@@ -12,6 +12,9 @@ sealed class const MCPServer({
   /// The name the plugin declares the server under, unique across plugins.
   required final String name,
 }) {
+  /// {@macro mcp_server}
+  this;
+
   /// The server as a `.mcp.json` file declares it under its [name], leaving
   /// out every empty list and map rather than writing it empty.
   Map<String, Object> toJson();
@@ -32,6 +35,9 @@ final class const LocalMCPServer({
   /// Environment variables set for the subprocess.
   final Map<String, String> env = const {},
 }) extends MCPServer {
+  /// {@macro local_mcp_server}
+  this;
+
   @override
   Map<String, Object> toJson() => {
     'command': command,
@@ -52,6 +58,9 @@ final class const RemoteMCPServer({
   /// Headers sent with each request.
   final Map<String, String> headers = const {},
 }) extends MCPServer {
+  /// {@macro remote_mcp_server}
+  this;
+
   @override
   Map<String, Object> toJson() => {
     'url': url,

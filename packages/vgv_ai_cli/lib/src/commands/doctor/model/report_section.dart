@@ -16,6 +16,9 @@ class const ReportSection({
   /// What was found, in the order it was found.
   required final List<Finding> findings,
 }) {
+  /// {@macro report_section}
+  this;
+
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
 

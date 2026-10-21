@@ -18,6 +18,9 @@ class const ManifestAuditor({
   /// Decodes and compares what is on disk with what VGV recorded.
   final DocumentCodec codec = const DocumentCodec(),
 }) {
+  /// {@macro manifest_auditor}
+  this;
+
   /// Checks that what [entry] records is still on disk, as VGV wrote it.
   ///
   /// Never writes, and reports a file it cannot read rather than throwing.

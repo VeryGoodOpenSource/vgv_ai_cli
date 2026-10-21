@@ -19,6 +19,9 @@ class const PluginAssets({
   /// The hooks, in the order the plugins declare them.
   final List<HookAsset> hooks = const [],
 }) {
+  /// {@macro plugin_assets}
+  this;
+
   /// Combines what several plugins contribute into one [PluginAssets].
   ///
   /// Each skill, agent and MCP server is written to a path or key derived

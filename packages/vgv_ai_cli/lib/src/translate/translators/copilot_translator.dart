@@ -13,6 +13,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// it needs no commands.
 /// {@endtemplate}
 class const CopilotTranslator() extends HarnessTranslator {
+  /// {@macro copilot_translator}
+  this;
+
   @override
   Harness get harness => Harness.copilot;
 
