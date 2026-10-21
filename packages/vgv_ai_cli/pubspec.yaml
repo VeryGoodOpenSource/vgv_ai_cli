@@ -1,6 +1,9 @@
 name: vgv_ai_cli
 description: A CLI that configures Very Good AI coding agents and tooling
 version: 0.1.0
+repository: https://github.com/VeryGoodOpenSource/vgv_ai_cli
+issue_tracker: https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues
+topics: [cli, ai, agents, tooling]
 # Not published. `plugin_source`, which this depends on, is `publish_to: none`,
 # and the CLI is installed from source rather than pub.dev.
 publish_to: none

@@ -1,0 +1,61 @@
+name: release_please
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  release_please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚀 Release Please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          manifest-file: ".release-please-manifest.json"
+          config-file: ".release-please-config.json"
+
+      # `packages/vgv_ai_cli/lib/src/version.dart` is generated from the
+      # package version by `build_version`, so the bump release-please writes
+      # leaves it stale and `verify-version` fails on the release PR.
+      # Regenerate it on the release branch.
+      - name: 📚 Git Checkout
+        if: steps.release.outputs.prs_created == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: 🎯 Setup Dart
+        if: steps.release.outputs.prs_created == 'true'
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: "3.13.0"
+
+      - name: 🔄 Regenerate version file
+        if: steps.release.outputs.prs_created == 'true'
+        working-directory: packages/vgv_ai_cli
+        run: |
+          dart pub get
+          dart run build_runner build
+
+      - name: 📤 Push version file
+        if: steps.release.outputs.prs_created == 'true'
+        run: |
+          if [ -z "$(git status --porcelain packages/vgv_ai_cli/lib/src/version.dart)" ]; then
+            echo "version.dart is already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/vgv_ai_cli/lib/src/version.dart
+          git commit -m "chore: regenerate version file"
+          git push
