@@ -10,6 +10,7 @@
   "pull-request-header": ":rotating_light: There are changes ready for release :rocket:\n\nℹ Merge this PR once the team confirms the release is ready.\n",
   "group-pull-request-title-pattern": "chore: release ${branch}",
   "include-component-in-tag": true,
+  "bootstrap-sha": "875842bc783d6bd1592f6e5204d9735709df3a93",
   "packages": {
     "packages/vgv_ai_cli": {
       "release-type": "dart",
@@ -24,13 +25,11 @@
       "version-file": "pubspec.yaml"
     }
   },
-  "exclude-paths": [
-    ".github",
-    ".release-please-config.json",
-    ".release-please-manifest.json",
-    "AGENTS.md",
-    "CONTRIBUTING.md",
-    "README.md",
-    "tool"
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "vgv_ai",
+      "components": ["vgv_ai_cli", "plugin_source"]
+    }
   ]
 }
