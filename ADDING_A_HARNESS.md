@@ -389,6 +389,26 @@ Files on disk are not the gate — the harness has to **load** them. Start it an
 list, agent list and MCP server list, and make a hook actually fire. A settings key in the wrong
 place writes cleanly and does nothing.
 
+## Changing a harness that already exists
+
+Most of this guide still applies, minus the parts that exist only for a new one: no enum value, no
+registration, and no research gate unless the harness changed its own format. The bundle still has
+to be regenerated, the per-harness tests still have to be updated, and the green gate still has to
+pass.
+
+The difference is who it reaches. A new harness touches nobody; a change to an existing one
+reaches everyone who already ran `install`. These leave files behind that the manifest no longer
+accounts for, so they are **breaking changes of behavior**:
+
+- Renaming or removing the enum value — the manifest resolves `owner` by name and silently drops
+  what it cannot match.
+- Moving its config directory, `hooksRoot()` or `skillsRoot()`.
+- Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
+- Dropping or renaming a settings key already written into a config the user shares with us.
+
+Take any of those to an issue or a discussion before writing the PR, and link it. See
+[breaking changes](CONTRIBUTING.md#breaking-changes).
+
 ## What you don't have to touch
 
 These are all driven by `Harness.values` or by the manifest, and need no per-harness code:

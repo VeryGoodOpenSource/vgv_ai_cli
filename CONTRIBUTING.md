@@ -147,6 +147,32 @@ open coverage/index.html
 - Leave every `CHANGELOG.md` and version bump alone, the `agents` brick's included. Release
   automation owns them.
 
+## Breaking changes
+
+`vgv_ai` writes into config files people already own, and the install manifest
+is the only record of what it wrote. A change to behavior can therefore strand
+files on someone's disk rather than just fail a test.
+
+**Open an issue or a discussion first, agree the approach there, and link it
+from the pull request.** A breaking change that arrives as a PR with no prior
+discussion gets sent back.
+
+What counts:
+
+- Renaming or removing a `Harness` value. The manifest records the owner by
+  name and silently drops an entry it cannot resolve, so every file that
+  harness wrote is orphaned: `uninstall` stops removing them and `doctor`
+  stops seeing them.
+- Moving where a harness writes — its config directory, `hooksRoot()` or
+  `skillsRoot()`. The files already written stay behind under the old path.
+- Changing a file's `ChangeMode`, which decides whether VGV owns a file
+  outright or merges into one the user shares with us.
+- Changing which settings keys are written into a config the user also edits.
+- Changing the manifest format or its version.
+
+Adding a harness is none of these: it only adds an enum value, a brick folder
+and a translator, and touches no existing harness.
+
 ## CI
 
 Most jobs live in

@@ -22,6 +22,18 @@ are already there. Go straight to the brick or the translator, then do steps 5, 
 The bundle still has to be regenerated, the existing per-harness tests still have to be updated,
 and the green gate still has to pass against the real harness.
 
+**Stop before writing code if the change is any of these.** They reach everyone who already ran
+`install`, and leave files behind that the manifest no longer accounts for:
+
+- Renaming or removing the enum value — the manifest resolves `owner` by name and silently drops
+  what it cannot match, so `uninstall` stops removing those files and `doctor` stops seeing them.
+- Moving its config directory, `hooksRoot()` or `skillsRoot()`.
+- Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
+- Dropping or renaming a settings key already written into a config the user also edits.
+
+Each is a breaking change of behavior. Say so, and ask for an issue or a discussion to agree the
+approach before any PR — do not open one with the change already made.
+
 ## Step 0: research, then report before writing code
 
 You cannot write the translator from the codebase alone. Install the harness's **latest** version,
