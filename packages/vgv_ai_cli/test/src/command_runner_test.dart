@@ -9,11 +9,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockProgress extends Mock implements Progress;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
+import '../helpers/command_helper.dart';
 
 class _FlagCommand() extends Command<int> {
   this {
@@ -46,17 +42,10 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      pubUpdater = _MockPubUpdater();
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
-
-      logger = _MockLogger();
-
-      commandRunner = VgvAiCliCommandRunner(
-        logger: logger,
-        pubUpdater: pubUpdater,
-      );
+      final harness = TestRunner();
+      pubUpdater = harness.pubUpdater;
+      logger = harness.logger;
+      commandRunner = harness.build();
     });
 
     test('shows update message when newer version exists', () async {
@@ -68,12 +57,13 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
       verify(() => logger.info(updatePrompt)).called(1);
     });
 
-    test('shows error message when failed to check for updates', () async {
+    test('stays quiet when the update check fails', () async {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenThrow(Exception('Failed to check for updates'));
 
-      await commandRunner.run(['--version']);
-      verify(() => logger.err('Failed to check for updates.')).called(1);
+      final result = await commandRunner.run(['--version']);
+      expect(result, equals(ExitCode.success.code));
+      verifyNever(() => logger.err(any()));
     });
 
     test('Does not show update message when the shell calls the '
@@ -103,14 +93,6 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
           currentVersion: any(named: 'currentVersion'),
         ),
       ).thenAnswer((_) async => true);
-
-      final progress = _MockProgress();
-      final progressLogs = <String>[];
-      when(() => progress.complete(any())).thenAnswer((answer) {
-        final message = answer.positionalArguments.elementAt(0) as String?;
-        if (message != null) progressLogs.add(message);
-      });
-      when(() => logger.progress(any())).thenReturn(progress);
 
       final result = await commandRunner.run(['update']);
       expect(result, ExitCode.success.code);

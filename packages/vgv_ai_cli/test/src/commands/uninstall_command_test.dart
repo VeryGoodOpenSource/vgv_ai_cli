@@ -6,21 +6,14 @@ import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:plugin_source/plugin_source.dart';
-import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
-import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
-
-class _MockProgress extends Mock implements Progress;
+import '../../helpers/command_helper.dart';
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
@@ -47,8 +40,8 @@ class const _FailingAuditor() extends ManifestAuditor {
 
 void main() {
   group(UninstallCommand, () {
+    late TestRunner harness;
     late Logger logger;
-    late PubUpdater pubUpdater;
     late FileSystem fs;
     late Directory home;
     late ManifestStore store;
@@ -57,8 +50,8 @@ void main() {
     String? undeletable;
 
     setUp(() {
-      logger = _MockLogger();
-      pubUpdater = _MockPubUpdater();
+      harness = TestRunner();
+      logger = harness.logger;
       undeletable = null;
       fs = MemoryFileSystem.test(
         opHandle: (path, operation) {
@@ -69,17 +62,10 @@ void main() {
       );
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
     });
 
     Future<int> runThroughRunner(UninstallCommand command, List<String> args) =>
-        VgvAiCliCommandRunner(
-          logger: logger,
-          pubUpdater: pubUpdater,
-          uninstallCommand: command,
-        ).run(['uninstall', ...args]);
+        harness.run(['uninstall', ...args], uninstallCommand: command);
 
     Future<int> runUninstall([
       List<String> args = const [],
@@ -296,6 +282,15 @@ void main() {
           command.argParser.options['only']!.help,
           'Remove the Very Good AI tooling from just these harnesses.',
         );
+      });
+
+      test('--only lists what each harness name means', () {
+        final command = UninstallCommand(logger: logger);
+
+        expect(command.argParser.options['only']!.allowedHelp, {
+          for (final harness in Harness.values)
+            harness.name: '${harness.displayName}.',
+        });
       });
     });
 
@@ -581,6 +576,12 @@ void main() {
             '${store.file.path}',
           ),
         ).called(1);
+        verify(
+          () => logger.err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run uninstall '
+            'again.',
+          ),
+        ).called(1);
       });
 
       test('removes nothing when it cannot be read', () async {
@@ -639,7 +640,6 @@ void main() {
       /// Installs one skill and one agent for every harness with the real
       /// translator and reconciler.
       Future<void> installEverything() async {
-        when(() => logger.progress(any())).thenReturn(_MockProgress());
         final skill = fs.directory('/plugin/skills/green-gate');
         fs.file(fs.path.join(skill.path, 'references', 'guide.md'))
           ..createSync(recursive: true)
@@ -676,22 +676,20 @@ void main() {
           return ProcessResult(0, 0, '', '');
         }
 
-        final exitCode =
-            await VgvAiCliCommandRunner(
-              logger: logger,
-              pubUpdater: pubUpdater,
-              installCommand: InstallCommand(
-                logger: logger,
-                home: home,
-                resolver: PluginResolver(
-                  runProcess: clone,
-                  parser: _FakeParser(assets),
-                ),
-              ),
-            ).run([
-              'install',
-              for (final harness in Harness.values) ...['--only', harness.name],
-            ]);
+        final exitCode = await harness.run(
+          [
+            'install',
+            for (final harness in Harness.values) ...['--only', harness.name],
+          ],
+          installCommand: InstallCommand(
+            logger: logger,
+            home: home,
+            resolver: PluginResolver(
+              runProcess: clone,
+              parser: _FakeParser(assets),
+            ),
+          ),
+        );
         expect(exitCode, ExitCode.success.code);
       }
 

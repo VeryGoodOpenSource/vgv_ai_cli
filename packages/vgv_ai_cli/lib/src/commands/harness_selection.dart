@@ -20,6 +20,10 @@ mixin HarnessSelection on Command<int> {
       'only',
       help: '$action $only',
       allowed: Harness.values.map((harness) => harness.name),
+      allowedHelp: {
+        for (final harness in Harness.values)
+          harness.name: '${harness.displayName}.',
+      },
     );
 
     // Opting out matters more than opting in: the default is every harness
