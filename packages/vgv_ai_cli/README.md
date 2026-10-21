@@ -66,7 +66,7 @@ vgv_ai install --no-claude
 # Also overwrite your values that conflict with the ones install writes
 vgv_ai install --force
 
-# Install just one of the pinned VGV plugins
+# Install just the VGV plugins you name, instead of every pinned one
 vgv_ai install --plugin vgv-wingspan
 ```
 
@@ -85,9 +85,9 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   are written whole. A file you edited since `install` wrote it, or one at the
   same path that `install` didn't write, is kept unless you pass `--force`.
 - **Selection:** `--only` and `--no-<harness>` can't be combined.
-- **Plugins:** without `--plugin`, every pinned plugin is installed. Naming one
-  leaves what a previous `install` wrote for the others in place; `uninstall`
-  removes that.
+- **Plugins:** without `--plugin`, every pinned plugin is installed. Pass it
+  once per plugin to name the ones you want. What a previous `install` wrote
+  for the plugins you leave out stays where it is; `uninstall` removes that.
 
 ### doctor
 

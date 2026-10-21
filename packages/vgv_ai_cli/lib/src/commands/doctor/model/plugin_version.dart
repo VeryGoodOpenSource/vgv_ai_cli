@@ -67,9 +67,7 @@ class const PluginVersion._({
       PluginStatus.newer => Finding.stale(
         '$name $installed installed, newer than the pinned $pinned',
       ),
-      PluginStatus.unrecorded => Finding.suggestion(
-        '$name $pinned not installed',
-      ),
+      PluginStatus.unrecorded => Finding.warning('$name $pinned not installed'),
     };
   }
 }

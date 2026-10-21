@@ -216,7 +216,8 @@ class InstallCommand({
     };
   }
 
-  /// Resolves and parses every pinned VGV plugin into one asset bundle.
+  /// Resolves and parses the plugins `--plugin` selects into one asset
+  /// bundle, or every pinned one when it selects none.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.

@@ -45,17 +45,6 @@ void main() {
 
     setUp(() => fs = MemoryFileSystem.test());
 
-    group('withPlugin', () {
-      test('credits the plugin for what it contributes', () {
-        final assets = pluginAssets(skills: [skill('green-gate')]);
-
-        final credited = assets.withPlugin(wingspan);
-
-        expect(credited.plugins, [wingspan]);
-        expect(credited.skills, assets.skills);
-      });
-    });
-
     group('invocableSkills', () {
       test('keeps only the skills a user can invoke as a command', () {
         final assets = pluginAssets(
@@ -82,11 +71,11 @@ void main() {
     });
 
     group('merge', () {
-      test('names every plugin that contributed', () {
-        final merged = PluginAssets.merge([
-          pluginAssets().withPlugin(wingspan),
-          pluginAssets().withPlugin(flutter),
-        ]);
+      test('names the plugins the assets came from', () {
+        final merged = PluginAssets.merge(
+          [pluginAssets(), pluginAssets()],
+          plugins: [wingspan, flutter],
+        );
 
         expect(merged.plugins, [wingspan, flutter]);
       });

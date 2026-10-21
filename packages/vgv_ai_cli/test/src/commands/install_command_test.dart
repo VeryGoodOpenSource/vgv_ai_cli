@@ -275,7 +275,15 @@ void main() {
       });
 
       test('keeps the recorded version of a plugin it skips', () async {
+        final skipped = vgvPlugins.last;
         await runInstall(['--only', 'claude']);
+        final store = ManifestStore(home);
+        store.save(
+          store.load()!.withPlugins({
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
+            skipped.name: '0.0.1',
+          }),
+        );
 
         await runInstall([
           '--only',
@@ -284,8 +292,9 @@ void main() {
           vgvPlugins.first.name,
         ]);
 
-        expect(ManifestStore(home).load()!.plugins, {
-          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+        expect(store.load()!.plugins, {
+          vgvPlugins.first.name: vgvPlugins.first.version,
+          skipped.name: '0.0.1',
         });
       });
 

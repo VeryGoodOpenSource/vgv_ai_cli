@@ -24,28 +24,22 @@ class const PluginAssets({
   /// itself names in its settings.
   final List<PluginRef> plugins = const [],
 }) {
-  /// Combines what several plugins contribute into one [PluginAssets].
+  /// Combines what the [plugins] contribute into one [PluginAssets].
   ///
   /// Each skill, agent and MCP server is written to a path or key derived
   /// from its name, so the first declaration of a name wins and a later one
   /// is dropped rather than planned as a second write to the same place.
-  factory merge(Iterable<PluginAssets> assets) => PluginAssets(
+  factory merge(
+    Iterable<PluginAssets> assets, {
+    List<PluginRef> plugins = const [],
+  }) => PluginAssets(
     skills: _firstByName([for (final a in assets) ...a.skills], (s) => s.name),
     agents: _firstByName([for (final a in assets) ...a.agents], (a) => a.name),
     mcpServers: _firstByName([
       for (final a in assets) ...a.mcpServers,
     ], (s) => s.name),
     hooks: [for (final a in assets) ...a.hooks],
-    plugins: [for (final a in assets) ...a.plugins],
-  );
-
-  /// These assets, with [plugin] credited for them.
-  PluginAssets withPlugin(PluginRef plugin) => PluginAssets(
-    skills: skills,
-    agents: agents,
-    mcpServers: mcpServers,
-    hooks: hooks,
-    plugins: [...plugins, plugin],
+    plugins: plugins,
   );
 
   /// The skills a user can invoke as a command.

@@ -166,7 +166,13 @@ class DoctorCommand({
     Set<Harness> selected,
   ) async {
     final progress = _logger.progress('Resolving plugins');
-    switch (await _resolver.resolve(home)) {
+    // Only the plugins the home was installed from, so a plugin left out of
+    // `install --plugin` is not reported as content that is missing.
+    final recorded = manifest.plugins.keys.toSet();
+    switch (await _resolver.resolve(
+      home,
+      only: recorded.isEmpty ? null : recorded,
+    )) {
       case ResolvedAssets(:final assets):
         progress.complete('Resolved plugins');
         final translation = await _translator.translate(

@@ -37,10 +37,12 @@ class _FakeResolver extends Fake implements PluginResolver {
   );
 
   int calls = 0;
+  Set<String>? only;
 
   @override
   Future<AssetResolution> resolve(Directory home, {Set<String>? only}) async {
     calls++;
+    this.only = only;
     return resolution;
   }
 }
@@ -679,6 +681,16 @@ void main() {
 
         expect(exitCode, ExitCode.success.code);
         verifyInfo('    ${wingspan.name} ${wingspan.version} not installed');
+        // Nothing was recorded, so every pinned plugin is still checked.
+        expect(resolver.only, isNull);
+      });
+
+      test('only the recorded plugins are checked', () async {
+        installWith({wingspan.name: wingspan.version});
+
+        await runDoctor();
+
+        expect(resolver.only, {wingspan.name});
       });
 
       test(
@@ -689,7 +701,9 @@ void main() {
             owned('.gemini/agents/a.md', harness: Harness.gemini),
             owned('.pi/agent/a.md', harness: Harness.pi),
           ]);
-          store.save(store.load()!.withPlugins({}));
+          store.save(
+            store.load()!.withPlugins({...pinned, wingspan.name: '0.0.1'}),
+          );
 
           await runDoctor(args: ['--no-pi']);
 

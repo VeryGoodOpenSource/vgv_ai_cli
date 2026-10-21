@@ -47,7 +47,7 @@ class const PluginResolver({
       }
     }
 
-    return ResolvedAssets(assets: PluginAssets.merge(parsed));
+    return ResolvedAssets(assets: PluginAssets.merge(parsed, plugins: plugins));
   }
 
   /// [plugin] parsed from the first of [sources] holding a copy that parses.
@@ -67,9 +67,7 @@ class const PluginResolver({
       switch (await source.resolve(plugin)) {
         case ResolvedPlugin(:final directory):
           try {
-            return ResolvedAssets(
-              assets: _parser.parse(directory).withPlugin(plugin),
-            );
+            return ResolvedAssets(assets: _parser.parse(directory));
           } on PluginParseException catch (error) {
             unparseable = UnparseableAssets(plugin, error);
           }
