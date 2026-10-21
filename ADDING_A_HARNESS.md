@@ -59,9 +59,27 @@ antigravity(
 
 Position matters: `Harness.values` is the order every report and the translator registry use.
 
+Two user-facing lists name every harness, and both need the new one:
+
+- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table (flag, display name,
+  executable, config directory), and the paragraph under it saying which harnesses share
+  `~/.agents/skills` and which keep their own copy.
+- `README.md` — the agents listed in the opening sentence.
+
 ## 2. Give it a brick folder
 
-`bricks/agents/__brick__/{{#<harness>}}<harness>/…{{\<harness>}}`
+The folder is named `{{#<harness>}}<harness>`, and **every file inside it ends with
+`{{\<harness>}}`** — the open and close of one Mason section, split across the folder name and each
+file name. It is not a single path segment. Pi's whole folder is three entries:
+
+```text
+bricks/agents/__brick__/{{#pi}}pi
+bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
+```
+
+Nested loops close inside out: the commands loop closes with `{{\commands}}` before the harness
+closes with `{{\pi}}`.
 
 **The tree is the capability matrix.** What the folder holds is what the harness supports. A
 feature the harness lacks has no file, and that absence is the whole opt-out — Pi has `AGENTS.md`
@@ -386,6 +404,8 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 ## Checklist
 
 ```text
+README.md                                                 supported agents list
+packages/vgv_ai_cli/README.md                             harness table row, shared-skills line
 bricks/agents/brick.yaml                                  boolean var
 bricks/agents/__brick__/{{#<h>}}<h>/…{{\<h>}}             the templates
 bricks/agents/README.md                                   capability matrix row

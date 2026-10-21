@@ -9,8 +9,18 @@ description: Adds support for a new coding agent harness to vgv_ai_cli — the H
 brick variables, the path-to-`ChangeMode` rules. Read it before step 3. This file is the
 procedure — what to do, in what order, and how to check each step landed.
 
-Work from the repo root. Do not edit `lib/src/templates/agents_bundle.dart` by hand at any point;
-it is generated.
+Run commands from the repo root unless a step says otherwise. Dart paths below are written in
+full from the root, so `packages/vgv_ai_cli/test/...` means that file, not `test/...` — the
+package is a level down. Never edit
+`packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart` by hand; it is generated.
+
+## Changing a harness that already exists
+
+Most of this applies, but skip what does not: there is no step 0 research gate unless the harness
+changed its format, no step 1, and no registration in step 3 — the enum value and the translator
+are already there. Go straight to the brick or the translator, then do steps 5, 6 and 7 in full.
+The bundle still has to be regenerated, the existing per-harness tests still have to be updated,
+and the green gate still has to pass against the real harness.
 
 ## Step 0: research, then report before writing code
 
@@ -37,16 +47,36 @@ from another harness.
 
 Add the value to `Harness` in `packages/vgv_ai_cli/lib/src/model/harness.dart`, at the end.
 
-Check: `cd packages/vgv_ai_cli && dart analyze --fatal-infos --fatal-warnings lib test` now fails
-in `harness_test.dart` and `agents_vars_test.dart`, or those tests fail. That is expected — those
-are the two lists step 6 fixes.
+Check: analysis still passes — nothing in `lib` switches over `Harness`, so a new value is valid
+code on its own. Three test files fail instead, and that is the expected signal:
+
+```sh
+cd packages/vgv_ai_cli && dart run test \
+  test/src/model/harness_test.dart \
+  test/src/translate/agents_vars_test.dart \
+  test/src/translate/translator_test.dart
+```
+
+`harness_test.dart` fails on the order list and the config directory map, `agents_vars_test.dart`
+on the flags map, and `translator_test.dart` because no translator is registered yet. Step 3
+fixes the last one; step 5 fixes the other two.
 
 ## Step 2: the brick
 
 1. Add the boolean var to `bricks/agents/brick.yaml`.
-2. Create `bricks/agents/__brick__/{{#<harness>}}<harness>/…{{\<harness>}}` holding **only** the
-   files the harness actually reads. A feature it lacks gets no file — that absence is the opt-out,
-   so do not add an empty folder or a placeholder.
+2. Create the brick folder, holding **only** the files the harness actually reads. A feature it
+   lacks gets no file — that absence is the opt-out, so do not add an empty folder or a
+   placeholder.
+
+   The folder is `{{#<harness>}}<harness>` and **each file inside it ends with `{{\<harness>}}`**.
+   That is one Mason section split across two names, not a literal path segment — do not create a
+   directory called `{{#pi}}pi/…{{\pi}}`. Pi's whole folder:
+
+   ```text
+   bricks/agents/__brick__/{{#pi}}pi
+   bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+   bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
+   ```
 3. Add a row to the capability matrix in `bricks/agents/README.md`.
 4. Regenerate: `tool/generate_agents_bundle.sh` from the repo root.
 
@@ -114,9 +144,10 @@ copied plugin hooks folder.
 ## Step 5: tests
 
 Coverage must be 100%. Mock with `mocktail`, use `MemoryFileSystem.test()` for disk, and build
-fixtures from the helpers in `test/src/translate/_assets.dart` rather than hand-rolling assets.
+fixtures from the helpers in `packages/vgv_ai_cli/test/src/translate/_assets.dart` rather than
+hand-rolling assets.
 
-New:
+New, both under `packages/vgv_ai_cli/`:
 
 - `test/src/translate/translators/<harness>_translator_test.dart`
 - `test/src/translate/translators/<harness>_compat_test.dart` — only with hooks
@@ -127,6 +158,12 @@ Existing, all three must be updated or the suite fails:
 - `test/src/translate/agents_vars_test.dart` — the flags map
 - `test/src/translate/translator_test.dart` — a `tree()` expectation for every file it gets
 
+Then the two user-facing lists, which no test covers:
+
+- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table, and the paragraph under it
+  about which harnesses share `~/.agents/skills`
+- `README.md` — the agents named in the opening sentence
+
 ## Step 6: verify
 
 ```sh
@@ -136,10 +173,20 @@ dart analyze --fatal-infos --fatal-warnings lib test
 dart run test --run-skipped -t pinned-plugins
 ```
 
-**Do not run `dart test`, `very_good test` or `flutter test` through Bash.** A hook in this repo
-denies them as the first two tokens of a command. Run the full coverage suite through the
-`very_good_cli` MCP `test` tool instead. `dart run test` is a different form and is allowed, which
-is why the pinned-plugins command above works.
+For the full coverage suite, which tool you use depends on what you are running as:
+
+- **If the `very_good_cli` MCP server is available** — it ships with the VGV AI Flutter plugin, so
+  this is the Claude Code case — run the suite through its `test` tool. The same plugin installs a
+  hook that denies `dart test`, `very_good test` and `flutter test` as the first two tokens of a
+  Bash command, so the shell is not an option there.
+- **Otherwise** run it from `packages/vgv_ai_cli`:
+
+  ```sh
+  very_good test -j 4 --coverage --min-coverage 100 --optimization
+  ```
+
+`dart run test` is a different form that no hook catches, which is why the commands above work in
+either case.
 
 `pinned-plugins` resolves the real plugins over git and translates them for every harness,
 including the new one. It is the check that the translator survives real input rather than

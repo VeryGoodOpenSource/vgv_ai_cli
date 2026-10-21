@@ -151,14 +151,14 @@ open coverage/index.html
 Most jobs live in
 [`.github/workflows/vgv_ai_cli.yaml`](.github/workflows/vgv_ai_cli.yaml):
 
-| Job                      | What it checks                                        |
-| ------------------------ | ----------------------------------------------------- |
-| `semantic-pull-request`  | The pull request title is a conventional commit.      |
-| `build`                  | Format, analyze, 100% coverage, cognitive complexity. |
-| `spell-check`            | cspell over every markdown file but the brick templates, changed or not. |
-| `verify-bundle`          | `tool/generate_agents_bundle.sh` produces no diff.    |
-| `verify-version`         | `lib/src/version.dart` matches `pubspec.yaml`.        |
-| `verify-pins`            | The pinned plugins still resolve, parse and translate. |
+| Job                     | What it checks                                                           |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `semantic-pull-request` | The pull request title is a conventional commit.                         |
+| `build`                 | Format, analyze, 100% coverage, cognitive complexity.                    |
+| `spell-check`           | cspell over every markdown file but the brick templates, changed or not. |
+| `verify-bundle`         | `tool/generate_agents_bundle.sh` produces no diff.                       |
+| `verify-version`        | `lib/src/version.dart` matches `pubspec.yaml`.                           |
+| `verify-pins`           | The pinned plugins still resolve, parse and translate.                   |
 
 That workflow is path-filtered to the two packages' `lib/`, `test/` and
 `pubspec.yaml`, plus `bricks/`, `tool/` and `.github/cspell.json`. A docs-only
