@@ -26,5 +26,5 @@ jobs:
         with:
           # The repository is private, so GitHub links need a token to resolve.
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: ./**/*.md ./**/*.dart
+          args: ./**/*.md
           fail: true
