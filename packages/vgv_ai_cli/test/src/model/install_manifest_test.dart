@@ -130,7 +130,7 @@ void main() {
       expect(
         decode(jsonEncode({owned.path: 'hash'}))!.entries,
         isEmpty,
-        reason: 'the flat format before version 1 never shipped',
+        reason: 'a document with no version is not a manifest',
       );
     });
 
@@ -183,7 +183,7 @@ void main() {
       );
     });
 
-    test('keeps the entries when the plugins are not per harness', () {
+    test('keeps the entries when it cannot read the plugin versions', () {
       final manifest = InstallManifest.decode(
         jsonEncode({
           'version': InstallManifest.version,
