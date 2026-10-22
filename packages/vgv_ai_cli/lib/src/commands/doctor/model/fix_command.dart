@@ -1,3 +1,5 @@
+import 'package:collection/collection.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// {@template fix_command}
@@ -9,15 +11,28 @@ class const FixCommand({
 
   /// Whether VGV's values must replace ones changed since install.
   final bool force = false,
+
+  /// The plugins to install, or empty for every pinned one.
+  ///
+  /// Named so the fix cannot install a plugin the user left out of a
+  /// harness with `install --plugin`.
+  final Set<String> plugins = const {},
 }) {
   /// One command that does what every one of [fixes] does, or null when
-  /// there are none.
+  /// there are none, or when they install different plugins and so cannot
+  /// be said in one command.
   static FixCommand? combine(Iterable<FixCommand?> fixes) {
-    final all = fixes.nonNulls;
+    final all = fixes.nonNulls.toList();
     if (all.isEmpty) return null;
+
+    final plugins = all.first.plugins;
+    const equality = SetEquality<String>();
+    if (all.any((fix) => !equality.equals(fix.plugins, plugins))) return null;
+
     return FixCommand(
       harnesses: {for (final fix in all) ...fix.harnesses},
       force: all.any((fix) => fix.force),
+      plugins: plugins,
     );
   }
 
@@ -26,6 +41,8 @@ class const FixCommand({
     'vgv_ai install',
     for (final harness in Harness.values)
       if (harnesses.contains(harness)) '--only ${harness.name}',
+    for (final plugin in vgvPlugins)
+      if (plugins.contains(plugin.name)) '--plugin ${plugin.name}',
     if (force) '--force',
   ].join(' ');
 }

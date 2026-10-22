@@ -15,6 +15,9 @@ class const ReportSection({
 
   /// What was found, in the order it was found.
   required final List<Finding> findings,
+
+  /// The plugins the fix installs, or empty for every pinned one.
+  final Set<String> plugins = const {},
 }) {
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
@@ -28,6 +31,7 @@ class const ReportSection({
       ? FixCommand(
           harnesses: installs,
           force: findings.any((finding) => finding.needsForce),
+          plugins: plugins,
         )
       : null;
 }

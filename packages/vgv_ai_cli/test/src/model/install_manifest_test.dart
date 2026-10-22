@@ -44,7 +44,10 @@ void main() {
     test('round trips every kind of entry, and the plugin versions', () {
       final manifest = InstallManifest(
         const [owned, merged, sections],
-        const {'vgv-wingspan': '0.0.5', 'vgv-ai-flutter-plugin': '0.0.6'},
+        const {
+          Harness.claude: {'vgv-wingspan': '0.0.5'},
+          Harness.codex: {'vgv-ai-flutter-plugin': '0.0.6'},
+        },
       );
 
       final decoded = InstallManifest.decode(
@@ -79,8 +82,8 @@ void main() {
         isA<OwnedFile>().having((e) => e.sha256, 'sha256', 'abc'),
       );
       expect(decoded.plugins, {
-        'vgv-wingspan': '0.0.5',
-        'vgv-ai-flutter-plugin': '0.0.6',
+        Harness.claude: {'vgv-wingspan': '0.0.5'},
+        Harness.codex: {'vgv-ai-flutter-plugin': '0.0.6'},
       });
     });
 
@@ -88,12 +91,16 @@ void main() {
       final json = jsonDecode(
         InstallManifest(
           const [owned, merged],
-          const {'vgv-wingspan': '0.0.5'},
+          const {
+            Harness.codex: {'vgv-wingspan': '0.0.5'},
+          },
         ).encode(home: home),
       ) as Map<String, dynamic>;
 
-      expect(json['version'], 2);
-      expect(json['plugins'], {'vgv-wingspan': '0.0.5'});
+      expect(json['version'], 3);
+      expect(json['plugins'], {
+        'codex': {'vgv-wingspan': '0.0.5'},
+      });
       expect(json['entries'], [
         {
           'path': '.agents/skills/a/SKILL.md',
@@ -139,9 +146,20 @@ void main() {
 
       expect(decode(null).plugins, isEmpty);
       expect(decode(['vgv-wingspan']).plugins, isEmpty);
+      expect(decode({'codex': 'vgv-wingspan'}).plugins, isEmpty);
       expect(
-        decode({'vgv-wingspan': 5, 'vgv-ai-flutter-plugin': '0.0.5'}).plugins,
-        {'vgv-ai-flutter-plugin': '0.0.5'},
+        decode({
+          'nope': {'vgv-wingspan': '0.0.5'},
+        }).plugins,
+        isEmpty,
+      );
+      expect(
+        decode({
+          'codex': {'vgv-wingspan': 5, 'vgv-ai-flutter-plugin': '0.0.5'},
+        }).plugins,
+        {
+          Harness.codex: {'vgv-ai-flutter-plugin': '0.0.5'},
+        },
       );
     });
 
@@ -165,16 +183,17 @@ void main() {
       );
     });
 
-    test('reads a version 1 manifest as one with no plugin versions', () {
+    test('is empty for the version before this one', () {
       final manifest = InstallManifest.decode(
         jsonEncode({
-          'version': 1,
+          'version': InstallManifest.version - 1,
           'entries': [onDisk(owned)],
+          'plugins': {'vgv-wingspan': '0.0.5'},
         }),
         home: home,
       )!;
 
-      expect(manifest.entries.map((e) => e.path), [owned.path]);
+      expect(manifest.entries, isEmpty);
       expect(manifest.plugins, isEmpty);
     });
 
@@ -248,31 +267,46 @@ void main() {
       const updated = OwnedFile(path: '/x', owner: null, sha256: 'new');
       final manifest = InstallManifest(
         const [OwnedFile(path: '/x', owner: null, sha256: 'old'), merged],
-        const {'vgv-wingspan': '0.0.5'},
+        const {
+          Harness.codex: {'vgv-wingspan': '0.0.5'},
+        },
       ).record(updated);
 
       expect(manifest.entries, [updated, merged]);
-      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
+      expect(manifest.plugins, {
+        Harness.codex: {'vgv-wingspan': '0.0.5'},
+      });
     });
 
     test('drops the entries for the given paths', () {
       final manifest = InstallManifest(
         const [owned, merged, sections],
-        const {'vgv-wingspan': '0.0.5'},
+        const {
+          Harness.codex: {'vgv-wingspan': '0.0.5'},
+        },
       ).without([owned.path, sections.path]);
 
       expect(manifest.entries, [merged]);
-      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
+      expect(manifest.plugins, {
+        Harness.codex: {'vgv-wingspan': '0.0.5'},
+      });
     });
 
     test('replaces the plugin versions, keeping the entries', () {
-      final manifest = InstallManifest(
-        const [owned],
-        const {'vgv-wingspan': '0.0.4'},
-      ).withPlugins(const {'vgv-wingspan': '0.0.5'});
+      final manifest =
+          InstallManifest(
+            const [owned],
+            const {
+              Harness.codex: {'vgv-wingspan': '0.0.4'},
+            },
+          ).withPlugins(const {
+            Harness.codex: {'vgv-wingspan': '0.0.5'},
+          });
 
       expect(manifest.entries, [owned]);
-      expect(manifest.plugins, {'vgv-wingspan': '0.0.5'});
+      expect(manifest.plugins, {
+        Harness.codex: {'vgv-wingspan': '0.0.5'},
+      });
     });
 
     test('equals a manifest with the same entries, in the same order', () {
@@ -293,8 +327,20 @@ void main() {
         ),
       );
       expect(
-        InstallManifest(const [owned], const {'vgv-wingspan': '0.0.5'}),
-        isNot(InstallManifest(const [owned], const {'vgv-wingspan': '0.0.4'})),
+        InstallManifest(
+          const [owned],
+          const {
+            Harness.codex: {'vgv-wingspan': '0.0.5'},
+          },
+        ),
+        isNot(
+          InstallManifest(
+            const [owned],
+            const {
+              Harness.codex: {'vgv-wingspan': '0.0.4'},
+            },
+          ),
+        ),
       );
     });
 

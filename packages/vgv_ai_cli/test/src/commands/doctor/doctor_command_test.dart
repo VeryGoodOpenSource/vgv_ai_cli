@@ -37,12 +37,14 @@ class _FakeResolver extends Fake implements PluginResolver {
   );
 
   int calls = 0;
-  Set<String>? only;
+
+  /// The plugins each call asked for, in order.
+  final resolved = <Set<String>?>[];
 
   @override
   Future<AssetResolution> resolve(Directory home, {Set<String>? only}) async {
     calls++;
-    this.only = only;
+    resolved.add(only);
     return resolution;
   }
 }
@@ -149,14 +151,18 @@ void main() {
     };
 
     /// Installs [changes] with the real reconciler, recording the pinned
-    /// plugin versions, as `install` does, and plans them again, so they
-    /// are current unless a test changes the plan.
+    /// plugin versions for each harness it writes for, as `install` does,
+    /// and plans them again, so they are current unless a test changes the
+    /// plan.
     void install(List<PlannedChange> changes) {
+      final manifest = const Reconciler()
+          .apply(changes, manifest: store.load()!)
+          .manifest;
       store.save(
-        const Reconciler()
-            .apply(changes, manifest: store.load()!)
-            .manifest
-            .withPlugins(pinned),
+        manifest.withPlugins({
+          ...manifest.plugins,
+          for (final change in changes) ?change.harness: pinned,
+        }),
       );
       translator.changes.addAll(changes);
     }
@@ -195,12 +201,11 @@ void main() {
       final exitCode = await runDoctor();
 
       expect(exitCode, ExitCode.success.code);
-      verifyInfo('✓ Plugins');
+      verifyInfo('✓ Shared');
+      verifyInfo('✓ Codex');
       for (final plugin in vgvPlugins) {
         verifyInfo('    ${plugin.name} ${plugin.version}');
       }
-      verifyInfo('✓ Shared');
-      verifyInfo('✓ Codex');
     });
 
     test('reports nothing installed when there is no manifest', () async {
@@ -645,7 +650,7 @@ void main() {
 
       void installWith(Map<String, String> plugins) {
         install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
-        store.save(store.load()!.withPlugins(plugins));
+        store.save(store.load()!.withPlugins({Harness.codex: plugins}));
       }
 
       test('an older recorded version exits 70 with the install fix', () async {
@@ -654,7 +659,7 @@ void main() {
         final exitCode = await runDoctor();
 
         expect(exitCode, ExitCode.software.code);
-        verifyInfo('✗ Plugins');
+        verifyInfo('✗ Codex');
         verifyInfo(
           '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
         );
@@ -682,43 +687,96 @@ void main() {
         expect(exitCode, ExitCode.success.code);
         verifyInfo('    ${wingspan.name} ${wingspan.version} not installed');
         // Nothing was recorded, so every pinned plugin is still checked.
-        expect(resolver.only, isNull);
-      });
-
-      test('only the recorded plugins are checked', () async {
-        installWith({wingspan.name: wingspan.version});
-
-        await runDoctor();
-
-        expect(resolver.only, {wingspan.name});
+        expect(resolver.resolved, [null]);
       });
 
       test(
-        'are fixed by installing every configured harness in scope',
+        'only the plugins a harness was installed from are checked',
+        () async {
+          installWith({wingspan.name: wingspan.version});
+
+          await runDoctor();
+
+          expect(resolver.resolved, [
+            {wingspan.name},
+          ]);
+        },
+      );
+
+      test(
+        'harnesses installed from different plugins are planned apart',
         () async {
           install([
             owned('.codex/agents/a.toml', harness: Harness.codex),
             owned('.gemini/agents/a.md', harness: Harness.gemini),
-            owned('.pi/agent/a.md', harness: Harness.pi),
           ]);
           store.save(
-            store.load()!.withPlugins({...pinned, wingspan.name: '0.0.1'}),
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: wingspan.version},
+              Harness.gemini: pinned,
+            }),
           );
 
-          await runDoctor(args: ['--no-pi']);
+          await runDoctor();
 
-          verifyInfo('    Run vgv_ai install --only gemini --only codex');
+          expect(
+            resolver.resolved,
+            unorderedEquals([
+              {wingspan.name},
+              {for (final plugin in vgvPlugins) plugin.name},
+            ]),
+          );
         },
       );
 
-      test('are not reported when nothing in scope is configured', () async {
+      test(
+        'the fix names the plugins the harness was installed from',
+        () async {
+          install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+          store.save(
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: '0.0.1'},
+            }),
+          );
+
+          await runDoctor();
+
+          verifyInfo(
+            '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+          );
+        },
+      );
+
+      test('are reported under each harness they were installed for', () async {
+        install([
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {...pinned, wingspan.name: '0.0.1'},
+            Harness.gemini: pinned,
+          }),
+        );
+
+        await runDoctor();
+
+        verifyInfo('✗ Codex');
+        verifyInfo(
+          '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
+        );
+        verifyInfo('    Run vgv_ai install --only codex');
+        verifyInfo('✓ Gemini');
+      });
+
+      test('are not reported for a harness VGV has not configured', () async {
         installWith({});
         detect(const [Harness.codex, Harness.pi]);
 
         final exitCode = await runDoctor(args: ['--only', 'pi']);
 
         expect(exitCode, ExitCode.success.code);
-        verifyNever(() => logger.info(any(that: endsWith('Plugins'))));
+        verifyNever(() => logger.info(any(that: contains(wingspan.name))));
       });
     });
 

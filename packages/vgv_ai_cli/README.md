@@ -106,10 +106,10 @@ vgv_ai doctor --no-claude
 
 For each harness, `doctor` reports the files and keys that are missing, were
 changed since, or differ from what this version installs. It also compares the
-plugin versions you installed from with the ones this version pins, notes a
-pinned plugin you haven't installed, suggests configuring a harness that's
-installed but not configured, and warns about a configured harness that's no
-longer installed.
+plugin versions each harness was installed from with the ones this version
+pins, notes a pinned plugin a harness wasn't installed from, suggests
+configuring a harness that's installed but not configured, and warns about a
+configured harness that's no longer installed.
 
 Every problem comes with the `install` command that fixes it, and the report
 ends with one command that fixes everything `install` can, such as

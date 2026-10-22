@@ -143,7 +143,7 @@ class InstallCommand({
         store.save(
           from: manifest,
           to: reconciliation.manifest.withPlugins(
-            _pluginVersions(manifest, resolved.assets.plugins),
+            _pluginVersions(manifest, resolved.assets.plugins, selected),
           ),
         );
     final anyChangeFailed = applied.any(
@@ -200,19 +200,27 @@ class InstallCommand({
     return names.isEmpty ? null : names.toSet();
   }
 
-  /// The versions to record for the pinned plugins: [installed] for the ones
-  /// this run wrote, and what [manifest] already records for the ones it
-  /// skipped, whose files are still installed.
-  Map<String, String> _pluginVersions(
+  /// The versions to record for each harness of [selected]: [installed] for
+  /// the plugins this run wrote, and what [manifest] already records for the
+  /// ones it skipped, whose files are still installed. Every other harness
+  /// keeps what it had.
+  Map<Harness, Map<String, String>> _pluginVersions(
     InstallManifest manifest,
     List<PluginRef> installed,
+    Set<Harness> selected,
   ) {
     final written = {
       for (final plugin in installed) plugin.name: plugin.version,
     };
     return {
-      for (final plugin in vgvPlugins)
-        plugin.name: ?(written[plugin.name] ?? manifest.plugins[plugin.name]),
+      ...manifest.plugins,
+      for (final harness in selected)
+        harness: {
+          for (final plugin in vgvPlugins)
+            plugin.name:
+                ?(written[plugin.name] ??
+                manifest.plugins[harness]?[plugin.name]),
+        },
     };
   }
 

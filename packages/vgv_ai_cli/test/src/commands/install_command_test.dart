@@ -270,7 +270,7 @@ void main() {
         expect(exitCode, ExitCode.success.code);
         expect(translator.assets?.plugins, [vgvPlugins.first]);
         expect(ManifestStore(home).load()!.plugins, {
-          vgvPlugins.first.name: vgvPlugins.first.version,
+          Harness.claude: {vgvPlugins.first.name: vgvPlugins.first.version},
         });
       });
 
@@ -280,8 +280,10 @@ void main() {
         final store = ManifestStore(home);
         store.save(
           store.load()!.withPlugins({
-            for (final plugin in vgvPlugins) plugin.name: plugin.version,
-            skipped.name: '0.0.1',
+            Harness.claude: {
+              for (final plugin in vgvPlugins) plugin.name: plugin.version,
+              skipped.name: '0.0.1',
+            },
           }),
         );
 
@@ -293,8 +295,10 @@ void main() {
         ]);
 
         expect(store.load()!.plugins, {
-          vgvPlugins.first.name: vgvPlugins.first.version,
-          skipped.name: '0.0.1',
+          Harness.claude: {
+            vgvPlugins.first.name: vgvPlugins.first.version,
+            skipped.name: '0.0.1',
+          },
         });
       });
 
@@ -583,7 +587,9 @@ void main() {
         final manifest = ManifestStore(home).load()!;
         expect(manifest[homeFile('.claude/a.md').path], isA<OwnedFile>());
         expect(manifest.plugins, {
-          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          Harness.claude: {
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          },
         });
       });
 
@@ -591,12 +597,18 @@ void main() {
         planOne();
         await runInstall(['--only', 'claude']);
         final store = ManifestStore(home);
-        store.save(store.load()!.withPlugins(const {'vgv-wingspan': '0.0.1'}));
+        store.save(
+          store.load()!.withPlugins(const {
+            Harness.claude: {'vgv-wingspan': '0.0.1'},
+          }),
+        );
 
         await runInstall(['--only', 'claude']);
 
         expect(store.load()!.plugins, {
-          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          Harness.claude: {
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          },
         });
       });
 
