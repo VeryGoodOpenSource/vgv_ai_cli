@@ -196,10 +196,9 @@ class InstallManifest extends Equatable {
   ///
   /// A malformed manifest is empty: an unrecorded file is the user's, which
   /// is the safe way to be wrong. For the same reason, an entry whose path
-  /// is absolute or leads out of [home] is dropped, and so is a manifest
-  /// from an older version, which recorded its plugin versions for the whole
-  /// home rather than per harness. One from a newer version is null, because
-  /// writing over it would lose everything it records.
+  /// is absolute or leads out of [home] is dropped, as are plugin versions
+  /// that are not written per harness. One from a newer version is null,
+  /// because writing over it would lose everything it records.
   static InstallManifest? decode(String source, {required String home}) {
     final Object? json;
     try {
@@ -250,7 +249,7 @@ class InstallManifest extends Equatable {
   }
 
   /// The format [encode] writes.
-  static const version = 3;
+  static const version = 1;
 
   final Map<String, ManifestEntry> _entries;
 

@@ -97,7 +97,7 @@ void main() {
         ).encode(home: home),
       ) as Map<String, dynamic>;
 
-      expect(json['version'], 3);
+      expect(json['version'], 1);
       expect(json['plugins'], {
         'codex': {'vgv-wingspan': '0.0.5'},
       });
@@ -183,17 +183,17 @@ void main() {
       );
     });
 
-    test('is empty for the version before this one', () {
+    test('keeps the entries when the plugins are not per harness', () {
       final manifest = InstallManifest.decode(
         jsonEncode({
-          'version': InstallManifest.version - 1,
+          'version': InstallManifest.version,
           'entries': [onDisk(owned)],
           'plugins': {'vgv-wingspan': '0.0.5'},
         }),
         home: home,
       )!;
 
-      expect(manifest.entries, isEmpty);
+      expect(manifest.entries.map((e) => e.path), [owned.path]);
       expect(manifest.plugins, isEmpty);
     });
 

@@ -260,6 +260,7 @@ class DoctorCommand({
         ReportSection(
           title: 'Shared',
           installs: readsShared,
+          plugins: _shared(manifest, readsShared),
           findings: _entryFindings(null, manifest, home, plan),
         ),
       for (final harness in Harness.values)
@@ -305,6 +306,18 @@ class DoctorCommand({
         ..._entryFindings(harness, manifest, home, plan),
       ],
     );
+  }
+
+  /// The plugins every harness of [readers] was installed from, or null
+  /// when they differ, since one `install` cannot then fix the skills they
+  /// share without adding a plugin one of them was left without.
+  Set<String>? _shared(InstallManifest manifest, Set<Harness> readers) {
+    final selections = <String, Set<String>>{};
+    for (final harness in readers) {
+      final selected = _selected(manifest.plugins[harness] ?? const {});
+      selections[(selected.toList()..sort()).join(' ')] = selected;
+    }
+    return selections.length == 1 ? selections.values.single : null;
   }
 
   /// The plugin names a fix must name, or none when [recorded] holds every

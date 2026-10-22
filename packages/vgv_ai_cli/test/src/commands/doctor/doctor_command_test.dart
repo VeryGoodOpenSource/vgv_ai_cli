@@ -769,6 +769,49 @@ void main() {
         verifyInfo('✓ Gemini');
       });
 
+      test('the shared fix names the plugins its readers share', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {wingspan.name: wingspan.version},
+          }),
+        );
+        homeFile('.agents/skills/a/SKILL.md').deleteSync();
+
+        await runDoctor();
+
+        verifyInfo('    missing ~/.agents/skills/a/SKILL.md');
+        verifyInfo(
+          '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+        );
+      });
+
+      test('the shared fix is left out when its readers differ', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {wingspan.name: wingspan.version},
+            Harness.gemini: pinned,
+          }),
+        );
+        homeFile('.agents/skills/a/SKILL.md').deleteSync();
+
+        await runDoctor();
+
+        verifyInfo('    missing ~/.agents/skills/a/SKILL.md');
+        verifyNever(
+          () =>
+              logger.info('    Run vgv_ai install --only gemini --only codex'),
+        );
+      });
+
       test('are not reported for a harness VGV has not configured', () async {
         installWith({});
         detect(const [Harness.codex, Harness.pi]);
