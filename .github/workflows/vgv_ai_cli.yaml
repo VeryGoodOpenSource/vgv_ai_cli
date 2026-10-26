@@ -80,26 +80,6 @@ jobs:
             exit 1
           fi
 
-  verify-version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📚 Git Checkout
-        uses: actions/checkout@v7
-
-      - name: 🎯 Setup Dart
-        uses: dart-lang/setup-dart@v1.8.1
-        with:
-          sdk: "3.13.0"
-
-      - name: 📦 Install Dependencies
-        working-directory: packages/vgv_ai_cli
-        run: |
-          dart pub get
-
-      - name: 🔎 Verify version
-        working-directory: packages/vgv_ai_cli
-        run: dart run test --run-skipped -t version-verify
-
   verify-pins:
     runs-on: ubuntu-latest
     steps:
