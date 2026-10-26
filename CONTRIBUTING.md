@@ -150,9 +150,10 @@ open coverage/index.html
 ## Releases
 
 [release-please](https://github.com/googleapis/release-please) owns versions and changelogs.
-Every push to `main` opens or updates a release pull request that bumps `pubspec.yaml`,
-regenerates `lib/src/version.dart` and writes `CHANGELOG.md`. Merge it only when a release is
-intended; merging it tags the release and publishes the notes.
+Every push to `main` opens or updates a release pull request that bumps the root `pubspec.yaml`,
+carries that version into the CLI's `pubspec.yaml` and `lib/src/version.dart`, and writes
+`CHANGELOG.md`. Merge it only when a release is intended; merging it tags the release and
+publishes the notes.
 
 Do not bump a version or edit a `CHANGELOG.md` by hand.
 
