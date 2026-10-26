@@ -108,7 +108,11 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 ### Generated version file
 
-`lib/src/version.dart` carries the version release-please writes. **Never edit it by hand**, and never bump a version by hand either — the repository releases as one unit from the root `pubspec.yaml`, and release-please carries that version into this file and the CLI's `pubspec.yaml` through the `x-release-please-version` markers on their version lines.
+`lib/src/version.dart` carries the version release-please writes. **Never edit it by hand**, and never bump a version by hand either.
+
+Both packages release together. release-please bumps each package's own `pubspec.yaml`, and the `linked-versions` plugin holds them at the same version, so a fix in `plugin_source` releases the CLI too — which is how a pin bump reaches users. Two lines need the generic updater and carry an `x-release-please-version` marker: this file, and the `plugin_source:` constraint in the CLI's `pubspec.yaml`. Nothing else should ever get that marker.
+
+The CLI is tagged `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`; `pub_publish.yaml` fires on the former.
 
 ## Code Conventions
 
