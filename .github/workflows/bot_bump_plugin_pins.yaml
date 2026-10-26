@@ -43,8 +43,10 @@ jobs:
         uses: peter-evans/create-pull-request@v8.1.1
         with:
           branch: vgvbot/bump_plugin_pins
-          commit-message: "chore: bump pinned plugins"
-          title: "chore: bump pinned plugins"
+          # A pin bump is how a user gets new skills and agents, so it has to
+          # cut a release. `chore` does not bump a version; `fix` does.
+          commit-message: "fix(deps): bump pinned plugins"
+          title: "fix(deps): bump pinned plugins"
           body: |
             Bump the pinned VGV plugins in `packages/plugin_source/lib/src/plugin_ref.dart` to their latest releases.
 
