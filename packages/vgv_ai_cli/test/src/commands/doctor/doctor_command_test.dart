@@ -687,7 +687,9 @@ void main() {
         expect(exitCode, ExitCode.success.code);
         verifyInfo('    ${wingspan.name} ${wingspan.version} not installed');
         // Nothing was recorded, so every pinned plugin is still checked.
-        expect(resolver.resolved, [null]);
+        expect(resolver.resolved, [
+          {for (final plugin in vgvPlugins) plugin.name},
+        ]);
       });
 
       test(

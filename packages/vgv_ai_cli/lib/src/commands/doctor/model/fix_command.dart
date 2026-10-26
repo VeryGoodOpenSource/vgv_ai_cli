@@ -25,14 +25,14 @@ class const FixCommand({
     final all = fixes.nonNulls.toList();
     if (all.isEmpty) return null;
 
-    final plugins = all.first.plugins;
-    const equality = SetEquality<String>();
-    if (all.any((fix) => !equality.equals(fix.plugins, plugins))) return null;
+    final plugins = EqualitySet<Set<String>>(const SetEquality())
+      ..addAll(all.map((fix) => fix.plugins));
+    if (plugins.length > 1) return null;
 
     return FixCommand(
       harnesses: {for (final fix in all) ...fix.harnesses},
       force: all.any((fix) => fix.force),
-      plugins: plugins,
+      plugins: plugins.single,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:args/command_runner.dart';
+import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
@@ -175,11 +176,10 @@ class DoctorCommand({
     final progress = _logger.progress('Resolving plugins');
     final changes = <AppliedChange>[];
 
-    for (final MapEntry(key: names, value: harnesses) in _byPlugins(
+    for (final MapEntry(key: only, value: harnesses) in _byPlugins(
       manifest,
       selected,
     ).entries) {
-      final only = names.isEmpty ? null : names.split(' ').toSet();
       switch (await _resolver.resolve(home, only: only)) {
         case ResolvedAssets(:final assets):
           final translation = await _translator.translate(
@@ -203,19 +203,33 @@ class DoctorCommand({
     return ContentPlan(changes);
   }
 
-  /// [selected] grouped by the plugins each harness was installed from,
-  /// keyed by their names in order, and by the empty string for a harness
-  /// the manifest records none for, which is checked against every pin.
-  Map<String, Set<Harness>> _byPlugins(
+  /// [selected] grouped by the plugin names each harness was installed
+  /// from, which the map compares as sets rather than by identity.
+  Map<Set<String>, Set<Harness>> _byPlugins(
     InstallManifest manifest,
     Set<Harness> selected,
   ) {
-    final groups = <String, Set<Harness>>{};
+    final groups = EqualityMap<Set<String>, Set<Harness>>(_sets);
     for (final harness in selected) {
-      final recorded = manifest.plugins[harness]?.keys.toList() ?? [];
-      groups.putIfAbsent((recorded..sort()).join(' '), () => {}).add(harness);
+      groups
+          .putIfAbsent(_installedFrom(manifest, harness), () => {})
+          .add(harness);
     }
     return groups;
+  }
+
+  /// How a set of plugin names is compared, since two of them are the same
+  /// selection whatever order they were built in.
+  static const Equality<Set<String>> _sets = SetEquality();
+
+  /// The plugins [harness] was installed from, which for one the manifest
+  /// records none for is every pinned plugin, as `install` writes without
+  /// `--plugin`.
+  Set<String> _installedFrom(InstallManifest manifest, Harness harness) {
+    final recorded = manifest.plugins[harness]?.keys.toSet() ?? const {};
+    return recorded.isEmpty
+        ? {for (final plugin in vgvPlugins) plugin.name}
+        : recorded;
   }
 
   /// An unchecked plan, having failed [progress] and listed [reasons] for
@@ -316,12 +330,12 @@ class DoctorCommand({
   /// when they differ, since one `install` cannot then fix the skills they
   /// share without adding a plugin one of them was left without.
   Set<String>? _shared(InstallManifest manifest, Set<Harness> readers) {
-    final selections = <String, Set<String>>{};
-    for (final harness in readers) {
-      final selected = _selected(manifest.plugins[harness] ?? const {});
-      selections[(selected.toList()..sort()).join(' ')] = selected;
-    }
-    return selections.length == 1 ? selections.values.single : null;
+    final selections = EqualitySet<Set<String>>(_sets)
+      ..addAll([
+        for (final harness in readers)
+          _selected(manifest.plugins[harness] ?? const {}),
+      ]);
+    return selections.length == 1 ? selections.single : null;
   }
 
   /// The plugin names a fix must name, or none when [recorded] holds every
