@@ -112,7 +112,11 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 ### Generated version file
 
-`lib/src/version.dart` carries the version release-please writes. **Never edit it by hand**, and never bump a version by hand either — the repository releases as one unit from the root `pubspec.yaml`, and release-please carries that version into this file and the CLI's `pubspec.yaml` through the `x-release-please-version` markers on their version lines.
+`lib/src/version.dart` carries the version release-please writes. **Never edit it by hand**, and never bump a version by hand either.
+
+Both packages release together. release-please bumps each package's own `pubspec.yaml`, and the `linked-versions` plugin holds them at the same version, so a fix in `plugin_source` releases the CLI too — which is how a pin bump reaches users. Two lines need the generic updater and carry an `x-release-please-version` marker: this file, and the `plugin_source:` constraint in the CLI's `pubspec.yaml`. Nothing else should ever get that marker.
+
+The CLI is tagged `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`; `pub_publish.yaml` fires on the former.
 
 You should not need to bump the version by hand at all: release-please owns it. Because it writes the bump straight into `pubspec.yaml`, `.github/workflows/release_please.yaml` regenerates this file on the release branch, otherwise `verify-version` fails on the release PR.
 
@@ -150,7 +154,7 @@ Each workflow under `.github/workflows/` is path-filtered, and every reusable wo
 - `vgv_ai_cli.yaml` runs on changes to itself, `.github/cspell.json`, `packages/vgv_ai_cli/lib/**`, `packages/vgv_ai_cli/test/**`, `packages/vgv_ai_cli/pubspec.yaml`, `packages/plugin_source/lib/**`, `packages/plugin_source/pubspec.yaml`, `bricks/**` and `tool/**`. Its jobs are `semantic-pull-request`, `build` (the reusable `dart_package.yml` in `packages/vgv_ai_cli`), `spell-check`, `verify-bundle` and `verify-pins`.
 - `plugin_source.yaml` runs on changes to itself and `packages/plugin_source/**`. Its jobs are `semantic-pull-request` and `build` (the reusable `dart_package.yml` in `packages/plugin_source`).
 - Both `build` jobs also run the cognitive complexity check on their package's `lib`, which fails when any function scores above 15. Split a function that crosses it into smaller ones rather than raising the threshold. Run it locally with the `cognitive_complexity` scanner from [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/main/packages/cognitive_complexity).
-- `release_please.yaml` runs on every push to `main`. release-please owns versions and changelogs (`.release-please-config.json`, `.release-please-manifest.json`). The repository releases as one unit, so any change can open or update the release PR, and merging it tags `vX.Y.Z`. Never bump a version or edit a `CHANGELOG.md` by hand.
+- `release_please.yaml` runs on every push to `main`. release-please owns versions and changelogs (`.release-please-config.json`, `.release-please-manifest.json`). Both packages release together at one version, and merging the release PR tags the CLI `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`. Never bump a version or edit a `CHANGELOG.md` by hand.
 - `check_links.yaml` runs lychee over every markdown and Dart file on PRs and weekly. Placeholder URLs in fixtures, and links into private sibling repos, are listed in `.lycheeignore`.
 - `license_check.yaml` runs on changes to itself and either package's `pubspec.yaml`. Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
 - A PR that touches only markdown or other files outside these filters triggers no CI at all.
