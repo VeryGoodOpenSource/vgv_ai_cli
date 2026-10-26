@@ -14,11 +14,8 @@ current, and removes them again without touching your own configuration.
 `vgv_ai` is a Dart package. You need the
 [Dart SDK](https://dart.dev/get-dart) 3.13 or later.
 
-It is not published on [pub.dev](https://pub.dev) yet, so install it from a
-checkout of this repository:
-
 ```sh
-dart pub global activate --source=path <path to this package>
+dart pub global activate vgv_ai_cli
 ```
 
 This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
