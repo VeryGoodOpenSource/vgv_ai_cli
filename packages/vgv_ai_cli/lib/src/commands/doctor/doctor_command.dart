@@ -93,7 +93,11 @@ class DoctorCommand({
 
     if (reports.isEmpty) _logger.info(_nothingToCheck(manifest));
 
-    final fix = FixCommand.combine(reports.map((report) => report.fix));
+    // A section install can fix but that no one command covers would make
+    // the closing line promise more than it does, so there is none.
+    final fix = reports.any((report) => report.needsItsOwnFix)
+        ? null
+        : FixCommand.combine(reports.map((report) => report.fix));
     if (fix != null) {
       _logger
         ..info('')

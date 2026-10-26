@@ -27,6 +27,11 @@ class const ReportSection({
   /// Whether anything was found that is worth knowing, though not wrong.
   bool get hasNotices => findings.any((finding) => finding.isNotice);
 
+  /// Whether `install` fixes something here that [fix] cannot say in one
+  /// command, because the harnesses were installed from different plugins.
+  bool get needsItsOwnFix =>
+      fix == null && findings.any((finding) => finding.needsInstall);
+
   /// The one `install` command that fixes every finding `install` can fix,
   /// or null when there are none, or when no one command fixes them.
   FixCommand? get fix {

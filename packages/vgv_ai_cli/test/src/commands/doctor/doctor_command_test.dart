@@ -812,6 +812,36 @@ void main() {
         );
       });
 
+      test(
+        'nothing closes the report when the shared fix is left out',
+        () async {
+          install([
+            owned('.agents/skills/a/SKILL.md'),
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.gemini/agents/a.md', harness: Harness.gemini),
+          ]);
+          store.save(
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: wingspan.version},
+              Harness.gemini: pinned,
+            }),
+          );
+          homeFile('.agents/skills/a/SKILL.md').deleteSync();
+          homeFile('.codex/agents/a.toml').deleteSync();
+
+          await runDoctor();
+
+          verifyInfo(
+            '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+          );
+          verifyNever(
+            () => logger.info(
+              any(that: endsWith('to fix everything install can.')),
+            ),
+          );
+        },
+      );
+
       test('are not reported for a harness VGV has not configured', () async {
         installWith({});
         detect(const [Harness.codex, Harness.pi]);
