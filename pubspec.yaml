@@ -2,10 +2,6 @@ name: vgv_ai_cli_workspace
 description: Workspace root for the Very Good AI CLI monorepo.
 publish_to: none
 
-# The repository releases as one unit. release-please bumps this, and carries
-# the same version into the CLI's pubspec and version.dart.
-version: 0.1.0
-
 environment:
   sdk: ^3.13.0
 

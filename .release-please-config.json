@@ -9,16 +9,26 @@
   ],
   "pull-request-header": ":rotating_light: There are changes ready for release :rocket:\n\nℹ Merge this PR once the team confirms the release is ready.\n",
   "group-pull-request-title-pattern": "chore: release ${branch}",
-  "include-component-in-tag": false,
+  "include-component-in-tag": true,
   "packages": {
-    ".": {
+    "packages/vgv_ai_cli": {
       "release-type": "dart",
-      "changelog-path": "packages/vgv_ai_cli/CHANGELOG.md",
-      "extra-files": [
-        "packages/vgv_ai_cli/pubspec.yaml",
-        "packages/vgv_ai_cli/lib/src/version.dart",
-        "packages/plugin_source/pubspec.yaml"
-      ]
+      "component": "vgv_ai_cli",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "extra-files": ["pubspec.yaml", "lib/src/version.dart"]
+    },
+    "packages/plugin_source": {
+      "release-type": "dart",
+      "component": "plugin_source",
+      "changelog-path": "CHANGELOG.md"
     }
-  }
+  },
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "vgv_ai",
+      "components": ["vgv_ai_cli", "plugin_source"]
+    }
+  ]
 }
