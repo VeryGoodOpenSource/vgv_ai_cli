@@ -1,0 +1,8 @@
+# Lychee ignore patterns
+# See https://github.com/lycheeverse/lychee for documentation
+
+# Dart string interpolation quoted in docs, picked up as literal link text
+\$\{
+
+# Private sibling repositories the workflow token cannot read
+^https://github\.com/VeryGoodOpenSource/vgv-wingspan

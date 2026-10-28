@@ -3,7 +3,8 @@ description: >-
   Resolves VGV Claude Code plugins to a directory on disk and parses them into
   a harness-neutral asset model.
 version: 0.1.0
-publish_to: none
+repository: https://github.com/VeryGoodOpenSource/vgv_ai_cli
+issue_tracker: https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues
 resolution: workspace
 environment:
   sdk: ^3.13.0
