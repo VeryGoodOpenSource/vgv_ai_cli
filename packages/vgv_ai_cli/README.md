@@ -36,11 +36,12 @@ writes that harness's files, relative to your home directory.
 | `pi`          | Pi                 | `pi`       | `~/.pi/agent`        |
 | `copilot`     | GitHub Copilot CLI | `copilot`  | `~/.copilot`         |
 | `antigravity` | Antigravity CLI    | `agy`      | `~/.gemini/config`   |
+| `devin`       | Devin CLI          | `devin`    | `~/.config/devin`    |
 
 Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
-the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
-share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
-own copy inside its plugin.
+the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, GitHub Copilot CLI, and
+Devin CLI share one copy of the skills in `~/.agents/skills`. Antigravity CLI
+keeps its own copy inside its plugin.
 
 ## Commands
 

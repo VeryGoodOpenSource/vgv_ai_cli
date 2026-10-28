@@ -3,7 +3,7 @@
 `vgv_ai` is a command-line tool by Very Good Ventures that configures the Very
 Good AI tooling for your coding agents. It installs the skills, agents, MCP
 servers, and hooks from the VGV Claude Code plugins into Claude Code, Gemini
-CLI, Codex, OpenCode, Pi, GitHub Copilot CLI, and Antigravity CLI.
+CLI, Codex, OpenCode, Pi, GitHub Copilot CLI, Antigravity CLI, and Devin CLI.
 
 To install and use it, see the [`vgv_ai_cli` README](packages/vgv_ai_cli).
 

@@ -22,6 +22,7 @@ out of agents and settings.
 | pi          |                               | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
 | copilot     | `mcp-config.json`             | `copilot-instructions.md` | `agents/*.agent.md`       |                   | `hooks/vgv.json`         |
 | antigravity | `plugins/vgv/mcp_config.json` |                           | `plugins/vgv/agents/*.md` |                   | `plugins/vgv/hooks.json` |
+| devin       | `mcp_config.json`             | `AGENTS.md`               | `agents/*.md`             |                   | `config.json`            |
 
 Claude Code installs the plugins natively from the marketplace, so its folder
 holds only the settings that point at it.
@@ -43,6 +44,12 @@ CLI, since Antigravity does not read `~/.agents/skills`, and each one becomes
 a `/<name>` command on its own, so there is no commands folder. The skills and
 agents register natively, so there is no instructions file either.
 
+Devin's folder is its user config directory, `~/.config/devin/`. Its hooks go
+into the `hooks` key of `config.json` rather than a file of their own, so the
+file is rendered only when there are hooks Devin can run and merged into
+whatever else the user keeps there. Devin reads `~/.agents/skills` and makes
+each skill a `/<name>` command on its own, so there is no commands folder.
+
 The CLI maps each folder onto the harness's config directory. A file at the
 root of a folder is merged into what is already there. A file in a
 subdirectory belongs to VGV and is written whole.
@@ -63,7 +70,7 @@ frontmatter block and every TOML agent or command arrives finished.
 
 | Var                        | Type    | What it is                                                        |
 | -------------------------- | ------- | ----------------------------------------------------------------- |
-| `claude` ... `antigravity` | boolean | Which harnesses to render, one var per harness                    |
+| `claude` ... `devin`       | boolean | Which harnesses to render, one var per harness                    |
 | `<harness>_settings`       | string  | That harness's settings fragment, absent for Pi                   |
 | `<harness>_hooks`          | string  | That harness's hooks file, absent when it has no hooks it can run |
 | `agents`                   | list    | Each agent's `name`, `instructions`, and a map per harness        |
