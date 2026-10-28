@@ -21,6 +21,11 @@ dart pub global activate vgv_ai_cli
 This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
 that it's installed.
 
+macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
+Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
+on your path. Native Windows, including Git Bash, is untested: `vgv_ai` builds
+paths with the host separator while those scripts expect POSIX ones.
+
 ## Supported harnesses
 
 `vgv_ai` calls each coding agent a harness. The flag name is what you pass to
@@ -180,6 +185,15 @@ vgv_ai install --help
 # Log every step, including the shell commands vgv_ai runs
 vgv_ai install --verbose
 ```
+
+## Shell completion
+
+```sh
+vgv_ai install-completion-files
+```
+
+Installs shell completion for bash and zsh. Remove it again with
+`vgv_ai uninstall-completion-files`.
 
 ## Contributing
 

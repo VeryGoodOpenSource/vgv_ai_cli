@@ -147,6 +147,15 @@ open coverage/index.html
 - Leave every `CHANGELOG.md` and version bump alone, the `agents` brick's included. Release
   automation owns them.
 
+## Releases
+
+[release-please](https://github.com/googleapis/release-please) owns versions and changelogs.
+Every push to `main` opens or updates a release pull request that bumps both packages to the
+same version and writes their `CHANGELOG.md`. Merge it only when a release is intended; merging it tags the release and
+publishes the notes.
+
+Do not bump a version or edit a `CHANGELOG.md` by hand.
+
 ## Breaking changes
 
 `vgv_ai` writes into config files people already own, and the install manifest

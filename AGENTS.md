@@ -28,6 +28,10 @@ The repo is a **pub workspace** monorepo: the root `pubspec.yaml` declares `work
 | `jq` | Agent hooks parse their payloads with it | Guard hooks error out; the analyze and format hooks silently do nothing |
 | `gh`, authenticated with org access | This repo is private | Push and PR creation fail |
 
+macOS and Linux are supported; on Windows, use WSL. `jq` must be on `PATH` for the Codex, Copilot
+and Antigravity hooks. Native Windows, including Git Bash, is untested: the CLI builds paths with
+the host separator and the hook scripts expect POSIX ones.
+
 Upgrading `very_good_cli` does not reach the MCP server until the agent session restarts — the server binds its binary at session start.
 
 ## Common Commands
@@ -116,6 +120,8 @@ Both packages release together. release-please bumps each package's own `pubspec
 
 The CLI is tagged `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`; `pub_publish.yaml` fires on the former.
 
+You should not need to bump the version by hand at all: release-please owns it. Because it writes the bump straight into `pubspec.yaml`, `.github/workflows/release_please.yaml` regenerates this file on the release branch, otherwise `verify-version` fails on the release PR.
+
 ## Code Conventions
 
 - Linting: `very_good_analysis` ^11.0.0, with `public_member_api_docs` disabled. Public classes still carry `/// {@template name}` / `/// {@macro name}` doc comments.
@@ -127,6 +133,7 @@ The CLI is tagged `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`; `pub_p
 - **100% test coverage required.** New code needs tests covering success, failure, and usage-error paths.
 - Mocking with `mocktail`.
 - Tests exercise commands **through** `VgvAiCliCommandRunner.run(['update'])` rather than instantiating the `Command` directly, so argument parsing and the runner's error handling are covered too.
+- `test/helpers/command_helper.dart` holds `TestRunner`, the mocked `Logger`, `Progress` and `PubUpdater` every command test shares, already stubbed. Go through its `run`/`build` instead of constructing a `VgvAiCliCommandRunner` in the test, and re-stub a mock only where a test needs a different answer.
 - Assertions verify logger calls (`verify(() => logger.info(...)).called(1)`) alongside the exit code.
 
 ## Agent tooling
@@ -148,6 +155,8 @@ Each workflow under `.github/workflows/` is path-filtered, and every reusable wo
 - `vgv_ai_cli.yaml` runs on changes to itself, `.github/cspell.json`, `packages/vgv_ai_cli/lib/**`, `packages/vgv_ai_cli/test/**`, `packages/vgv_ai_cli/pubspec.yaml`, `packages/plugin_source/lib/**`, `packages/plugin_source/pubspec.yaml`, `bricks/**` and `tool/**`. Its jobs are `semantic-pull-request`, `build` (the reusable `dart_package.yml` in `packages/vgv_ai_cli`), `spell-check`, `verify-bundle` and `verify-pins`.
 - `plugin_source.yaml` runs on changes to itself and `packages/plugin_source/**`. Its jobs are `semantic-pull-request` and `build` (the reusable `dart_package.yml` in `packages/plugin_source`).
 - Both `build` jobs also run the cognitive complexity check on their package's `lib`, which fails when any function scores above 15. Split a function that crosses it into smaller ones rather than raising the threshold. Run it locally with the `cognitive_complexity` scanner from [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/main/packages/cognitive_complexity).
+- `release_please.yaml` runs on every push to `main`. release-please owns versions and changelogs (`.release-please-config.json`, `.release-please-manifest.json`). Both packages release together at one version, and merging the release PR tags the CLI `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`. Never bump a version or edit a `CHANGELOG.md` by hand.
+- `check_links.yaml` runs lychee over every markdown and Dart file on PRs and weekly. Placeholder URLs in fixtures, and links into private sibling repos, are listed in `.lycheeignore`.
 - `license_check.yaml` runs on changes to itself and either package's `pubspec.yaml`. Dependency licenses are restricted to `MIT`, `BSD-3-Clause`, `BSD-2-Clause`, `Apache-2.0`.
 - A PR that touches only markdown or other files outside these filters triggers no CI at all.
 - PR titles must be [conventional commits](https://www.conventionalcommits.org). The `semantic-pull-request` job checks this, but only on PRs that trigger one of the first two workflows.
