@@ -14,7 +14,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 
-import '../../helpers/command_helper.dart';
+import '../../helpers/test_runner.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
 
@@ -79,7 +79,7 @@ void main() {
 
     setUpAll(() => registerFallbackValue(Harness.claude));
 
-    late TestRunner harness;
+    late TestRunner runner;
     late Logger logger;
     late Progress progress;
     late HarnessDetector detector;
@@ -88,9 +88,9 @@ void main() {
     late _FakeTranslator translator;
 
     setUp(() {
-      harness = TestRunner();
-      logger = harness.logger;
-      progress = harness.progress;
+      runner = TestRunner();
+      logger = runner.logger;
+      progress = runner.progress;
       detector = _MockDetector();
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
@@ -109,7 +109,7 @@ void main() {
     }
 
     Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
-        harness.run(['install', ...args], installCommand: command);
+        runner.run(['install', ...args], installCommand: command);
 
     Future<int> runInstall(
       List<String> args, {

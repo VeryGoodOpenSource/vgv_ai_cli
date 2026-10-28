@@ -13,7 +13,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 
-import '../../helpers/command_helper.dart';
+import '../../helpers/test_runner.dart';
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
@@ -40,7 +40,7 @@ class const _FailingAuditor() extends ManifestAuditor {
 
 void main() {
   group(UninstallCommand, () {
-    late TestRunner harness;
+    late TestRunner runner;
     late Logger logger;
     late FileSystem fs;
     late Directory home;
@@ -50,8 +50,8 @@ void main() {
     String? undeletable;
 
     setUp(() {
-      harness = TestRunner();
-      logger = harness.logger;
+      runner = TestRunner();
+      logger = runner.logger;
       undeletable = null;
       fs = MemoryFileSystem.test(
         opHandle: (path, operation) {
@@ -65,7 +65,7 @@ void main() {
     });
 
     Future<int> runThroughRunner(UninstallCommand command, List<String> args) =>
-        harness.run(['uninstall', ...args], uninstallCommand: command);
+        runner.run(['uninstall', ...args], uninstallCommand: command);
 
     Future<int> runUninstall([
       List<String> args = const [],
@@ -676,7 +676,7 @@ void main() {
           return ProcessResult(0, 0, '', '');
         }
 
-        final exitCode = await harness.run(
+        final exitCode = await runner.run(
           [
             'install',
             for (final harness in Harness.values) ...['--only', harness.name],

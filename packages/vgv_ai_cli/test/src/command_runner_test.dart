@@ -9,7 +9,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
-import '../helpers/command_helper.dart';
+import '../helpers/test_runner.dart';
 
 class _FlagCommand() extends Command<int> {
   this {
@@ -42,10 +42,10 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final harness = TestRunner();
-      pubUpdater = harness.pubUpdater;
-      logger = harness.logger;
-      commandRunner = harness.build();
+      final runner = TestRunner();
+      pubUpdater = runner.pubUpdater;
+      logger = runner.logger;
+      commandRunner = runner.build();
     });
 
     test('shows update message when newer version exists', () async {

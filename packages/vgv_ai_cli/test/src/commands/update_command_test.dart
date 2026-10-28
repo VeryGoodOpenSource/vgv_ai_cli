@@ -8,7 +8,7 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
-import '../../helpers/command_helper.dart';
+import '../../helpers/test_runner.dart';
 
 void main() {
   group(UpdateCommand, () {
@@ -19,10 +19,10 @@ void main() {
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final harness = TestRunner();
-      pubUpdater = harness.pubUpdater;
-      logger = harness.logger;
-      commandRunner = harness.build();
+      final runner = TestRunner();
+      pubUpdater = runner.pubUpdater;
+      logger = runner.logger;
+      commandRunner = runner.build();
 
       when(
         () => pubUpdater.update(
