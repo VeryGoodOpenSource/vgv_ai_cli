@@ -8,11 +8,7 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockProgress extends Mock implements Progress;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
+import '../../helpers/test_runner.dart';
 
 void main() {
   group(UpdateCommand, () {
@@ -23,17 +19,11 @@ void main() {
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final progress = _MockProgress();
-      final progressLogs = <String>[];
-      pubUpdater = _MockPubUpdater();
-      logger = _MockLogger();
-      commandRunner = VgvAiCliCommandRunner(
-        logger: logger,
-        pubUpdater: pubUpdater,
-      );
+      final runner = TestRunner();
+      pubUpdater = runner.pubUpdater;
+      logger = runner.logger;
+      commandRunner = runner.build();
 
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
       when(
         () => pubUpdater.update(
           packageName: packageName,
@@ -42,17 +32,6 @@ void main() {
       ).thenAnswer(
         (_) async => ProcessResult(0, ExitCode.success.code, null, null),
       );
-      when(
-        () => pubUpdater.isUpToDate(
-          packageName: any(named: 'packageName'),
-          currentVersion: any(named: 'currentVersion'),
-        ),
-      ).thenAnswer((_) async => true);
-      when(() => progress.complete(any())).thenAnswer((answer) {
-        final message = answer.positionalArguments.elementAt(0) as String?;
-        if (message != null) progressLogs.add(message);
-      });
-      when(() => logger.progress(any())).thenReturn(progress);
     });
 
     test('can be instantiated without a pub updater', () {
@@ -133,7 +112,6 @@ void main() {
       ).thenAnswer(
         (_) async => ProcessResult(0, ExitCode.success.code, null, null),
       );
-      when(() => logger.progress(any())).thenReturn(_MockProgress());
       final result = await commandRunner.run(['update']);
       expect(result, ExitCode.success.code);
       verify(() => logger.progress('Checking for updates')).called(1);
@@ -149,7 +127,6 @@ void main() {
     test('does not update when already on latest version', () async {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenAnswer((_) async => packageVersion);
-      when(() => logger.progress(any())).thenReturn(_MockProgress());
       final result = await commandRunner.run(['update']);
       expect(result, ExitCode.success.code);
       verify(() => logger.info('CLI is already at the latest version.'))

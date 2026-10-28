@@ -152,7 +152,9 @@ ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u219
 Run ${lightCyan.wrap('$executableName update')} to update''');
       }
     } on Exception catch (_) {
-      _logger.err('Failed to check for updates.');
+      // Best effort: the check runs after every command, so a user who is
+      // offline, or behind a proxy that blocks pub.dev, should not be told
+      // about it.
     }
   }
 }

@@ -18,17 +18,28 @@ class const ReportingManifestStore(
 
   /// What the command did to the files it records, such as `written`.
   required final String _done,
+
+  /// The command to run again once the manifest can be read, such as
+  /// `install`.
+  required final String _retry,
 }) {
+  /// {@macro reporting_manifest_store}
+  this;
+
   /// The manifest in the store, or null, having said why, when it cannot be
   /// read or was written by a newer version.
   InstallManifest? load() {
     try {
       final manifest = _store.load();
       if (manifest == null) {
-        _logger.err(
-          '$_nothingDone, because ${ManifestStore.unreadable}: '
-          '${_store.file.path}',
-        );
+        _logger
+          ..err(
+            '$_nothingDone, because ${ManifestStore.unreadable}: '
+            '${_store.file.path}',
+          )
+          ..err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run $_retry again.',
+          );
       }
       return manifest;
     } on FileSystemException catch (error) {
