@@ -22,6 +22,7 @@ This is a [pub workspace][pub_workspace_link] monorepo with one shared
 ## Contributing
 
 To set up the repository and work on it, see the
-[contributing guide](CONTRIBUTING.md).
+[contributing guide](CONTRIBUTING.md). To teach the CLI a coding agent it does
+not configure yet, see [adding a harness](ADDING_A_HARNESS.md).
 
 [pub_workspace_link]: https://dart.dev/tools/pub/workspaces
