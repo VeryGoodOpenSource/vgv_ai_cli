@@ -29,6 +29,20 @@ void main() {
       hooks: hooks,
     );
 
+    const wingspan = PluginRef(
+      name: 'wingspan',
+      repo: 'acme/wingspan',
+      version: '1.0.0',
+      gitRef: 'v1.0.0',
+    );
+
+    const flutter = PluginRef(
+      name: 'flutter',
+      repo: 'acme/flutter',
+      version: '2.0.0',
+      gitRef: 'v2.0.0',
+    );
+
     setUp(() => fs = MemoryFileSystem.test());
 
     group('invocableSkills', () {
@@ -57,6 +71,15 @@ void main() {
     });
 
     group('merge', () {
+      test('names the plugins the assets came from', () {
+        final merged = PluginAssets.merge(
+          [pluginAssets(), pluginAssets()],
+          plugins: [wingspan, flutter],
+        );
+
+        expect(merged.plugins, [wingspan, flutter]);
+      });
+
       AgentAsset agent(String name) =>
           AgentAsset(name: name, description: 'd', body: 'b', skills: const []);
 

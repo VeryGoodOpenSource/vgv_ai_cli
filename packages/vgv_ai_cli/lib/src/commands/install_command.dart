@@ -4,6 +4,7 @@ import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
@@ -22,6 +23,8 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// * `--only` configures the named harnesses, detected or not.
 /// * `--no-<harness>` skips one detected harness. It cannot be combined with
 ///   `--only`, which already names the set.
+/// * `--plugin` installs just the named VGV plugins instead of every pinned
+///   one.
 /// {@endtemplate}
 class InstallCommand({
   required final Logger _logger,
@@ -45,6 +48,11 @@ class InstallCommand({
             'Also overwrite your values that conflict with the ones install '
             'writes.',
         negatable: false,
+      )
+      ..addMultiOption(
+        'plugin',
+        help: 'Install just these VGV plugins, instead of every pinned one.',
+        allowed: [for (final plugin in vgvPlugins) plugin.name],
       );
     addHarnessOptions('Configure the Very Good AI tooling for');
   }
@@ -134,9 +142,9 @@ class InstallCommand({
         dryRun ||
         store.save(
           from: manifest,
-          to: reconciliation.manifest.withPlugins({
-            for (final plugin in resolved.plugins) plugin.name: plugin.version,
-          }),
+          to: reconciliation.manifest.withPlugins(
+            _pluginVersions(manifest, resolved.assets.plugins, selected),
+          ),
         );
     final anyChangeFailed = applied.any(
       (change) => change.outcome == ChangeOutcome.failed,
@@ -185,14 +193,46 @@ class InstallCommand({
     return selected;
   }
 
-  /// Resolves and parses every pinned VGV plugin into one asset bundle.
+  /// The plugins `--plugin` names, or null when it names none and every
+  /// pinned plugin is installed.
+  Set<String>? get _selectedPlugins {
+    final names = argResults!['plugin'] as List<String>;
+    return names.isEmpty ? null : names.toSet();
+  }
+
+  /// The versions to record for each harness of [selected]: [installed] for
+  /// the plugins this run wrote, and what [manifest] already records for the
+  /// ones it skipped, whose files are still installed. Every other harness
+  /// keeps what it had.
+  Map<Harness, Map<String, String>> _pluginVersions(
+    InstallManifest manifest,
+    List<PluginRef> installed,
+    Set<Harness> selected,
+  ) {
+    final written = {
+      for (final plugin in installed) plugin.name: plugin.version,
+    };
+    return {
+      ...manifest.plugins,
+      for (final harness in selected)
+        harness: {
+          for (final plugin in vgvPlugins)
+            plugin.name:
+                ?(written[plugin.name] ??
+                manifest.plugins[harness]?[plugin.name]),
+        },
+    };
+  }
+
+  /// Resolves and parses the plugins `--plugin` selects into one asset
+  /// bundle, or every pinned one when it selects none.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
   Future<ResolvedAssets?> _resolveAssets(Directory home) async {
     final progress = _logger.progress('Resolving plugins');
 
-    switch (await _resolver.resolve(home)) {
+    switch (await _resolver.resolve(home, only: _selectedPlugins)) {
       case final ResolvedAssets resolved:
         progress.complete(
           'Resolved ${resolved.assets.skills.length} skills and '

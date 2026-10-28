@@ -29,7 +29,7 @@ class const ClaudeTranslator() extends HarnessTranslator {
       },
     },
     'enabledPlugins': {
-      for (final plugin in vgvPlugins)
+      for (final plugin in assets.plugins)
         '${plugin.name}@$vgvMarketplaceName': true,
     },
   });

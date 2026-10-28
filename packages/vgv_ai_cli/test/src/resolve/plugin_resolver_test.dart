@@ -131,7 +131,7 @@ void main() {
       expect(
         resolution,
         isA<ResolvedAssets>()
-            .having((r) => r.plugins, 'plugins', [wingspan, flutter])
+            .having((r) => r.assets.plugins, 'plugins', [wingspan, flutter])
             .having(
               (r) => r.assets.agents.map((agent) => agent.name),
               'agents',
@@ -271,6 +271,25 @@ void main() {
       );
     });
 
+    test('resolves only the plugins `only` names', () async {
+      cache(wingspan);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan, flutter],
+      );
+
+      final resolution = await resolver.resolve(home, only: {wingspan.name});
+
+      expect(parser.roots, [cached(wingspan)]);
+      expect(
+        resolution,
+        isA<ResolvedAssets>().having((r) => r.assets.plugins, 'plugins', [
+          wingspan,
+        ]),
+      );
+    });
+
     test('resolves the pinned VGV plugins by default', () async {
       vgvPlugins.forEach(cache);
       final resolver = PluginResolver(
@@ -282,7 +301,11 @@ void main() {
 
       expect(
         resolution,
-        isA<ResolvedAssets>().having((r) => r.plugins, 'plugins', vgvPlugins),
+        isA<ResolvedAssets>().having(
+          (r) => r.assets.plugins,
+          'plugins',
+          vgvPlugins,
+        ),
       );
     });
   });

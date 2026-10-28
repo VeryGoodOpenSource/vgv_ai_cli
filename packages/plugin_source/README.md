@@ -43,7 +43,8 @@ Future<void> main() async {
 A source that can't supply the plugin returns an `UnavailablePlugin` with the
 reasons, rather than throwing. A plugin file that can't be understood makes
 the parser throw a `PluginParseException` that names the file and the field.
-`PluginAssets.merge` combines several plugins into one set of assets.
+`PluginAssets.merge` combines several plugins into one set of assets, and
+`withPlugin` records which plugin supplied one.
 
 ## Layout
 

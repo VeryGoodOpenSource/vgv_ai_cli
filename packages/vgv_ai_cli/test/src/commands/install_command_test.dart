@@ -246,6 +246,75 @@ void main() {
       });
     });
 
+    group('--plugin', () {
+      // The manifest is only written once something is, so every run here
+      // writes one file.
+      setUp(() {
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+            ),
+          },
+        );
+      });
+
+      test('installs just the plugins it names', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          vgvPlugins.first.name,
+        ]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.assets?.plugins, [vgvPlugins.first]);
+        expect(ManifestStore(home).load()!.plugins, {
+          Harness.claude: {vgvPlugins.first.name: vgvPlugins.first.version},
+        });
+      });
+
+      test('keeps the recorded version of a plugin it skips', () async {
+        final skipped = vgvPlugins.last;
+        await runInstall(['--only', 'claude']);
+        final store = ManifestStore(home);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.claude: {
+              for (final plugin in vgvPlugins) plugin.name: plugin.version,
+              skipped.name: '0.0.1',
+            },
+          }),
+        );
+
+        await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          vgvPlugins.first.name,
+        ]);
+
+        expect(store.load()!.plugins, {
+          Harness.claude: {
+            vgvPlugins.first.name: vgvPlugins.first.version,
+            skipped.name: '0.0.1',
+          },
+        });
+      });
+
+      test('rejects a plugin it does not pin', () async {
+        final exitCode = await runInstall([
+          '--only',
+          'claude',
+          '--plugin',
+          'vgv-unknown',
+        ]);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.assets, isNull);
+      });
+    });
+
     group('resolution', () {
       test('clones the plugins when there is no Claude Code cache', () async {
         final cloned = <List<String>>[];
@@ -518,7 +587,9 @@ void main() {
         final manifest = ManifestStore(home).load()!;
         expect(manifest[homeFile('.claude/a.md').path], isA<OwnedFile>());
         expect(manifest.plugins, {
-          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          Harness.claude: {
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          },
         });
       });
 
@@ -526,12 +597,18 @@ void main() {
         planOne();
         await runInstall(['--only', 'claude']);
         final store = ManifestStore(home);
-        store.save(store.load()!.withPlugins(const {'vgv-wingspan': '0.0.1'}));
+        store.save(
+          store.load()!.withPlugins(const {
+            Harness.claude: {'vgv-wingspan': '0.0.1'},
+          }),
+        );
 
         await runInstall(['--only', 'claude']);
 
         expect(store.load()!.plugins, {
-          for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          Harness.claude: {
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
+          },
         });
       });
 

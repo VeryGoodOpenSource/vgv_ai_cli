@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:args/command_runner.dart';
+import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
@@ -93,7 +94,11 @@ class DoctorCommand({
 
     if (reports.isEmpty) _logger.info(_nothingToCheck(manifest));
 
-    final fix = FixCommand.combine(reports.map((report) => report.fix));
+    // A section install can fix but that no one command covers would make
+    // the closing line promise more than it does, so there is none.
+    final fix = reports.any((report) => report.needsItsOwnFix)
+        ? null
+        : FixCommand.combine(reports.map((report) => report.fix));
     if (fix != null) {
       _logger
         ..info('')
@@ -160,30 +165,71 @@ class DoctorCommand({
 
   /// What a dry run of `install` for [selected] would do, or an unchecked
   /// plan, having said why, when the plugins cannot be resolved.
+  ///
+  /// Harnesses installed from different plugins are planned apart, so a
+  /// plugin one of them was installed without is not planned for it.
   Future<ContentPlan> _plan(
     InstallManifest manifest,
     Directory home,
     Set<Harness> selected,
   ) async {
     final progress = _logger.progress('Resolving plugins');
-    switch (await _resolver.resolve(home)) {
-      case ResolvedAssets(:final assets):
-        progress.complete('Resolved plugins');
-        final translation = await _translator.translate(
-          assets: assets,
-          home: home,
-          selected: selected,
-        );
-        return ContentPlan(
-          _reconciler
-              .apply(translation.changes, manifest: manifest, dryRun: true)
-              .changes,
-        );
-      case UnavailableAssets(:final plugin, :final reasons):
-        return _unchecked(progress, 'resolve $plugin', reasons);
-      case UnparseableAssets(:final plugin, :final error):
-        return _unchecked(progress, 'parse $plugin', ['$error']);
+    final changes = <AppliedChange>[];
+
+    for (final MapEntry(key: only, value: harnesses) in _byPlugins(
+      manifest,
+      selected,
+    ).entries) {
+      switch (await _resolver.resolve(home, only: only)) {
+        case ResolvedAssets(:final assets):
+          final translation = await _translator.translate(
+            assets: assets,
+            home: home,
+            selected: harnesses,
+          );
+          changes.addAll(
+            _reconciler
+                .apply(translation.changes, manifest: manifest, dryRun: true)
+                .changes,
+          );
+        case UnavailableAssets(:final plugin, :final reasons):
+          return _unchecked(progress, 'resolve $plugin', reasons);
+        case UnparseableAssets(:final plugin, :final error):
+          return _unchecked(progress, 'parse $plugin', ['$error']);
+      }
     }
+
+    progress.complete('Resolved plugins');
+    return ContentPlan(changes);
+  }
+
+  /// [selected] grouped by the plugin names each harness was installed
+  /// from, which the map compares as sets rather than by identity.
+  Map<Set<String>, Set<Harness>> _byPlugins(
+    InstallManifest manifest,
+    Set<Harness> selected,
+  ) {
+    final groups = EqualityMap<Set<String>, Set<Harness>>(_sets);
+    for (final harness in selected) {
+      groups
+          .putIfAbsent(_installedFrom(manifest, harness), () => {})
+          .add(harness);
+    }
+    return groups;
+  }
+
+  /// How a set of plugin names is compared, since two of them are the same
+  /// selection whatever order they were built in.
+  static const Equality<Set<String>> _sets = SetEquality();
+
+  /// The plugins [harness] was installed from, which for one the manifest
+  /// records none for is every pinned plugin, as `install` writes without
+  /// `--plugin`.
+  Set<String> _installedFrom(InstallManifest manifest, Harness harness) {
+    final recorded = manifest.plugins[harness]?.keys.toSet() ?? const {};
+    return recorded.isEmpty
+        ? {for (final plugin in vgvPlugins) plugin.name}
+        : recorded;
   }
 
   /// An unchecked plan, having failed [progress] and listed [reasons] for
@@ -205,10 +251,10 @@ class DoctorCommand({
     );
   }
 
-  /// The sections of the report: the plugin versions, and why content was
-  /// not checked if it was not, when a harness is [installed], the shared
-  /// skills when an [installed] harness reads them, and each harness that
-  /// is [installed] or [detected].
+  /// The sections of the report: why content was not checked if it was not,
+  /// the shared skills when an [installed] harness reads them, and each
+  /// harness that is [installed] or [detected], with the plugin versions it
+  /// was installed from.
   ///
   /// [installed] are the harnesses of the selected scope VGV configured, and
   /// [detected] those of it on this machine.
@@ -222,11 +268,17 @@ class DoctorCommand({
     final readsShared = installed.intersection(_readShared);
 
     return [
-      if (installed.isNotEmpty) _pluginsSection(manifest, installed, plan),
+      if (plan.skipped case final skipped?)
+        ReportSection(
+          title: 'Plugins',
+          installs: installed,
+          findings: [skipped],
+        ),
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
         ReportSection(
           title: 'Shared',
           installs: readsShared,
+          plugins: _shared(manifest, readsShared),
           findings: _entryFindings(null, manifest, home, plan),
         ),
       for (final harness in Harness.values)
@@ -242,25 +294,6 @@ class DoctorCommand({
     ];
   }
 
-  /// The plugin versions [installed] read, and why content was not checked
-  /// if [plan] was not.
-  ReportSection _pluginsSection(
-    InstallManifest manifest,
-    Set<Harness> installed,
-    ContentPlan plan,
-  ) => ReportSection(
-    title: 'Plugins',
-    installs: installed,
-    findings: [
-      for (final plugin in vgvPlugins)
-        PluginVersion.of(
-          plugin,
-          installed: manifest.plugins[plugin.name],
-        ).finding,
-      ?plan.skipped,
-    ],
-  );
-
   /// The section for [harness], which VGV configured when [isInstalled] and
   /// is on this machine when [isDetected].
   ReportSection _harnessSection(
@@ -270,21 +303,47 @@ class DoctorCommand({
     ContentPlan plan, {
     required bool isInstalled,
     required bool isDetected,
-  }) => ReportSection(
-    title: harness.displayName,
-    installs: {harness},
-    findings: [
-      if (!isDetected)
-        const Finding.warning(
-          'not installed on this machine, but VGV AI CLI configured it',
-        ),
-      if (!isInstalled)
-        const Finding.suggestion(
-          "installed, but VGV AI CLI hasn't configured it",
-        ),
-      ..._entryFindings(harness, manifest, home, plan),
-    ],
-  );
+  }) {
+    final recorded = manifest.plugins[harness] ?? const <String, String>{};
+    return ReportSection(
+      title: harness.displayName,
+      installs: {harness},
+      plugins: _selected(recorded),
+      findings: [
+        if (!isDetected)
+          const Finding.warning(
+            'not installed on this machine, but VGV AI CLI configured it',
+          ),
+        if (!isInstalled)
+          const Finding.suggestion(
+            "installed, but VGV AI CLI hasn't configured it",
+          ),
+        if (isInstalled)
+          for (final plugin in vgvPlugins)
+            PluginVersion.of(plugin, installed: recorded[plugin.name]).finding,
+        ..._entryFindings(harness, manifest, home, plan),
+      ],
+    );
+  }
+
+  /// The plugins every harness of [readers] was installed from, or null
+  /// when they differ, since one `install` cannot then fix the skills they
+  /// share without adding a plugin one of them was left without.
+  Set<String>? _shared(InstallManifest manifest, Set<Harness> readers) {
+    final selections = EqualitySet<Set<String>>(_sets)
+      ..addAll([
+        for (final harness in readers)
+          _selected(manifest.plugins[harness] ?? const {}),
+      ]);
+    return selections.length == 1 ? selections.single : null;
+  }
+
+  /// The plugin names a fix must name, or none when [recorded] holds every
+  /// pinned plugin, which `install` writes without being asked.
+  Set<String> _selected(Map<String, String> recorded) =>
+      vgvPlugins.every((plugin) => recorded.containsKey(plugin.name))
+      ? const {}
+      : recorded.keys.toSet();
 
   /// What is wrong with the entries [owner] has in [manifest], and the
   /// files [plan] would add for it.

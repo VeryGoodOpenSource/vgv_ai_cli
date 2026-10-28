@@ -65,6 +65,9 @@ vgv_ai install --no-claude
 
 # Also overwrite your values that conflict with the ones install writes
 vgv_ai install --force
+
+# Install just the VGV plugins you name, instead of every pinned one
+vgv_ai install --plugin vgv-wingspan
 ```
 
 `install` reads the pinned plugins from the Claude Code plugin cache when it
@@ -82,6 +85,9 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   are written whole. A file you edited since `install` wrote it, or one at the
   same path that `install` didn't write, is kept unless you pass `--force`.
 - **Selection:** `--only` and `--no-<harness>` can't be combined.
+- **Plugins:** without `--plugin`, every pinned plugin is installed. Pass it
+  once per plugin to name the ones you want. What a previous `install` wrote
+  for the plugins you leave out stays where it is; `uninstall` removes that.
 
 ### doctor
 
@@ -100,7 +106,8 @@ vgv_ai doctor --no-claude
 
 For each harness, `doctor` reports the files and keys that are missing, were
 changed since, or differ from what this version installs. It also compares the
-plugin versions you installed from with the ones this version pins, suggests
+plugin versions each harness was installed from with the ones this version
+pins, notes a pinned plugin a harness wasn't installed from, suggests
 configuring a harness that's installed but not configured, and warns about a
 configured harness that's no longer installed.
 

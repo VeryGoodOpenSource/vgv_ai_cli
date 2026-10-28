@@ -18,10 +18,10 @@ class const PluginResolver({
   final PluginParser _parser = const ClaudePluginParser(),
   final List<PluginRef> _plugins = vgvPlugins,
 }) {
-  /// Resolves every plugin for [home], stopping at the first that cannot be
-  /// resolved or parsed: a half-configured harness is worse than an
-  /// unconfigured one.
-  Future<AssetResolution> resolve(Directory home) async {
+  /// Resolves the plugins [only] names for [home], or every pinned one when
+  /// it names none, stopping at the first that cannot be resolved or parsed:
+  /// a half-configured harness is worse than an unconfigured one.
+  Future<AssetResolution> resolve(Directory home, {Set<String>? only}) async {
     final sources = [
       LocalCachePluginSource(home: home),
       GitPluginSource(
@@ -30,8 +30,13 @@ class const PluginResolver({
       ),
     ];
 
+    final plugins = [
+      for (final plugin in _plugins)
+        if (only?.contains(plugin.name) ?? true) plugin,
+    ];
+
     final parsed = <PluginAssets>[];
-    for (final plugin in _plugins) {
+    for (final plugin in plugins) {
       switch (await _resolveOne(plugin, sources)) {
         case ResolvedAssets(:final assets):
           parsed.add(assets);
@@ -42,10 +47,7 @@ class const PluginResolver({
       }
     }
 
-    return ResolvedAssets(
-      assets: PluginAssets.merge(parsed),
-      plugins: _plugins,
-    );
+    return ResolvedAssets(assets: PluginAssets.merge(parsed, plugins: plugins));
   }
 
   /// [plugin] parsed from the first of [sources] holding a copy that parses.
@@ -65,10 +67,7 @@ class const PluginResolver({
       switch (await source.resolve(plugin)) {
         case ResolvedPlugin(:final directory):
           try {
-            return ResolvedAssets(
-              assets: _parser.parse(directory),
-              plugins: [plugin],
-            );
+            return ResolvedAssets(assets: _parser.parse(directory));
           } on PluginParseException catch (error) {
             unparseable = UnparseableAssets(plugin, error);
           }

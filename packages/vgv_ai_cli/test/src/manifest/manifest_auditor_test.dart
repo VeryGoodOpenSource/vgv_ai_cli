@@ -623,13 +623,35 @@ void main() {
           expect(manifest.file.readAsStringSync(), before);
         });
 
-        test('keeps the plugin versions it records', () {
+        test('keeps the plugin versions of a harness it leaves alone', () {
+          const recorded = {
+            Harness.codex: {'vgv-wingspan': '0.0.5'},
+          };
+          install([
+            owned(seed('.codex/a.md', 'a'), 'a', harness: Harness.codex),
+          ]);
+
           final result = auditor.reverse(
-            InstallManifest(const [], const {'vgv-wingspan': '0.0.5'}),
+            manifest.load()!.withPlugins(recorded),
+            fs,
+            owners: const {Harness.claude},
+          );
+
+          expect(result.manifest.plugins, recorded);
+        });
+
+        test('forgets the plugin versions of a harness it empties', () {
+          install([owned(file('.codex/a.md'), 'a', harness: Harness.codex)]);
+
+          final result = auditor.reverse(
+            manifest.load()!.withPlugins(const {
+              Harness.codex: {'vgv-wingspan': '0.0.5'},
+            }),
             fs,
           );
 
-          expect(result.manifest.plugins, {'vgv-wingspan': '0.0.5'});
+          expect(result.manifest.entries, isEmpty);
+          expect(result.manifest.plugins, isEmpty);
         });
 
         test('does nothing with an empty manifest', () {

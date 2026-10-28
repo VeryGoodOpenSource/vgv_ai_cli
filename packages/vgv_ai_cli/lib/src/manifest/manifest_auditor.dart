@@ -73,12 +73,14 @@ class const ManifestAuditor({
     final narrowed = [
       for (final ReversedEntry(:retained) in reversed) ?retained,
     ];
+    final kept = [...manifest.without(settled).entries, ...narrowed];
+    final remaining = {for (final entry in kept) entry.owner};
     return Reversal(
       entries: reversed,
-      manifest: InstallManifest([
-        ...manifest.without(settled).entries,
-        ...narrowed,
-      ], manifest.plugins),
+      manifest: InstallManifest(kept, {
+        for (final MapEntry(:key, :value) in manifest.plugins.entries)
+          if (remaining.contains(key)) key: value,
+      }),
     );
   }
 

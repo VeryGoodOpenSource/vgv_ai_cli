@@ -73,11 +73,13 @@ PluginAssets pluginAssets({
   List<AgentAsset> agents = const [],
   List<MCPServer> mcpServers = const [],
   List<HookAsset> hooks = const [],
+  List<PluginRef> plugins = const [],
 }) => PluginAssets(
   skills: skills,
   agents: agents,
   mcpServers: mcpServers,
   hooks: hooks,
+  plugins: plugins,
 );
 
 /// Parses a rendered `---` fenced frontmatter block back into its values.
