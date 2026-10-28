@@ -18,6 +18,9 @@ class const FixCommand({
   /// harness with `install --plugin`.
   final Set<String> plugins = const {},
 }) {
+  /// {@macro fix_command}
+  this;
+
   /// One command that does what every one of [fixes] does, or null when
   /// there are none, or when they install different plugins and so cannot
   /// be said in one command.

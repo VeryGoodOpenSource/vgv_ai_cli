@@ -13,4 +13,7 @@ class const AgentAsset({
 
   /// The skills the agent expects to have loaded.
   required final List<String> skills,
-});
+}) {
+  /// {@macro agent_asset}
+  this;
+}

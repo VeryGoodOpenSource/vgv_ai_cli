@@ -18,6 +18,9 @@ class const Translator({
   final AgentsBrick brick = const AgentsBrick(),
   final SkillsTranslator skills = const SkillsTranslator(),
 }) {
+  /// {@macro translator}
+  this;
+
   /// The changes and notes for each of [selected], plus the shared skills
   /// when any of them reads them.
   Future<TranslationPlan> translate({

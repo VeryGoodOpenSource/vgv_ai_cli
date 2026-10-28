@@ -11,6 +11,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// written, and nothing that would imitate the rest.
 /// {@endtemplate}
 class const PiTranslator() extends HarnessTranslator {
+  /// {@macro pi_translator}
+  this;
+
   @override
   Harness get harness => Harness.pi;
 

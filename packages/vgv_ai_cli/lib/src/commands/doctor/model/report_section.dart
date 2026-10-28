@@ -21,6 +21,9 @@ class const ReportSection({
   /// fixes them all.
   final Set<String>? plugins = const {},
 }) {
+  /// {@macro report_section}
+  this;
+
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
 

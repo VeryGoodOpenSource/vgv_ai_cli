@@ -13,4 +13,7 @@ class const Reversal({
   /// longer hold anything of VGV's. On a dry run it records what would
   /// have been taken back.
   required final InstallManifest manifest,
-});
+}) {
+  /// {@macro reversal}
+  this;
+}
