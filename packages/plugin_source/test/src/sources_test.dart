@@ -1,3 +1,4 @@
+import 'dart:async' show Completer;
 import 'dart:io' show ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
@@ -218,6 +219,40 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('gives up on a clone that outlasts the timeout', () async {
+      final resolution = await GitPluginSource(
+        cacheRoot: cacheRoot,
+        // A clone that never finishes, as an unreachable host would be.
+        runGit: (a) => Completer<ProcessResult>().future,
+        timeout: const Duration(milliseconds: 10),
+      ).resolve(ref);
+
+      final reason = (resolution as UnavailablePlugin).reasons.single;
+      expect(reason, contains('took longer than'));
+      expect(reason, contains('github.com'));
+      final leftovers = fileSystem
+          .directory(p.join(cacheRoot.path, ref.name))
+          .listSync();
+      expect(leftovers, isEmpty);
+    });
+
+    test('logs the command it runs and the stderr of a failed clone', () async {
+      final logged = <String>[];
+
+      await GitPluginSource(
+        cacheRoot: cacheRoot,
+        runGit: (a) async {
+          fileSystem.directory(a.last).createSync(recursive: true);
+          return ProcessResult(0, 128, '', 'Remote branch v0.0.5 not found');
+        },
+        log: logged.add,
+      ).resolve(ref);
+
+      expect(logged.first, startsWith('Running: git clone --depth 1'));
+      expect(logged.first, contains('v0.0.5'));
+      expect(logged.last, contains('Remote branch v0.0.5 not found'));
     });
 
     test('reports a cache root it cannot create', () async {
