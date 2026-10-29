@@ -116,7 +116,9 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 `lib/src/version.dart` carries the version release-please writes. **Never edit it by hand**, and never bump a version by hand either.
 
-Both packages release together. release-please bumps each package's own `pubspec.yaml`, and the `linked-versions` plugin holds them at the same version, so a fix in `plugin_source` releases the CLI too — which is how a pin bump reaches users. Two lines need the generic updater and carry an `x-release-please-version` marker: this file, and the `plugin_source:` constraint in the CLI's `pubspec.yaml`. Nothing else should ever get that marker.
+Both packages release together. release-please bumps each package's own `pubspec.yaml`, and the `linked-versions` plugin holds them at the same version, so a fix in `plugin_source` releases the CLI too — which is how a pin bump reaches users. Only this file needs the generic updater and carries an `x-release-please-version` marker. Nothing else should ever get that marker, least of all `pubspec.yaml`: release-please's `dart` updater rewrites the whole YAML and strips comments, so a marker there is silently lost.
+
+The CLI depends on `plugin_source` with the hosted range `'>=0.1.0 <1.0.0'`, the way `mason_cli` depends on `mason`. The workspace resolves it from `packages/plugin_source` locally, and the range stays satisfied as the linked versions bump, so nobody has to touch it per release. Raise the lower bound by hand only when the CLI starts using `plugin_source` API a published version lacks.
 
 The CLI is tagged `vX.Y.Z` and `plugin_source` as `plugin_source-vX.Y.Z`; `pub_publish.yaml` fires on the former.
 
