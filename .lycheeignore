@@ -6,3 +6,6 @@
 
 # Private sibling repositories the workflow token cannot read
 ^https://github\.com/VeryGoodOpenSource/vgv-wingspan
+
+# release-please CHANGELOG compare links, whose tags exist only once the release PR merges
+^https://github\.com/VeryGoodOpenSource/vgv_ai_cli/compare/

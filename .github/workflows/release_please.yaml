@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # .release-please-config.json pins both packages with "release-as": "0.1.0"
+      # for the first release. Remove it once 0.1.0 is published (#107).
       - name: 🚀 Release Please
         uses: googleapis/release-please-action@v5
         with:

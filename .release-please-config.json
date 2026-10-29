@@ -10,18 +10,22 @@
   "pull-request-header": ":rotating_light: There are changes ready for release :rocket:\n\nℹ Merge this PR once the team confirms the release is ready.\n",
   "group-pull-request-title-pattern": "chore: release ${branch}",
   "include-component-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
   "packages": {
     "packages/vgv_ai_cli": {
       "release-type": "dart",
       "component": "vgv_ai_cli",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
-      "extra-files": ["pubspec.yaml", "lib/src/version.dart"]
+      "release-as": "0.1.0",
+      "extra-files": ["lib/src/version.dart"]
     },
     "packages/plugin_source": {
       "release-type": "dart",
       "component": "plugin_source",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "0.1.0"
     }
   },
   "plugins": [
