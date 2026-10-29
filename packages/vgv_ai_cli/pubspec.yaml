@@ -18,7 +18,7 @@ dependencies:
   mason: ^0.1.0
   mason_logger: ^0.3.6
   path: ^1.9.1
-  plugin_source: '>=0.1.0 <1.0.0'
+  plugin_source: ^0.1.0
   pub_semver: ^2.2.1
   pub_updater: ^0.6.0
   toml: ^0.18.0

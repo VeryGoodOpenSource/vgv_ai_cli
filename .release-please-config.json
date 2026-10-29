@@ -10,6 +10,8 @@
   "pull-request-header": ":rotating_light: There are changes ready for release :rocket:\n\nℹ Merge this PR once the team confirms the release is ready.\n",
   "group-pull-request-title-pattern": "chore: release ${branch}",
   "include-component-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
   "packages": {
     "packages/vgv_ai_cli": {
       "release-type": "dart",
