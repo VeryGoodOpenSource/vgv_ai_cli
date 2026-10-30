@@ -39,5 +39,3 @@
 
 * improve doc comments and READMEs ([#89](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/89)) ([96e8b40](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/96e8b40f1b62b88d304244d4c340478b3e5f8373))
 * reset agents brick CHANGELOG for v0.1.0 ([#83](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/83)) ([ecb927f](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/ecb927fc6de839ee9dcbe5d94e8e2965c7568f4f))
-
-## Changelog
