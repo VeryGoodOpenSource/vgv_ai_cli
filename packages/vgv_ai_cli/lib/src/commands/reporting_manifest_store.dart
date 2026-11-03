@@ -51,14 +51,17 @@ class const ReportingManifestStore(
     }
   }
 
-  /// Saves [to] in the store unless it is [from], and returns whether it
-  /// could.
+  /// Saves [to] in the store unless it is [from] and still records
+  /// something, and returns whether it could.
+  ///
+  /// An empty [to] is always saved, which deletes the file, since one this
+  /// version reads as empty records nothing it can take back.
   ///
   /// A manifest that could not be saved still holds its old entries, so the
   /// files this run changed count as the user's until a later run records
   /// them.
   bool save({required InstallManifest from, required InstallManifest to}) {
-    if (to == from) return true;
+    if (to == from && to.entries.isNotEmpty) return true;
 
     try {
       _store.save(to);
