@@ -618,6 +618,18 @@ void main() {
         expect(manifestFile().existsSync(), isFalse);
       });
 
+      test('deletes one that records nothing it can read when nothing is '
+          'installed', () async {
+        manifestFile()
+          ..createSync(recursive: true)
+          ..writeAsStringSync('not json');
+
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(manifestFile().existsSync(), isFalse);
+      });
+
       test('installs nothing over one from a newer version', () async {
         planOne();
         final newer = jsonEncode({'version': InstallManifest.version + 1});

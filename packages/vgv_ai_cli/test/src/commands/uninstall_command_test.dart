@@ -582,6 +582,12 @@ void main() {
             'to remove.',
           ),
         ).called(1);
+        verify(
+          () => logger.info(
+            'Deleted ${store.file.path}, which records nothing this version '
+            'of vgv_ai can read, so the files it recorded were left in place.',
+          ),
+        ).called(1);
       });
 
       test('--check keeps one that records nothing it can read', () async {
@@ -609,7 +615,8 @@ void main() {
           () => logger.err(
             any(
               that: startsWith(
-                'Could not record what was removed in ${store.file.path}: ',
+                'Could not delete ${store.file.path}, which records nothing '
+                'this version of vgv_ai can read: ',
               ),
             ),
           ),

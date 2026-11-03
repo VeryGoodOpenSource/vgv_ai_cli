@@ -88,8 +88,9 @@ class UninstallCommand({
       return ExitCode.config.code;
     }
 
+    final manifestStore = ManifestStore(home);
     final store = ReportingManifestStore(
-      ManifestStore(home),
+      manifestStore,
       _logger,
       nothingDone: 'Removed nothing',
       done: 'removed',
@@ -102,8 +103,9 @@ class UninstallCommand({
         "VGV AI CLI hasn't installed anything here, so there is nothing to "
         'remove.',
       );
-      final saved = dryRun || store.save(from: manifest, to: manifest);
-      return saved ? ExitCode.success.code : ExitCode.ioError.code;
+      return dryRun
+          ? ExitCode.success.code
+          : _deleteUnreadable(manifestStore.file);
     }
 
     final recorded = {for (final entry in manifest.entries) ?entry.owner};
@@ -138,6 +140,28 @@ class UninstallCommand({
       (entry) => entry.outcome == ReverseOutcome.failed,
     );
     return !saved || anyFailed ? ExitCode.ioError.code : ExitCode.success.code;
+  }
+
+  /// Deletes [manifest], if there is one, since it records nothing this
+  /// version can read and so nothing it can take back, and says why.
+  int _deleteUnreadable(File manifest) {
+    if (!manifest.existsSync()) return ExitCode.success.code;
+
+    final path = manifest.path;
+    try {
+      manifest.deleteSync();
+      _logger.info(
+        'Deleted $path, which records nothing this version of vgv_ai can '
+        'read, so the files it recorded were left in place.',
+      );
+      return ExitCode.success.code;
+    } on FileSystemException catch (error) {
+      _logger.err(
+        'Could not delete $path, which records nothing this version of '
+        'vgv_ai can read: ${error.description}',
+      );
+      return ExitCode.ioError.code;
+    }
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up
