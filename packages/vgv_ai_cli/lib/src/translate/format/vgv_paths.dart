@@ -39,16 +39,14 @@ Directory harnessHooksRoot(Harness harness, {required Directory home}) {
 Directory pluginFilesRoot(Directory skillsRoot) =>
     skillsRoot.parent.childDirectory('vgv-plugins');
 
-/// [text] with [HookCommand.rootPlaceholder] spelled out as [plugin]'s copy
-/// under [filesRoot], or as it is when [plugin] is null, which means [text]
-/// names no file of a plugin's.
-String expandPluginRoot(
-  String text, {
-  required String? plugin,
-  required Directory filesRoot,
-}) => plugin == null
-    ? text
-    : text.replaceAll(
-        HookCommand.rootPlaceholder,
-        filesRoot.childDirectory(plugin).path,
-      );
+/// [text] with [PluginPath.placeholder] spelled out as [filesRoot], where
+/// the copy of every plugin's files is kept.
+String expandPluginFiles(String text, {required Directory filesRoot}) =>
+    text.replaceAll(PluginPath.placeholder, filesRoot.path);
+
+/// What a plugin may be named, since its name becomes a folder under the
+/// hooks root and under [pluginFilesRoot].
+final _pluginNamePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+
+/// Whether [plugin], a plugin's name, is safe as a folder name.
+bool isSafePluginName(String plugin) => _pluginNamePattern.hasMatch(plugin);

@@ -5,6 +5,7 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/copy_source.dart';
+import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
@@ -38,10 +39,6 @@ class const HookScripts({
   /// The plugin's own hook registry, relative to its root.
   static final String _registry = p.join(hooksFolder, 'hooks.json');
 
-  /// What a plugin may be named, since its name becomes a folder under the
-  /// hooks root and under the plugin files root.
-  static final _namePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
-
   /// A file under the hooks folder a command names, relative to the plugin
   /// root, quoted or not.
   static final _hooksFile = RegExp(
@@ -54,11 +51,8 @@ class const HookScripts({
   /// A shebang that names bash.
   static final _bashShebang = RegExp(r'^#!.*\bbash\b');
 
-  /// Whether [plugin], a plugin's name, is safe as a folder name.
-  static bool safePluginName(String plugin) => _namePattern.hasMatch(plugin);
-
   /// Whether [hook]'s plugin name is safe as a folder name.
-  static bool safelyNamed(HookAsset hook) => safePluginName(hook.plugin);
+  static bool safelyNamed(HookAsset hook) => isSafePluginName(hook.plugin);
 
   /// Whether [hook] runs a shell command, which is what needs the preamble.
   static bool runsCommand(HookAsset hook) =>

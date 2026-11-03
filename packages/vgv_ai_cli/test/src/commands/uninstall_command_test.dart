@@ -176,8 +176,9 @@ void main() {
 
       final sharedStillPresent =
           'The shared skills VGV AI CLI installed are still in '
-          '/home/dev/.agents/skills. Run ${lightCyan.wrap('vgv_ai uninstall')} '
-          'with no flags to remove them.';
+          '/home/dev/.agents/skills, with any plugin files in '
+          '/home/dev/.agents/vgv-plugins. Run '
+          "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.";
 
       setUp(
         () => install([
@@ -296,9 +297,9 @@ void main() {
 
     group('shared skills and empty directories', () {
       const sharedRemoved =
-          'The skills in /home/dev/.agents/skills were installed by VGV AI CLI '
-          'and are shared by all your coding agents, so they are being '
-          'removed.';
+          'The skills in /home/dev/.agents/skills, and any plugin files in '
+          '/home/dev/.agents/vgv-plugins, were installed by VGV AI CLI and '
+          'are shared by all your coding agents, so they are being removed.';
 
       Directory homeDirectory(String relativePath) =>
           fs.directory(fs.path.join(home.path, relativePath));
@@ -443,9 +444,9 @@ void main() {
 
         verifyInOrder([
           () => logger.info(
-            'The skills in /home/dev/.agents/skills were installed by VGV AI '
-            'CLI and are shared by all your coding agents, so they would be '
-            'removed.',
+            'The skills in /home/dev/.agents/skills, and any plugin files in '
+            '/home/dev/.agents/vgv-plugins, were installed by VGV AI CLI and '
+            'are shared by all your coding agents, so they would be removed.',
           ),
           () => logger.info(
             'Would remove ${homeFile('.agents/skills/a/SKILL.md').path}',

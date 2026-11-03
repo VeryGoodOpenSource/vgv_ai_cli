@@ -344,23 +344,13 @@ void main() {
         harness: harness,
       );
 
-      test('spells the plugin root out in SKILL.md as its copy', () {
-        final asset = skill(
-          'feature',
-          body: 'Read `${HookCommand.rootPlaceholder}/references/ffca/`.\n',
-        );
+      test('spells the plugin files out in SKILL.md as their copy', () {
         final result = translatePaths(
           const [],
           skills: [
-            SkillAsset(
-              name: asset.name,
-              description: asset.description,
-              body: asset.body,
-              userInvocable: true,
-              allowedTools: const [],
-              portableFrontmatter: asset.portableFrontmatter,
-              directory: asset.directory,
-              plugin: 'ffca',
+            skill(
+              'feature',
+              body: 'Read `${PluginPath.placeholder}/ffca/references/ffca/`.\n',
             ),
           ],
         );

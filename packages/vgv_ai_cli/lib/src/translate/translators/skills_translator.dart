@@ -65,11 +65,7 @@ class const SkillsTranslator() {
   /// here is the open Agent Skills key set and nothing else.
   String _skillDocument(SkillAsset skill, {required Directory filesRoot}) {
     final frontmatter = Frontmatter.render(skill.portableFrontmatter);
-    final body = expandPluginRoot(
-      skill.body,
-      plugin: skill.plugin,
-      filesRoot: filesRoot,
-    );
+    final body = expandPluginFiles(skill.body, filesRoot: filesRoot);
     return '$frontmatter\n$body';
   }
 
@@ -87,7 +83,7 @@ class const SkillsTranslator() {
     final changes = <String, PlannedChange>{};
     for (final MapEntry(key: plugin, value: named)
         in paths.groupListsBy((path) => path.plugin).entries) {
-      if (!HookScripts.safePluginName(plugin)) {
+      if (!isSafePluginName(plugin)) {
         notes.add(
           TranslationNote(
             subject: plugin,

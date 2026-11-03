@@ -165,9 +165,9 @@ class UninstallCommand({
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up
-  /// to the skills root for the shared skills, the folder holding the shared
-  /// plugin files for those, and the harness's config directory for the
-  /// rest, which are never deleted.
+  /// to the skills root for the shared skills, `~/.agents` for the shared
+  /// plugin files, and the harness's config directory for the rest, which
+  /// are never deleted.
   ///
   /// The files are already gone by now, so a directory that cannot be
   /// deleted is only warned about.
@@ -194,13 +194,13 @@ class UninstallCommand({
   }
 
   /// Where deleting the empty directories above the shared file at [path]
-  /// stops: the skills root, which other tools read as well, or the folder
-  /// holding the plugin files root, so that root goes once it is empty.
+  /// stops: the skills root, which other tools read as well, or `~/.agents`
+  /// itself, so the plugin files root goes once it is empty.
   static Directory _sharedBoundary(String path, Directory home) {
     final skills = agentsSkillsRoot(home);
     return home.fileSystem.path.isWithin(skills.path, path)
         ? skills
-        : pluginFilesRoot(skills).parent;
+        : skills.parent;
   }
 
   /// Says there is nothing to remove for each of [harnesses], which VGV
@@ -214,25 +214,27 @@ class UninstallCommand({
     }
   }
 
-  /// Says the shared skills in [skillsRoot] are removed, or, for a [dryRun],
-  /// would be, and why.
+  /// Says the shared skills in [skillsRoot], and the plugin files beside
+  /// it, are removed, or, for a [dryRun], would be, and why.
   void _reportSharedSkillsRemoved(
     Directory skillsRoot, {
     required bool dryRun,
   }) {
     _logger.info(
-      'The skills in ${skillsRoot.path} were installed by VGV '
-      'AI CLI and are shared by all your coding agents, so they '
+      'The skills in ${skillsRoot.path}, and any plugin files in '
+      '${pluginFilesRoot(skillsRoot).path}, were installed by VGV AI CLI '
+      'and are shared by all your coding agents, so they '
       '${dryRun ? 'would be' : 'are being'} removed.',
     );
   }
 
-  /// Says the shared skills in [skillsRoot] were kept, and how to remove
-  /// them.
+  /// Says the shared skills in [skillsRoot], and the plugin files beside
+  /// it, were kept, and how to remove them.
   void _reportSharedSkillsKept(Directory skillsRoot) {
     _logger.info(
       'The shared skills VGV AI CLI installed are still in '
-      '${skillsRoot.path}. Run '
+      '${skillsRoot.path}, with any plugin files in '
+      '${pluginFilesRoot(skillsRoot).path}. Run '
       "${lightCyan.wrap('vgv_ai uninstall')} with no flags to remove them.",
     );
   }

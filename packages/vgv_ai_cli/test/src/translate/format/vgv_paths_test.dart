@@ -35,19 +35,27 @@ void main() {
     });
   });
 
-  group('expandPluginRoot', () {
-    final filesRoot = MemoryFileSystem.test().directory('/files');
-    const text = 'run ${HookCommand.rootPlaceholder}/scripts/a.dart';
+  group('expandPluginFiles', () {
+    test("spells the placeholder out as the plugin files' copy", () {
+      final filesRoot = MemoryFileSystem.test().directory('/files');
 
-    test("spells the placeholder out as the plugin's copy", () {
       expect(
-        expandPluginRoot(text, plugin: 'ffca', filesRoot: filesRoot),
+        expandPluginFiles(
+          'run ${PluginPath.placeholder}/ffca/scripts/a.dart',
+          filesRoot: filesRoot,
+        ),
         'run /files/ffca/scripts/a.dart',
       );
     });
+  });
 
-    test('leaves text that names no plugin as it is', () {
-      expect(expandPluginRoot(text, plugin: null, filesRoot: filesRoot), text);
+  group('isSafePluginName', () {
+    test('accepts a plugin name', () {
+      expect(isSafePluginName('vgv-ffca-plugin'), isTrue);
+    });
+
+    test('refuses a name that leaves its folder', () {
+      expect(isSafePluginName('../escape'), isFalse);
     });
   });
 }

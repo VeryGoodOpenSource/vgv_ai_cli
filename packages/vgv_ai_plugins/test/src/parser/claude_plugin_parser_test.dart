@@ -652,7 +652,7 @@ void main() {
         for (final path in assets.paths) path.path,
       ];
 
-      test("rewrites a skill's CLAUDE_PLUGIN_ROOT and names the plugin", () {
+      test("rewrites a skill's CLAUDE_PLUGIN_ROOT as the plugin's files", () {
         write(
           'skills/feature/SKILL.md',
           '---\nname: feature\n---\n'
@@ -662,11 +662,10 @@ void main() {
 
         final skill = const ClaudePluginParser().parse(root).skills.single;
 
-        expect(skill.body, 'Read `${HookCommand.rootPlaceholder}/refs/`.\n');
-        expect(skill.plugin, 'ffca');
+        expect(skill.body, 'Read `${PluginPath.placeholder}/ffca/refs/`.\n');
       });
 
-      test("rewrites an agent's CLAUDE_PLUGIN_ROOT and names the plugin", () {
+      test("rewrites an agent's CLAUDE_PLUGIN_ROOT as the plugin's files", () {
         write(
           'agents/auditor.md',
           '---\nname: auditor\n---\n'
@@ -678,9 +677,8 @@ void main() {
 
         expect(
           agent.body,
-          'dart run ${HookCommand.rootPlaceholder}/scripts/check.dart --all\n',
+          'dart run ${PluginPath.placeholder}/ffca/scripts/check.dart --all\n',
         );
-        expect(agent.plugin, 'ffca');
       });
 
       test('leaves a body that names no file of the plugin alone', () {
@@ -689,9 +687,22 @@ void main() {
 
         final assets = const ClaudePluginParser().parse(root);
 
-        expect(assets.skills.single.plugin, isNull);
-        expect(assets.agents.single.plugin, isNull);
+        expect(assets.skills.single.body, 'body\n');
+        expect(assets.agents.single.body, 'body\n');
         expect(assets.paths, isEmpty);
+      });
+
+      test('reads no manifest when no hook or body needs the name', () {
+        root
+            .childDirectory('.claude-plugin')
+            .childFile('plugin.json')
+            .writeAsStringSync('not json');
+        write('skills/plain/SKILL.md', '---\nname: plain\n---\nbody\n');
+
+        expect(
+          const ClaudePluginParser().parse(root).skills.single.body,
+          'body\n',
+        );
       });
 
       test('collects every path the bodies name, once each', () {

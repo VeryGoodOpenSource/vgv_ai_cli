@@ -17,8 +17,7 @@ class const HookCommand({
   /// {@macro hook_command}
   this;
 
-  /// Stands in for the plugin's root directory inside [command], and inside
-  /// the body of a skill or agent that names a file of the plugin's.
+  /// Stands in for the plugin's root directory inside [command].
   ///
   /// Parsers rewrite their harness's own placeholder to this one, so
   /// translators substitute exactly one token regardless of where a plugin
