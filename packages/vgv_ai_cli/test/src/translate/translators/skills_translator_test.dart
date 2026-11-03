@@ -1,10 +1,10 @@
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 void main() {
   group(SkillsTranslator, () {

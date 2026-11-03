@@ -30,7 +30,7 @@ jobs:
         run: |
           {
             echo "bumps<<EOF"
-            dart run packages/plugin_source/tool/bump_plugin_pins.dart
+            dart run packages/vgv_ai_plugins/tool/bump_plugin_pins.dart
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -46,7 +46,7 @@ jobs:
           commit-message: "chore: bump pinned plugins"
           title: "chore: bump pinned plugins"
           body: |
-            Bump the pinned VGV plugins in `packages/plugin_source/lib/src/plugin_ref.dart` to their latest releases.
+            Bump the pinned VGV plugins in `packages/vgv_ai_plugins/lib/src/plugin_ref.dart` to their latest releases.
 
             ${{ steps.bump.outputs.bumps }}
 

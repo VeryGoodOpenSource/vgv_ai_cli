@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
@@ -9,6 +8,7 @@ import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/rendered_change.dart';
 import 'package:vgv_ai_cli/src/translate/translators/translators.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template translator}
 /// Plans every change that installs the plugins into the selected harnesses.

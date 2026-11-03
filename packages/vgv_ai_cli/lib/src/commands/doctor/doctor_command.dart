@@ -3,7 +3,6 @@ import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
@@ -14,6 +13,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template doctor_command}
 /// Reports, per harness, what VGV installed that is missing, was changed

@@ -1,0 +1,30 @@
+name: vgv_ai_plugins
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/vgv_ai_plugins.yaml"
+      - "packages/vgv_ai_plugins/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/vgv_ai_plugins.yaml"
+      - "packages/vgv_ai_plugins/**"
+
+jobs:
+  semantic-pull-request:
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v2
+
+  build:
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v2
+    with:
+      dart_sdk: "3.13.0"
+      working_directory: packages/vgv_ai_plugins
+      run_cognitive_complexity: true
+      cognitive_complexity_targets: packages/vgv_ai_plugins/lib
+      cognitive_complexity_diff_base: HEAD

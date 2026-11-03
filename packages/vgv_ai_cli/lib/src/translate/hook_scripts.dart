@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/copy_source.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template hook_scripts}
 /// A harness's copy of each plugin's `hooks` folder under the hooks root

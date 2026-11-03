@@ -5,13 +5,13 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 import '../../helpers/test_runner.dart';
 

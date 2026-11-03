@@ -1,4 +1,4 @@
-import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template asset_resolution}
 /// What resolving and parsing every pinned plugin produced.

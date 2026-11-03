@@ -1,9 +1,9 @@
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/hook_scripts.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template harness_translator}
 /// How one harness spells what the plugins contribute.

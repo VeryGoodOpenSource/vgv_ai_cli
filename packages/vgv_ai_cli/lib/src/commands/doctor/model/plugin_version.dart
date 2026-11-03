@@ -1,6 +1,6 @@
-import 'package:plugin_source/plugin_source.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/finding.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template plugin_status}
 /// How the version of a plugin a home was installed from compares with the
