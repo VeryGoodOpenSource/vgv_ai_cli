@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template fix_command}
 /// The `install` command that fixes what `doctor` found in [harnesses].

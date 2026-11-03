@@ -1,6 +1,6 @@
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 void main() {
   group(PluginVersion, () {

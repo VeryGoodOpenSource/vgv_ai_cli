@@ -1,5 +1,5 @@
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 import 'package:yaml/yaml.dart';
 
 /// Builders shared by the per-harness translator tests, so each test file

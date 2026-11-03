@@ -2,10 +2,10 @@ import 'dart:io' show ProcessException, ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// A [PluginParser] that gives each plugin root one agent named after the
 /// root's path, and records the roots it was asked to parse.

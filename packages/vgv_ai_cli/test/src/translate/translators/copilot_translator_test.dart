@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:file/memory.dart';
 import 'package:path/path.dart' as path;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 import '../_assets.dart';
 

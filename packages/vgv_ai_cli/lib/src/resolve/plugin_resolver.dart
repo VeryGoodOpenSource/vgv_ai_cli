@@ -1,9 +1,9 @@
 import 'dart:io' show Process;
 
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template plugin_resolver}
 /// Resolves and parses the pinned VGV plugins into one asset bundle.

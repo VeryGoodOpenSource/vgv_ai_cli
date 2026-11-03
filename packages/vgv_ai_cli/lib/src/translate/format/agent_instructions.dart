@@ -1,4 +1,4 @@
-import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// An agent's instructions, with its skills restated as a pointer.
 ///

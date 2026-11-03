@@ -3,11 +3,11 @@ library;
 
 import 'package:file/file.dart';
 import 'package:file/local.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// Resolves the real pinned plugins over git, then parses and translates them
 /// for every harness, so a pin that no longer resolves, parses or translates
