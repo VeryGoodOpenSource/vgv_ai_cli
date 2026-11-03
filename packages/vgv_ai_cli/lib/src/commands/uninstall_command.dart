@@ -102,7 +102,8 @@ class UninstallCommand({
         "VGV AI CLI hasn't installed anything here, so there is nothing to "
         'remove.',
       );
-      return ExitCode.success.code;
+      final saved = dryRun || store.save(from: manifest, to: manifest);
+      return saved ? ExitCode.success.code : ExitCode.ioError.code;
     }
 
     final recorded = {for (final entry in manifest.entries) ?entry.owner};

@@ -560,6 +560,62 @@ void main() {
         expect(store.load()!.entries.map((entry) => entry.owner), [Harness.pi]);
       });
 
+      test('deletes one that records nothing it can read', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            jsonEncode({
+              'version': InstallManifest.version,
+              'entries': [
+                {'path': '.x/a', 'owner': 'unknown', 'mode': 'own'},
+              ],
+            }),
+          );
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(store.file.existsSync(), isFalse);
+        verify(
+          () => logger.info(
+            "VGV AI CLI hasn't installed anything here, so there is nothing "
+            'to remove.',
+          ),
+        ).called(1);
+      });
+
+      test('--check keeps one that records nothing it can read', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync('not json');
+
+        final exitCode = await runUninstall(['--check']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(store.file.readAsStringSync(), 'not json');
+      });
+
+      test('exits with an I/O error when one that records nothing it can '
+          'read cannot be deleted', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync('not json');
+        undeletable = store.file.path;
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.ioError.code);
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Could not record what was removed in ${store.file.path}: ',
+              ),
+            ),
+          ),
+        ).called(1);
+      });
+
       test('removes nothing over one from a newer version', () async {
         final newer = jsonEncode({'version': InstallManifest.version + 1});
         store.file
