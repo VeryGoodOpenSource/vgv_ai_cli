@@ -313,5 +313,169 @@ void main() {
         );
       });
     });
+
+    group('plugin files', () {
+      const pluginRoot = '/plugins/ffca';
+
+      void write(String relative, String contents) =>
+          fs.file(p.join(pluginRoot, relative))
+            ..createSync(recursive: true)
+            ..writeAsStringSync(contents);
+
+      PluginPath path(String path, {String plugin = 'ffca'}) => PluginPath(
+        plugin: plugin,
+        pluginRoot: fs.directory(pluginRoot),
+        path: path,
+      );
+
+      TranslationResult translatePaths(
+        List<PluginPath> paths, {
+        List<SkillAsset> skills = const [],
+        Directory? root,
+        Harness? harness,
+      }) => const SkillsTranslator().translate(
+        assets: PluginAssets(
+          skills: skills,
+          agents: const [],
+          mcpServers: const [],
+          paths: paths,
+        ),
+        root: root ?? agentsSkillsRoot(home),
+        harness: harness,
+      );
+
+      test('spells the plugin root out in SKILL.md as its copy', () {
+        final asset = skill(
+          'feature',
+          body: 'Read `${HookCommand.rootPlaceholder}/references/ffca/`.\n',
+        );
+        final result = translatePaths(
+          const [],
+          skills: [
+            SkillAsset(
+              name: asset.name,
+              description: asset.description,
+              body: asset.body,
+              userInvocable: true,
+              allowedTools: const [],
+              portableFrontmatter: asset.portableFrontmatter,
+              directory: asset.directory,
+              plugin: 'ffca',
+            ),
+          ],
+        );
+
+        expect(
+          changeAt(result, 'feature/SKILL.md').contents,
+          contains(
+            'Read `/home/dev/.agents/vgv-plugins/ffca/references/ffca/`.',
+          ),
+        );
+      });
+
+      test('copies every file under a folder, beside the skills root', () {
+        write('references/ffca/overview.md', '# Overview\n');
+        write('references/ffca/deep/data.md', '# Data\n');
+
+        final result = translatePaths([path('references/ffca')]);
+
+        expect(
+          result.changes.map((c) => c.file.path),
+          unorderedEquals([
+            '/home/dev/.agents/vgv-plugins/ffca/references/ffca/overview.md',
+            '/home/dev/.agents/vgv-plugins/ffca/references/ffca/deep/data.md',
+          ]),
+        );
+        expect(result.notes, isEmpty);
+      });
+
+      test('copies a file byte for byte, remembering its source', () {
+        write('scripts/validate_layers.dart', r'print("${CLAUDE_SKILL_DIR}");');
+
+        final change = translatePaths([path('scripts/validate_layers.dart')])
+            .changes
+            .single;
+
+        expect(change.contents, r'print("${CLAUDE_SKILL_DIR}");');
+        expect(change.source?.path, '$pluginRoot/scripts/validate_layers.dart');
+        expect(change.harness, isNull);
+        expect(change.mode, ChangeMode.own);
+      });
+
+      test('plans a file two paths name once', () {
+        write('references/ffca/navigation.md', '# Navigation\n');
+
+        final result = translatePaths([
+          path('references/ffca'),
+          path('references/ffca/navigation.md'),
+        ]);
+
+        expect(result.changes, hasLength(1));
+      });
+
+      test("goes beside a harness's own skills root, owned by it", () {
+        write('references/ffca/overview.md', '# Overview\n');
+        final root = fs.directory('/home/dev/agy/plugins/vgv/skills');
+
+        final change = translatePaths(
+          [path('references/ffca')],
+          root: root,
+          harness: Harness.antigravity,
+        ).changes.single;
+
+        expect(
+          change.file.path,
+          '/home/dev/agy/plugins/vgv/vgv-plugins/ffca/references/ffca/'
+          'overview.md',
+        );
+        expect(change.harness, Harness.antigravity);
+      });
+
+      test('materializes a link', () {
+        write('shared/pooled.md', '# Pooled\n');
+        fs.link(p.join(pluginRoot, 'references', 'pooled.md'))
+          ..parent.createSync(recursive: true)
+          ..createSync(p.join(pluginRoot, 'shared', 'pooled.md'));
+
+        final change = translatePaths([path('references/pooled.md')])
+            .changes
+            .single;
+
+        expect(change.contents, '# Pooled\n');
+      });
+
+      test('reports a path the plugin does not hold', () {
+        final result = translatePaths([path('references/gone')]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes, [
+          const TranslationNote(
+            subject: 'ffca/references/gone',
+            reason:
+                'the plugin does not hold it, so the skills and agents that '
+                'name it point at nothing',
+          ),
+        ]);
+      });
+
+      test('reports a plugin whose name is not safe as a folder', () {
+        write('references/a.md', '# A\n');
+
+        final result = translatePaths([
+          path('references/a.md', plugin: '../escape'),
+          path('references', plugin: '../escape'),
+        ]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes, [
+          const TranslationNote(
+            subject: '../escape',
+            reason:
+                'its name is not safe as a folder name, so the files its '
+                'skills and agents name were not installed',
+          ),
+        ]);
+      });
+    });
   });
 }

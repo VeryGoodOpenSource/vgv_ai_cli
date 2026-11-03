@@ -631,6 +631,110 @@ void main() {
       });
     });
 
+    group('plugin root in bodies', () {
+      late Directory root;
+
+      setUp(() {
+        root = MemoryFileSystem.test().directory('/plugin')
+          ..createSync(recursive: true);
+        root.childDirectory('.claude-plugin').childFile('plugin.json')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('{"name": "ffca"}');
+      });
+
+      void write(String relative, String contents) {
+        root.childFile(relative)
+          ..createSync(recursive: true)
+          ..writeAsStringSync(contents);
+      }
+
+      List<String> pathsOf(PluginAssets assets) => [
+        for (final path in assets.paths) path.path,
+      ];
+
+      test("rewrites a skill's CLAUDE_PLUGIN_ROOT and names the plugin", () {
+        write(
+          'skills/feature/SKILL.md',
+          '---\nname: feature\n---\n'
+              r'Read `${CLAUDE_PLUGIN_ROOT}/refs/`.'
+              '\n',
+        );
+
+        final skill = const ClaudePluginParser().parse(root).skills.single;
+
+        expect(skill.body, 'Read `${HookCommand.rootPlaceholder}/refs/`.\n');
+        expect(skill.plugin, 'ffca');
+      });
+
+      test("rewrites an agent's CLAUDE_PLUGIN_ROOT and names the plugin", () {
+        write(
+          'agents/auditor.md',
+          '---\nname: auditor\n---\n'
+              r'dart run ${CLAUDE_PLUGIN_ROOT}/scripts/check.dart --all'
+              '\n',
+        );
+
+        final agent = const ClaudePluginParser().parse(root).agents.single;
+
+        expect(
+          agent.body,
+          'dart run ${HookCommand.rootPlaceholder}/scripts/check.dart --all\n',
+        );
+        expect(agent.plugin, 'ffca');
+      });
+
+      test('leaves a body that names no file of the plugin alone', () {
+        write('skills/plain/SKILL.md', '---\nname: plain\n---\nbody\n');
+        write('agents/plain.md', '---\nname: plain\n---\nbody\n');
+
+        final assets = const ClaudePluginParser().parse(root);
+
+        expect(assets.skills.single.plugin, isNull);
+        expect(assets.agents.single.plugin, isNull);
+        expect(assets.paths, isEmpty);
+      });
+
+      test('collects every path the bodies name, once each', () {
+        write(
+          'skills/feature/SKILL.md',
+          '---\nname: feature\n---\n'
+              r'Read `${CLAUDE_PLUGIN_ROOT}/references/ffca/` and '
+              r'${CLAUDE_PLUGIN_ROOT}/references/ffca/navigation.md.'
+              '\n',
+        );
+        write(
+          'agents/auditor.md',
+          '---\nname: auditor\n---\n'
+              r'Run "${CLAUDE_PLUGIN_ROOT}/scripts/validate_layers.dart", then '
+              r'read ${CLAUDE_PLUGIN_ROOT}/references/ffca/.'
+              '\n',
+        );
+
+        final assets = const ClaudePluginParser().parse(root);
+
+        expect(pathsOf(assets), [
+          'references/ffca',
+          'references/ffca/navigation.md',
+          'scripts/validate_layers.dart',
+        ]);
+        expect(
+          assets.paths.map((path) => (path.plugin, path.pluginRoot.path)),
+          everyElement(('ffca', root.path)),
+        );
+      });
+
+      test('collects no path that climbs out of the root', () {
+        write(
+          'skills/evil/SKILL.md',
+          '---\nname: evil\n---\n'
+              r'${CLAUDE_PLUGIN_ROOT}/../secrets and ${CLAUDE_PLUGIN_ROOT}/.hidden'
+              '\n',
+        );
+
+        expect(pathsOf(const ClaudePluginParser().parse(root)), isEmpty);
+      });
+    });
+
     group('names', () {
       late Directory root;
 

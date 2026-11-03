@@ -316,6 +316,39 @@ void main() {
         verify(() => logger.info(sharedRemoved)).called(1);
       });
 
+      test('a full uninstall removes the shared plugin files', () async {
+        install([
+          owned(null, '.agents/skills/a/SKILL.md'),
+          owned(null, '.agents/vgv-plugins/ffca/references/ffca/data.md'),
+          owned(null, '.agents/vgv-plugins/ffca/scripts/validate_layers.dart'),
+        ]);
+
+        await runUninstall();
+
+        expect(homeDirectory('.agents/vgv-plugins').existsSync(), isFalse);
+        expect(homeDirectory('.agents/skills').existsSync(), isTrue);
+        expect(homeDirectory('.agents').existsSync(), isTrue);
+      });
+
+      test(
+        'keeps the shared plugin files while a harness reads them',
+        () async {
+          install([
+            owned(null, '.agents/vgv-plugins/ffca/references/ffca/data.md'),
+            owned(Harness.codex, '.codex/AGENTS.md'),
+            owned(Harness.gemini, '.gemini/AGENTS.md'),
+          ]);
+
+          await runUninstall(['--only', 'codex']);
+
+          expect(
+            homeFile('.agents/vgv-plugins/ffca/references/ffca/data.md')
+                .existsSync(),
+            isTrue,
+          );
+        },
+      );
+
       test(
         'says nothing of the shared skills when none are recorded',
         () async {

@@ -17,7 +17,7 @@ void main() {
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      skillsRoot: '/home/dev/.agents/skills',
+      home: fs.directory('/home/dev'),
       hooks: hooks,
     ).toMap();
 
@@ -92,6 +92,58 @@ void main() {
           ),
         ]),
       );
+    });
+
+    group('plugin root', () {
+      const rooted = 'Read ${HookCommand.rootPlaceholder}/references/ffca.\n';
+      const shared = '/home/dev/.agents/vgv-plugins/ffca';
+
+      test("points each harness's agent at the plugin files it reads", () {
+        final vars = varsFor(
+          const [OpenCodeTranslator(), AntigravityTranslator()],
+          assets: pluginAssets(
+            agents: [agentAsset('auditor', body: rooted, plugin: 'ffca')],
+          ),
+        );
+        final agent = (vars['agents']! as List).single as Map;
+        final antigravity = const AntigravityTranslator().pluginRoot(
+          fs.directory('/home/dev'),
+        );
+
+        expect(agent['instructions'], 'Read $shared/references/ffca.\n');
+        expect(
+          agent['antigravity'],
+          containsPair(
+            'instructions',
+            'Read ${antigravity.path}/vgv-plugins/ffca/references/ffca.\n',
+          ),
+        );
+      });
+
+      test("points a command's body at the shared plugin files", () {
+        final vars = varsFor(
+          const [GeminiTranslator()],
+          assets: pluginAssets(
+            skills: [skillAsset(fs, 'feature', body: rooted, plugin: 'ffca')],
+          ),
+        );
+        final command = (vars['commands']! as List).single as Map;
+
+        expect(command['body'], 'Read $shared/references/ffca.\n');
+        expect(
+          command['gemini'],
+          containsPair('toml', contains('$shared/references/ffca')),
+        );
+      });
+
+      test('leaves a body that names no plugin as it is', () {
+        final vars = varsFor(const [
+          OpenCodeTranslator(),
+        ], assets: pluginAssets(agents: [agentAsset('auditor', body: rooted)]));
+        final agent = (vars['agents']! as List).single as Map;
+
+        expect(agent['instructions'], rooted);
+      });
     });
 
     test('lists only invocable skills as commands', () {

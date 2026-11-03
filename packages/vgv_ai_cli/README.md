@@ -47,6 +47,23 @@ the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
 share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
 own copy inside its plugin.
 
+Some skills and agents read files that sit outside any skill, at their
+plugin's root, such as the FFCA references and its `validate_layers.dart`
+script. `vgv_ai` copies those files next to the skills, into
+`~/.agents/vgv-plugins/<plugin>` for the shared copy and into `vgv-plugins/`
+inside the Antigravity CLI plugin. The skills and agents it writes then point
+at that copy, not at `${CLAUDE_PLUGIN_ROOT}`, which only Claude Code sets.
+
+## Plugins
+
+`vgv_ai` installs these VGV Claude Code plugins, each pinned to a release:
+
+| Plugin                                                                              | What it adds                                                                     |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`vgv-wingspan`](https://github.com/VeryGoodOpenSource/vgv-wingspan)                   | The brainstorm, plan, build, and review workflows.                               |
+| [`vgv-ai-flutter-plugin`](https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin) | Flutter and Dart skills, the Dart and Very Good CLI MCP servers, and quality hooks. |
+| [`vgv-ffca-plugin`](https://github.com/VeryGoodOpenSource/vgv-ffca-plugin)             | Feature-First Clean Architecture skills, the `ffca-layer-auditor` agent, and a layer validation hook. |
+
 ## Commands
 
 `vgv_ai` has four commands.
@@ -148,14 +165,15 @@ vgv_ai uninstall --force
 - **Selection:** the harnesses come from the manifest, not from what's
   installed, so you can clean up an agent you've already removed.
   `--only` and `--no-<harness>` can't be combined.
-- **Shared skills:** the skills in `~/.agents/skills` are shared by every
-  agent, so they're removed only when every harness the manifest records is.
-  A partial run keeps them and tells you how to remove them.
+- **Shared skills:** the skills in `~/.agents/skills` and the plugin files in
+  `~/.agents/vgv-plugins` are shared by every agent, so they're removed only
+  when every harness the manifest records is. A partial run keeps them and
+  tells you how to remove them.
 - **Your changes:** without `--force`, a file, key, or section you changed
   since `install` is kept, and a warning names it.
-- **Directories:** empty directories left behind are removed, but
-  `~/.agents/skills` and each harness's config directory, such as `~/.codex`,
-  stay.
+- **Directories:** empty directories left behind are removed, including
+  `~/.agents/vgv-plugins`, but `~/.agents/skills` and each harness's config
+  directory, such as `~/.codex`, stay.
 - **Manifest:** it keeps whatever is left to remove, and it's deleted once
   nothing is. `--check` changes nothing, not even the manifest.
 

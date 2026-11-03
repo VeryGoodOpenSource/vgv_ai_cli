@@ -531,6 +531,30 @@ void main() {
         verifyInfo('    Run vgv_ai install --only codex');
       });
 
+      test('checks the shared plugin files with the shared skills', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.agents/vgv-plugins/ffca/references/ffca/data.md'),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        homeFile('.agents/vgv-plugins/ffca/references/ffca/data.md')
+            .deleteSync();
+        translator.changes.add(
+          owned('.agents/vgv-plugins/ffca/scripts/validate_layers.dart'),
+        );
+
+        final exitCode = await runDoctor();
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('✗ Shared');
+        verifyInfo(
+          '    missing ~/.agents/vgv-plugins/ffca/references/ffca/data.md',
+        );
+        verifyInfo(
+          '    new ~/.agents/vgv-plugins/ffca/scripts/validate_layers.dart',
+        );
+      });
+
       test(
         'warns about a file this version no longer installs, and exits 0',
         () async {

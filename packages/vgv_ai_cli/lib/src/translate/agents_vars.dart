@@ -1,6 +1,8 @@
+import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
+import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template agents_vars}
@@ -15,8 +17,9 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// Where the shared skills are written.
-  required final String skillsRoot,
+  /// The user's home directory, which holds the shared skills and each
+  /// harness's own copy.
+  required final Directory home,
 
   /// The hooks fragment of each harness that has one.
   final Map<Harness, String> hooks = const {},
@@ -59,24 +62,97 @@ class const AgentsVars({
     ],
   };
 
+  /// [agent] for every harness: the shared instructions, pointing at the
+  /// shared skills, and each translator's fields, pointing at the copy of
+  /// the skills and plugin files its harness reads.
   Map<String, Object?> _agent(AgentAsset agent) {
-    final instructions = agentInstructions(agent, skillsRoot: skillsRoot);
+    final shared = agentsSkillsRoot(home);
+    final rooted = _rootedAgent(agent, skillsRoot: shared);
     return {
       'name': agent.name,
-      'instructions': instructions,
+      'instructions': agentInstructions(rooted, skillsRoot: shared.path),
+      for (final translator in translators)
+        translator.harness.name: _agentFields(
+          translator,
+          agent,
+          skillsRoot: translator.skillsRoot(home) ?? shared,
+        ).toMap(),
+    };
+  }
+
+  /// What [translator] renders [agent] with, its skills read from
+  /// [skillsRoot].
+  static HarnessFields _agentFields(
+    HarnessTranslator translator,
+    AgentAsset agent, {
+    required Directory skillsRoot,
+  }) {
+    final rooted = _rootedAgent(agent, skillsRoot: skillsRoot);
+    return translator.agent(
+      rooted,
+      instructions: agentInstructions(rooted, skillsRoot: skillsRoot.path),
+    );
+  }
+
+  /// [skill] as a command for every harness, pointing at the plugin files
+  /// beside the copy of the skills each one reads.
+  Map<String, Object?> _command(SkillAsset skill) {
+    final shared = agentsSkillsRoot(home);
+    return {
+      'name': skill.name,
+      'body': _rootedSkill(skill, skillsRoot: shared).body,
       for (final translator in translators)
         translator.harness.name: translator
-            .agent(agent, instructions: instructions)
+            .command(
+              _rootedSkill(
+                skill,
+                skillsRoot: translator.skillsRoot(home) ?? shared,
+              ),
+            )
             .toMap(),
     };
   }
 
-  Map<String, Object?> _command(SkillAsset skill) => {
-    'name': skill.name,
-    'body': skill.body,
-    for (final translator in translators)
-      translator.harness.name: translator.command(skill).toMap(),
-  };
+  /// [agent] with the plugin root its body names spelled out as the copy
+  /// beside [skillsRoot].
+  static AgentAsset _rootedAgent(
+    AgentAsset agent, {
+    required Directory skillsRoot,
+  }) => AgentAsset(
+    name: agent.name,
+    description: agent.description,
+    body: _expand(agent.body, plugin: agent.plugin, skillsRoot: skillsRoot),
+    skills: agent.skills,
+    plugin: agent.plugin,
+  );
+
+  /// [skill] with the plugin root its body names spelled out as the copy
+  /// beside [skillsRoot].
+  static SkillAsset _rootedSkill(
+    SkillAsset skill, {
+    required Directory skillsRoot,
+  }) => SkillAsset(
+    name: skill.name,
+    description: skill.description,
+    body: _expand(skill.body, plugin: skill.plugin, skillsRoot: skillsRoot),
+    userInvocable: skill.userInvocable,
+    allowedTools: skill.allowedTools,
+    portableFrontmatter: skill.portableFrontmatter,
+    directory: skill.directory,
+    plugin: skill.plugin,
+  );
+
+  /// [text] with [plugin]'s root spelled out as its copy beside
+  /// [skillsRoot].
+  static String _expand(
+    String text, {
+    required String? plugin,
+    required Directory skillsRoot,
+  }) => expandPluginRoot(
+    text,
+    plugin: plugin,
+    filesRoot: pluginFilesRoot(skillsRoot),
+  );
 
   static Map<String, String> _entry(String name, String description) => {
     'name': name,

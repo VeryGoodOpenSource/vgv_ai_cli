@@ -1,3 +1,5 @@
+import 'package:vgv_ai_plugins/src/model/hook_asset.dart';
+
 /// {@template agent_asset}
 /// A subagent resolved from a plugin, in a harness-neutral shape.
 /// {@endtemplate}
@@ -13,6 +15,10 @@ class const AgentAsset({
 
   /// The skills the agent expects to have loaded.
   required final List<String> skills,
+
+  /// The plugin whose root [HookCommand.rootPlaceholder] in [body] stands
+  /// for, or null when [body] names no file of the plugin's.
+  final String? plugin,
 }) {
   /// {@macro agent_asset}
   this;

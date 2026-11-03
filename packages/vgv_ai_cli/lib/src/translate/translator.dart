@@ -42,7 +42,7 @@ class const Translator({
     final vars = AgentsVars(
       translators: chosen,
       assets: assets,
-      skillsRoot: agentsSkillsRoot(home).path,
+      home: home,
       hooks: {
         for (final MapEntry(key: harness, value: translation) in hooks.entries)
           harness: ?translation?.fragment,

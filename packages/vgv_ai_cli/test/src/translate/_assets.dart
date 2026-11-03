@@ -10,6 +10,7 @@ SkillAsset skillAsset(
   String body = '# Body\n',
   String description = 'what it does',
   bool userInvocable = true,
+  String? plugin,
 }) => SkillAsset(
   name: name,
   description: description,
@@ -19,6 +20,7 @@ SkillAsset skillAsset(
   portableFrontmatter: {'name': name, 'description': description},
   directory: fs.directory('/plugins/wingspan/skills/$name')
     ..createSync(recursive: true),
+  plugin: plugin,
 );
 
 AgentAsset agentAsset(
@@ -26,11 +28,13 @@ AgentAsset agentAsset(
   String body = 'You review code.\n',
   String description = 'reviews code',
   List<String> skills = const [],
+  String? plugin,
 }) => AgentAsset(
   name: name,
   description: description,
   body: body,
   skills: skills,
+  plugin: plugin,
 );
 
 HookAsset hookAsset(
@@ -73,12 +77,14 @@ PluginAssets pluginAssets({
   List<AgentAsset> agents = const [],
   List<MCPServer> mcpServers = const [],
   List<HookAsset> hooks = const [],
+  List<PluginPath> paths = const [],
   List<PluginRef> plugins = const [],
 }) => PluginAssets(
   skills: skills,
   agents: agents,
   mcpServers: mcpServers,
   hooks: hooks,
+  paths: paths,
   plugins: plugins,
 );
 

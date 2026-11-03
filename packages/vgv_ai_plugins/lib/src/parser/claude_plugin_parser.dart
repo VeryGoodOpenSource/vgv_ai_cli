@@ -10,7 +10,7 @@ import 'package:vgv_ai_plugins/src/parser/plugin_parser.dart';
 ///
 /// The single place that knows what "Claude-specific" means: the
 /// `user-invocable` default, how `allowed-tools` is written, and the
-/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. Each file is validated against
+/// `${CLAUDE_PLUGIN_ROOT}` placeholder. Each file is validated against
 /// its shape in `claude_schemas.dart`, which admits the real, mutually
 /// inconsistent shapes the two plugins ship and throws on anything else.
 /// {@endtemplate}
@@ -20,18 +20,28 @@ class const ClaudePluginParser() implements PluginParser {
 
   @override
   PluginAssets parse(Directory root) {
+    final skills = _readSkills(root.childDirectory('skills'));
     final agents = _readAgents(root.childDirectory('agents'));
     final events = _readHookEvents(root);
     final scoped = [
       for (final agent in agents)
         if (agent.hooks != null) agent,
     ];
-    // Only a hook needs the name, so a hookless plugin needs no manifest.
-    final plugin = events == null && scoped.isEmpty ? null : _pluginName(root);
+    final bodies = [
+      for (final skill in skills) skill.body,
+      for (final agent in agents) agent.asset.body,
+    ];
+    final rooted = bodies.any((body) => body.contains(_claudePluginRoot));
+    // Only a hook, or a body naming the plugin's own files, needs the name,
+    // so a plugin with neither needs no manifest.
+    final plugin = events == null && scoped.isEmpty && !rooted
+        ? null
+        : _pluginName(root);
     return PluginAssets(
-      skills: _readSkills(root.childDirectory('skills')),
-      agents: [for (final agent in agents) agent.asset],
+      skills: [for (final skill in skills) _rootSkill(skill, plugin)],
+      agents: [for (final agent in agents) _rootAgent(agent.asset, plugin)],
       mcpServers: _readMcpServers(root.childFile('.mcp.json')),
+      paths: rooted ? _pluginPaths(bodies, plugin: plugin!, root: root) : [],
       hooks: [
         if (events != null)
           ..._readRegistrations(events, plugin: plugin!, root: root),
@@ -112,10 +122,69 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's name for the plugin root in a hook command, rewritten to
-  /// [HookCommand.rootPlaceholder]. A script's own use of the variable at
-  /// run time stays as written.
+  /// Claude's name for the plugin root in a hook command or a skill or agent
+  /// body, rewritten to [HookCommand.rootPlaceholder]. A script's own use of
+  /// the variable at run time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
+
+  /// A path under the plugin root a body names. No segment may start with a
+  /// dot, so a path can never climb out of the root, and it ends where a
+  /// character no path segment holds does, such as a space or a backtick.
+  static final _rootedPath = RegExp(
+    '${RegExp.escape(_claudePluginRoot)}/'
+    r'([\w-][\w.-]*(?:/[\w-][\w.-]*)*)',
+  );
+
+  /// [skill] with [_claudePluginRoot] in its body rewritten for [plugin],
+  /// or as it is when the body does not name it.
+  SkillAsset _rootSkill(SkillAsset skill, String? plugin) =>
+      !skill.body.contains(_claudePluginRoot)
+      ? skill
+      : SkillAsset(
+          name: skill.name,
+          description: skill.description,
+          body: _rooted(skill.body),
+          userInvocable: skill.userInvocable,
+          allowedTools: skill.allowedTools,
+          portableFrontmatter: skill.portableFrontmatter,
+          directory: skill.directory,
+          plugin: plugin,
+        );
+
+  /// [agent] with [_claudePluginRoot] in its body rewritten for [plugin],
+  /// or as it is when the body does not name it.
+  AgentAsset _rootAgent(AgentAsset agent, String? plugin) =>
+      !agent.body.contains(_claudePluginRoot)
+      ? agent
+      : AgentAsset(
+          name: agent.name,
+          description: agent.description,
+          body: _rooted(agent.body),
+          skills: agent.skills,
+          plugin: plugin,
+        );
+
+  /// [text] with [_claudePluginRoot] as [HookCommand.rootPlaceholder].
+  static String _rooted(String text) =>
+      text.replaceAll(_claudePluginRoot, HookCommand.rootPlaceholder);
+
+  /// Every path under [root] that [bodies] name, once each. A sentence that
+  /// ends on a path leaves its full stop out of it.
+  List<PluginPath> _pluginPaths(
+    List<String> bodies, {
+    required String plugin,
+    required Directory root,
+  }) {
+    final paths = {
+      for (final body in bodies)
+        for (final match in _rootedPath.allMatches(body))
+          match[1]!.replaceFirst(RegExp(r'\.+$'), ''),
+    };
+    return [
+      for (final path in paths)
+        PluginPath(plugin: plugin, pluginRoot: root, path: path),
+    ];
+  }
 
   /// [name], once it is known to be safe as a file name.
   ///

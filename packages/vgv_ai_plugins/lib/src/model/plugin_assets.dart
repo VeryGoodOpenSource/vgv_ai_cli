@@ -1,6 +1,7 @@
 import 'package:vgv_ai_plugins/src/model/agent_asset.dart';
 import 'package:vgv_ai_plugins/src/model/hook_asset.dart';
 import 'package:vgv_ai_plugins/src/model/mcp_server.dart';
+import 'package:vgv_ai_plugins/src/model/plugin_path.dart';
 import 'package:vgv_ai_plugins/src/model/skill_asset.dart';
 import 'package:vgv_ai_plugins/src/plugin_ref.dart';
 
@@ -19,6 +20,10 @@ class const PluginAssets({
 
   /// The hooks, in the order the plugins declare them.
   final List<HookAsset> hooks = const [],
+
+  /// The files and folders outside every skill that the skills and agents
+  /// name, once each, sorted by plugin and path.
+  final List<PluginPath> paths = const [],
 
   /// The plugins these come from, which the harness that installs them
   /// itself names in its settings.
@@ -42,6 +47,9 @@ class const PluginAssets({
       for (final a in assets) ...a.mcpServers,
     ], (s) => s.name),
     hooks: [for (final a in assets) ...a.hooks],
+    paths: _firstByName([
+      for (final a in assets) ...a.paths,
+    ], (path) => '${path.plugin}/${path.path}'),
     plugins: plugins,
   );
 

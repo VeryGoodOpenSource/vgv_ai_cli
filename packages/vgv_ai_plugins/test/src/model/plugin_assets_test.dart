@@ -22,11 +22,13 @@ void main() {
       List<AgentAsset> agents = const [],
       List<MCPServer> mcpServers = const [],
       List<HookAsset> hooks = const [],
+      List<PluginPath> paths = const [],
     }) => PluginAssets(
       skills: skills,
       agents: agents,
       mcpServers: mcpServers,
       hooks: hooks,
+      paths: paths,
     );
 
     const wingspan = PluginRef(
@@ -170,6 +172,32 @@ void main() {
         ]);
       });
 
+      PluginPath path(String plugin, String path) => PluginPath(
+        plugin: plugin,
+        pluginRoot: fs.directory('/plugins/$plugin'),
+        path: path,
+      );
+
+      test('sorts paths by plugin and path, once each', () {
+        final first = path('ffca', 'scripts/validate.dart');
+        final merged = PluginAssets.merge([
+          pluginAssets(paths: [first, path('ffca', 'references')]),
+          pluginAssets(
+            paths: [
+              path('ffca', 'scripts/validate.dart'),
+              path('docs', 'references'),
+            ],
+          ),
+        ]);
+
+        expect(merged.paths.map((p) => '${p.plugin}/${p.path}'), [
+          'docs/references',
+          'ffca/references',
+          'ffca/scripts/validate.dart',
+        ]);
+        expect(merged.paths.last, same(first));
+      });
+
       test('merges nothing into an empty view', () {
         final merged = PluginAssets.merge([]);
 
@@ -177,6 +205,7 @@ void main() {
         expect(merged.agents, isEmpty);
         expect(merged.hooks, isEmpty);
         expect(merged.mcpServers, isEmpty);
+        expect(merged.paths, isEmpty);
       });
     });
   });

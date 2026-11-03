@@ -1,4 +1,5 @@
 import 'package:file/file.dart';
+import 'package:vgv_ai_plugins/src/model/hook_asset.dart';
 
 /// {@template skill_asset}
 /// A skill resolved from a plugin, in a harness-neutral shape.
@@ -6,7 +7,9 @@ import 'package:file/file.dart';
 /// Every field is portable: whatever only a parser's harness understands is
 /// already interpreted ([description], [userInvocable], [allowedTools]) or
 /// filtered out ([portableFrontmatter]). [directory] is where it was read
-/// from, for copying.
+/// from, for copying. [plugin] is the plugin whose root
+/// [HookCommand.rootPlaceholder] in [body] stands for, or null when [body]
+/// names no file of the plugin's outside [directory].
 /// {@endtemplate}
 class const SkillAsset({
   required final String name,
@@ -16,6 +19,7 @@ class const SkillAsset({
   required final List<String> allowedTools,
   required final Map<String, Object?> portableFrontmatter,
   required final Directory directory,
+  final String? plugin,
 }) {
   /// {@macro skill_asset}
   this;

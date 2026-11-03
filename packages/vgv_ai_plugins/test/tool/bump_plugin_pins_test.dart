@@ -28,6 +28,12 @@ const vgvPlugins = <PluginRef>[
     version: '0.0.5',
     gitRef: 'v0.0.5',
   ),
+  PluginRef(
+    name: 'vgv-ffca-plugin',
+    repo: 'VeryGoodOpenSource/vgv-ffca-plugin',
+    version: '0.1.2',
+    gitRef: 'v0.1.2',
+  ),
 ];
 ''';
 
@@ -207,6 +213,7 @@ const vgvPlugins = <PluginRef>[
         runGh: releases({
           'vgv-wingspan': 'v0.0.5',
           'vgv-ai-flutter-plugin': 'v0.0.5',
+          'vgv-ffca-plugin': 'v0.1.2',
         }),
       );
 
@@ -221,6 +228,7 @@ const vgvPlugins = <PluginRef>[
         runGh: releases({
           'vgv-wingspan': 'v0.1.0',
           'vgv-ai-flutter-plugin': 'v0.0.5',
+          'vgv-ffca-plugin': 'v0.1.2',
         }),
       );
 

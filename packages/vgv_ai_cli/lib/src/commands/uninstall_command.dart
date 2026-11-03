@@ -165,8 +165,9 @@ class UninstallCommand({
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up
-  /// to the skills root for the shared skills and the harness's config
-  /// directory for the rest, which are never deleted.
+  /// to the skills root for the shared skills, the folder holding the shared
+  /// plugin files for those, and the harness's config directory for the
+  /// rest, which are never deleted.
   ///
   /// The files are already gone by now, so a directory that cannot be
   /// deleted is only warned about.
@@ -180,7 +181,8 @@ class UninstallCommand({
             .file(entry.path)
             .parent
             .deleteEmptyUpTo(
-              entry.owner?.configDirectory(home) ?? agentsSkillsRoot(home),
+              entry.owner?.configDirectory(home) ??
+                  _sharedBoundary(entry.path, home),
             );
       } on FileSystemException catch (error) {
         _logger.warn(
@@ -189,6 +191,16 @@ class UninstallCommand({
         );
       }
     }
+  }
+
+  /// Where deleting the empty directories above the shared file at [path]
+  /// stops: the skills root, which other tools read as well, or the folder
+  /// holding the plugin files root, so that root goes once it is empty.
+  static Directory _sharedBoundary(String path, Directory home) {
+    final skills = agentsSkillsRoot(home);
+    return home.fileSystem.path.isWithin(skills.path, path)
+        ? skills
+        : pluginFilesRoot(skills).parent;
   }
 
   /// Says there is nothing to remove for each of [harnesses], which VGV

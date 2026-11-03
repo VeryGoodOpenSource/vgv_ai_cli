@@ -16,7 +16,7 @@ void main() {
       expect(translator.harness, Harness.claude);
     });
 
-    test('points Claude Code at the marketplace and enables both plugins', () {
+    test('enables every pinned plugin in the marketplace', () {
       final settings = jsonDecode(
         translator.settings(pluginAssets(plugins: vgvPlugins)),
       );
@@ -33,6 +33,7 @@ void main() {
         'enabledPlugins': {
           'vgv-wingspan@very-good-claude-code-marketplace': true,
           'vgv-ai-flutter-plugin@very-good-claude-code-marketplace': true,
+          'vgv-ffca-plugin@very-good-claude-code-marketplace': true,
         },
       });
     });

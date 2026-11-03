@@ -57,7 +57,8 @@ harness beyond its own parser:
   mismatch into a `PluginParseException`.
 - `model/`: the harness-neutral assets every parser produces and every
   translator consumes: `PluginAssets`, `SkillAsset`, `AgentAsset`,
-  `MCPServer`, and `HookAsset`.
+  `MCPServer`, `HookAsset`, and `PluginPath`, a file or folder at the plugin's
+  root that a skill or agent names through `${CLAUDE_PLUGIN_ROOT}`.
 - `parser/`: one parser per input harness behind the `PluginParser`
   interface. `ClaudePluginParser` reads Claude Code plugins, and
   `claude_schemas.dart` holds the schema of each file it reads. A new input
