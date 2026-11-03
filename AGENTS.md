@@ -75,9 +75,9 @@ All commands are `Command<int>` subclasses in `lib/src/commands/`, exported from
 
 The runner owns three cross-cutting behaviors that individual commands do not repeat:
 
-- **Dependency injection.** `Logger` (mason_logger) and `PubUpdater` are constructor parameters with real defaults. Commands receive the `Logger` from the runner rather than creating one. This is what makes the whole CLI testable.
+- **Dependency injection.** `Logger` (mason_logger), `PubUpdater` and `CliInstallation` are constructor parameters with real defaults. Commands receive the `Logger` from the runner rather than creating one. This is what makes the whole CLI testable.
 - **Error handling.** `FormatException` and `UsageException` are caught in `run()` and converted to `ExitCode.usage.code` with usage output. Commands do not handle these themselves.
-- **Update check.** After every command except `update`, `_checkForUpdates()` compares `packageVersion` against pub.dev and prints an upgrade prompt. The `completion` command is fast-tracked and skips this entirely.
+- **Update check.** After every command except `update`, `_checkForUpdates()` compares `packageVersion` against pub.dev and prints an upgrade prompt. The `completion` command is fast-tracked and skips this entirely. The prompt, and what `update` does, follow `CliInstallation` (`lib/src/commands/cli_installation.dart`), which tells from `Platform.resolvedExecutable` whether `vgv_ai` came from pub.dev, Homebrew or `install.sh`. Only a pub.dev install updates itself; the other two print `brew upgrade` or the `install.sh` command instead.
 
 ### Layers
 

@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/cli_installation.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
@@ -16,10 +17,11 @@ void main() {
 
     late PubUpdater pubUpdater;
     late Logger logger;
+    late TestRunner runner;
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final runner = TestRunner();
+      runner = TestRunner();
       pubUpdater = runner.pubUpdater;
       logger = runner.logger;
       commandRunner = runner.build();
@@ -34,7 +36,7 @@ void main() {
       );
     });
 
-    test('can be instantiated without a pub updater', () {
+    test('can be instantiated without a pub updater or installation', () {
       final command = UpdateCommand(logger: logger);
       expect(command, isNotNull);
     });
@@ -138,6 +140,48 @@ void main() {
           versionConstraint: any(named: 'versionConstraint'),
         ),
       );
+    });
+
+    group('when installed as a prebuilt binary', () {
+      for (final installation in [
+        const CliInstallation.homebrew(),
+        CliInstallation.script(),
+      ]) {
+        test('names ${installation.upgradeCommand} instead of updating '
+            'through pub', () async {
+          when(() => pubUpdater.getLatestVersion(any()))
+              .thenAnswer((_) async => latestVersion);
+
+          final result = await runner.build(installation: installation).run([
+            'update',
+          ]);
+
+          expect(result, ExitCode.success.code);
+          verify(
+            () => logger.info(
+              'vgv_ai $latestVersion is available. To update, run:\n'
+              '  ${lightCyan.wrap(installation.upgradeCommand)}',
+            ),
+          ).called(1);
+          verifyNever(() => logger.progress('Updating to $latestVersion'));
+          verifyNever(
+            () => pubUpdater.update(
+              packageName: any(named: 'packageName'),
+              versionConstraint: any(named: 'versionConstraint'),
+            ),
+          );
+        });
+      }
+
+      test('does nothing when already on latest version', () async {
+        final result = await runner
+            .build(installation: const CliInstallation.homebrew())
+            .run(['update']);
+
+        expect(result, ExitCode.success.code);
+        verify(() => logger.info('CLI is already at the latest version.'))
+            .called(1);
+      });
     });
   });
 }

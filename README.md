@@ -18,6 +18,7 @@ This is a [pub workspace][pub_workspace_link] monorepo with one shared
 | [`packages/vgv_ai_plugins`](packages/vgv_ai_plugins) | Resolves the pinned VGV plugins and parses them into a harness-neutral model. |
 | [`bricks/agents`](bricks/agents)                   | The Mason brick that lays out the files each harness reads.                   |
 | [`tool`](tool)                                     | Scripts, such as the one that regenerates the brick bundle.                   |
+| [`install.sh`](install.sh)                         | Installs the prebuilt `vgv_ai` binary from GitHub Releases.                   |
 
 ## Contributing
 

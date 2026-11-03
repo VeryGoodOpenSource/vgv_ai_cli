@@ -11,17 +11,45 @@ current, and removes them again without touching your own configuration.
 
 ## Installation
 
-`vgv_ai` is a Dart package. You need the
-[Dart SDK](https://dart.dev/get-dart) 3.13 or later.
+Install `vgv_ai` one of three ways. Homebrew and the install script download a
+prebuilt binary, so they don't need Dart.
+
+### Homebrew
+
+```sh
+brew install verygoodopensource/tap/vgv_ai
+```
+
+### Install script
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/install.sh | bash
+```
+
+The script downloads the binary for your OS and architecture from the
+[latest release](https://github.com/VeryGoodOpenSource/vgv_ai_cli/releases/latest),
+checks it against the release's SHA-256 checksum, and installs it to
+`~/.local/bin`. It tells you when that directory isn't on your path. To install
+somewhere else, or to install a specific version, pass options after `bash -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/install.sh | bash -s -- --install-dir /usr/local/bin --version 0.2.0
+```
+
+`VGV_AI_INSTALL_DIR` and `VGV_AI_VERSION` do the same as environment variables.
+
+### pub.dev
+
+With the [Dart SDK](https://dart.dev/get-dart) 3.13 or later:
 
 ```sh
 dart pub global activate vgv_ai_cli
 ```
 
-This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
-that it's installed.
+Each method puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to
+confirm that it's installed.
 
-macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
+macOS and Linux are supported, on arm64 and x64. On Windows, use WSL. The Codex, Copilot and
 Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
 on your path. Native Windows, including Git Bash, is untested: `vgv_ai` builds
 paths with the host separator while those scripts expect POSIX ones.
@@ -161,14 +189,24 @@ vgv_ai uninstall --force
 
 ### update
 
-`update` updates `vgv_ai` to the latest version on pub.dev. It takes no flags.
+`update` checks pub.dev for a newer version of `vgv_ai`. It takes no flags.
 
 ```sh
 vgv_ai update
 ```
 
+How it updates depends on how you installed `vgv_ai`:
+
+- **pub.dev:** `update` installs the new version with
+  `dart pub global activate`.
+- **Homebrew:** `update` tells you to run
+  `brew upgrade verygoodopensource/tap/vgv_ai`.
+- **Install script:** `update` tells you to run the script again. When you
+  installed somewhere other than `~/.local/bin`, the command it prints passes
+  that directory, so the new version replaces the old one.
+
 Every other command also checks pub.dev for a newer version when it finishes,
-and prints how to update when there is one.
+and prints the command that updates your install when there is one.
 
 ## Global options
 

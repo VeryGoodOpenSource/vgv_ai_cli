@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/cli_installation.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 import '../helpers/test_runner.dart';
@@ -39,10 +40,11 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
 
     late PubUpdater pubUpdater;
     late Logger logger;
+    late TestRunner runner;
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final runner = TestRunner();
+      runner = TestRunner();
       pubUpdater = runner.pubUpdater;
       logger = runner.logger;
       commandRunner = runner.build();
@@ -55,6 +57,25 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
       final result = await commandRunner.run(['--version']);
       expect(result, ExitCode.success.code);
       verify(() => logger.info(updatePrompt)).called(1);
+    });
+
+    test('names how to update a prebuilt binary', () async {
+      when(() => pubUpdater.getLatestVersion(any()))
+          .thenAnswer((_) async => latestVersion);
+
+      final result = await runner
+          .build(installation: const CliInstallation.homebrew())
+          .run(['--version']);
+      expect(result, ExitCode.success.code);
+      verify(
+        () => logger.info(
+          // We need to ignore this lint in order to match the exact message
+          // format.
+          // ignore: leading_newlines_in_multiline_strings
+          '''${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} → ${lightCyan.wrap(latestVersion)}
+Run ${lightCyan.wrap('brew upgrade $homebrewFormula')} to update''',
+        ),
+      ).called(1);
     });
 
     test('stays quiet when the update check fails', () async {

@@ -156,6 +156,24 @@ publishes the notes.
 
 Do not bump a version or edit a `CHANGELOG.md` by hand.
 
+### Prebuilt binaries and Homebrew
+
+The `vX.Y.Z` tag a release creates also runs
+[`release_binaries.yaml`](.github/workflows/release_binaries.yaml). It compiles
+`vgv_ai` with `dart compile exe` on macOS and Linux, arm64 and x64, and
+attaches each `vgv_ai-<os>-<arch>.tar.gz` and its `.sha256` checksum to the
+GitHub release, which it then marks as the latest one. [`install.sh`](install.sh)
+downloads those archives. The workflow then regenerates `Formula/vgv_ai.rb` in
+the `VeryGoodOpenSource/homebrew-tap` repository with
+[`tool/generate_homebrew_formula.sh`](tool/generate_homebrew_formula.sh) and
+pushes it, using the `HOMEBREW_TAP_TOKEN` secret, a token that can push to
+that repository.
+
+To rebuild a release's binaries, run the workflow by hand with its tag. Pull
+requests that touch the release tooling build the binaries without publishing
+them.
+
+
 ## Breaking changes
 
 `vgv_ai` writes into config files people already own, and the install manifest

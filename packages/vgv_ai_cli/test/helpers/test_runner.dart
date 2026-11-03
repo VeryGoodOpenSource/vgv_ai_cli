@@ -2,6 +2,7 @@ import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/cli_installation.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
@@ -49,15 +50,18 @@ class TestRunner() {
   /// What [progress] was completed with, in order.
   final List<String> progressLogs = <String>[];
 
-  /// A runner carrying [logger] and [pubUpdater], with the given commands
-  /// replacing the ones that would otherwise reach the real home directory.
+  /// A runner carrying [logger] and [pubUpdater], installed as [installation],
+  /// with the given commands replacing the ones that would otherwise reach the
+  /// real home directory.
   VgvAiCliCommandRunner build({
+    CliInstallation installation = const CliInstallation.pub(),
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
     UninstallCommand? uninstallCommand,
   }) => VgvAiCliCommandRunner(
     logger: logger,
     pubUpdater: pubUpdater,
+    installation: installation,
     installCommand: installCommand,
     doctorCommand: doctorCommand,
     uninstallCommand: uninstallCommand,

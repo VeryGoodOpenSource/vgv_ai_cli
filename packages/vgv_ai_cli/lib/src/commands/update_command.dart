@@ -4,17 +4,26 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/cli_installation.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 /// {@template update_command}
-/// Updates `vgv_ai` to the latest version on pub.dev.
+/// Updates `vgv_ai` to the latest version on pub.dev, or, when Homebrew or
+/// `install.sh` installed it, names the command that does.
 /// {@endtemplate}
-class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
-    extends Command<int> {
+class UpdateCommand({
+  required final Logger _logger,
+  PubUpdater? pubUpdater,
+  CliInstallation? installation,
+}) extends Command<int> {
   /// {@macro update_command}
+  ///
+  /// [installation] defaults to an install from pub.dev.
   this;
 
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
+  final CliInstallation _installation =
+      installation ?? const CliInstallation.pub();
 
   @override
   String get description => 'Update vgv_ai to the latest version.';
@@ -42,6 +51,16 @@ class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
     final isUpToDate = packageVersion == latestVersion;
     if (isUpToDate) {
       _logger.info('CLI is already at the latest version.');
+      return ExitCode.success.code;
+    }
+
+    // pub.dev can only replace a CLI it installed itself. A prebuilt binary
+    // is replaced the way it was installed.
+    if (_installation.method != InstallMethod.pub) {
+      _logger.info(
+        'vgv_ai $latestVersion is available. To update, run:\n'
+        '  ${lightCyan.wrap(_installation.upgradeCommand)}',
+      );
       return ExitCode.success.code;
     }
 
