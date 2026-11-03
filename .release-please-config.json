@@ -18,14 +18,12 @@
       "component": "vgv_ai_cli",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
-      "release-as": "0.1.0",
       "extra-files": ["lib/src/version.dart"]
     },
     "packages/vgv_ai_plugins": {
       "release-type": "dart",
       "component": "vgv_ai_plugins",
-      "changelog-path": "CHANGELOG.md",
-      "release-as": "0.1.0"
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "plugins": [
