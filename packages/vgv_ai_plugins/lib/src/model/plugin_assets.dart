@@ -22,7 +22,7 @@ class const PluginAssets({
   final List<HookAsset> hooks = const [],
 
   /// The files and folders outside every skill that the skills and agents
-  /// name, once each, sorted by plugin and path.
+  /// name, once each, sorted by plugin and path once merged.
   final List<PluginPath> paths = const [],
 
   /// The plugins these come from, which the harness that installs them
@@ -49,7 +49,7 @@ class const PluginAssets({
     hooks: [for (final a in assets) ...a.hooks],
     paths: _firstByName([
       for (final a in assets) ...a.paths,
-    ], (path) => '${path.plugin}/${path.path}'),
+    ], (path) => path.id),
     plugins: plugins,
   );
 

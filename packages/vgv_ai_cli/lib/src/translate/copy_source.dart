@@ -39,3 +39,16 @@ extension CopySource on FileSystemEntity {
     return null;
   }
 }
+
+/// Lists the files under a directory to copy.
+extension FilesBelow on Directory {
+  /// Every entity below this directory that is not itself a directory.
+  ///
+  /// Links are listed, not followed, so [CopySource.copySource] reports a
+  /// symlinked directory rather than walking it, which a cycle would
+  /// otherwise turn into a hang.
+  List<FileSystemEntity> filesBelow() => listSync(
+    recursive: true,
+    followLinks: false,
+  ).where((entity) => entity is! Directory).toList();
+}

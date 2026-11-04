@@ -165,9 +165,9 @@ class UninstallCommand({
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up
-  /// to the skills root for the shared skills, `~/.agents` for the shared
-  /// plugin files, and the harness's config directory for the rest, which
-  /// are never deleted.
+  /// to the skills root for the shared skills, the folder holding the shared
+  /// plugin files for those, and the harness's config directory for the
+  /// rest, which are never deleted.
   ///
   /// The files are already gone by now, so a directory that cannot be
   /// deleted is only warned about.
@@ -194,13 +194,13 @@ class UninstallCommand({
   }
 
   /// Where deleting the empty directories above the shared file at [path]
-  /// stops: the skills root, which other tools read as well, or `~/.agents`
-  /// itself, so the plugin files root goes once it is empty.
+  /// stops. Other tools read the skills root, so it stays; the plugin files
+  /// root is VGV's own, so it goes once empty.
   static Directory _sharedBoundary(String path, Directory home) {
     final skills = agentsSkillsRoot(home);
     return home.fileSystem.path.isWithin(skills.path, path)
         ? skills
-        : skills.parent;
+        : pluginFilesRoot(skills).parent;
   }
 
   /// Says there is nothing to remove for each of [harnesses], which VGV
@@ -214,8 +214,8 @@ class UninstallCommand({
     }
   }
 
-  /// Says the shared skills in [skillsRoot], and the plugin files beside
-  /// it, are removed, or, for a [dryRun], would be, and why.
+  /// Says the shared skills and plugin files are removed, or, for a
+  /// [dryRun], would be.
   void _reportSharedSkillsRemoved(
     Directory skillsRoot, {
     required bool dryRun,
@@ -228,8 +228,8 @@ class UninstallCommand({
     );
   }
 
-  /// Says the shared skills in [skillsRoot], and the plugin files beside
-  /// it, were kept, and how to remove them.
+  /// Says the shared skills and plugin files were kept, and how to remove
+  /// them.
   void _reportSharedSkillsKept(Directory skillsRoot) {
     _logger.info(
       'The shared skills VGV AI CLI installed are still in '

@@ -36,26 +36,20 @@ void main() {
   });
 
   group('expandPluginFiles', () {
-    test("spells the placeholder out as the plugin files' copy", () {
-      final filesRoot = MemoryFileSystem.test().directory('/files');
+    test('spells every placeholder out as the plugin files beside a root', () {
+      final skillsRoot = MemoryFileSystem.test().directory(
+        '/home/.agents/skills',
+      );
 
       expect(
         expandPluginFiles(
-          'run ${PluginPath.placeholder}/ffca/scripts/a.dart',
-          filesRoot: filesRoot,
+          'run ${PluginPath.placeholder}/ffca/a.dart and '
+          'read ${PluginPath.placeholder}/ffca/refs',
+          skillsRoot: skillsRoot,
         ),
-        'run /files/ffca/scripts/a.dart',
+        'run /home/.agents/vgv-plugins/ffca/a.dart and '
+        'read /home/.agents/vgv-plugins/ffca/refs',
       );
-    });
-  });
-
-  group('isSafePluginName', () {
-    test('accepts a plugin name', () {
-      expect(isSafePluginName('vgv-ffca-plugin'), isTrue);
-    });
-
-    test('refuses a name that leaves its folder', () {
-      expect(isSafePluginName('../escape'), isFalse);
     });
   });
 }

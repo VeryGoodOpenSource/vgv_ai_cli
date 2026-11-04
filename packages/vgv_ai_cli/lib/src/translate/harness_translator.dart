@@ -34,6 +34,12 @@ abstract class const HarnessTranslator() {
   /// neither the shared copy nor the plugins' own, or null.
   Directory? skillsRoot(Directory home) => null;
 
+  /// The copy of the skills, with the plugin files beside it, that this
+  /// harness reads: its own, the shared one, or null for one that runs the
+  /// plugins itself.
+  Directory? readSkillsRoot(Directory home) =>
+      skillsRoot(home) ?? (readsSharedSkills ? agentsSkillsRoot(home) : null);
+
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.

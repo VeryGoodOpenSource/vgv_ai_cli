@@ -734,15 +734,78 @@ void main() {
         );
       });
 
-      test('collects no path that climbs out of the root', () {
-        write(
-          'skills/evil/SKILL.md',
-          '---\nname: evil\n---\n'
-              r'${CLAUDE_PLUGIN_ROOT}/../secrets and ${CLAUDE_PLUGIN_ROOT}/.hidden'
-              '\n',
-        );
+      test('leaves a bare, climbing or hidden root as written', () {
+        const body =
+            r'${CLAUDE_PLUGIN_ROOT}, ${CLAUDE_PLUGIN_ROOT}/../secrets and '
+            r'${CLAUDE_PLUGIN_ROOT}/.hidden'
+            '\n';
+        write('skills/evil/SKILL.md', '---\nname: evil\n---\n$body');
 
-        expect(pathsOf(const ClaudePluginParser().parse(root)), isEmpty);
+        final assets = const ClaudePluginParser().parse(root);
+
+        expect(assets.skills.single.body, body);
+        expect(pathsOf(assets), isEmpty);
+      });
+
+      group('plugin name', () {
+        void rootedSkill(Directory at) => at.childFile('skills/a/SKILL.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '---\nname: a\n---\n'
+            r'${CLAUDE_PLUGIN_ROOT}/refs'
+            '\n',
+          );
+
+        void declare(String name) => root
+            .childDirectory('.claude-plugin')
+            .childFile('plugin.json')
+            .writeAsStringSync('{"name": "$name"}');
+
+        for (final name in ['vgv-ffca-plugin', 'my_plugin.v2', 'Plugin9']) {
+          test('accepts $name', () {
+            declare(name);
+            rootedSkill(root);
+
+            expect(
+              const ClaudePluginParser().parse(root).paths.single.plugin,
+              name,
+            );
+          });
+        }
+
+        test("accepts the cache directory's version as a fallback", () {
+          final cached = MemoryFileSystem.test().directory('/cache/0.0.5');
+          rootedSkill(cached);
+
+          expect(
+            const ClaudePluginParser().parse(cached).paths.single.plugin,
+            '0.0.5',
+          );
+        });
+
+        for (final name in ['', '.hidden', '-dash', 'a/b', '../escape']) {
+          test('refuses "$name"', () {
+            declare(name);
+            rootedSkill(root);
+
+            expect(
+              () => const ClaudePluginParser().parse(root),
+              throwsA(
+                isA<PluginParseException>()
+                    .having(
+                      (e) => e.path,
+                      'path',
+                      '/plugin/.claude-plugin/plugin.json',
+                    )
+                    .having(
+                      (e) => e.message,
+                      'message',
+                      contains('plugin name "$name"'),
+                    ),
+              ),
+            );
+          });
+        }
       });
     });
 

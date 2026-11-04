@@ -30,23 +30,14 @@ Directory harnessHooksRoot(Harness harness, {required Directory home}) {
 }
 
 /// Where the plugin files that the skills under [skillsRoot] name are
-/// copied: beside it, one folder per plugin.
+/// copied, one folder per plugin.
 ///
-/// A skill's own directory travels with it, but a file it names under its
-/// plugin's root, such as the FFCA plugin's `references/ffca/`, lives outside
-/// every skill. Kept out of [skillsRoot] itself, since a harness would read
-/// a folder there with no `SKILL.md` as a broken skill.
+/// Beside [skillsRoot] rather than in it, since a harness would read a
+/// folder there with no `SKILL.md` as a broken skill.
 Directory pluginFilesRoot(Directory skillsRoot) =>
     skillsRoot.parent.childDirectory('vgv-plugins');
 
-/// [text] with [PluginPath.placeholder] spelled out as [filesRoot], where
-/// the copy of every plugin's files is kept.
-String expandPluginFiles(String text, {required Directory filesRoot}) =>
-    text.replaceAll(PluginPath.placeholder, filesRoot.path);
-
-/// What a plugin may be named, since its name becomes a folder under the
-/// hooks root and under [pluginFilesRoot].
-final _pluginNamePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
-
-/// Whether [plugin], a plugin's name, is safe as a folder name.
-bool isSafePluginName(String plugin) => _pluginNamePattern.hasMatch(plugin);
+/// [text] with [PluginPath.placeholder] spelled out as the plugin files
+/// beside [skillsRoot].
+String expandPluginFiles(String text, {required Directory skillsRoot}) =>
+    text.replaceAll(PluginPath.placeholder, pluginFilesRoot(skillsRoot).path);

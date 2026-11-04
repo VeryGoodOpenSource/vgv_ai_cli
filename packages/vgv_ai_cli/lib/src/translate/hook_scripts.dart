@@ -5,7 +5,6 @@ import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/copy_source.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
@@ -39,6 +38,10 @@ class const HookScripts({
   /// The plugin's own hook registry, relative to its root.
   static final String _registry = p.join(hooksFolder, 'hooks.json');
 
+  /// What a plugin may be named, since its name becomes a folder under the
+  /// hooks root.
+  static final _namePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
+
   /// A file under the hooks folder a command names, relative to the plugin
   /// root, quoted or not.
   static final _hooksFile = RegExp(
@@ -52,7 +55,7 @@ class const HookScripts({
   static final _bashShebang = RegExp(r'^#!.*\bbash\b');
 
   /// Whether [hook]'s plugin name is safe as a folder name.
-  static bool safelyNamed(HookAsset hook) => isSafePluginName(hook.plugin);
+  static bool safelyNamed(HookAsset hook) => _namePattern.hasMatch(hook.plugin);
 
   /// Whether [hook] runs a shell command, which is what needs the preamble.
   static bool runsCommand(HookAsset hook) =>
@@ -188,9 +191,7 @@ class const HookScripts({
     }
 
     final scripts = _scriptUses(hooks);
-    // followLinks off: a symlink cycle would otherwise hang the walk.
-    final entities = folder.listSync(recursive: true, followLinks: false);
-    for (final entity in entities.where((e) => e is! Directory)) {
+    for (final entity in folder.filesBelow()) {
       final relative = p.relative(entity.path, from: hook.pluginRoot.path);
       if (relative == _registry) continue;
 

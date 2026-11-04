@@ -12,7 +12,7 @@ import 'package:vgv_ai_plugins/src/parser/plugin_parser.dart';
 /// `user-invocable` default, how `allowed-tools` is written, and the
 /// `${CLAUDE_PLUGIN_ROOT}` placeholder. Each file is validated against
 /// its shape in `claude_schemas.dart`, which admits the real, mutually
-/// inconsistent shapes the two plugins ship and throws on anything else.
+/// inconsistent shapes the pinned plugins ship and throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   /// {@macro claude_plugin_parser}
@@ -24,8 +24,8 @@ class const ClaudePluginParser() implements PluginParser {
     // neither needs no manifest.
     late final plugin = _pluginName(root);
     String rooted(String body) => body.replaceAllMapped(
-      _claudePluginRoot,
-      (_) => '${PluginPath.placeholder}/$plugin',
+      _rootedPath,
+      (match) => '${PluginPath.placeholder}/$plugin/${match[1]}',
     );
 
     final skills = _readSkills(root.childDirectory('skills'));
@@ -127,15 +127,18 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's name for the plugin root in a hook command, rewritten to
-  /// [HookCommand.rootPlaceholder], and in a skill or agent body, rewritten
-  /// to the plugin's folder under [PluginPath.placeholder]. A script's own
-  /// use of the variable at run time stays as written.
+  /// Claude's name for the plugin root. In a hook command it becomes
+  /// [HookCommand.rootPlaceholder]; in a skill or agent body, only a path
+  /// [_rootedPath] matches becomes the plugin's folder under
+  /// [PluginPath.placeholder]. A script's own use of the variable at run
+  /// time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
   /// A path under the plugin root a body names. No segment may start with a
   /// dot, so a path can never climb out of the root, and it ends where a
   /// character no path segment holds does, such as a space or a backtick.
+  /// A bare root, or one followed by `..` or a hidden name, is left as
+  /// written, since nothing is copied for it.
   static final _rootedPath = RegExp(
     '${RegExp.escape(_claudePluginRoot)}/'
     r'([\w-][\w.-]*(?:/[\w-][\w.-]*)*)',
@@ -146,8 +149,16 @@ class const ClaudePluginParser() implements PluginParser {
   static Set<String> _namedPaths(List<String> bodies) => {
     for (final body in bodies)
       for (final match in _rootedPath.allMatches(body))
-        match[1]!.replaceFirst(RegExp(r'\.+$'), ''),
+        match[1]!.replaceFirst(_trailingDots, ''),
   };
+
+  /// The full stop of a sentence that ends on a path.
+  static final _trailingDots = RegExp(r'\.+$');
+
+  /// What a plugin may be named. Its name becomes a folder in every copy of
+  /// its files and hooks, and falls back to the cache directory's name, such
+  /// as `0.0.5`, so it is looser than [_namePattern].
+  static final _pluginNamePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]*$');
 
   /// [name], once it is known to be safe as a file name.
   ///
@@ -282,6 +293,7 @@ class const ClaudePluginParser() implements PluginParser {
 
   /// The manifest's name, or the directory's without one. The cache names a
   /// directory after the version, so the manifest is what says vgv-wingspan.
+  /// A name that is not safe as a folder name is a [PluginParseException].
   String _pluginName(Directory root) {
     final manifest = root
         .childDirectory('.claude-plugin')
@@ -292,7 +304,13 @@ class const ClaudePluginParser() implements PluginParser {
             path: manifest.path,
           ).name
         : null;
-    return declared ?? p.basename(root.path);
+    final name = declared ?? p.basename(root.path);
+    if (_pluginNamePattern.hasMatch(name)) return name;
+    throw PluginParseException(
+      manifest.path,
+      'plugin name "$name" must start with a letter or digit and may only '
+      'use letters, digits, ".", "-" and "_"',
+    );
   }
 
   /// The hooks of one registration that run a command, the only kind a

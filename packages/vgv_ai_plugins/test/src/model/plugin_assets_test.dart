@@ -198,6 +198,10 @@ void main() {
         expect(merged.paths.last, same(first));
       });
 
+      test('identifies a path by its plugin and path', () {
+        expect(path('ffca', 'references/ffca').id, 'ffca/references/ffca');
+      });
+
       test('merges nothing into an empty view', () {
         final merged = PluginAssets.merge([]);
 

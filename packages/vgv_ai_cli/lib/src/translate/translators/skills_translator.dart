@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -29,11 +28,10 @@ class const SkillsTranslator() {
   }) {
     final changes = <PlannedChange>[];
     final notes = <TranslationNote>[];
-    final filesRoot = pluginFilesRoot(root);
 
     for (final skill in assets.skills) {
       final target = root.fileSystem.directory(p.join(root.path, skill.name));
-      final document = _skillDocument(skill, filesRoot: filesRoot);
+      final document = _skillDocument(skill, skillsRoot: root);
       changes
         ..add(
           PlannedChange(
@@ -45,7 +43,12 @@ class const SkillsTranslator() {
         ..addAll(_bundledFiles(skill, target, notes, harness: harness));
     }
     changes.addAll(
-      _pluginFiles(assets.paths, filesRoot, notes, harness: harness),
+      _pluginFiles(
+        assets.paths,
+        pluginFilesRoot(root),
+        notes,
+        harness: harness,
+      ),
     );
 
     return TranslationResult(changes: changes, notes: notes);
@@ -57,80 +60,38 @@ class const SkillsTranslator() {
   /// was written to, or a skill that runs its own scripts points nowhere.
   static const _claudeSkillDir = r'${CLAUDE_SKILL_DIR}';
 
-  /// Rebuilds `SKILL.md` from the portable frontmatter and the body, with
-  /// the plugin root the body names spelled out as its copy under
-  /// [filesRoot].
+  /// Rebuilds `SKILL.md` from the portable frontmatter and the body, the
+  /// body pointing at the plugin files beside [skillsRoot].
   ///
   /// Claude-only keys were already dropped at parse time, so what is rendered
   /// here is the open Agent Skills key set and nothing else.
-  String _skillDocument(SkillAsset skill, {required Directory filesRoot}) {
+  String _skillDocument(SkillAsset skill, {required Directory skillsRoot}) {
     final frontmatter = Frontmatter.render(skill.portableFrontmatter);
-    final body = expandPluginFiles(skill.body, filesRoot: filesRoot);
+    final body = expandPluginFiles(skill.body, skillsRoot: skillsRoot);
     return '$frontmatter\n$body';
   }
 
-  /// Plans a copy of every file under each of [paths] in [filesRoot], one
-  /// folder per plugin, and each file once however many paths name it.
-  ///
-  /// Copied byte for byte: a script such as the FFCA plugin's
-  /// `validate_layers.dart` runs as its plugin ships it.
+  /// Plans a copy of each file [paths] name in [filesRoot], one folder per
+  /// plugin, copied byte for byte so a script runs as its plugin ships it.
   List<PlannedChange> _pluginFiles(
     List<PluginPath> paths,
     Directory filesRoot,
     List<TranslationNote> notes, {
     required Harness? harness,
   }) {
-    final changes = <String, PlannedChange>{};
-    for (final MapEntry(key: plugin, value: named)
-        in paths.groupListsBy((path) => path.plugin).entries) {
-      if (!isSafePluginName(plugin)) {
-        notes.add(
-          TranslationNote(
-            subject: plugin,
-            reason:
-                'its name is not safe as a folder name, so the files its '
-                'skills and agents name were not installed',
-          ),
-        );
-        continue;
-      }
-
-      for (final path in named) {
-        _copyPath(
-          path,
-          filesRoot.childDirectory(plugin),
-          changes,
-          notes,
+    // A file a folder and its own path both name is copied once.
+    final named = <String>{};
+    return [
+      for (final path in paths)
+        ..._copies(
+          _filesAt(path, notes).where((entity) => named.add(entity.path)),
+          from: path.pluginRoot,
+          to: filesRoot.childDirectory(path.plugin),
+          subject: path.plugin,
+          notes: notes,
           harness: harness,
-        );
-      }
-    }
-    return changes.values.toList();
-  }
-
-  /// Adds the copy in [copy] of each file [path] names to [changes], by
-  /// target path, unless another path already named it.
-  void _copyPath(
-    PluginPath path,
-    Directory copy,
-    Map<String, PlannedChange> changes,
-    List<TranslationNote> notes, {
-    required Harness? harness,
-  }) {
-    for (final entity in _filesAt(path, notes)) {
-      final relative = p.relative(entity.path, from: path.pluginRoot.path);
-      final file = copy.fileSystem.file(p.join(copy.path, relative));
-      if (changes.containsKey(file.path)) continue;
-
-      final source = entity.copySource('${path.plugin}/$relative', notes);
-      if (source == null) continue;
-      changes[file.path] = PlannedChange(
-        file: file,
-        bytes: source.readAsBytesSync(),
-        harness: harness,
-        source: source,
-      );
-    }
+        ),
+    ];
   }
 
   /// The files [path] names: every one below it for a folder, or the one it
@@ -140,41 +101,36 @@ class const SkillsTranslator() {
     List<TranslationNote> notes,
   ) {
     final fileSystem = path.pluginRoot.fileSystem;
-    final at = p.joinAll([path.pluginRoot.path, ...path.path.split('/')]);
-    // followLinks is off so a symlinked directory is reported rather than
-    // walked, which a cycle would otherwise turn into a hang.
-    final type = fileSystem.typeSync(at, followLinks: false);
-    if (type == FileSystemEntityType.notFound) {
-      notes.add(
-        TranslationNote(
-          subject: '${path.plugin}/${path.path}',
-          reason:
-              'the plugin does not hold it, so the skills and agents that '
-              'name it point at nothing',
-        ),
-      );
-      return const [];
-    }
-    if (type == FileSystemEntityType.directory) {
-      return fileSystem
-          .directory(at)
-          .listSync(recursive: true, followLinks: false)
-          .where((entity) => entity is! Directory)
-          .toList();
-    }
-    return [
-      if (type == FileSystemEntityType.link)
-        fileSystem.link(at)
-      else
-        fileSystem.file(at),
-    ];
+    final absolute = p.joinAll([path.pluginRoot.path, ...path.path.split('/')]);
+    return switch (fileSystem.typeSync(absolute, followLinks: false)) {
+      FileSystemEntityType.notFound => _missing(path, notes),
+      FileSystemEntityType.directory =>
+        fileSystem.directory(absolute).filesBelow(),
+      FileSystemEntityType.link => [fileSystem.link(absolute)],
+      _ => [fileSystem.file(absolute)],
+    };
+  }
+
+  /// Reports in [notes] that the plugin does not hold [path].
+  List<FileSystemEntity> _missing(
+    PluginPath path,
+    List<TranslationNote> notes,
+  ) {
+    notes.add(
+      TranslationNote(
+        subject: path.id,
+        reason:
+            'the plugin does not hold it, so the skills and agents that name '
+            'it point at nothing',
+      ),
+    );
+    return const [];
   }
 
   /// Plans everything under the skill's directory except its `SKILL.md`.
   ///
   /// `references/`, `scripts/`, and the flat `reference.md` two skills use all
-  /// travel with the skill. Built eagerly, so every note lands in [notes]
-  /// before [translate] returns them.
+  /// travel with the skill.
   List<PlannedChange> _bundledFiles(
     SkillAsset skill,
     Directory target,
@@ -197,34 +153,59 @@ class const SkillsTranslator() {
       return const [];
     }
 
-    // followLinks is off so a symlinked directory is reported rather than
-    // walked, which a cycle would otherwise turn into a hang.
-    final entities = skill.directory.listSync(
-      recursive: true,
-      followLinks: false,
+    final document = skill.directory.childFile('SKILL.md').path;
+    return _copies(
+      skill.directory.filesBelow().where((entity) => entity.path != document),
+      from: skill.directory,
+      to: target,
+      subject: skill.name,
+      notes: notes,
+      harness: harness,
+      bytes: (bytes) => _expandSkillDir(bytes, target),
     );
+  }
 
-    final changes = <PlannedChange>[];
-    for (final entity in entities) {
-      if (entity is Directory) continue;
-
-      final relative = p.relative(entity.path, from: skill.directory.path);
-      if (relative == 'SKILL.md') continue;
-
-      final source = entity.copySource('${skill.name}/$relative', notes);
-      if (source == null) continue;
-
-      changes.add(
+  /// Plans a copy in [to] of each of [entities], at its path relative to
+  /// [from], holding what [bytes] makes of its contents. One that cannot be
+  /// copied is reported in [notes] under [subject].
+  ///
+  /// Built eagerly, so every note lands in [notes] before [translate]
+  /// returns them.
+  List<PlannedChange> _copies(
+    Iterable<FileSystemEntity> entities, {
+    required Directory from,
+    required Directory to,
+    required String subject,
+    required List<TranslationNote> notes,
+    required Harness? harness,
+    List<int> Function(List<int> bytes) bytes = _verbatim,
+  }) => [
+    for (final entity in entities)
+      if (_copyOf(entity, from: from, subject: subject, notes: notes)
+          case final source?)
         PlannedChange(
-          file: target.fileSystem.file(p.join(target.path, relative)),
-          bytes: _expandSkillDir(source.readAsBytesSync(), target),
+          file: to.fileSystem.file(
+            p.join(to.path, p.relative(entity.path, from: from.path)),
+          ),
+          bytes: bytes(source.readAsBytesSync()),
           harness: harness,
           source: source,
         ),
-      );
-    }
-    return changes;
-  }
+  ];
+
+  /// The file a copy of [entity] reads from, or null, reported in [notes].
+  static File? _copyOf(
+    FileSystemEntity entity, {
+    required Directory from,
+    required String subject,
+    required List<TranslationNote> notes,
+  }) => entity.copySource(
+    '$subject/${p.relative(entity.path, from: from.path)}',
+    notes,
+  );
+
+  /// [bytes] as they are.
+  static List<int> _verbatim(List<int> bytes) => bytes;
 
   /// [bytes] with [_claudeSkillDir] spelled out as [target]'s path.
   ///

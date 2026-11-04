@@ -400,7 +400,15 @@ void main() {
           path('references/ffca/navigation.md'),
         ]);
 
-        expect(result.changes, hasLength(1));
+        final change = result.changes.single;
+        expect(
+          change.file.path,
+          '/home/dev/.agents/vgv-plugins/ffca/references/ffca/navigation.md',
+        );
+        expect(
+          change.source?.path,
+          '$pluginRoot/references/ffca/navigation.md',
+        );
       });
 
       test("goes beside a harness's own skills root, owned by it", () {
@@ -448,23 +456,20 @@ void main() {
         ]);
       });
 
-      test('reports a plugin whose name is not safe as a folder', () {
+      test('copies each plugin into its own folder', () {
         write('references/a.md', '# A\n');
+        write('references/b.md', '# B\n');
 
         final result = translatePaths([
-          path('references/a.md', plugin: '../escape'),
-          path('references', plugin: '../escape'),
+          path('references/a.md'),
+          path('references/b.md', plugin: 'docs'),
         ]);
 
-        expect(result.changes, isEmpty);
-        expect(result.notes, [
-          const TranslationNote(
-            subject: '../escape',
-            reason:
-                'its name is not safe as a folder name, so the files its '
-                'skills and agents name were not installed',
-          ),
+        expect(result.changes.map((c) => c.file.path), [
+          '/home/dev/.agents/vgv-plugins/ffca/references/a.md',
+          '/home/dev/.agents/vgv-plugins/docs/references/b.md',
         ]);
+        expect(result.notes, isEmpty);
       });
     });
   });

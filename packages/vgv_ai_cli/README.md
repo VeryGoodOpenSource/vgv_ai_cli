@@ -58,10 +58,10 @@ at that copy, not at `${CLAUDE_PLUGIN_ROOT}`, which only Claude Code sets.
 
 `vgv_ai` installs these VGV Claude Code plugins, each pinned to a release:
 
-| Plugin                                                                              | What it adds                                                                     |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [`vgv-wingspan`](https://github.com/VeryGoodOpenSource/vgv-wingspan)                   | The brainstorm, plan, build, and review workflows.                               |
-| [`vgv-ai-flutter-plugin`](https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin) | Flutter and Dart skills, the Dart and Very Good CLI MCP servers, and quality hooks. |
+| Plugin                                                                                 | What it adds                                                                                          |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [`vgv-wingspan`](https://github.com/VeryGoodOpenSource/vgv-wingspan)                   | The brainstorm, plan, build, and review workflows.                                                    |
+| [`vgv-ai-flutter-plugin`](https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin) | Flutter and Dart skills, the Dart and Very Good CLI MCP servers, and quality hooks.                   |
 | [`vgv-ffca-plugin`](https://github.com/VeryGoodOpenSource/vgv-ffca-plugin)             | Feature-First Clean Architecture skills, the `ffca-layer-auditor` agent, and a layer validation hook. |
 
 ## Commands

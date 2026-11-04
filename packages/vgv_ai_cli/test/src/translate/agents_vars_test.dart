@@ -97,25 +97,34 @@ void main() {
     group('plugin root', () {
       const rooted = 'Read ${PluginPath.placeholder}/ffca/references/ffca.\n';
       const shared = '/home/dev/.agents/vgv-plugins/ffca';
+      const antigravity =
+          '/home/dev/.gemini/config/plugins/vgv/vgv-plugins/ffca';
 
       test("points each harness's agent at the plugin files it reads", () {
         final vars = varsFor(const [
-          OpenCodeTranslator(),
+          CodexTranslator(),
           AntigravityTranslator(),
         ], assets: pluginAssets(agents: [agentAsset('auditor', body: rooted)]));
         final agent = (vars['agents']! as List).single as Map;
-        final antigravity = const AntigravityTranslator().pluginRoot(
-          fs.directory('/home/dev'),
-        );
 
         expect(agent['instructions'], 'Read $shared/references/ffca.\n');
         expect(
-          agent['antigravity'],
-          containsPair(
-            'instructions',
-            'Read ${antigravity.path}/vgv-plugins/ffca/references/ffca.\n',
-          ),
+          agent['codex'],
+          containsPair('toml', contains('Read $shared/references/ffca.')),
         );
+        expect(
+          agent['antigravity'],
+          containsPair('instructions', 'Read $antigravity/references/ffca.\n'),
+        );
+      });
+
+      test('gives no fields to a harness that runs the plugins itself', () {
+        final vars = varsFor(const [
+          ClaudeTranslator(),
+        ], assets: pluginAssets(agents: [agentAsset('auditor', body: rooted)]));
+        final agent = (vars['agents']! as List).single as Map;
+
+        expect(agent, isNot(contains('claude')));
       });
 
       test("points a command's body at the shared plugin files", () {
