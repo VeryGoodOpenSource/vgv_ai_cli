@@ -109,6 +109,11 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
 - **Plugins:** without `--plugin`, every pinned plugin is installed. Pass it
   once per plugin to name the ones you want. What a previous `install` wrote
   for the plugins you leave out stays where it is; `uninstall` removes that.
+- **Plugin files:** skills and agents that point at files elsewhere in their
+  plugin, such as references and scripts, point at the plugin where `install`
+  found it, in `~/.vgv_ai/plugins` or the Claude Code plugin cache. Nothing is
+  copied. If that directory is cleared or moves, those paths break until you
+  run `install` again, and `doctor` reports the files as outdated.
 
 ### doctor
 
