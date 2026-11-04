@@ -176,9 +176,9 @@ is available, use its `test` tool: a hook denies `dart test` and `very_good test
 Otherwise run `very_good test -j 4 --coverage --min-coverage 100 --optimization` in each package.
 
 Finally, run the plugin through the CLI for real, for every harness, in a throwaway home. **Put a
-space in the home path**, because that is where shell quoting breaks: the FFCA hooks already quote
-`${CLAUDE_PLUGIN_ROOT}`, and the CLI quoted the path a second time inside them. Neither the tests
-nor `--check` caught it.
+space in the home path**, because that is where shell quoting breaks. The FFCA hooks already quote
+`${CLAUDE_PLUGIN_ROOT}`, and the CLI used to quote the path a second time inside them, which split
+the command at the space. Neither the tests nor `--check` caught it; a real install did.
 
 ```sh
 cd packages/vgv_ai_cli
