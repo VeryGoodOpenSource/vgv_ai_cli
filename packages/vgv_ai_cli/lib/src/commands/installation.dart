@@ -5,7 +5,7 @@ import 'package:vgv_ai_cli/src/command_runner.dart';
 
 /// The command that reinstalls `vgv_ai` through the install script.
 const installScriptCommand =
-    'curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/install.sh | bash';
+    'curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash';
 
 /// {@template installation}
 /// How `vgv_ai` was installed, which decides how it updates.
