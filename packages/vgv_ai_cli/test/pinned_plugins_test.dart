@@ -50,5 +50,36 @@ void main() {
       expect(plan.harnesses.keys, [harness]);
       expect(plan.changes, isNotEmpty);
     });
+
+    test('points ${harness.name} at plugin files that exist', () async {
+      final plan = await const Translator().translate(
+        assets: assets,
+        home: home,
+        selected: {harness},
+      );
+      // Bodies are rendered, not copied, so only they carry the rewrite.
+      final rendered = [
+        for (final change in plan.changes)
+          if (change.source == null) change.contents,
+      ];
+      final cache = home.childDirectory('.vgv_ai').childDirectory('plugins');
+      final referenced = {
+        for (final text in rendered)
+          for (final match in RegExp(
+            '${RegExp.escape(cache.path)}/[^\\s`\'")]+',
+          ).allMatches(text))
+            match[0]!,
+      };
+
+      expect(rendered, everyElement(isNot(contains(r'${CLAUDE_PLUGIN_ROOT}'))));
+      expect(
+        referenced.where(
+          (path) =>
+              home.fileSystem.typeSync(path) == FileSystemEntityType.notFound,
+        ),
+        isEmpty,
+      );
+      if (harness != Harness.claude) expect(referenced, isNotEmpty);
+    });
   }
 }
