@@ -48,6 +48,12 @@ class const HookScripts({
     '${RegExp.escape(HookCommand.rootPlaceholder)}/($hooksFolder/[^\\s"\']+)',
   );
 
+  /// The plugin root in a command, with the double quote the plugin may have
+  /// opened before it and the hooks folder that may follow it.
+  static final _rootReference = RegExp(
+    '("?)${RegExp.escape(HookCommand.rootPlaceholder)}(/$hooksFolder/)?',
+  );
+
   /// A command that runs its script through bash, whatever the shebang says.
   static final _bashCommand = RegExp(r'^\s*bash\s');
 
@@ -98,22 +104,15 @@ class const HookScripts({
     HookCommand command,
     HookAsset hook, {
     required Directory hooksRoot,
-  }) {
-    const placeholder = HookCommand.rootPlaceholder;
-    final copy = copyRoot(hook, hooksRoot).path;
-    final root = hook.pluginRoot.path;
-    return command.command
-        .replaceAll(
-          '"$placeholder/$hooksFolder/',
-          '"${_escaped(copy)}/$hooksFolder/',
-        )
-        .replaceAll('"$placeholder', '"${_escaped(root)}')
-        .replaceAll(
-          '$placeholder/$hooksFolder/',
-          '${quoted(copy)}/$hooksFolder/',
-        )
-        .replaceAll(placeholder, quoted(root));
-  }
+  }) => command.command.replaceAllMapped(_rootReference, (match) {
+    final opened = match[1]!.isNotEmpty;
+    final hooks = match[2];
+    final path = hooks == null
+        ? hook.pluginRoot.path
+        : copyRoot(hook, hooksRoot).path;
+    final word = opened ? '"${_escaped(path)}' : quoted(path);
+    return '$word${hooks ?? ''}';
+  });
 
   /// [value] as one double-quoted shell word.
   static String quoted(String value) => '"${_escaped(value)}"';
