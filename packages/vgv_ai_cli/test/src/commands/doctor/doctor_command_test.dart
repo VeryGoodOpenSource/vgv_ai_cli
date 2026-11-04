@@ -531,6 +531,55 @@ void main() {
         verifyInfo('    Run vgv_ai install --only codex');
       });
 
+      group('a skill pointing into the plugin root', () {
+        /// The shared skills of a plugin parsed at [path], whose one skill
+        /// reads a file through `${CLAUDE_PLUGIN_ROOT}`.
+        List<PlannedChange> skillsAt(String path) {
+          final root = fs.directory(path);
+          root.childFile('skills/a/SKILL.md')
+            ..createSync(recursive: true)
+            ..writeAsStringSync(
+              '---\nname: a\ndescription: d\n---\n'
+              r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+              '\n',
+            );
+          return const SkillsTranslator()
+              .translate(
+                assets: const ClaudePluginParser().parse(root),
+                root: agentsSkillsRoot(home),
+              )
+              .changes;
+        }
+
+        setUp(
+          () => install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            ...skillsAt('/cache/ffca/0.1.2'),
+          ]),
+        );
+
+        test('is outdated once the plugin root moves', () async {
+          replan([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            ...skillsAt('/cache/ffca/0.1.3'),
+          ]);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('✗ Shared');
+          verifyInfo('    outdated ~/.agents/skills/a/SKILL.md');
+          verifyInfo('    Run vgv_ai install --only codex');
+        });
+
+        test('is current while the plugin root stays put', () async {
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo('✓ Shared');
+        });
+      });
+
       test(
         'warns about a file this version no longer installs, and exits 0',
         () async {
