@@ -89,20 +89,39 @@ class const HookScripts({
 
   /// [command] with the hooks folder pointing at the copy and the rest of
   /// the plugin at itself, both quoted.
+  ///
+  /// A placeholder the plugin already wrote inside double quotes, as the FFCA
+  /// plugin writes `"${CLAUDE_PLUGIN_ROOT}/hooks/validate_layers.sh"`, takes
+  /// the path escaped rather than quoted again: a second pair of quotes would
+  /// close the plugin's own, leaving the path bare to split on a space.
   static String command(
     HookCommand command,
     HookAsset hook, {
     required Directory hooksRoot,
-  }) => command.command
-      .replaceAll(
-        '${HookCommand.rootPlaceholder}/$hooksFolder/',
-        '${quoted(copyRoot(hook, hooksRoot).path)}/$hooksFolder/',
-      )
-      .replaceAll(HookCommand.rootPlaceholder, quoted(hook.pluginRoot.path));
+  }) {
+    const placeholder = HookCommand.rootPlaceholder;
+    final copy = copyRoot(hook, hooksRoot).path;
+    final root = hook.pluginRoot.path;
+    return command.command
+        .replaceAll(
+          '"$placeholder/$hooksFolder/',
+          '"${_escaped(copy)}/$hooksFolder/',
+        )
+        .replaceAll('"$placeholder', '"${_escaped(root)}')
+        .replaceAll(
+          '$placeholder/$hooksFolder/',
+          '${quoted(copy)}/$hooksFolder/',
+        )
+        .replaceAll(placeholder, quoted(root));
+  }
 
   /// [value] as one double-quoted shell word.
-  static String quoted(String value) =>
-      '"${value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}')}"';
+  static String quoted(String value) => '"${_escaped(value)}"';
+
+  /// [value] safe inside double quotes, with the characters they still
+  /// expand escaped.
+  static String _escaped(String value) =>
+      value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}');
 
   /// The copy of every plugin [hooks] belong to, [compat] being the script
   /// the preamble sources, and a note for each file that could not be
