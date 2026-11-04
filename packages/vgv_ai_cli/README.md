@@ -11,6 +11,19 @@ current, and removes them again without touching your own configuration.
 
 ## Installation
 
+### Homebrew
+
+On macOS and Linux, install the prebuilt executable from the
+[Very Good Open Source tap](https://github.com/VeryGoodOpenSource/homebrew-tap):
+
+```sh
+brew install verygoodopensource/tap/vgv_ai
+```
+
+Naming the formula in full taps the repository and
+[trusts](https://docs.brew.sh/Tap-Trust) only that formula. Upgrade with
+`brew upgrade vgv_ai`.
+
 ### Install script
 
 The script downloads the prebuilt executable for your platform from the latest

@@ -160,6 +160,13 @@ and `release_binaries.yaml` compiles `vgv_ai` on macOS and Linux, arm64 and x64,
 attach binaries to a release that lacks them, run `release_binaries` by hand with its `tag`
 input.
 
+Once the binaries are attached, the same workflow runs `tool/update_homebrew_formula.sh` against
+[the tap](https://github.com/VeryGoodOpenSource/homebrew-tap) and opens a `chore(vgv_ai): X.Y.Z`
+pull request there that changes only the formula's version, URLs and checksums. It requests a
+review from the code owners and merges by itself once approved and green, so approving it is the
+last step of every release: until then, Homebrew users see the update prompt but
+`brew upgrade` finds nothing.
+
 Do not bump a version or edit a `CHANGELOG.md` by hand.
 
 ## Breaking changes
