@@ -281,7 +281,7 @@ void main() {
 
         expect(store.load()!.plugins, {
           Harness.claude: {
-            vgvPlugins.first.name: vgvPlugins.first.version,
+            for (final plugin in vgvPlugins) plugin.name: plugin.version,
             skipped.name: '0.0.1',
           },
         });

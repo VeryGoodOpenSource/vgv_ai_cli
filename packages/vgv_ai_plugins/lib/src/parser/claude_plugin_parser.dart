@@ -11,9 +11,9 @@ import 'package:vgv_ai_plugins/src/parser/plugin_parser.dart';
 /// The single place that knows what "Claude-specific" means: the
 /// `user-invocable` default, how `allowed-tools` is written, and the
 /// `${CLAUDE_PLUGIN_ROOT}` placeholder in hooks and in skill and agent bodies.
-/// Each file is validated against
-/// its shape in `claude_schemas.dart`, which admits the real, mutually
-/// inconsistent shapes the two plugins ship and throws on anything else.
+/// Each file is validated against its shape in `claude_schemas.dart`, which
+/// admits the real, mutually inconsistent shapes the pinned plugins ship and
+/// throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   /// {@macro claude_plugin_parser}
