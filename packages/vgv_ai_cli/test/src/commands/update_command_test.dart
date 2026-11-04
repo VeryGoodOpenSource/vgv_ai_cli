@@ -16,10 +16,11 @@ void main() {
 
     late PubUpdater pubUpdater;
     late Logger logger;
+    late TestRunner runner;
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final runner = TestRunner();
+      runner = TestRunner();
       pubUpdater = runner.pubUpdater;
       logger = runner.logger;
       commandRunner = runner.build();
@@ -123,6 +124,41 @@ void main() {
         ),
       ).called(1);
     });
+
+    for (final installation in [Installation.homebrew, Installation.script]) {
+      group('installed with ${installation.name}', () {
+        test('prints the upgrade command instead of updating', () async {
+          when(() => pubUpdater.getLatestVersion(any()))
+              .thenAnswer((_) async => latestVersion);
+          final result = await runner.run([
+            'update',
+          ], installation: installation);
+          expect(result, ExitCode.success.code);
+          verify(
+            () => logger.info(
+              '$executableName $latestVersion is available. '
+              'Run ${installation.upgradeCommand} to update.',
+            ),
+          ).called(1);
+          verifyNever(() => logger.progress('Updating to $latestVersion'));
+          verifyNever(
+            () => pubUpdater.update(
+              packageName: any(named: 'packageName'),
+              versionConstraint: any(named: 'versionConstraint'),
+            ),
+          );
+        });
+
+        test('does nothing when already on latest version', () async {
+          final result = await runner.run([
+            'update',
+          ], installation: installation);
+          expect(result, ExitCode.success.code);
+          verify(() => logger.info('CLI is already at the latest version.'))
+              .called(1);
+        });
+      });
+    }
 
     test('does not update when already on latest version', () async {
       when(() => pubUpdater.getLatestVersion(any()))

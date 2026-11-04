@@ -177,14 +177,18 @@ vgv_ai uninstall --force
 
 ### update
 
-`update` updates `vgv_ai` to the latest version on pub.dev. It takes no flags.
+`update` checks pub.dev for a newer version of `vgv_ai`. It takes no flags.
 
 ```sh
 vgv_ai update
 ```
 
-Every other command also checks pub.dev for a newer version when it finishes,
-and prints how to update when there is one.
+When you installed with pub, it updates `vgv_ai` itself. Otherwise it prints
+the command that updates your installation: `brew upgrade vgv_ai` for Homebrew,
+or the install script for a prebuilt binary.
+
+Every other command also checks for a newer version when it finishes, and
+prints the same command when there is one.
 
 ## Global options
 
