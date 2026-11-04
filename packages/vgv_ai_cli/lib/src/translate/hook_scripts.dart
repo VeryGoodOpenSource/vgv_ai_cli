@@ -48,10 +48,9 @@ class const HookScripts({
     '${RegExp.escape(HookCommand.rootPlaceholder)}/($hooksFolder/[^\\s"\']+)',
   );
 
-  /// The plugin root in a command, with the double quote the plugin may have
-  /// opened before it and the hooks folder that may follow it.
+  /// The plugin root in a command, with the hooks folder that may follow it.
   static final _rootReference = RegExp(
-    '("?)${RegExp.escape(HookCommand.rootPlaceholder)}(/$hooksFolder/)?',
+    '${RegExp.escape(HookCommand.rootPlaceholder)}(/$hooksFolder/)?',
   );
 
   /// A command that runs its script through bash, whatever the shebang says.
@@ -105,14 +104,31 @@ class const HookScripts({
     HookAsset hook, {
     required Directory hooksRoot,
   }) => command.command.replaceAllMapped(_rootReference, (match) {
-    final opened = match[1]!.isNotEmpty;
-    final hooks = match[2];
+    final hooks = match[1];
     final path = hooks == null
         ? hook.pluginRoot.path
         : copyRoot(hook, hooksRoot).path;
-    final word = opened ? '"${_escaped(path)}' : quoted(path);
+    final inQuotes = _inDoubleQuotes(match.input.substring(0, match.start));
+    final word = inQuotes ? _escaped(path) : quoted(path);
     return '$word${hooks ?? ''}';
   });
+
+  /// Whether the shell is inside double quotes at the end of [prefix]. A
+  /// double quote inside single quotes, or escaped, opens nothing.
+  static bool _inDoubleQuotes(String prefix) {
+    String? open;
+    for (var i = 0; i < prefix.length; i++) {
+      final char = prefix[i];
+      if (char == r'\' && open != "'") {
+        i++;
+      } else if (char == open) {
+        open = null;
+      } else if (open == null && (char == '"' || char == "'")) {
+        open = char;
+      }
+    }
+    return open == '"';
+  }
 
   /// [value] as one double-quoted shell word.
   static String quoted(String value) => '"${_escaped(value)}"';

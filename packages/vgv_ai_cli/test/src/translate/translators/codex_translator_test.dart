@@ -223,6 +223,74 @@ void main() {
         );
       });
 
+      test('escape a path quoted later in the word, not quote it again', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'check "--root=${PLUGIN_ROOT}/x"',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'check "--root=/plugins/vgv-wingspan/x"'),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path after a quote that opens nothing', () {
+        // A double quote inside single quotes, or escaped, is a character
+        // of the word and leaves the placeholder outside double quotes.
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'''echo 'a"b' \"${PLUGIN_ROOT}/x''',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                r'''echo 'a"b' \""/plugins/vgv-wingspan"/x''',
+              ),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path that follows a closing quote', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'echo "a"${PLUGIN_ROOT}/x',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'echo "a""/plugins/vgv-wingspan"/x'),
+            ]),
+          ]),
+        );
+      });
+
       test('quote a copy root that holds a space', () {
         final json = translator
             .hooks(
