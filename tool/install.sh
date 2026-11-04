@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installs the vgv_ai executable from a GitHub release.
 #
-#   curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash
 #
 # VGV_AI_VERSION      Version to install, such as 0.1.0. Defaults to the latest release.
 # VGV_AI_INSTALL_DIR  Directory to install into. Defaults to $HOME/.local/bin.

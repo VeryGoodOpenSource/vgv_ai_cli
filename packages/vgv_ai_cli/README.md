@@ -18,7 +18,7 @@ GitHub release, checks it against its published SHA-256, and installs it to
 `~/.local/bin`. It needs no Dart SDK.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash
 ```
 
 Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
