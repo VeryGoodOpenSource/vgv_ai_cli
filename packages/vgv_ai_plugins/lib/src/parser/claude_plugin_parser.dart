@@ -113,9 +113,10 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's name for the plugin root in a hook command, rewritten to
-  /// [HookCommand.rootPlaceholder]. A script's own use of the variable at
-  /// run time stays as written.
+  /// Claude's name for the plugin root: rewritten to
+  /// [HookCommand.rootPlaceholder] in a hook command, and to the root's path
+  /// in a skill or agent body. A script's own use of the variable at run time
+  /// stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
   /// [body] with every [_claudePluginRoot] replaced by the path of [root].

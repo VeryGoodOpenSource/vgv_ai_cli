@@ -112,8 +112,10 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
 - **Plugin files:** skills and agents that point at files elsewhere in their
   plugin, such as references and scripts, point at the plugin where `install`
   found it, in `~/.vgv_ai/plugins` or the Claude Code plugin cache. Nothing is
-  copied. If that directory is cleared or moves, those paths break until you
-  run `install` again, and `doctor` reports the files as outdated.
+  copied. If Claude Code drops its copy, those paths break until you run
+  `install` again, and `doctor` reports the files as outdated. If
+  `~/.vgv_ai/plugins` is cleared, `doctor` and `install` fetch it again to
+  the same place.
 
 ### doctor
 
