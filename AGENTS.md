@@ -75,7 +75,7 @@ All commands are `Command<int>` subclasses in `lib/src/commands/`, exported from
 
 The runner owns three cross-cutting behaviors that individual commands do not repeat:
 
-- **Dependency injection.** `Logger` (mason_logger) and `PubUpdater` are constructor parameters with real defaults. Commands receive the `Logger` from the runner rather than creating one. This is what makes the whole CLI testable.
+- **Dependency injection.** `Logger` (mason_logger), `PubUpdater` and `Installation` are constructor parameters with real defaults. `Installation.current` reads `Platform.resolvedExecutable`: `dart` means pub, a `Cellar` path means Homebrew, anything else the install script, and only pub lets `update` update in place. Commands receive the `Logger` from the runner rather than creating one. This is what makes the whole CLI testable.
 - **Error handling.** `FormatException` and `UsageException` are caught in `run()` and converted to `ExitCode.usage.code` with usage output. Commands do not handle these themselves.
 - **Update check.** After every command except `update`, `_checkForUpdates()` compares `packageVersion` against pub.dev and prints an upgrade prompt. The `completion` command is fast-tracked and skips this entirely.
 

@@ -4,17 +4,27 @@ import 'package:args/command_runner.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/installation.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 /// {@template update_command}
 /// Updates `vgv_ai` to the latest version on pub.dev.
+///
+/// An installation other than [Installation.pub] is not updated: the command
+/// prints its [Installation.upgradeCommand] instead.
 /// {@endtemplate}
-class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
-    extends Command<int> {
+class UpdateCommand({
+  required final Logger _logger,
+  PubUpdater? pubUpdater,
+  Installation? installation,
+}) extends Command<int> {
   /// {@macro update_command}
+  ///
+  /// [installation] defaults to [Installation.current].
   this;
 
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
+  final Installation _installation = installation ?? Installation.current;
 
   @override
   String get description => 'Update vgv_ai to the latest version.';
@@ -42,6 +52,14 @@ class UpdateCommand({required final Logger _logger, PubUpdater? pubUpdater})
     final isUpToDate = packageVersion == latestVersion;
     if (isUpToDate) {
       _logger.info('CLI is already at the latest version.');
+      return ExitCode.success.code;
+    }
+
+    if (_installation != Installation.pub) {
+      _logger.info(
+        '$executableName $latestVersion is available. '
+        'Run ${_installation.upgradeCommand} to update.',
+      );
       return ExitCode.success.code;
     }
 
