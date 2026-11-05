@@ -7,6 +7,9 @@
 # Pass the checkouts of the plugins already pinned to also check for skill,
 # agent and MCP server names the new plugin shares with them. Prints findings
 # only; it never edits anything. Needs rg and jq.
+#
+# Mirrors what ClaudePluginParser reads and rewrites. Keep it in sync when the
+# parser changes; see "Adding a plugin" in CONTRIBUTING.md.
 set -euo pipefail
 
 if [[ $# -lt 1 || ! -d "$1" ]]; then
