@@ -1,0 +1,102 @@
+name: release_binaries
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach binaries to, such as v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            os: macos
+            arch: arm64
+          - runner: macos-15-intel
+            os: macos
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: 🎯 Setup Dart
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: "3.13.0"
+
+      - name: 📦 Install Dependencies
+        run: dart pub get
+
+      - name: 🔨 Compile
+        working-directory: packages/vgv_ai_cli
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          dart compile exe bin/vgv_ai.dart -o "$RUNNER_TEMP/dist/vgv_ai"
+
+      # --version also runs the update check, which may print a second line.
+      - name: 🧪 Smoke Test
+        run: |
+          actual="$("$RUNNER_TEMP/dist/vgv_ai" --version | head -n 1)"
+          if [ "$actual" != "${TAG#v}" ]; then
+            echo "::error::vgv_ai --version printed '$actual', expected '${TAG#v}'"
+            exit 1
+          fi
+
+      - name: 📦 Package
+        working-directory: ${{ runner.temp }}/dist
+        run: |
+          archive="vgv_ai-${TAG#v}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+          tar -czf "$archive" vgv_ai
+          shasum -a 256 "$archive" > "$archive.sha256"
+          shasum -a 256 -c "$archive.sha256"
+          rm vgv_ai
+
+      - name: ⬆️ Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: vgv_ai-${{ matrix.os }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: ⬇️ Download Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vgv_ai-*
+          path: dist
+          merge-multiple: true
+
+      - name: 🚀 Attach to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"

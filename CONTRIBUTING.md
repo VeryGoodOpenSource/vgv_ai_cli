@@ -154,6 +154,12 @@ Every push to `main` opens or updates a release pull request that bumps both pac
 same version and writes their `CHANGELOG.md`. Merge it only when a release is intended; merging it tags the release and
 publishes the notes.
 
+The `vX.Y.Z` tag starts two workflows. `pub_publish.yaml` publishes both packages to pub.dev,
+and `release_binaries.yaml` compiles `vgv_ai` on macOS and Linux, arm64 and x64, and attaches
+`vgv_ai-<version>-<os>-<arch>.tar.gz` with a `.sha256` beside each to the GitHub release. To
+attach binaries to a release that lacks them, run `release_binaries` by hand with its `tag`
+input.
+
 Do not bump a version or edit a `CHANGELOG.md` by hand.
 
 ## Breaking changes
