@@ -194,6 +194,103 @@ void main() {
         );
       });
 
+      test('escape a path the plugin already quotes, not quote it again', () {
+        // A second pair of quotes would close the plugin's own and leave the
+        // path bare, so a home that holds a space would split it.
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command:
+                      r'bash "${PLUGIN_ROOT}/hooks/scripts/analyze.sh" '
+                      r'"${PLUGIN_ROOT}/scripts/check.dart"',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                'bash "/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh" '
+                    '"/plugins/vgv-wingspan/scripts/check.dart"',
+              ),
+            ]),
+          ]),
+        );
+      });
+
+      test('escape a path quoted later in the word, not quote it again', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'check "--root=${PLUGIN_ROOT}/x"',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'check "--root=/plugins/vgv-wingspan/x"'),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path after a quote that opens nothing', () {
+        // A double quote inside single quotes, or escaped, is a character
+        // of the word and leaves the placeholder outside double quotes.
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'''echo 'a"b' \"${PLUGIN_ROOT}/x''',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                r'''echo 'a"b' \""/plugins/vgv-wingspan"/x''',
+              ),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path that follows a closing quote', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'echo "a"${PLUGIN_ROOT}/x',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'echo "a""/plugins/vgv-wingspan"/x'),
+            ]),
+          ]),
+        );
+      });
+
       test('quote a copy root that holds a space', () {
         final json = translator
             .hooks(
@@ -205,6 +302,35 @@ void main() {
         expect(
           json,
           contains(r'bash \"/home/Jane Doe/.codex/hooks/vgv-wingspan\"/hooks'),
+        );
+      });
+
+      test('keep a path the plugin already quotes one word', () {
+        final json = translator
+            .hooks(
+              pluginAssets(
+                hooks: [
+                  hookAsset(
+                    fs,
+                    commands: const [
+                      HookCommand(
+                        type: 'command',
+                        command:
+                            r'bash "${PLUGIN_ROOT}/hooks/scripts/analyze.sh"',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              hooksRoot: fs.directory(r'/home/Jane $Doe/.codex/hooks'),
+            )
+            .fragment!;
+
+        expect(
+          json,
+          contains(
+            r'bash \"/home/Jane \\$Doe/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh\"',
+          ),
         );
       });
 

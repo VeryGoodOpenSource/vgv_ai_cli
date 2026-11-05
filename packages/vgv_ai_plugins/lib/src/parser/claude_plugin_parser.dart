@@ -10,9 +10,10 @@ import 'package:vgv_ai_plugins/src/parser/plugin_parser.dart';
 ///
 /// The single place that knows what "Claude-specific" means: the
 /// `user-invocable` default, how `allowed-tools` is written, and the
-/// `${CLAUDE_PLUGIN_ROOT}` hook placeholder. Each file is validated against
-/// its shape in `claude_schemas.dart`, which admits the real, mutually
-/// inconsistent shapes the two plugins ship and throws on anything else.
+/// `${CLAUDE_PLUGIN_ROOT}` placeholder in hooks and in skill and agent bodies.
+/// Each file is validated against its shape in `claude_schemas.dart`, which
+/// admits the real, mutually inconsistent shapes the pinned plugins ship and
+/// throws on anything else.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   /// {@macro claude_plugin_parser}
@@ -20,7 +21,7 @@ class const ClaudePluginParser() implements PluginParser {
 
   @override
   PluginAssets parse(Directory root) {
-    final agents = _readAgents(root.childDirectory('agents'));
+    final agents = _readAgents(root);
     final events = _readHookEvents(root);
     final scoped = [
       for (final agent in agents)
@@ -29,7 +30,7 @@ class const ClaudePluginParser() implements PluginParser {
     // Only a hook needs the name, so a hookless plugin needs no manifest.
     final plugin = events == null && scoped.isEmpty ? null : _pluginName(root);
     return PluginAssets(
-      skills: _readSkills(root.childDirectory('skills')),
+      skills: _readSkills(root),
       agents: [for (final agent in agents) agent.asset],
       mcpServers: _readMcpServers(root.childFile('.mcp.json')),
       hooks: [
@@ -112,10 +113,21 @@ class const ClaudePluginParser() implements PluginParser {
   /// contain spaces, commas and slashes.
   static final _toolPattern = RegExp(r'[\w.-]+(?:\([^)]*\))?');
 
-  /// Claude's name for the plugin root in a hook command, rewritten to
-  /// [HookCommand.rootPlaceholder]. A script's own use of the variable at
-  /// run time stays as written.
+  /// Claude's name for the plugin root: rewritten to
+  /// [HookCommand.rootPlaceholder] in a hook command, and to the root's path
+  /// in a skill or agent body. A script's own use of the variable at run time
+  /// stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
+
+  /// [body] with every [_claudePluginRoot] replaced by the path of [root].
+  ///
+  /// A skill or agent body points at plugin-level files, such as
+  /// `references/` or `scripts/`, that sit outside the skill's own directory
+  /// and are not copied for any harness. They are read in place from [root],
+  /// the same root a hook exports through [HookCommand.rootPlaceholder].
+  /// Claude Code installs the plugin natively and never reads these bodies.
+  String _resolveRoot(String body, Directory root) =>
+      body.replaceAll(_claudePluginRoot, root.path);
 
   /// [name], once it is known to be safe as a file name.
   ///
@@ -128,7 +140,8 @@ class const ClaudePluginParser() implements PluginParser {
     );
   }
 
-  List<SkillAsset> _readSkills(Directory skillsDir) {
+  List<SkillAsset> _readSkills(Directory root) {
+    final skillsDir = root.childDirectory('skills');
     if (!skillsDir.existsSync()) return const [];
 
     final skills = <SkillAsset>[];
@@ -150,7 +163,7 @@ class const ClaudePluginParser() implements PluginParser {
             path: file.path,
           ),
           description: descriptionOf(frontmatter),
-          body: frontmatter.body,
+          body: _resolveRoot(frontmatter.body, root),
           userInvocable: userInvocableOf(frontmatter),
           allowedTools: allowedToolsOf(frontmatter),
           portableFrontmatter: portableFrontmatterOf(frontmatter),
@@ -162,7 +175,8 @@ class const ClaudePluginParser() implements PluginParser {
     return skills;
   }
 
-  List<_AgentFile> _readAgents(Directory agentsDir) {
+  List<_AgentFile> _readAgents(Directory root) {
+    final agentsDir = root.childDirectory('agents');
     if (!agentsDir.existsSync()) return const [];
 
     final agents = <_AgentFile>[];
@@ -185,7 +199,7 @@ class const ClaudePluginParser() implements PluginParser {
               path: file.path,
             ),
             description: frontmatter.description,
-            body: frontmatter.body,
+            body: _resolveRoot(frontmatter.body, root),
             skills: frontmatter.skills,
           ),
           hooks: HooksJson.decode(frontmatter.values, path: file.path).events,

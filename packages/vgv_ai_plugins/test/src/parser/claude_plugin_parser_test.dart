@@ -270,6 +270,37 @@ void main() {
       });
     });
 
+    group('plugin root in bodies', () {
+      late PluginAssets rooted;
+
+      setUp(() {
+        final root = MemoryFileSystem.test().directory('/cache/ffca');
+        root.childFile('skills/a/SKILL.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '---\nname: a\ndescription: d\n---\n'
+            r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+            '\n',
+          );
+        root.childFile('agents/b.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '---\nname: b\ndescription: d\n---\n'
+            r'Run ${CLAUDE_PLUGIN_ROOT}/scripts/y.dart'
+            '\n',
+          );
+        rooted = const ClaudePluginParser().parse(root);
+      });
+
+      test('resolves CLAUDE_PLUGIN_ROOT in a skill body', () {
+        expect(rooted.skills.single.body, 'Read /cache/ffca/references/x.md\n');
+      });
+
+      test('resolves CLAUDE_PLUGIN_ROOT in an agent body', () {
+        expect(rooted.agents.single.body, 'Run /cache/ffca/scripts/y.dart\n');
+      });
+    });
+
     group('mcpServers', () {
       MCPServer? server(String name) =>
           assets.mcpServers.where((server) => server.name == name).singleOrNull;

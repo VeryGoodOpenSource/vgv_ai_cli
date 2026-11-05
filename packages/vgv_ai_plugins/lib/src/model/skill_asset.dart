@@ -5,8 +5,9 @@ import 'package:file/file.dart';
 ///
 /// Every field is portable: whatever only a parser's harness understands is
 /// already interpreted ([description], [userInvocable], [allowedTools]) or
-/// filtered out ([portableFrontmatter]). [directory] is where it was read
-/// from, for copying.
+/// filtered out ([portableFrontmatter]). [body] names the plugin's own files by
+/// their path on disk, not through a harness's placeholder. [directory] is
+/// where it was read from, for copying.
 /// {@endtemplate}
 class const SkillAsset({
   required final String name,

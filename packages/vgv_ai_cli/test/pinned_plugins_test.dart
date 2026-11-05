@@ -51,4 +51,54 @@ void main() {
       expect(plan.changes, isNotEmpty);
     });
   }
+
+  group('plugin files in rendered bodies', () {
+    /// The contents of every file [harness] renders rather than copies, which
+    /// are the only ones carrying the rewritten plugin root.
+    Future<List<String>> rendered(Harness harness) async {
+      final plan = await const Translator().translate(
+        assets: assets,
+        home: home,
+        selected: {harness},
+      );
+      return [
+        for (final change in plan.changes)
+          if (change.source == null) change.contents,
+      ];
+    }
+
+    /// Every path under the plugin cache that [texts] name, without the
+    /// punctuation that may close a sentence.
+    Set<String> referenced(List<String> texts) {
+      final cache = home.childDirectory('.vgv_ai').childDirectory('plugins');
+      final path = RegExp(
+        '${RegExp.escape(cache.path)}/[^\\s`\'")]*[^\\s`\'").,;:]',
+      );
+      return {
+        for (final text in texts)
+          for (final match in path.allMatches(text)) match[0]!,
+      };
+    }
+
+    for (final harness in Harness.values.where((h) => h != Harness.claude)) {
+      test('point ${harness.name} at plugin files that exist', () async {
+        final texts = await rendered(harness);
+        final paths = referenced(texts);
+
+        expect(texts, everyElement(isNot(contains(r'${CLAUDE_PLUGIN_ROOT}'))));
+        expect(paths, isNotEmpty);
+        expect(
+          paths.where(
+            (path) =>
+                home.fileSystem.typeSync(path) == FileSystemEntityType.notFound,
+          ),
+          isEmpty,
+        );
+      });
+    }
+
+    test('are left to Claude Code, which reads the plugin natively', () async {
+      expect(referenced(await rendered(Harness.claude)), isEmpty);
+    });
+  });
 }
