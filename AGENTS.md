@@ -118,11 +118,11 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 Both packages release together. release-please bumps each package's own `pubspec.yaml`, and the `linked-versions` plugin holds them at the same version, so a fix in `vgv_ai_plugins` releases the CLI too — which is how a pin bump reaches users. Only this file needs the generic updater and carries an `x-release-please-version` marker. Nothing else should ever get that marker, least of all `pubspec.yaml`: release-please's `dart` updater rewrites the whole YAML and strips comments, so a marker there is silently lost.
 
-The CLI depends on `vgv_ai_plugins` with the hosted constraint `^0.1.0`, the way `mason_cli` depends on `mason`, and the workspace resolves it from `packages/vgv_ai_plugins` locally. Before 1.0, `bump-patch-for-minor-pre-major` makes `feat:` and `fix:` both bump the patch, so the constraint holds release after release. A breaking change bumps the minor instead (`bump-minor-pre-major`), and its release PR fails `dart pub get` until the constraint is raised to match on the release branch — deliberately, since a breaking release deserves the look.
+The CLI depends on `vgv_ai_plugins` with a hosted caret constraint, the way `mason_cli` depends on `mason`, and the workspace resolves it from `packages/vgv_ai_plugins` locally. Before 1.0, `feat:` bumps the minor and so does a breaking change (`bump-minor-pre-major`), which takes the new version out of the caret's range. The `raise_plugins_constraint` job in `.github/workflows/release_please.yaml` therefore rewrites the constraint to `^<new version>` on the release branch after every release-please run, since release-please force-pushes that branch and would drop a hand-made commit. Never raise it by hand.
 
 The CLI is tagged `vX.Y.Z` and `vgv_ai_plugins` as `vgv_ai_plugins-vX.Y.Z`; `pub_publish.yaml` fires on the former.
 
-You should not need to bump the version by hand at all: release-please owns it. Because it writes the bump straight into `pubspec.yaml`, `.github/workflows/release_please.yaml` regenerates this file on the release branch, otherwise `verify-version` fails on the release PR.
+You should not need to bump the version by hand at all: release-please owns it. It writes the bump into `pubspec.yaml` and, through the CLI's `extra-files` entry, into this file, so `verify-version` passes on the release PR.
 
 ## Code Conventions
 
