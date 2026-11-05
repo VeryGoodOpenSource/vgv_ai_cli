@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 import '../helpers/test_runner.dart';
@@ -39,10 +40,11 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
 
     late PubUpdater pubUpdater;
     late Logger logger;
+    late TestRunner runner;
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      final runner = TestRunner();
+      runner = TestRunner();
       pubUpdater = runner.pubUpdater;
       logger = runner.logger;
       commandRunner = runner.build();
@@ -56,6 +58,27 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
       expect(result, ExitCode.success.code);
       verify(() => logger.info(updatePrompt)).called(1);
     });
+
+    for (final installation in [Installation.homebrew, Installation.script]) {
+      test('update message names the ${installation.name} upgrade '
+          'command', () async {
+        when(() => pubUpdater.getLatestVersion(any()))
+            .thenAnswer((_) async => latestVersion);
+
+        final result = await runner.run([
+          '--version',
+        ], installation: installation);
+        expect(result, ExitCode.success.code);
+        verify(
+          () => logger.info(
+            updatePrompt.replaceFirst(
+              lightCyan.wrap('$executableName update')!,
+              lightCyan.wrap(installation.upgradeCommand)!,
+            ),
+          ),
+        ).called(1);
+      });
+    }
 
     test('stays quiet when the update check fails', () async {
       when(() => pubUpdater.getLatestVersion(any()))

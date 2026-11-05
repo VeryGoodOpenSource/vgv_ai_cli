@@ -11,15 +11,31 @@ current, and removes them again without touching your own configuration.
 
 ## Installation
 
-`vgv_ai` is a Dart package. You need the
+### Install script
+
+The script downloads the prebuilt executable for your platform from the latest
+GitHub release, checks it against its published SHA-256, and installs it to
+`~/.local/bin`. It needs no Dart SDK.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash
+```
+
+Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
+`VGV_AI_INSTALL_DIR` to install somewhere else. Rerun the script to upgrade.
+
+### pub
+
+`vgv_ai` is also a Dart package. You need the
 [Dart SDK](https://dart.dev/get-dart) 3.13 or later.
 
 ```sh
 dart pub global activate vgv_ai_cli
 ```
 
-This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
-that it's installed.
+Either way puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to
+confirm that it's installed. Plugin resolution clones the VGV plugins, so `git`
+has to be on your path too.
 
 macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
 Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
@@ -93,6 +109,13 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
 - **Plugins:** without `--plugin`, every pinned plugin is installed. Pass it
   once per plugin to name the ones you want. What a previous `install` wrote
   for the plugins you leave out stays where it is; `uninstall` removes that.
+- **Plugin files:** skills and agents that point at files elsewhere in their
+  plugin, such as references and scripts, point at the plugin where `install`
+  found it, in `~/.vgv_ai/plugins` or the Claude Code plugin cache. Nothing is
+  copied. If Claude Code drops its copy, those paths break until you run
+  `install` again, and `doctor` reports the files as outdated. If
+  `~/.vgv_ai/plugins` is cleared, `doctor` and `install` fetch it again to
+  the same place.
 
 ### doctor
 
@@ -161,14 +184,18 @@ vgv_ai uninstall --force
 
 ### update
 
-`update` updates `vgv_ai` to the latest version on pub.dev. It takes no flags.
+`update` checks pub.dev for a newer version of `vgv_ai`. It takes no flags.
 
 ```sh
 vgv_ai update
 ```
 
-Every other command also checks pub.dev for a newer version when it finishes,
-and prints how to update when there is one.
+When you installed with pub, it updates `vgv_ai` itself. Otherwise it prints
+the command that updates your installation: `brew upgrade vgv_ai` for Homebrew,
+or the install script for a prebuilt binary.
+
+Every other command also checks for a newer version when it finishes, and
+prints the same command when there is one.
 
 ## Global options
 

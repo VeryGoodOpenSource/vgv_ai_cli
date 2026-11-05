@@ -8,6 +8,10 @@ import 'package:file/file.dart';
 /// [command] is a shell command. Where it references the plugin's own files it
 /// uses the [rootPlaceholder], which no harness understands natively;
 /// substituting the real location is a translator's job.
+///
+/// Skill and agent bodies differ: parsers resolve the placeholder there to the
+/// plugin's path themselves, since a body is prose read in place rather than a
+/// command a translator rewrites.
 /// {@endtemplate}
 class const HookCommand({
   required final String type,

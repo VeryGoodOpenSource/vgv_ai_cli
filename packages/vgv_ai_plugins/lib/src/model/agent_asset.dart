@@ -8,7 +8,8 @@ class const AgentAsset({
   /// What the agent does, on one line.
   required final String description,
 
-  /// The agent's instructions: its markdown file below the frontmatter.
+  /// The agent's instructions: its markdown file below the frontmatter, naming
+  /// the plugin's own files by their path on disk.
   required final String body,
 
   /// The skills the agent expects to have loaded.

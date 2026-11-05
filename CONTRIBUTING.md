@@ -154,6 +154,12 @@ Every push to `main` opens or updates a release pull request that bumps both pac
 same version and writes their `CHANGELOG.md`. Merge it only when a release is intended; merging it tags the release and
 publishes the notes.
 
+The `vX.Y.Z` tag starts two workflows. `pub_publish.yaml` publishes both packages to pub.dev,
+and `release_binaries.yaml` compiles `vgv_ai` on macOS and Linux, arm64 and x64, and attaches
+`vgv_ai-<version>-<os>-<arch>.tar.gz` with a `.sha256` beside each to the GitHub release. To
+attach binaries to a release that lacks them, run `release_binaries` by hand with its `tag`
+input.
+
 Do not bump a version or edit a `CHANGELOG.md` by hand.
 
 ## Breaking changes
@@ -211,3 +217,18 @@ runs when a `pubspec.yaml` changes, and restricts dependency licenses to `MIT`,
 Teaching the CLI a coding agent it does not configure yet touches the `Harness`
 enum, the `agents` brick, a translator, and four test files — five if it has
 hooks. See [adding a harness](ADDING_A_HARNESS.md).
+
+## Adding a plugin
+
+Pinning a new VGV plugin is a few lines in `vgvPlugins`, but the plugin first
+has to be audited against what the parser and translators support. The
+[`add-plugin` skill](.claude/skills/add-plugin/SKILL.md) walks through it, and
+its [`audit_plugin.sh`](.claude/skills/add-plugin/scripts/audit_plugin.sh)
+prints what the CLI would skip or port wrongly.
+
+The script hard-codes what the parser reads (`skills/`, `agents/`,
+`hooks/hooks.json`, `.mcp.json` and `.claude-plugin/plugin.json`), which files
+it rewrites rather than copies, and how it resolves `${CLAUDE_PLUGIN_ROOT}`.
+A pull request that changes any of these in `ClaudePluginParser` or the
+translators updates the script and the skill in the same change, or the audit
+starts reporting the wrong gaps.

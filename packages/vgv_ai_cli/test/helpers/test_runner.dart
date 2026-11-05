@@ -51,13 +51,17 @@ class TestRunner() {
 
   /// A runner carrying [logger] and [pubUpdater], with the given commands
   /// replacing the ones that would otherwise reach the real home directory.
+  ///
+  /// [installation] defaults to the one running the tests, [Installation.pub].
   VgvAiCliCommandRunner build({
+    Installation? installation,
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
     UninstallCommand? uninstallCommand,
   }) => VgvAiCliCommandRunner(
     logger: logger,
     pubUpdater: pubUpdater,
+    installation: installation,
     installCommand: installCommand,
     doctorCommand: doctorCommand,
     uninstallCommand: uninstallCommand,
@@ -66,10 +70,12 @@ class TestRunner() {
   /// Runs [args] through a runner from [build].
   Future<int> run(
     List<String> args, {
+    Installation? installation,
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
     UninstallCommand? uninstallCommand,
   }) => build(
+    installation: installation,
     installCommand: installCommand,
     doctorCommand: doctorCommand,
     uninstallCommand: uninstallCommand,
