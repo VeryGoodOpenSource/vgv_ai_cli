@@ -17,10 +17,42 @@ jobs:
   release_please:
     runs-on: ubuntu-latest
 
+    outputs:
+      pr_branch: ${{ steps.release.outputs.prs_created == 'true' && fromJSON(steps.release.outputs.pr).headBranchName || '' }}
+
     steps:
       - name: 🚀 Release Please
+        id: release
         uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           manifest-file: ".release-please-manifest.json"
           config-file: ".release-please-config.json"
+
+  # release-please force-pushes its branch on every update, so the constraint
+  # is raised again after each run rather than once by hand.
+  raise_plugins_constraint:
+    needs: release_please
+    if: needs.release_please.outputs.pr_branch != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release_please.outputs.pr_branch }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: 🔗 Raise vgv_ai_plugins Constraint
+        run: |
+          version=$(jq -r '."packages/vgv_ai_plugins"' .release-please-manifest.json)
+          sed -i -E "s/^  vgv_ai_plugins: .*/  vgv_ai_plugins: ^${version}/" packages/vgv_ai_cli/pubspec.yaml
+          grep -q "^  vgv_ai_plugins: \^${version}$" packages/vgv_ai_cli/pubspec.yaml
+
+      - name: 📤 Push Constraint
+        run: |
+          git diff --quiet && exit 0
+          git config user.name "VGV Bot"
+          git config user.email vgvbot@users.noreply.github.com
+          git commit -am "chore: raise vgv_ai_plugins constraint"
+          git push
