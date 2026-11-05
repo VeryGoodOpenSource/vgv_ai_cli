@@ -11,15 +11,31 @@ current, and removes them again without touching your own configuration.
 
 ## Installation
 
-`vgv_ai` is a Dart package. You need the
+### Install script
+
+The script downloads the prebuilt executable for your platform from the latest
+GitHub release, checks it against its published SHA-256, and installs it to
+`~/.local/bin`. It needs no Dart SDK.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash
+```
+
+Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
+`VGV_AI_INSTALL_DIR` to install somewhere else. Rerun the script to upgrade.
+
+### pub
+
+`vgv_ai` is also a Dart package. You need the
 [Dart SDK](https://dart.dev/get-dart) 3.13 or later.
 
 ```sh
 dart pub global activate vgv_ai_cli
 ```
 
-This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
-that it's installed.
+Either way puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to
+confirm that it's installed. Plugin resolution clones the VGV plugins, so `git`
+has to be on your path too.
 
 macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
 Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
