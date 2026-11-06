@@ -37,6 +37,24 @@ const vgvPlugins = <PluginRef>[
 ];
 ''';
 
+  // Mirrors pinsSource, so the tests do not depend on the live vgvPlugins.
+  // Not const, or the linter flags `pins:` as redundant while they match.
+  final fixturePins = <PluginRef>[
+    wingspan,
+    const PluginRef(
+      name: 'vgv-ai-flutter-plugin',
+      repo: 'VeryGoodOpenSource/vgv-ai-flutter-plugin',
+      version: '0.0.5',
+      gitRef: 'v0.0.5',
+    ),
+    const PluginRef(
+      name: 'vgv-ffca-plugin',
+      repo: 'VeryGoodOpenSource/vgv-ffca-plugin',
+      version: '0.1.2',
+      gitRef: 'v0.1.2',
+    ),
+  ];
+
   ProcessResult ok(String stdout) => ProcessResult(0, 0, stdout, '');
 
   group('bumpFor', () {
@@ -210,6 +228,7 @@ const vgvPlugins = <PluginRef>[
 
       final bumps = await bumpPins(
         file,
+        pins: fixturePins,
         runGh: releases({
           'vgv-wingspan': 'v0.0.5',
           'vgv-ai-flutter-plugin': 'v0.0.5',
@@ -225,6 +244,7 @@ const vgvPlugins = <PluginRef>[
     test('rewrites only the pins that are behind', () async {
       final bumps = await bumpPins(
         file,
+        pins: fixturePins,
         runGh: releases({
           'vgv-wingspan': 'v0.1.0',
           'vgv-ai-flutter-plugin': 'v0.0.5',
@@ -249,6 +269,7 @@ const vgvPlugins = <PluginRef>[
     test('bumps the FFCA plugin like any other', () async {
       final bumps = await bumpPins(
         file,
+        pins: fixturePins,
         runGh: releases({
           'vgv-wingspan': 'v0.0.5',
           'vgv-ai-flutter-plugin': 'v0.0.5',
