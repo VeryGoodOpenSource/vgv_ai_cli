@@ -135,7 +135,7 @@ void main() {
           parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
-        hasTerminal: () => hasTerminal,
+        hasTerminal: hasTerminal,
       ),
       args,
     );
@@ -298,41 +298,22 @@ void main() {
       });
 
       group('in a terminal', () {
-        /// The plugins the picker offered.
-        List<PluginRef> askedChoices() =>
-            verify(
-                  () => logger.chooseAny<PluginRef>(
-                    any(),
-                    choices: captureAny(named: 'choices'),
-                    defaultValues: any(named: 'defaultValues'),
-                    display: any(named: 'display'),
-                  ),
-                ).captured.single
-                as List<PluginRef>;
+        /// What the picker was given as its [argument], such as `choices`.
+        T asked<T>(String argument) {
+          U match<U>(String name) => name == argument
+              ? captureAny<U>(named: name)
+              : any<U>(named: name);
 
-        /// The plugins the picker started with picked.
-        List<PluginRef> askedDefaults() =>
-            verify(
-                  () => logger.chooseAny<PluginRef>(
-                    any(),
-                    choices: any(named: 'choices'),
-                    defaultValues: captureAny(named: 'defaultValues'),
-                    display: any(named: 'display'),
-                  ),
-                ).captured.single
-                as List<PluginRef>;
-
-        /// How the picker showed each plugin.
-        String Function(PluginRef) askedDisplay() =>
-            verify(
-                  () => logger.chooseAny<PluginRef>(
-                    any(),
-                    choices: any(named: 'choices'),
-                    defaultValues: any(named: 'defaultValues'),
-                    display: captureAny(named: 'display'),
-                  ),
-                ).captured.single
-                as String Function(PluginRef);
+          return verify(
+                () => logger.chooseAny<PluginRef>(
+                  any(),
+                  choices: match('choices'),
+                  defaultValues: match('defaultValues'),
+                  display: match('display'),
+                ),
+              ).captured.single
+              as T;
+        }
 
         test('installs the plugins the user picks', () async {
           when(pickPlugins).thenReturn([vgvPlugins.first]);
@@ -354,7 +335,7 @@ void main() {
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(askedChoices(), vgvPlugins);
+          expect(asked<List<PluginRef>>('choices'), vgvPlugins);
         });
 
         test('picks every pinned plugin on a first run', () async {
@@ -362,7 +343,7 @@ void main() {
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(askedDefaults(), vgvPlugins);
+          expect(asked<List<PluginRef>>('defaultValues'), vgvPlugins);
         });
 
         test('shows each plugin by name', () async {
@@ -370,7 +351,10 @@ void main() {
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(askedDisplay()(vgvPlugins.first), vgvPlugins.first.name);
+          expect(
+            asked<String Function(PluginRef)>('display')(vgvPlugins.first),
+            vgvPlugins.first.name,
+          );
         });
 
         test('picks the plugins already installed on a rerun', () async {
@@ -380,7 +364,7 @@ void main() {
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(askedDefaults(), [vgvPlugins.last]);
+          expect(asked<List<PluginRef>>('defaultValues'), [vgvPlugins.last]);
         });
 
         test('says a plugin left out on a rerun stays installed', () async {
@@ -963,7 +947,7 @@ void main() {
         cachePlugins();
 
         final exitCode = await runThroughRunner(
-          InstallCommand(logger: logger, home: home, hasTerminal: () => false),
+          InstallCommand(logger: logger, home: home, hasTerminal: false),
           ['--only', 'claude', '--check'],
         );
 

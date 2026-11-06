@@ -36,7 +36,7 @@ class InstallCommand({
   final HarnessDetector _detector = const HarnessDetector(),
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
-  final bool Function()? _hasTerminal,
+  bool? hasTerminal,
 }) extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   this {
@@ -64,6 +64,9 @@ class InstallCommand({
   /// The name the CLI registers `install` under, so other code can name it
   /// without constructing one.
   static const String commandName = 'install';
+
+  /// Whether stdin is a terminal, so install can ask which plugins to install.
+  final bool _hasTerminal = hasTerminal ?? stdin.hasTerminal;
 
   /// The outcomes that leave a file with VGV's contributions in it.
   static const Set<ChangeOutcome> _wrote = {
@@ -219,7 +222,7 @@ class InstallCommand({
   Set<String> _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
     final names = argResults!['plugin'] as List<String>;
     if (names.isNotEmpty) return names.toSet();
-    if (!(_hasTerminal?.call() ?? stdin.hasTerminal)) {
+    if (!_hasTerminal) {
       return {for (final plugin in vgvPlugins) plugin.name};
     }
 

@@ -751,7 +751,7 @@ void main() {
               runProcess: clone,
               parser: _FakeParser(assets),
             ),
-            hasTerminal: () => false,
+            hasTerminal: false,
           ),
         );
         expect(exitCode, ExitCode.success.code);
