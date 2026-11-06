@@ -8,12 +8,13 @@ import 'package:vgv_ai_plugins/src/parser/plugin_parser.dart';
 /// {@template claude_plugin_parser}
 /// Reads a Claude Code plugin directory into the harness-neutral model.
 ///
-/// The single place that knows what "Claude-specific" means: the
-/// `user-invocable` default, how `allowed-tools` is written, and the
-/// `${CLAUDE_PLUGIN_ROOT}` placeholder in hooks and in skill and agent bodies.
+/// The single place that knows what "Claude-specific" means: how
+/// `allowed-tools` is written, and the `${CLAUDE_PLUGIN_ROOT}` placeholder in
+/// hooks and in skill and agent bodies.
 /// Each file is validated against its shape in `claude_schemas.dart`, which
 /// admits the real, mutually inconsistent shapes the pinned plugins ship and
-/// throws on anything else.
+/// throws on anything else, and which supplies a key's default when it is
+/// absent, such as `user-invocable` and `disable-model-invocation`.
 /// {@endtemplate}
 class const ClaudePluginParser() implements PluginParser {
   /// {@macro claude_plugin_parser}
@@ -47,13 +48,6 @@ class const ClaudePluginParser() implements PluginParser {
       ],
     );
   }
-
-  /// Whether a skill with this [frontmatter] should be emitted as a command.
-  ///
-  /// The Flutter plugin omits `user-invocable` entirely yet its skills are
-  /// invocable, so an absent key means `true`.
-  static bool userInvocableOf(SkillFrontmatter frontmatter) =>
-      frontmatter.userInvocable ?? true;
 
   /// The tools a skill with this [frontmatter] declares it needs.
   ///
@@ -90,8 +84,9 @@ class const ClaudePluginParser() implements PluginParser {
   /// The [frontmatter] values safe to write for any harness.
   ///
   /// Keeps exactly [SkillAsset.portableKeys]. Claude adds keys such as
-  /// `effort`, `model`, `when_to_use` and `user-invocable` that no other
-  /// harness reads; they are interpreted where they matter and dropped here.
+  /// `effort`, `model`, `when_to_use`, `user-invocable` and
+  /// `disable-model-invocation` that no other harness reads; they are
+  /// interpreted where they matter and dropped here.
   static Map<String, Object?> portableFrontmatterOf(
     SkillFrontmatter frontmatter,
   ) => {
@@ -164,7 +159,8 @@ class const ClaudePluginParser() implements PluginParser {
           ),
           description: descriptionOf(frontmatter),
           body: _resolveRoot(frontmatter.body, root),
-          userInvocable: userInvocableOf(frontmatter),
+          userInvocable: frontmatter.userInvocable,
+          disableModelInvocation: frontmatter.disableModelInvocation,
           allowedTools: allowedToolsOf(frontmatter),
           portableFrontmatter: portableFrontmatterOf(frontmatter),
           directory: entity,

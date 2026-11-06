@@ -23,6 +23,7 @@ in order to tell a format that changed from a translator that was always wrong.
 | Does it have a settings file, and what's its schema? | `settings()` on the translator |
 | Does it read `~/.agents/skills` with no configuration? | `readsSharedSkills` |
 | If not, where does it want its own copy of the skills? | `skillsRoot()` |
+| Can it stop the model starting a skill that sets `disable-model-invocation`? | `honorsModelInvocation`, plus `sharedSkillFiles()` when its equivalent is a file beside the skill |
 | Does it have subagents? What frontmatter do they need? | `agent()`, plus an `agents/` folder in the brick |
 | Does it have slash commands or prompts? | `command()`, plus the folder it reads them from — `prompts/`, `command/`, `commands/`, whatever it calls it |
 | Can anything in its config run a shell command? | `hooks()` and `scripts` |
@@ -213,6 +214,8 @@ class const PiTranslator() extends HarnessTranslator {
 | `harness` | — | Always. |
 | `readsSharedSkills` | `true` | It does not read `~/.agents/skills`. |
 | `skillsRoot(home)` | `null` | It needs its own copy of the skills somewhere. |
+| `honorsModelInvocation` | `false` | It keeps a skill that sets `disable-model-invocation` the user's alone. Otherwise each such skill gets a note. |
+| `sharedSkillFiles(assets, root:)` | nothing | It reads the shared skills and keeps a skill's settings in a file of its own beside it, as Codex does with `agents/openai.yaml`. |
 | `settings(assets)` | `null` | It has a settings file. Return finished JSON or TOML. |
 | `agent(agent, instructions:)` | empty | Its agent files need frontmatter or a TOML body. |
 | `command(skill)` | empty | Its command files need frontmatter or a TOML body. |

@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
+import 'package:yaml/yaml.dart';
 
 import '../_assets.dart';
 
@@ -805,6 +807,59 @@ void main() {
         expect(translation.files, isEmpty);
         expect(translation.notes, isEmpty);
         expect(translator.notes(pluginAssets()), isEmpty);
+      });
+    });
+    group('sharedSkillFiles', () {
+      late MemoryFileSystem fs;
+      late Directory root;
+
+      setUp(() {
+        fs = MemoryFileSystem.test();
+        root = fs.directory('/home/.agents/skills');
+      });
+
+      TranslationResult translate(List<SkillAsset> skills) =>
+          translator.sharedSkillFiles(pluginAssets(skills: skills), root: root);
+
+      test('keep a skill only the user may start from the model', () {
+        final result = translate([
+          skillAsset(fs, 'create-pr', disableModelInvocation: true),
+        ]);
+
+        final policy = result.changes.single;
+        expect(
+          policy.file.path,
+          '/home/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        );
+        expect(policy.contents, CodexTranslator.policy);
+        expect(policy.harness, Harness.codex);
+        expect(loadYaml(policy.contents), {
+          'policy': {'allow_implicit_invocation': false},
+        });
+        expect(result.notes, isEmpty);
+      });
+
+      test('leave every other skill alone', () {
+        final result = translate([skillAsset(fs, 'testing')]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes, isEmpty);
+      });
+
+      test('keep the metadata the skill ships, and say so', () {
+        final skill = skillAsset(fs, 'create-pr', disableModelInvocation: true);
+        skill.directory.childFile(CodexTranslator.metadata)
+          ..createSync(recursive: true)
+          ..writeAsStringSync('interface: {}\n');
+
+        final result = translate([skill]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes.single.subject, 'the create-pr skill');
+        expect(
+          result.notes.single.reason,
+          contains('may start the skill on its own'),
+        );
       });
     });
   });

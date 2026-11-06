@@ -269,6 +269,70 @@ void main() {
       );
     });
 
+    group('a skill only the user may start', () {
+      late PluginAssets userOnly;
+
+      setUp(() {
+        userOnly = pluginAssets(
+          skills: [
+            skillAsset(fs, 'create-pr', disableModelInvocation: true),
+            skillAsset(fs, 'testing'),
+          ],
+        );
+      });
+
+      test(
+        'is named in a note for each harness that cannot keep it so',
+        () async {
+          final unguarded = Harness.values.toSet()
+            ..removeAll({Harness.claude, Harness.codex});
+
+          final plan = await translate(unguarded, using: userOnly);
+
+          for (final harness in unguarded) {
+            final note = plan.harnesses[harness]!.notes.single;
+            expect(note.subject, 'the create-pr skill');
+            expect(
+              note.reason,
+              contains("${harness.displayName}'s config stops the model"),
+            );
+          }
+        },
+      );
+
+      test('needs no note for Claude Code or Codex', () async {
+        final plan = await translate({
+          Harness.claude,
+          Harness.codex,
+        }, using: userOnly);
+
+        expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+        expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
+      });
+
+      test("carries Codex's policy beside the shared copy", () async {
+        final plan = await translate({Harness.codex}, using: userOnly);
+
+        final policy = plan.harnesses[Harness.codex]!.changes.singleWhere(
+          (c) => c.file.path.endsWith(CodexTranslator.metadata),
+        );
+        expect(
+          policy.file.path,
+          '/home/dev/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        );
+        expect(policy.harness, Harness.codex);
+      });
+
+      test('leaves the shared copy without the policy for others', () async {
+        final plan = await translate({Harness.gemini}, using: userOnly);
+
+        expect(
+          plan.changes.map((c) => c.file.path),
+          isNot(contains(endsWith(CodexTranslator.metadata))),
+        );
+      });
+    });
+
     group('renders contents the harness can read', () {
       Future<String> contents(Harness harness, String relative) async {
         final plan = await translate({harness});

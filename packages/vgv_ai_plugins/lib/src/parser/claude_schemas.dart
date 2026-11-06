@@ -161,14 +161,24 @@ extension type SkillFrontmatter._(Frontmatter _frontmatter)
 
   static final ObjectSchema _schema = Ack.object({
     'user-invocable': Ack.boolean().optional(),
+    'disable-model-invocation': Ack.boolean().optional(),
     'allowed-tools': Ack.string().optional(),
     'tools': Ack.string().optional(),
     'when_to_use': Ack.string().optional(),
   }).passthrough();
 
-  /// Whether a user can invoke the skill as a command, or `null` when the
-  /// `user-invocable` key is absent.
-  bool? get userInvocable => values['user-invocable'] as bool?;
+  /// Whether a user can invoke the skill as a command.
+  ///
+  /// The Flutter plugin omits `user-invocable` entirely yet its skills are
+  /// invocable, so an absent key means `true`.
+  bool get userInvocable => values['user-invocable'] as bool? ?? true;
+
+  /// Whether only the user may start the skill, never the model.
+  ///
+  /// Claude Code lets the model start any skill that does not say otherwise,
+  /// so an absent `disable-model-invocation` key means `false`.
+  bool get disableModelInvocation =>
+      values['disable-model-invocation'] as bool? ?? false;
 
   /// The `allowed-tools` value, tool names separated by spaces or commas.
   String? get allowedTools => values['allowed-tools'] as String?;

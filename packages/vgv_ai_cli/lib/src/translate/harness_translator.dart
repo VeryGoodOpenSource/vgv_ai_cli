@@ -34,6 +34,19 @@ abstract class const HarnessTranslator() {
   /// neither the shared copy nor the plugins' own, or null.
   Directory? skillsRoot(Directory home) => null;
 
+  /// Whether this harness can keep a skill that sets
+  /// `disable-model-invocation` the user's alone. One that cannot is told
+  /// so for each such skill, since its model may start the skill on its own.
+  bool get honorsModelInvocation => false;
+
+  /// The files this harness adds beside the shared copy of the skills under
+  /// [root], for one that reads it and keeps a skill's settings in a file of
+  /// its own. Only asked of a harness that [readsSharedSkills].
+  TranslationResult sharedSkillFiles(
+    PluginAssets assets, {
+    required Directory root,
+  }) => const TranslationResult(changes: []);
+
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has
   /// no settings file.
