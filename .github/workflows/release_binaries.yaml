@@ -100,3 +100,57 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Opens a PR on the tap rather than pushing to its protected main. The PR
+  # auto-merges once a code owner approves it and the tap CI is green.
+  homebrew:
+    needs: upload
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+
+      - name: ⬇️ Download Checksums
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vgv_ai-*
+          path: dist
+          merge-multiple: true
+
+      - name: 🍺 Checkout Tap
+        uses: actions/checkout@v7
+        with:
+          repository: VeryGoodOpenSource/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: ✏️ Update Formula
+        run: |
+          tool/update_homebrew_formula.sh tap/Formula/vgv_ai.rb "$TAG" dist
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: 🤖 Create Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          path: tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          branch: vgv_ai-${{ env.VERSION }}
+          commit-message: "chore(vgv_ai): ${{ env.VERSION }}"
+          title: "chore(vgv_ai): ${{ env.VERSION }}"
+          body: |
+            Update `vgv_ai` to [${{ env.VERSION }}](https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}).
+
+            Opened by [release_binaries](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). It merges by itself once approved and green.
+          author: VGV Bot <vgvbot@users.noreply.github.com>
+          committer: VGV Bot <vgvbot@users.noreply.github.com>
+
+      - name: 🔀 Enable Auto-Merge
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: >-
+          gh pr merge "${{ steps.pr.outputs.pull-request-number }}"
+          --auto --squash --repo VeryGoodOpenSource/homebrew-tap
