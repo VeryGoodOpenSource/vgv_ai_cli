@@ -116,6 +116,7 @@ void main() {
       RunProcess? runProcess,
       PluginParser? parser,
       Translator? using,
+      bool hasTerminal = false,
     }) => runThroughRunner(
       InstallCommand(
         logger: logger,
@@ -126,6 +127,7 @@ void main() {
           parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
+        hasTerminal: () => hasTerminal,
       ),
       args,
     );
@@ -285,6 +287,118 @@ void main() {
             skipped.name: '0.0.1',
           },
         });
+      });
+
+      group('in a terminal', () {
+        /// Stubs the picker to answer with [chosen].
+        void choose(List<PluginRef> chosen) {
+          when(
+            () => logger.chooseAny<PluginRef>(
+              any(),
+              choices: any(named: 'choices'),
+              defaultValues: any(named: 'defaultValues'),
+              display: any(named: 'display'),
+            ),
+          ).thenReturn(chosen);
+        }
+
+        /// The arguments the picker was asked with, by name.
+        List<Object?> asked() => verify(
+          () => logger.chooseAny<PluginRef>(
+            any(),
+            choices: captureAny(named: 'choices'),
+            defaultValues: captureAny(named: 'defaultValues'),
+            display: captureAny(named: 'display'),
+          ),
+        ).captured;
+
+        test('installs the plugins the user picks', () async {
+          choose([vgvPlugins.first]);
+
+          final exitCode = await runInstall([
+            '--only',
+            'claude',
+          ], hasTerminal: true);
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.assets?.plugins, [vgvPlugins.first]);
+          expect(ManifestStore(home).load()!.plugins, {
+            Harness.claude: {vgvPlugins.first.name: vgvPlugins.first.version},
+          });
+        });
+
+        test(
+          'offers every pinned plugin by name, all picked at first',
+          () async {
+            choose(vgvPlugins);
+
+            await runInstall(['--only', 'claude'], hasTerminal: true);
+
+            final [choices, defaults, display as String Function(PluginRef)] =
+                asked();
+            expect(choices, vgvPlugins);
+            expect(defaults, vgvPlugins);
+            expect(display(vgvPlugins.first), vgvPlugins.first.name);
+          },
+        );
+
+        test('picks the plugins already installed on a rerun', () async {
+          choose([vgvPlugins.last]);
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+          clearInteractions(logger);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(asked()[1], [vgvPlugins.last]);
+        });
+
+        test('rejects picking no plugin', () async {
+          choose(const []);
+
+          final exitCode = await runInstall([
+            '--only',
+            'claude',
+          ], hasTerminal: true);
+
+          expect(exitCode, ExitCode.usage.code);
+          expect(translator.assets, isNull);
+          verify(() => logger.err(any(that: contains('No plugin selected'))))
+              .called(1);
+        });
+
+        test('does not ask when --plugin names the plugins', () async {
+          await runInstall([
+            '--only',
+            'claude',
+            '--plugin',
+            vgvPlugins.first.name,
+          ], hasTerminal: true);
+
+          expect(translator.assets?.plugins, [vgvPlugins.first]);
+          verifyNever(
+            () => logger.chooseAny<PluginRef>(
+              any(),
+              choices: any(named: 'choices'),
+              defaultValues: any(named: 'defaultValues'),
+              display: any(named: 'display'),
+            ),
+          );
+        });
+      });
+
+      test('installs every pinned plugin outside a terminal', () async {
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.assets?.plugins, vgvPlugins);
+        verifyNever(
+          () => logger.chooseAny<PluginRef>(
+            any(),
+            choices: any(named: 'choices'),
+            defaultValues: any(named: 'defaultValues'),
+            display: any(named: 'display'),
+          ),
+        );
       });
 
       test('rejects a plugin it does not pin', () async {
@@ -797,6 +911,16 @@ void main() {
             ),
           ).createSync(recursive: true);
         }
+        // The real stdin decides whether install asks, so the picker
+        // answers the way a run outside a terminal installs.
+        when(
+          () => logger.chooseAny<PluginRef>(
+            any(),
+            choices: any(named: 'choices'),
+            defaultValues: any(named: 'defaultValues'),
+            display: any(named: 'display'),
+          ),
+        ).thenReturn(vgvPlugins);
 
         final exitCode = await runThroughRunner(
           InstallCommand(logger: logger, home: home),

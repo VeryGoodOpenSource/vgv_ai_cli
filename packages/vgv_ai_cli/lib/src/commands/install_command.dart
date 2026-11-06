@@ -1,3 +1,5 @@
+import 'dart:io' show stdin;
+
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
@@ -21,8 +23,9 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// * `--only` configures the named harnesses, detected or not.
 /// * `--no-<harness>` skips one detected harness. It cannot be combined with
 ///   `--only`, which already names the set.
-/// * `--plugin` installs just the named VGV plugins instead of every pinned
-///   one.
+/// * `--plugin` installs just the named VGV plugins. Without it, a run in a
+///   terminal asks which plugins to install, and any other run installs
+///   every pinned one.
 /// {@endtemplate}
 class InstallCommand({
   required final Logger _logger,
@@ -32,6 +35,7 @@ class InstallCommand({
   final HarnessDetector _detector = const HarnessDetector(),
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
+  final bool Function() _hasTerminal = _stdinHasTerminal,
 }) extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   this {
@@ -50,7 +54,9 @@ class InstallCommand({
       )
       ..addMultiOption(
         'plugin',
-        help: 'Install just these VGV plugins, instead of every pinned one.',
+        help:
+            'Install just these VGV plugins, instead of choosing them in a '
+            'terminal or installing every pinned one outside it.',
         allowed: [for (final plugin in vgvPlugins) plugin.name],
       );
     addHarnessOptions('Configure the Very Good AI tooling for');
@@ -120,7 +126,16 @@ class InstallCommand({
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
 
-    final resolved = await _resolveAssets(home);
+    final plugins = _selectPlugins(manifest, selected);
+    if (plugins?.isEmpty ?? false) {
+      _logger.err(
+        'No plugin selected. Choose at least one, or pass --plugin to name '
+        'one explicitly.',
+      );
+      return ExitCode.usage.code;
+    }
+
+    final resolved = await _resolveAssets(home, plugins);
     if (resolved == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
@@ -193,11 +208,31 @@ class InstallCommand({
     return selected;
   }
 
-  /// The plugins `--plugin` names, or null when it names none and every
-  /// pinned plugin is installed.
-  Set<String>? get _selectedPlugins {
+  /// The plugins to install for [selected]: the ones `--plugin` names, or
+  /// when it names none, the ones the user picks in a terminal, or null
+  /// outside one, where every pinned plugin is installed.
+  ///
+  /// The picker starts from the plugins [manifest] records for [selected],
+  /// so a rerun, such as the fix `doctor` prints, keeps what the user chose
+  /// before, and from every pinned plugin when it records none.
+  Set<String>? _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
     final names = argResults!['plugin'] as List<String>;
-    return names.isEmpty ? null : names.toSet();
+    if (names.isNotEmpty) return names.toSet();
+    if (!_hasTerminal()) return null;
+
+    final recorded = {
+      for (final harness in selected) ...?manifest.plugins[harness]?.keys,
+    };
+    final chosen = _logger.chooseAny(
+      'Which VGV plugins should be installed?',
+      choices: vgvPlugins,
+      defaultValues: [
+        for (final plugin in vgvPlugins)
+          if (recorded.isEmpty || recorded.contains(plugin.name)) plugin,
+      ],
+      display: (plugin) => plugin.name,
+    );
+    return {for (final plugin in chosen) plugin.name};
   }
 
   /// The versions to record for each harness of [selected]: [installed] for
@@ -224,19 +259,18 @@ class InstallCommand({
     };
   }
 
-  /// Resolves and parses the plugins `--plugin` selects into one asset
-  /// bundle, or every pinned one when it selects none.
+  /// Resolves and parses the [plugins] into one asset bundle, or every
+  /// pinned one when [plugins] is null.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
-  Future<ResolvedAssets?> _resolveAssets(Directory home) async {
+  Future<ResolvedAssets?> _resolveAssets(
+    Directory home,
+    Set<String>? plugins,
+  ) async {
     final progress = _logger.progress('Resolving plugins');
 
-    switch (await _resolver.resolve(
-      home,
-      only: _selectedPlugins,
-      log: _logger.detail,
-    )) {
+    switch (await _resolver.resolve(home, only: plugins, log: _logger.detail)) {
       case final ResolvedAssets resolved:
         progress.complete(
           'Resolved ${resolved.assets.skills.length} skills and '
@@ -345,6 +379,9 @@ class InstallCommand({
     );
   }
 }
+
+/// Whether stdin is a terminal a picker can read from.
+bool _stdinHasTerminal() => stdin.hasTerminal;
 
 /// How [harness] is named in the report, with the shared skills as `Shared`.
 String _ownerName(Harness? harness) => harness?.displayName ?? 'Shared';
