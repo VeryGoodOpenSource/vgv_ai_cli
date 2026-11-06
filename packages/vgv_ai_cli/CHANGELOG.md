@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.1.0...v0.2.0) (2026-11-06)
+
+
+### Features
+
+* add an install script for the prebuilt binaries ([#121](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/121)) ([4eb2e09](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/4eb2e09096ba50431ac148d4d0de6c8adfb5ae53))
+* add the Feature-First Clean Architecture plugin ([#125](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/125)) ([16adf61](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/16adf61ab8652ff86d335dfd6543708703c3fb2c))
+* prompt for plugin selection when installing in a terminal ([#132](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/132)) ([96b4402](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/96b4402ec3b104dca7dc3010874bdb4b14dfcfc4))
+* tell update how vgv_ai was installed ([#122](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/122)) ([06f188b](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/06f188b0f53cedc6c7d32dd7559aaefe6ae4c9e3))
+* translate disable-model-invocation to each harness ([#134](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/134)) ([043d756](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/043d756c0de2a3bfbf17095025a5ed87bf5f5a7e))
+
+
+### Bug Fixes
+
+* **uninstall:** delete a manifest that records nothing readable ([#111](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/111)) ([6fc61ed](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/6fc61ed0fcd1e78ddabace8c22be5134281aeca1))
+
+
+### Miscellaneous Chores
+
+* open a Homebrew tap PR on every release ([#123](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/123)) ([b520ce5](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/b520ce5b9ee6c44857a79cefefdea799297c3e50))
+
 ## [0.1.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.1.0...v0.1.0) (2026-11-03)
 
 

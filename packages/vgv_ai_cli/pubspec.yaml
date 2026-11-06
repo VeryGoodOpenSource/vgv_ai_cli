@@ -1,6 +1,6 @@
 name: vgv_ai_cli
 description: A CLI that configures Very Good AI coding agents and tooling
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/VeryGoodOpenSource/vgv_ai_cli
 issue_tracker: https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues
 topics: [cli, ai, agents, tooling]
@@ -21,7 +21,7 @@ dependencies:
   pub_semver: ^2.2.1
   pub_updater: ^0.6.0
   toml: ^0.18.0
-  vgv_ai_plugins: ^0.1.0
+  vgv_ai_plugins: ^0.2.0
 
 dev_dependencies:
   mocktail: ^1.0.5
