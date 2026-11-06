@@ -10,11 +10,13 @@ SkillAsset skillAsset(
   String body = '# Body\n',
   String description = 'what it does',
   bool userInvocable = true,
+  bool disableModelInvocation = false,
 }) => SkillAsset(
   name: name,
   description: description,
   body: body,
   userInvocable: userInvocable,
+  disableModelInvocation: disableModelInvocation,
   allowedTools: const [],
   portableFrontmatter: {'name': name, 'description': description},
   directory: fs.directory('/plugins/wingspan/skills/$name')

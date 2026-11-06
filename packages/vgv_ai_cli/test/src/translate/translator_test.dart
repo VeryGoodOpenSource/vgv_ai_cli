@@ -269,6 +269,60 @@ void main() {
       );
     });
 
+    group('a skill only the user may start', () {
+      late PluginAssets userOnly;
+
+      setUp(() {
+        userOnly = pluginAssets(
+          skills: [
+            skillAsset(fs, 'create-pr', disableModelInvocation: true),
+            skillAsset(fs, 'testing'),
+          ],
+        );
+      });
+
+      test(
+        'is named in a note for each harness that cannot keep it so',
+        () async {
+          final unguarded = Harness.values.toSet()
+            ..removeAll({Harness.claude, Harness.codex});
+
+          final plan = await translate(unguarded, using: userOnly);
+
+          for (final harness in unguarded) {
+            final note = plan.harnesses[harness]!.notes.single;
+            expect(note.subject, 'the create-pr skill');
+            expect(
+              note.reason,
+              contains("${harness.displayName}'s config stops the model"),
+            );
+          }
+        },
+      );
+
+      test('needs no note for Claude Code or Codex', () async {
+        final plan = await translate({
+          Harness.claude,
+          Harness.codex,
+        }, using: userOnly);
+
+        expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+        expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
+      });
+
+      test("carries Codex's policy in the shared copy", () async {
+        final plan = await translate({Harness.codex}, using: userOnly);
+
+        expect(
+          plan.shared!.changes.map((c) => c.file.path),
+          contains(
+            '/home/dev/.agents/skills/create-pr/'
+            '${SkillsTranslator.codexMetadata}',
+          ),
+        );
+      });
+    });
+
     group('renders contents the harness can read', () {
       Future<String> contents(Harness harness, String relative) async {
         final plan = await translate({harness});

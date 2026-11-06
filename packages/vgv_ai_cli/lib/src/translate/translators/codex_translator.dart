@@ -18,6 +18,10 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
+  /// The shared copy of such a skill carries [SkillsTranslator.codexPolicy].
+  @override
+  bool get honorsModelInvocation => true;
+
   /// The keys Codex spells differently from `.mcp.json`.
   static const _renamedKeys = {'headers': 'http_headers'};
 

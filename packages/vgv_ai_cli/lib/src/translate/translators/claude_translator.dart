@@ -24,6 +24,10 @@ class const ClaudeTranslator() extends HarnessTranslator {
   @override
   bool get readsSharedSkills => false;
 
+  /// The plugin system reads `disable-model-invocation` as written.
+  @override
+  bool get honorsModelInvocation => true;
+
   @override
   String settings(PluginAssets assets) => jsonEncode({
     'extraKnownMarketplaces': {

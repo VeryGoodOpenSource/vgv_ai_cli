@@ -103,7 +103,26 @@ class const Translator({
                 'the plugins ship them as shell commands, and nothing in '
                 "${translator.harness.displayName}'s config runs one",
           ),
+        if (!translator.honorsModelInvocation)
+          ..._userOnlyNotes(translator.harness, assets),
       ],
     );
   }
+
+  /// One note per skill only the user should start, for a [harness] whose
+  /// model can start any skill it reads.
+  List<TranslationNote> _userOnlyNotes(
+    Harness harness,
+    PluginAssets assets,
+  ) => [
+    for (final skill in assets.skills)
+      if (skill.disableModelInvocation)
+        TranslationNote(
+          subject: 'the ${skill.name} skill',
+          reason:
+              'it is meant for the user alone, but nothing in '
+              "${harness.displayName}'s config stops the model starting it, "
+              'so it may start it on its own',
+        ),
+  ];
 }

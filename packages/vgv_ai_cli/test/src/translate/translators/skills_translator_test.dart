@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
+import 'package:yaml/yaml.dart';
 
 void main() {
   group(SkillsTranslator, () {
@@ -22,6 +23,7 @@ void main() {
       String body = '# Body\n',
       Map<String, Object?>? frontmatter,
       Map<String, String> files = const {},
+      bool disableModelInvocation = false,
     }) {
       final directory = fs.directory('/plugins/wingspan/skills/$name')
         ..createSync(recursive: true);
@@ -39,10 +41,11 @@ void main() {
         allowedTools: const [],
         portableFrontmatter: frontmatter ?? {'name': name},
         directory: directory,
+        disableModelInvocation: disableModelInvocation,
       );
     }
 
-    TranslationResult translate(List<SkillAsset> skills) =>
+    TranslationResult translate(List<SkillAsset> skills, {Harness? harness}) =>
         const SkillsTranslator().translate(
           assets: PluginAssets(
             skills: skills,
@@ -50,6 +53,7 @@ void main() {
             mcpServers: const [],
           ),
           root: agentsSkillsRoot(home),
+          harness: harness,
         );
 
     PlannedChange changeAt(TranslationResult result, String suffix) =>
@@ -310,6 +314,69 @@ void main() {
         expect(
           changeAt(result, 'references/a.md').contents,
           'mcp__dart__pub here\n',
+        );
+      });
+    });
+
+    group('a skill only the user may start', () {
+      test("carries Codex's policy in the shared copy", () {
+        final result = translate([
+          skill('create-pr', disableModelInvocation: true),
+        ]);
+
+        final policy = changeAt(result, 'create-pr/agents/openai.yaml');
+        expect(policy.contents, SkillsTranslator.codexPolicy);
+        expect(policy.harness, isNull);
+        expect(loadYaml(policy.contents), {
+          'policy': {'allow_implicit_invocation': false},
+        });
+      });
+
+      test('leaves every other skill without one', () {
+        final result = translate([skill('testing')]);
+
+        expect(
+          result.changes.map((c) => c.file.path),
+          isNot(contains(endsWith(SkillsTranslator.codexMetadata))),
+        );
+      });
+
+      test("leaves a harness's own copy without one", () {
+        final result = translate([
+          skill('create-pr', disableModelInvocation: true),
+        ], harness: Harness.antigravity);
+
+        expect(
+          result.changes.map((c) => c.file.path),
+          isNot(contains(endsWith(SkillsTranslator.codexMetadata))),
+        );
+      });
+
+      test('keeps the metadata the skill ships, and says so', () {
+        final result = translate([
+          skill(
+            'create-pr',
+            disableModelInvocation: true,
+            files: {SkillsTranslator.codexMetadata: 'interface: {}\n'},
+          ),
+        ]);
+
+        expect(
+          result.changes.where(
+            (c) => c.file.path.endsWith(SkillsTranslator.codexMetadata),
+          ),
+          [
+            isA<PlannedChange>().having(
+              (c) => c.contents,
+              'contents',
+              'interface: {}\n',
+            ),
+          ],
+        );
+        expect(result.notes.single.subject, 'create-pr');
+        expect(
+          result.notes.single.reason,
+          contains('may start the skill on its own'),
         );
       });
     });

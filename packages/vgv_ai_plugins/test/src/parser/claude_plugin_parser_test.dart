@@ -78,6 +78,20 @@ void main() {
         expect(style.userInvocable, isFalse);
       });
 
+      test('lets the model invoke a skill that does not say otherwise', () {
+        final testing = assets.skills.firstWhere((s) => s.name == 'testing');
+
+        expect(testing.disableModelInvocation, isFalse);
+      });
+
+      test('honours an explicit disable-model-invocation: true', () {
+        final unnamed = assets.skills.firstWhere(
+          (s) => s.name == 'unnamed-skill',
+        );
+
+        expect(unnamed.disableModelInvocation, isTrue);
+      });
+
       test('reads comma-separated allowed-tools', () {
         final animations = assets.skills.firstWhere(
           (s) => s.name == 'animations',
@@ -127,6 +141,13 @@ void main() {
           expect(
             () => parseSkill('user-invocable: nope'),
             throwsAt('#/user-invocable'),
+          );
+        });
+
+        test('a non-boolean disable-model-invocation', () {
+          expect(
+            () => parseSkill('disable-model-invocation: nope'),
+            throwsAt('#/disable-model-invocation'),
           );
         });
 
@@ -868,6 +889,24 @@ void main() {
         test('is true when explicitly true', () {
           expect(
             ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
+            isTrue,
+          );
+        });
+      });
+
+      group('disableModelInvocationOf', () {
+        test('defaults to false when absent', () {
+          expect(
+            ClaudePluginParser.disableModelInvocationOf(fm('name: a')),
+            isFalse,
+          );
+        });
+
+        test('is true when explicitly true', () {
+          expect(
+            ClaudePluginParser.disableModelInvocationOf(
+              fm('disable-model-invocation: true'),
+            ),
             isTrue,
           );
         });
