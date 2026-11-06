@@ -97,6 +97,14 @@ void main() {
       translator = _FakeTranslator();
     });
 
+    /// Asks the plugin picker, matching any arguments.
+    List<PluginRef> pickPlugins() => logger.chooseAny<PluginRef>(
+      any(),
+      choices: any(named: 'choices'),
+      defaultValues: any(named: 'defaultValues'),
+      display: any(named: 'display'),
+    );
+
     /// Clones every plugin by creating its target, since there is no
     /// Claude Code cache under [home].
     Future<ProcessResult> clone(
@@ -292,25 +300,30 @@ void main() {
       group('in a terminal', () {
         /// Stubs the picker to answer with [chosen].
         void choose(List<PluginRef> chosen) {
-          when(
-            () => logger.chooseAny<PluginRef>(
-              any(),
-              choices: any(named: 'choices'),
-              defaultValues: any(named: 'defaultValues'),
-              display: any(named: 'display'),
-            ),
-          ).thenReturn(chosen);
+          when(pickPlugins).thenReturn(chosen);
         }
 
         /// The arguments the picker was asked with, by name.
-        List<Object?> asked() => verify(
-          () => logger.chooseAny<PluginRef>(
-            any(),
-            choices: captureAny(named: 'choices'),
-            defaultValues: captureAny(named: 'defaultValues'),
-            display: captureAny(named: 'display'),
-          ),
-        ).captured;
+        ({
+          List<PluginRef> choices,
+          List<PluginRef> defaults,
+          String Function(PluginRef) display,
+        })
+        asked() {
+          final [choices, defaults, display] = verify(
+            () => logger.chooseAny<PluginRef>(
+              any(),
+              choices: captureAny(named: 'choices'),
+              defaultValues: captureAny(named: 'defaultValues'),
+              display: captureAny(named: 'display'),
+            ),
+          ).captured;
+          return (
+            choices: choices as List<PluginRef>,
+            defaults: defaults as List<PluginRef>,
+            display: display as String Function(PluginRef),
+          );
+        }
 
         test('installs the plugins the user picks', () async {
           choose([vgvPlugins.first]);
@@ -334,8 +347,7 @@ void main() {
 
             await runInstall(['--only', 'claude'], hasTerminal: true);
 
-            final [choices, defaults, display as String Function(PluginRef)] =
-                asked();
+            final (:choices, :defaults, :display) = asked();
             expect(choices, vgvPlugins);
             expect(defaults, vgvPlugins);
             expect(display(vgvPlugins.first), vgvPlugins.first.name);
@@ -349,7 +361,7 @@ void main() {
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(asked()[1], [vgvPlugins.last]);
+          expect(asked().defaults, [vgvPlugins.last]);
         });
 
         test('says a plugin left out on a rerun stays installed', () async {
@@ -403,14 +415,7 @@ void main() {
           ], hasTerminal: true);
 
           expect(translator.assets?.plugins, [vgvPlugins.first]);
-          verifyNever(
-            () => logger.chooseAny<PluginRef>(
-              any(),
-              choices: any(named: 'choices'),
-              defaultValues: any(named: 'defaultValues'),
-              display: any(named: 'display'),
-            ),
-          );
+          verifyNever(pickPlugins);
         });
       });
 
@@ -419,14 +424,7 @@ void main() {
 
         expect(exitCode, ExitCode.success.code);
         expect(translator.assets?.plugins, vgvPlugins);
-        verifyNever(
-          () => logger.chooseAny<PluginRef>(
-            any(),
-            choices: any(named: 'choices'),
-            defaultValues: any(named: 'defaultValues'),
-            display: any(named: 'display'),
-          ),
-        );
+        verifyNever(pickPlugins);
       });
 
       test('rejects a plugin it does not pin', () async {
@@ -959,13 +957,7 @@ void main() {
         'asks which plugins to install only when stdin is a terminal',
         () async {
           cachePlugins();
-          Object chooseAny() => logger.chooseAny<PluginRef>(
-            any(),
-            choices: any(named: 'choices'),
-            defaultValues: any(named: 'defaultValues'),
-            display: any(named: 'display'),
-          );
-          when(chooseAny).thenReturn(vgvPlugins);
+          when(pickPlugins).thenReturn(vgvPlugins);
 
           final exitCode = await runThroughRunner(
             InstallCommand(logger: logger, home: home),
@@ -974,9 +966,9 @@ void main() {
 
           expect(exitCode, ExitCode.success.code);
           if (stdin.hasTerminal) {
-            verify(chooseAny).called(1);
+            verify(pickPlugins).called(1);
           } else {
-            verifyNever(chooseAny);
+            verifyNever(pickPlugins);
           }
         },
       );

@@ -55,9 +55,7 @@ class InstallCommand({
       )
       ..addMultiOption(
         'plugin',
-        help:
-            'Install just these VGV plugins, instead of choosing them in a '
-            'terminal or installing every pinned one outside it.',
+        help: 'Install just these VGV plugins instead of choosing them.',
         allowed: [for (final plugin in vgvPlugins) plugin.name],
       );
     addHarnessOptions('Configure the Very Good AI tooling for');
@@ -128,7 +126,7 @@ class InstallCommand({
     if (manifest == null) return ExitCode.ioError.code;
 
     final plugins = _selectPlugins(manifest, selected);
-    if (plugins?.isEmpty ?? false) {
+    if (plugins.isEmpty) {
       _logger.err(
         'No plugin selected. Choose at least one, or pass --plugin to name '
         'one explicitly.',
@@ -210,29 +208,30 @@ class InstallCommand({
   }
 
   /// The plugins to install for [selected]: the ones `--plugin` names, or
-  /// when it names none, the ones the user picks in a terminal, or null
-  /// outside one, where every pinned plugin is installed.
+  /// when it names none, the ones the user picks in a terminal, or every
+  /// pinned plugin outside one.
   ///
-  /// The picker starts from the plugins [manifest] records for [selected],
-  /// so a rerun keeps what the user chose before, and from every pinned
-  /// plugin when it records none. A recorded plugin the user leaves out
-  /// stays installed, which the user is told, since a picker suggests
-  /// otherwise.
-  Set<String>? _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
+  /// The picker starts from the pinned plugins [manifest] records for
+  /// [selected], so a rerun keeps what the user chose before, and from every
+  /// pinned plugin when it records none of them. A recorded plugin the user
+  /// leaves out stays installed, which the user is told, since a picker
+  /// suggests otherwise.
+  Set<String> _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
     final names = argResults!['plugin'] as List<String>;
     if (names.isNotEmpty) return names.toSet();
-    if (!_hasTerminal()) return null;
+    if (!_hasTerminal()) return {for (final plugin in vgvPlugins) plugin.name};
 
     final recorded = {
       for (final harness in selected) ...?manifest.plugins[harness]?.keys,
     };
+    final installed = [
+      for (final plugin in vgvPlugins)
+        if (recorded.contains(plugin.name)) plugin,
+    ];
     final chosen = _logger.chooseAny(
       'Which VGV plugins should be installed?',
       choices: vgvPlugins,
-      defaultValues: [
-        for (final plugin in vgvPlugins)
-          if (recorded.isEmpty || recorded.contains(plugin.name)) plugin,
-      ],
+      defaultValues: installed.isEmpty ? vgvPlugins : installed,
       display: (plugin) => plugin.name,
     );
     final picked = {for (final plugin in chosen) plugin.name};
@@ -271,14 +270,13 @@ class InstallCommand({
     };
   }
 
-  /// Resolves and parses the [plugins] into one asset bundle, or every
-  /// pinned one when [plugins] is null.
+  /// Resolves and parses the [plugins] into one asset bundle.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
   Future<ResolvedAssets?> _resolveAssets(
     Directory home,
-    Set<String>? plugins,
+    Set<String> plugins,
   ) async {
     final progress = _logger.progress('Resolving plugins');
 
