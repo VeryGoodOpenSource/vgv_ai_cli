@@ -12,7 +12,8 @@ class const FixCommand({
   /// Whether VGV's values must replace ones changed since install.
   final bool force = false,
 
-  /// The plugins to install, or empty for every pinned one.
+  /// The plugins to install, or empty to pass no `--plugin`, which installs
+  /// every pinned one outside a terminal and pre-selects them all in one.
   ///
   /// Named so the fix cannot install a plugin the user left out of a
   /// harness with `install --plugin`.

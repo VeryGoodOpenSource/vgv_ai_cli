@@ -18,7 +18,8 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// {@template install_command}
 /// Configures the Very Good AI tooling for the detected coding-agent harnesses.
 ///
-/// * `--check` prints the changes without writing them.
+/// * `--check` prints the changes without writing them. It still asks which
+///   plugins to install in a terminal, so it shows what a real run would do.
 /// * `--force` takes VGV's values where they conflict with the user's.
 /// * `--only` configures the named harnesses, detected or not.
 /// * `--no-<harness>` skips one detected harness. It cannot be combined with
@@ -213,8 +214,10 @@ class InstallCommand({
   /// outside one, where every pinned plugin is installed.
   ///
   /// The picker starts from the plugins [manifest] records for [selected],
-  /// so a rerun, such as the fix `doctor` prints, keeps what the user chose
-  /// before, and from every pinned plugin when it records none.
+  /// so a rerun keeps what the user chose before, and from every pinned
+  /// plugin when it records none. A recorded plugin the user leaves out
+  /// stays installed, which the user is told, since a picker suggests
+  /// otherwise.
   Set<String>? _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
     final names = argResults!['plugin'] as List<String>;
     if (names.isNotEmpty) return names.toSet();
@@ -232,7 +235,16 @@ class InstallCommand({
       ],
       display: (plugin) => plugin.name,
     );
-    return {for (final plugin in chosen) plugin.name};
+    final picked = {for (final plugin in chosen) plugin.name};
+
+    final kept = recorded.difference(picked);
+    if (picked.isNotEmpty && kept.isNotEmpty) {
+      _logger.info(
+        'Keeping ${kept.join(', ')}, which a previous install wrote. Run '
+        "${lightCyan.wrap('uninstall')} to remove VGV's plugins.",
+      );
+    }
+    return picked;
   }
 
   /// The versions to record for each harness of [selected]: [installed] for
