@@ -57,8 +57,8 @@ const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-ai-flutter-plugin',
     repo: 'VeryGoodOpenSource/vgv-ai-flutter-plugin',
-    version: '0.0.5',
-    gitRef: 'v0.0.5',
+    version: '0.1.0',
+    gitRef: 'v0.1.0',
   ),
   PluginRef(
     name: 'vgv-ffca-plugin',
