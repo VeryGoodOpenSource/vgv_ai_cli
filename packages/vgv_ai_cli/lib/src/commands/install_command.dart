@@ -36,7 +36,7 @@ class InstallCommand({
   final HarnessDetector _detector = const HarnessDetector(),
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
-  final bool Function() _hasTerminal = _stdinHasTerminal,
+  final bool Function()? _hasTerminal,
 }) extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   this {
@@ -219,7 +219,9 @@ class InstallCommand({
   Set<String> _selectPlugins(InstallManifest manifest, Set<Harness> selected) {
     final names = argResults!['plugin'] as List<String>;
     if (names.isNotEmpty) return names.toSet();
-    if (!_hasTerminal()) return {for (final plugin in vgvPlugins) plugin.name};
+    if (!(_hasTerminal?.call() ?? stdin.hasTerminal)) {
+      return {for (final plugin in vgvPlugins) plugin.name};
+    }
 
     final recorded = {
       for (final harness in selected) ...?manifest.plugins[harness]?.keys,
@@ -389,9 +391,6 @@ class InstallCommand({
     );
   }
 }
-
-/// Whether stdin is a terminal a picker can read from.
-bool _stdinHasTerminal() => stdin.hasTerminal;
 
 /// How [harness] is named in the report, with the shared skills as `Shared`.
 String _ownerName(Harness? harness) => harness?.displayName ?? 'Shared';

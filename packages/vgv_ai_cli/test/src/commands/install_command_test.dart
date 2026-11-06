@@ -298,35 +298,44 @@ void main() {
       });
 
       group('in a terminal', () {
-        /// Stubs the picker to answer with [chosen].
-        void choose(List<PluginRef> chosen) {
-          when(pickPlugins).thenReturn(chosen);
-        }
+        /// The plugins the picker offered.
+        List<PluginRef> askedChoices() =>
+            verify(
+                  () => logger.chooseAny<PluginRef>(
+                    any(),
+                    choices: captureAny(named: 'choices'),
+                    defaultValues: any(named: 'defaultValues'),
+                    display: any(named: 'display'),
+                  ),
+                ).captured.single
+                as List<PluginRef>;
 
-        /// The arguments the picker was asked with, by name.
-        ({
-          List<PluginRef> choices,
-          List<PluginRef> defaults,
-          String Function(PluginRef) display,
-        })
-        asked() {
-          final [choices, defaults, display] = verify(
-            () => logger.chooseAny<PluginRef>(
-              any(),
-              choices: captureAny(named: 'choices'),
-              defaultValues: captureAny(named: 'defaultValues'),
-              display: captureAny(named: 'display'),
-            ),
-          ).captured;
-          return (
-            choices: choices as List<PluginRef>,
-            defaults: defaults as List<PluginRef>,
-            display: display as String Function(PluginRef),
-          );
-        }
+        /// The plugins the picker started with picked.
+        List<PluginRef> askedDefaults() =>
+            verify(
+                  () => logger.chooseAny<PluginRef>(
+                    any(),
+                    choices: any(named: 'choices'),
+                    defaultValues: captureAny(named: 'defaultValues'),
+                    display: any(named: 'display'),
+                  ),
+                ).captured.single
+                as List<PluginRef>;
+
+        /// How the picker showed each plugin.
+        String Function(PluginRef) askedDisplay() =>
+            verify(
+                  () => logger.chooseAny<PluginRef>(
+                    any(),
+                    choices: any(named: 'choices'),
+                    defaultValues: any(named: 'defaultValues'),
+                    display: captureAny(named: 'display'),
+                  ),
+                ).captured.single
+                as String Function(PluginRef);
 
         test('installs the plugins the user picks', () async {
-          choose([vgvPlugins.first]);
+          when(pickPlugins).thenReturn([vgvPlugins.first]);
 
           final exitCode = await runInstall([
             '--only',
@@ -340,34 +349,44 @@ void main() {
           });
         });
 
-        test(
-          'offers every pinned plugin by name, all picked at first',
-          () async {
-            choose(vgvPlugins);
+        test('offers every pinned plugin', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
 
-            await runInstall(['--only', 'claude'], hasTerminal: true);
+          await runInstall(['--only', 'claude'], hasTerminal: true);
 
-            final (:choices, :defaults, :display) = asked();
-            expect(choices, vgvPlugins);
-            expect(defaults, vgvPlugins);
-            expect(display(vgvPlugins.first), vgvPlugins.first.name);
-          },
-        );
+          expect(askedChoices(), vgvPlugins);
+        });
+
+        test('picks every pinned plugin on a first run', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(askedDefaults(), vgvPlugins);
+        });
+
+        test('shows each plugin by name', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(askedDisplay()(vgvPlugins.first), vgvPlugins.first.name);
+        });
 
         test('picks the plugins already installed on a rerun', () async {
-          choose([vgvPlugins.last]);
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
           await runInstall(['--only', 'claude'], hasTerminal: true);
           clearInteractions(logger);
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
-          expect(asked().defaults, [vgvPlugins.last]);
+          expect(askedDefaults(), [vgvPlugins.last]);
         });
 
         test('says a plugin left out on a rerun stays installed', () async {
-          choose(vgvPlugins);
+          when(pickPlugins).thenReturn(vgvPlugins);
           await runInstall(['--only', 'claude'], hasTerminal: true);
-          choose([vgvPlugins.last]);
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
@@ -384,7 +403,7 @@ void main() {
         });
 
         test('says nothing is kept on a first run', () async {
-          choose([vgvPlugins.last]);
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
 
           await runInstall(['--only', 'claude'], hasTerminal: true);
 
@@ -392,7 +411,7 @@ void main() {
         });
 
         test('rejects picking no plugin', () async {
-          choose(const []);
+          when(pickPlugins).thenReturn(const []);
 
           final exitCode = await runInstall([
             '--only',
