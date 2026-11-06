@@ -340,7 +340,8 @@ class DoctorCommand({
   }
 
   /// The plugin names a fix must name, or none when [recorded] holds every
-  /// pinned plugin, which `install` writes without being asked.
+  /// pinned plugin, which is what `install` without `--plugin` installs
+  /// outside a terminal and pre-selects in one.
   Set<String> _selected(Map<String, String> recorded) =>
       vgvPlugins.every((plugin) => recorded.containsKey(plugin.name))
       ? const {}

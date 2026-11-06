@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform, ProcessException, ProcessResult;
+import 'dart:io' show Platform, ProcessException, ProcessResult, stdin;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -97,6 +97,14 @@ void main() {
       translator = _FakeTranslator();
     });
 
+    /// Asks the plugin picker, matching any arguments.
+    List<PluginRef> pickPlugins() => logger.chooseAny<PluginRef>(
+      any(),
+      choices: any(named: 'choices'),
+      defaultValues: any(named: 'defaultValues'),
+      display: any(named: 'display'),
+    );
+
     /// Clones every plugin by creating its target, since there is no
     /// Claude Code cache under [home].
     Future<ProcessResult> clone(
@@ -116,6 +124,7 @@ void main() {
       RunProcess? runProcess,
       PluginParser? parser,
       Translator? using,
+      bool hasTerminal = false,
     }) => runThroughRunner(
       InstallCommand(
         logger: logger,
@@ -126,6 +135,7 @@ void main() {
           parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
+        hasTerminal: hasTerminal,
       ),
       args,
     );
@@ -285,6 +295,139 @@ void main() {
             skipped.name: '0.0.1',
           },
         });
+      });
+
+      group('in a terminal', () {
+        /// What the picker was given as its [argument], such as `choices`.
+        T asked<T>(String argument) {
+          U match<U>(String name) => name == argument
+              ? captureAny<U>(named: name)
+              : any<U>(named: name);
+
+          return verify(
+                () => logger.chooseAny<PluginRef>(
+                  any(),
+                  choices: match('choices'),
+                  defaultValues: match('defaultValues'),
+                  display: match('display'),
+                ),
+              ).captured.single
+              as T;
+        }
+
+        test('installs the plugins the user picks', () async {
+          when(pickPlugins).thenReturn([vgvPlugins.first]);
+
+          final exitCode = await runInstall([
+            '--only',
+            'claude',
+          ], hasTerminal: true);
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.assets?.plugins, [vgvPlugins.first]);
+          expect(ManifestStore(home).load()!.plugins, {
+            Harness.claude: {vgvPlugins.first.name: vgvPlugins.first.version},
+          });
+        });
+
+        test('offers every pinned plugin', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(asked<List<PluginRef>>('choices'), vgvPlugins);
+        });
+
+        test('picks every pinned plugin on a first run', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(asked<List<PluginRef>>('defaultValues'), vgvPlugins);
+        });
+
+        test('shows each plugin by name', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(
+            asked<String Function(PluginRef)>('display')(vgvPlugins.first),
+            vgvPlugins.first.name,
+          );
+        });
+
+        test('picks the plugins already installed on a rerun', () async {
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+          clearInteractions(logger);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          expect(asked<List<PluginRef>>('defaultValues'), [vgvPlugins.last]);
+        });
+
+        test('says a plugin left out on a rerun stays installed', () async {
+          when(pickPlugins).thenReturn(vgvPlugins);
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          verify(
+            () => logger.info(
+              any(
+                that: allOf(
+                  contains('Keeping ${vgvPlugins.first.name}'),
+                  contains('uninstall'),
+                ),
+              ),
+            ),
+          ).called(1);
+        });
+
+        test('says nothing is kept on a first run', () async {
+          when(pickPlugins).thenReturn([vgvPlugins.last]);
+
+          await runInstall(['--only', 'claude'], hasTerminal: true);
+
+          verifyNever(() => logger.info(any(that: startsWith('Keeping'))));
+        });
+
+        test('rejects picking no plugin', () async {
+          when(pickPlugins).thenReturn(const []);
+
+          final exitCode = await runInstall([
+            '--only',
+            'claude',
+          ], hasTerminal: true);
+
+          expect(exitCode, ExitCode.usage.code);
+          expect(translator.assets, isNull);
+          verify(() => logger.err(any(that: contains('No plugin selected'))))
+              .called(1);
+          verifyNever(() => logger.progress('Resolving plugins'));
+        });
+
+        test('does not ask when --plugin names the plugins', () async {
+          await runInstall([
+            '--only',
+            'claude',
+            '--plugin',
+            vgvPlugins.first.name,
+          ], hasTerminal: true);
+
+          expect(translator.assets?.plugins, [vgvPlugins.first]);
+          verifyNever(pickPlugins);
+        });
+      });
+
+      test('installs every pinned plugin outside a terminal', () async {
+        final exitCode = await runInstall(['--only', 'claude']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.assets?.plugins, vgvPlugins);
+        verifyNever(pickPlugins);
       });
 
       test('rejects a plugin it does not pin', () async {
@@ -785,8 +928,9 @@ void main() {
         ).called(1);
       });
 
-      test('plugins resolve from the Claude Code cache under home', () async {
-        // A complete cache, so the default resolver never runs a real git.
+      /// Fills the Claude Code cache under home, so the default resolver
+      /// never runs a real git.
+      void cachePlugins() {
         for (final plugin in vgvPlugins) {
           homeFile(
             fs.path.join(
@@ -797,9 +941,13 @@ void main() {
             ),
           ).createSync(recursive: true);
         }
+      }
+
+      test('plugins resolve from the Claude Code cache under home', () async {
+        cachePlugins();
 
         final exitCode = await runThroughRunner(
-          InstallCommand(logger: logger, home: home),
+          InstallCommand(logger: logger, home: home, hasTerminal: false),
           ['--only', 'claude', '--check'],
         );
 
@@ -807,6 +955,26 @@ void main() {
         verify(() => progress.complete('Resolved 0 skills and 0 agents'))
             .called(1);
       });
+
+      test(
+        'asks which plugins to install only when stdin is a terminal',
+        () async {
+          cachePlugins();
+          when(pickPlugins).thenReturn(vgvPlugins);
+
+          final exitCode = await runThroughRunner(
+            InstallCommand(logger: logger, home: home),
+            ['--only', 'claude', '--check'],
+          );
+
+          expect(exitCode, ExitCode.success.code);
+          if (stdin.hasTerminal) {
+            verify(pickPlugins).called(1);
+          } else {
+            verifyNever(pickPlugins);
+          }
+        },
+      );
     });
   });
 }

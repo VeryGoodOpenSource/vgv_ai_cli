@@ -100,7 +100,7 @@ vgv_ai install --no-claude
 # Also overwrite your values that conflict with the ones install writes
 vgv_ai install --force
 
-# Install just the VGV plugins you name, instead of every pinned one
+# Install just the VGV plugins you name, instead of choosing them
 vgv_ai install --plugin vgv-wingspan
 ```
 
@@ -119,9 +119,12 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   are written whole. A file you edited since `install` wrote it, or one at the
   same path that `install` didn't write, is kept unless you pass `--force`.
 - **Selection:** `--only` and `--no-<harness>` can't be combined.
-- **Plugins:** without `--plugin`, every pinned plugin is installed. Pass it
-  once per plugin to name the ones you want. What a previous `install` wrote
-  for the plugins you leave out stays where it is; `uninstall` removes that.
+- **Plugins:** pass `--plugin` once per plugin to name the ones you want.
+  Without it, `install` run in a terminal asks which plugins to install,
+  starting from the ones it installed before, or every pinned one the first
+  time; run any other way, such as in CI, it installs every pinned plugin.
+  What a previous `install` wrote for the plugins you leave out stays where
+  it is; `uninstall` removes that.
 - **Plugin files:** skills and agents that point at files elsewhere in their
   plugin, such as references and scripts, point at the plugin where `install`
   found it, in `~/.vgv_ai/plugins` or the Claude Code plugin cache. Nothing is
