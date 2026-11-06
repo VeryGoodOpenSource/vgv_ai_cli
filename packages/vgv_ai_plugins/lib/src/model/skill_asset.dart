@@ -4,10 +4,12 @@ import 'package:file/file.dart';
 /// A skill resolved from a plugin, in a harness-neutral shape.
 ///
 /// Every field is portable: whatever only a parser's harness understands is
-/// already interpreted ([description], [userInvocable], [allowedTools]) or
-/// filtered out ([portableFrontmatter]). [body] names the plugin's own files by
-/// their path on disk, not through a harness's placeholder. [directory] is
-/// where it was read from, for copying.
+/// already interpreted ([description], [userInvocable],
+/// [disableModelInvocation], [allowedTools]) or filtered out
+/// ([portableFrontmatter]). [body] names the plugin's own files by their path
+/// on disk, not through a harness's placeholder. [directory] is where it was
+/// read from, for copying. [disableModelInvocation] keeps it the user's alone
+/// to start.
 /// {@endtemplate}
 class const SkillAsset({
   required final String name,
@@ -17,6 +19,7 @@ class const SkillAsset({
   required final List<String> allowedTools,
   required final Map<String, Object?> portableFrontmatter,
   required final Directory directory,
+  final bool disableModelInvocation = false,
 }) {
   /// {@macro skill_asset}
   this;
