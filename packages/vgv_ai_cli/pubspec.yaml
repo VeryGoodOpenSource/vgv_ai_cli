@@ -21,7 +21,7 @@ dependencies:
   pub_semver: ^2.2.1
   pub_updater: ^0.6.0
   toml: ^0.18.0
-  vgv_ai_plugins: ^0.1.0
+  vgv_ai_plugins: ^0.2.0
 
 dev_dependencies:
   mocktail: ^1.0.5
