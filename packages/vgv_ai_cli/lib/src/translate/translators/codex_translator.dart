@@ -18,9 +18,56 @@ class const CodexTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.codex;
 
-  /// The shared copy of such a skill carries [SkillsTranslator.codexPolicy].
+  /// The shared copy of such a skill carries [policy], from
+  /// [sharedSkillFiles].
   @override
   bool get honorsModelInvocation => true;
+
+  /// Where Codex reads a skill's metadata, relative to the skill.
+  static const metadata = 'agents/openai.yaml';
+
+  /// Codex's way of keeping a skill the user's alone: the model may not start
+  /// it, and the user still can by naming it.
+  ///
+  /// See https://developers.openai.com/codex/skills.
+  static const policy = '''
+policy:
+  allow_implicit_invocation: false
+''';
+
+  /// [policy] at [metadata] in the shared copy of each skill that sets
+  /// `disable-model-invocation`, unless the skill ships its own file there,
+  /// which the shared copy carries as written and which is noted.
+  @override
+  TranslationResult sharedSkillFiles(
+    PluginAssets assets, {
+    required Directory root,
+  }) {
+    final changes = <PlannedChange>[];
+    final notes = <TranslationNote>[];
+    for (final skill in assets.skills) {
+      if (!skill.disableModelInvocation) continue;
+      if (skill.directory.childFile(metadata).existsSync()) {
+        notes.add(
+          TranslationNote(
+            subject: 'the ${skill.name} skill',
+            reason:
+                'it ships its own $metadata, so Codex gets that one as '
+                'written and may start the skill on its own',
+          ),
+        );
+        continue;
+      }
+      changes.add(
+        PlannedChange.text(
+          file: root.childDirectory(skill.name).childFile(metadata),
+          contents: policy,
+          harness: harness,
+        ),
+      );
+    }
+    return TranslationResult(changes: changes, notes: notes);
+  }
 
   /// The keys Codex spells differently from `.mcp.json`.
   static const _renamedKeys = {'headers': 'http_headers'};

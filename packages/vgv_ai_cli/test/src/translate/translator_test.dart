@@ -310,15 +310,25 @@ void main() {
         expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
       });
 
-      test("carries Codex's policy in the shared copy", () async {
+      test("carries Codex's policy beside the shared copy", () async {
         final plan = await translate({Harness.codex}, using: userOnly);
 
+        final policy = plan.harnesses[Harness.codex]!.changes.singleWhere(
+          (c) => c.file.path.endsWith(CodexTranslator.metadata),
+        );
         expect(
-          plan.shared!.changes.map((c) => c.file.path),
-          contains(
-            '/home/dev/.agents/skills/create-pr/'
-            '${SkillsTranslator.codexMetadata}',
-          ),
+          policy.file.path,
+          '/home/dev/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        );
+        expect(policy.harness, Harness.codex);
+      });
+
+      test('leaves the shared copy without the policy for others', () async {
+        final plan = await translate({Harness.gemini}, using: userOnly);
+
+        expect(
+          plan.changes.map((c) => c.file.path),
+          isNot(contains(endsWith(CodexTranslator.metadata))),
         );
       });
     });

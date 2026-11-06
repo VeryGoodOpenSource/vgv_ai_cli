@@ -874,39 +874,28 @@ void main() {
         });
       });
 
-      group('userInvocableOf', () {
+      group('userInvocable', () {
         test('defaults to true when absent', () {
-          expect(ClaudePluginParser.userInvocableOf(fm('name: a')), isTrue);
+          expect(fm('name: a').userInvocable, isTrue);
         });
 
         test('is false only when explicitly false', () {
-          expect(
-            ClaudePluginParser.userInvocableOf(fm('user-invocable: false')),
-            isFalse,
-          );
+          expect(fm('user-invocable: false').userInvocable, isFalse);
         });
 
         test('is true when explicitly true', () {
-          expect(
-            ClaudePluginParser.userInvocableOf(fm('user-invocable: true')),
-            isTrue,
-          );
+          expect(fm('user-invocable: true').userInvocable, isTrue);
         });
       });
 
-      group('disableModelInvocationOf', () {
+      group('disableModelInvocation', () {
         test('defaults to false when absent', () {
-          expect(
-            ClaudePluginParser.disableModelInvocationOf(fm('name: a')),
-            isFalse,
-          );
+          expect(fm('name: a').disableModelInvocation, isFalse);
         });
 
         test('is true when explicitly true', () {
           expect(
-            ClaudePluginParser.disableModelInvocationOf(
-              fm('disable-model-invocation: true'),
-            ),
+            fm('disable-model-invocation: true').disableModelInvocation,
             isTrue,
           );
         });

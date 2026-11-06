@@ -90,12 +90,21 @@ class const Translator({
       ),
       _ => null,
     };
+    final shared = translator.readsSharedSkills
+        ? translator.sharedSkillFiles(assets, root: agentsSkillsRoot(home))
+        : null;
     return TranslationResult(
-      changes: [...?rendered, ...?hooks?.files, ...?own?.changes],
+      changes: [
+        ...?rendered,
+        ...?hooks?.files,
+        ...?own?.changes,
+        ...?shared?.changes,
+      ],
       notes: [
         ...translator.notes(assets),
         ...?hooks?.notes,
         ...?own?.notes,
+        ...?shared?.notes,
         if (hooks == null && assets.hooks.isNotEmpty)
           TranslationNote(
             subject: '${assets.hooks.length} hook(s)',

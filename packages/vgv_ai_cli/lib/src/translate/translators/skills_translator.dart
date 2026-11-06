@@ -29,7 +29,6 @@ class const SkillsTranslator() {
 
     for (final skill in assets.skills) {
       final target = root.fileSystem.directory(p.join(root.path, skill.name));
-      final bundled = _bundledFiles(skill, target, notes, harness: harness);
       changes
         ..add(
           PlannedChange(
@@ -38,53 +37,10 @@ class const SkillsTranslator() {
             harness: harness,
           ),
         )
-        ..addAll(bundled);
-      if (harness == null && skill.disableModelInvocation) {
-        changes.addAll(_codexPolicy(skill, target, bundled, notes));
-      }
+        ..addAll(_bundledFiles(skill, target, notes, harness: harness));
     }
 
     return TranslationResult(changes: changes, notes: notes);
-  }
-
-  /// Where Codex reads a skill's metadata, relative to the skill.
-  static const codexMetadata = 'agents/openai.yaml';
-
-  /// Codex's way of keeping a skill the user's alone: the model may not start
-  /// it, and the user still can by naming it.
-  ///
-  /// See https://developers.openai.com/codex/skills.
-  static const codexPolicy = '''
-policy:
-  allow_implicit_invocation: false
-''';
-
-  /// [codexPolicy] at [codexMetadata] in [target], unless [skill] ships its
-  /// own file there among [bundled], which is copied as written and noted.
-  ///
-  /// Only the shared copy carries it: it is the one Codex reads, and every
-  /// other harness ignores the file.
-  List<PlannedChange> _codexPolicy(
-    SkillAsset skill,
-    Directory target,
-    List<PlannedChange> bundled,
-    List<TranslationNote> notes,
-  ) {
-    final file = target.fileSystem.file(p.join(target.path, codexMetadata));
-    if (bundled.any((change) => change.file.path == file.path)) {
-      notes.add(
-        TranslationNote(
-          subject: skill.name,
-          reason:
-              'it ships its own $codexMetadata, so Codex gets that one as '
-              'written and may start the skill on its own',
-        ),
-      );
-      return const [];
-    }
-    return [
-      PlannedChange.text(file: file, contents: codexPolicy, harness: null),
-    ];
   }
 
   /// The variable Claude Code expands to a skill's own directory.
