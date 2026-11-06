@@ -63,7 +63,7 @@ const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-ffca-plugin',
     repo: 'VeryGoodOpenSource/vgv-ffca-plugin',
-    version: '0.1.2',
-    gitRef: 'v0.1.2',
+    version: '0.1.3',
+    gitRef: 'v0.1.3',
   ),
 ];
