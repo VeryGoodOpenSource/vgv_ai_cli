@@ -55,7 +55,12 @@ enum Harness({
     displayName: 'Antigravity',
     executable: 'agy',
     config: '.gemini/config',
-  );
+  ),
+
+  /// Devin CLI, which keeps its config under the XDG config root. On Windows
+  /// that config lives in `%APPDATA%\\devin` instead, which this
+  /// home-relative path cannot spell, so Devin is macOS and Linux only.
+  devin(displayName: 'Devin', executable: 'devin', config: '.config/devin');
 
   /// The directory this harness reads its user-level config from.
   Directory configDirectory(Directory home) => home.fileSystem.directory(
