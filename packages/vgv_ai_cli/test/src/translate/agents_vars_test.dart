@@ -34,6 +34,7 @@ void main() {
           'pi': true,
           'copilot': false,
           'antigravity': false,
+          'devin': false,
         },
       );
     });

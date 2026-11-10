@@ -9,4 +9,5 @@ const harnessTranslators = <HarnessTranslator>[
   PiTranslator(),
   CopilotTranslator(),
   AntigravityTranslator(),
+  DevinTranslator(),
 ];

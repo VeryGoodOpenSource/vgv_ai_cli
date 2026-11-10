@@ -42,3 +42,8 @@ vars:
     default: true
     description: Configure Antigravity CLI.
     prompt: Configure Antigravity CLI?
+  devin:
+    type: boolean
+    default: true
+    description: Configure Devin CLI.
+    prompt: Configure Devin CLI?
