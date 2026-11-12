@@ -31,15 +31,17 @@ class VgvAiCliCommandRunner({
   InstallCommand? installCommand,
   DoctorCommand? doctorCommand,
   UninstallCommand? uninstallCommand,
+  UpdateCommand? updateCommand,
 }) extends CompletionCommandRunner<int> {
   /// {@macro vgv_ai_cli_command_runner}
   ///
   /// [installation] defaults to [Installation.current], and decides how
   /// `update` and the update prompt tell the user to upgrade.
   ///
-  /// [installCommand], [doctorCommand] and [uninstallCommand] replace the
-  /// default `install`, `doctor` and `uninstall`, whose collaborators
-  /// otherwise reach the real home directory and plugin cache.
+  /// [installCommand], [doctorCommand], [uninstallCommand] and
+  /// [updateCommand] replace the default `install`, `doctor`, `uninstall` and
+  /// `update`, whose collaborators otherwise reach the real home directory,
+  /// plugin cache and processes.
   this : super(executableName, description) {
     // Add root options and flags
     argParser
@@ -59,11 +61,12 @@ class VgvAiCliCommandRunner({
     addCommand(installCommand ?? InstallCommand(logger: _logger));
     addCommand(uninstallCommand ?? UninstallCommand(logger: _logger));
     addCommand(
-      UpdateCommand(
-        logger: _logger,
-        pubUpdater: _pubUpdater,
-        installation: _installation,
-      ),
+      updateCommand ??
+          UpdateCommand(
+            logger: _logger,
+            pubUpdater: _pubUpdater,
+            installation: _installation,
+          ),
     );
   }
 

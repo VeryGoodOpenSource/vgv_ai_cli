@@ -6,3 +6,10 @@ typedef RunProcess = Future<ProcessResult> Function(
   List<String> arguments, {
   bool runInShell,
 });
+
+/// Signature of [Process.start], narrowed to what the CLI needs.
+typedef StartProcess = Future<Process> Function(
+  String executable,
+  List<String> arguments, {
+  ProcessStartMode mode,
+});
