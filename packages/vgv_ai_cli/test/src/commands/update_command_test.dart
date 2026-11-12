@@ -15,6 +15,13 @@ import '../../helpers/test_runner.dart';
 
 class _MockProcess extends Mock implements Process;
 
+/// One call to the injected `startProcess`.
+class _Start(
+  final String executable,
+  final List<String> arguments,
+  final ProcessStartMode mode,
+);
+
 void main() {
   group(UpdateCommand, () {
     const latestVersion = '0.0.0';
@@ -31,7 +38,7 @@ void main() {
     late TestRunner runner;
     late Directory home;
     late Process process;
-    late List<(String, List<String>, ProcessStartMode)> started;
+    late List<_Start> started;
     late VgvAiCliCommandRunner commandRunner;
 
     Future<Process> startProcess(
@@ -39,7 +46,7 @@ void main() {
       List<String> arguments, {
       ProcessStartMode mode = ProcessStartMode.normal,
     }) async {
-      started.add((executable, arguments, mode));
+      started.add(_Start(executable, arguments, mode));
       return process;
     }
 
@@ -176,10 +183,10 @@ void main() {
         expect(result, ExitCode.success.code);
         verify(() => logger.info('Updating your installed plugins...'))
             .called(1);
-        final (executable, arguments, mode) = started.single;
-        expect(executable, Platform.resolvedExecutable);
-        expect(arguments, reinstallArguments);
-        expect(mode, ProcessStartMode.inheritStdio);
+        final start = started.single;
+        expect(start.executable, Platform.resolvedExecutable);
+        expect(start.arguments, reinstallArguments);
+        expect(start.mode, ProcessStartMode.inheritStdio);
       });
 
       test('returns the exit code of the reinstall', () async {

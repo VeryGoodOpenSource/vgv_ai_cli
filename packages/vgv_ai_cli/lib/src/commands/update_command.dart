@@ -112,10 +112,10 @@ class UpdateCommand({
   }
 
   /// Whether a previous `install` left a manifest behind.
-  bool get _wasInstalled => switch (commandHome(_home, _environment)) {
-    final home? => ManifestStore(home).file.existsSync(),
-    null => false,
-  };
+  bool get _wasInstalled {
+    final home = commandHome(_home, _environment);
+    return home != null && ManifestStore(home).file.existsSync();
+  }
 
   /// Runs `install` from the version just activated, which carries the new
   /// pins, in this terminal so it can ask which plugins to keep.
