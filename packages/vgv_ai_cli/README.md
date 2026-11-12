@@ -76,6 +76,15 @@ the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
 share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
 own copy inside its plugin.
 
+### Copilot in VS Code
+
+Skills that launch agents, such as `review`, need **Local** sessions in VS
+Code. In **Copilot** sessions, Ask mode is read-only and cannot launch agents.
+
+1. Switch the chat session to **Local**.
+2. Under **Configure Tools**, enable the terminal and **Run Subagent**
+   (`agent/runSubagent`).
+
 ## Commands
 
 `vgv_ai` has four commands.
