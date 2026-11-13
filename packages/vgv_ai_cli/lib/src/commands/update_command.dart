@@ -14,7 +14,7 @@ import 'package:vgv_ai_cli/src/version.dart';
 
 /// {@template update_command}
 /// Updates `vgv_ai` to the latest version on pub.dev, then reinstalls the
-/// plugins a previous `install` wrote, so they move to the new pins.
+/// harnesses and plugins a previous `install` wrote, at the new pins.
 ///
 /// An installation other than [Installation.pub] is not updated: the command
 /// prints its [Installation.upgradeCommand] instead.
@@ -117,8 +117,8 @@ class UpdateCommand({
     return home != null && ManifestStore(home).file.existsSync();
   }
 
-  /// Runs `install` from the version just activated, which carries the new
-  /// pins, in this terminal so it can ask which plugins to keep.
+  /// Runs `install --refresh` from the version just activated, which
+  /// carries the new pins, for the harnesses and plugins installed before.
   Future<int> _reinstall() async {
     _logger.info('Updating your installed plugins...');
     try {
@@ -129,6 +129,7 @@ class UpdateCommand({
         '$packageName:$executableName',
         if (globalResults?['verbose'] == true) '--verbose',
         InstallCommand.commandName,
+        '--${InstallCommand.refreshFlag}',
       ], mode: ProcessStartMode.inheritStdio);
       return await process.exitCode;
     } on ProcessException catch (error) {

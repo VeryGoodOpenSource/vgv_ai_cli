@@ -179,7 +179,7 @@ void main() {
             .called(1);
         final start = started.single;
         expect(start.executable, Platform.resolvedExecutable);
-        expect(start.arguments, [...runNewVersion, 'install']);
+        expect(start.arguments, [...runNewVersion, 'install', '--refresh']);
         expect(start.mode, ProcessStartMode.inheritStdio);
       });
 
@@ -190,6 +190,7 @@ void main() {
           ...runNewVersion,
           '--verbose',
           'install',
+          '--refresh',
         ]);
       });
 
