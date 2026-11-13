@@ -58,6 +58,7 @@ class TestRunner() {
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
     UninstallCommand? uninstallCommand,
+    UpdateCommand? updateCommand,
   }) => VgvAiCliCommandRunner(
     logger: logger,
     pubUpdater: pubUpdater,
@@ -65,6 +66,7 @@ class TestRunner() {
     installCommand: installCommand,
     doctorCommand: doctorCommand,
     uninstallCommand: uninstallCommand,
+    updateCommand: updateCommand,
   );
 
   /// Runs [args] through a runner from [build].
@@ -74,10 +76,12 @@ class TestRunner() {
     InstallCommand? installCommand,
     DoctorCommand? doctorCommand,
     UninstallCommand? uninstallCommand,
+    UpdateCommand? updateCommand,
   }) => build(
     installation: installation,
     installCommand: installCommand,
     doctorCommand: doctorCommand,
     uninstallCommand: uninstallCommand,
+    updateCommand: updateCommand,
   ).run(args);
 }
