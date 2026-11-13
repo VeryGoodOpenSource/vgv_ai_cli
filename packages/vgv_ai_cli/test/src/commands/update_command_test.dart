@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:file/file.dart' show Directory;
+import 'package:file/file.dart' show Directory, FileSystemException;
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
 import '../../helpers/test_runner.dart';
@@ -25,13 +26,7 @@ class _Start(
 void main() {
   group(UpdateCommand, () {
     const latestVersion = '0.0.0';
-    const reinstallArguments = [
-      'pub',
-      'global',
-      'run',
-      'vgv_ai_cli:vgv_ai',
-      'install',
-    ];
+    const runNewVersion = ['pub', 'global', 'run', 'vgv_ai_cli:vgv_ai'];
 
     late PubUpdater pubUpdater;
     late Logger logger;
@@ -62,9 +57,18 @@ void main() {
       startProcess: startProcess,
     );
 
-    void recordInstall() => ManifestStore(home).file
-      ..createSync(recursive: true)
-      ..writeAsStringSync('{}');
+    /// Records an install of [plugins], by harness, as `install` would.
+    void recordInstall([
+      Map<Harness, Map<String, String>> plugins = const {},
+    ]) => ManifestStore(home).save(
+      InstallManifest([
+        OwnedFile.of(
+          path: home.fileSystem.path.join(home.path, '.claude', 'x.md'),
+          owner: Harness.claude,
+          bytes: const [],
+        ),
+      ], plugins),
+    );
 
     setUp(() {
       runner = TestRunner();
@@ -185,8 +189,52 @@ void main() {
             .called(1);
         final start = started.single;
         expect(start.executable, Platform.resolvedExecutable);
-        expect(start.arguments, reinstallArguments);
+        expect(start.arguments, [...runNewVersion, 'install']);
         expect(start.mode, ProcessStartMode.inheritStdio);
+      });
+
+      test('reinstalls just the recorded harnesses and plugins', () async {
+        recordInstall({
+          Harness.claude: {'vgv-wingspan': '1.0.0'},
+          Harness.codex: {'vgv-wingspan': '1.0.0', 'vgv-ffca-plugin': '1.0.0'},
+        });
+        await commandRunner.run(['update']);
+        expect(started.single.arguments, [
+          ...runNewVersion,
+          'install',
+          '--only=claude',
+          '--only=codex',
+          '--plugin=vgv-wingspan',
+          '--plugin=vgv-ffca-plugin',
+        ]);
+      });
+
+      test('reinstalls verbosely when updating verbosely', () async {
+        recordInstall();
+        await commandRunner.run(['--verbose', 'update']);
+        expect(started.single.arguments, [
+          ...runNewVersion,
+          '--verbose',
+          'install',
+        ]);
+      });
+
+      test('does not reinstall when the manifest cannot be read', () async {
+        final fs = MemoryFileSystem.test(
+          opHandle: (path, operation) {
+            if (path.endsWith('manifest.json') &&
+                operation == FileSystemOp.read) {
+              throw FileSystemException('Cannot read', path);
+            }
+          },
+        );
+        home = fs.directory('/home/dev')..createSync(recursive: true);
+        recordInstall();
+        final result = await runner.run([
+          'update',
+        ], updateCommand: updateCommand(home: home));
+        expect(result, ExitCode.success.code);
+        expect(started, isEmpty);
       });
 
       test('returns the exit code of the reinstall', () async {

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:file/file.dart' show Directory;
+import 'package:file/file.dart' show Directory, FileSystemException;
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
@@ -82,7 +82,10 @@ class UpdateCommand({
     final updated = await _update(latestVersion);
     if (!updated) return ExitCode.software.code;
 
-    return _wasInstalled ? await _reinstall() : ExitCode.success.code;
+    final manifest = _previousInstall;
+    return manifest == null
+        ? ExitCode.success.code
+        : await _reinstall(manifest);
   }
 
   /// Updates the CLI to [latestVersion], and returns whether it could.
@@ -111,15 +114,22 @@ class UpdateCommand({
     return true;
   }
 
-  /// Whether a previous `install` left a manifest behind.
-  bool get _wasInstalled {
+  /// The manifest a previous `install` left behind, or null when there is
+  /// none this version can read.
+  InstallManifest? get _previousInstall {
     final home = commandHome(_home, _environment);
-    return home != null && ManifestStore(home).file.existsSync();
+    if (home == null) return null;
+    final store = ManifestStore(home);
+    try {
+      return store.file.existsSync() ? store.load() : null;
+    } on FileSystemException {
+      return null;
+    }
   }
 
   /// Runs `install` from the version just activated, which carries the new
-  /// pins, in this terminal so it can ask which plugins to keep.
-  Future<int> _reinstall() async {
+  /// pins, for the harnesses and plugins [manifest] records.
+  Future<int> _reinstall(InstallManifest manifest) async {
     _logger.info('Updating your installed plugins...');
     try {
       final process = await _startProcess(Platform.resolvedExecutable, [
@@ -127,7 +137,7 @@ class UpdateCommand({
         'global',
         'run',
         '$packageName:$executableName',
-        InstallCommand.commandName,
+        ..._installArguments(manifest),
       ], mode: ProcessStartMode.inheritStdio);
       return await process.exitCode;
     } on ProcessException catch (error) {
@@ -137,4 +147,16 @@ class UpdateCommand({
       return ExitCode.software.code;
     }
   }
+
+  /// The `install` arguments that repeat the choices [manifest] records, so
+  /// the reinstall neither asks again nor widens them.
+  List<String> _installArguments(InstallManifest manifest) => [
+    if (globalResults?['verbose'] == true) '--verbose',
+    InstallCommand.commandName,
+    for (final harness in manifest.plugins.keys) '--only=${harness.name}',
+    for (final plugin in {
+      for (final plugins in manifest.plugins.values) ...plugins.keys,
+    })
+      '--plugin=$plugin',
+  ];
 }
