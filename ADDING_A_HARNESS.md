@@ -277,6 +277,10 @@ In the preamble, `__ROOT__`, `__AGENT__` and `__COMPAT__` are replaced with quot
 plugin root, the agent the hook is scoped to — or an empty string when hooks of more than one agent
 scope run the script — and the compat script's path.
 
+Before the compat script is sourced, set `VGV_AI_HARNESS=<harness>` and add
+`$installedPluginsPreamble`. It tells a hook that recommends plugins which ones vgv_ai installed
+and how to install another, as `recommend-plugins.sh` in Wingspan reads them.
+
 **The compat script** goes in `<harness>_compat.dart` beside the translator. It reads what the
 harness sends on stdin, hands the script the payload Claude Code would have sent, and respells the
 answer the way the harness reads it. [`copilot_compat.dart`][copilot_compat] is the one to copy
