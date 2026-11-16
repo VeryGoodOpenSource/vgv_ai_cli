@@ -3,7 +3,6 @@ import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
-import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/rendered_change.dart';
@@ -28,6 +27,7 @@ class const Translator({
     required Directory home,
     required Set<Harness> selected,
   }) async {
+    final scope = HomeScope(home);
     final chosen = [
       for (final translator in translators)
         if (selected.contains(translator.harness)) translator,
@@ -42,7 +42,7 @@ class const Translator({
     final vars = AgentsVars(
       translators: chosen,
       assets: assets,
-      skillsRoot: agentsSkillsRoot(home).path,
+      scope: scope,
       hooks: {
         for (final MapEntry(key: harness, value: translation) in hooks.entries)
           harness: ?translation?.fragment,
@@ -56,7 +56,11 @@ class const Translator({
 
     return TranslationPlan(
       shared: chosen.any((translator) => translator.readsSharedSkills)
-          ? skills.translate(assets: assets, root: agentsSkillsRoot(home))
+          ? skills.translate(
+              assets: assets,
+              root: scope.skillsRoot,
+              scope: scope,
+            )
           : null,
       harnesses: {
         for (final translator in chosen)
@@ -65,7 +69,7 @@ class const Translator({
             rendered: changes[translator.harness],
             hooks: hooks[translator.harness],
             assets: assets,
-            home: home,
+            scope: scope,
           ),
       },
     );
@@ -80,18 +84,19 @@ class const Translator({
     required List<PlannedChange>? rendered,
     required HookTranslation? hooks,
     required PluginAssets assets,
-    required Directory home,
+    required HomeScope scope,
   }) {
-    final own = switch (translator.skillsRoot(home)) {
+    final own = switch (translator.skillsRoot(scope.root)) {
       final root? => skills.translate(
         assets: assets,
         root: root,
+        scope: scope,
         harness: translator.harness,
       ),
       _ => null,
     };
     final shared = translator.readsSharedSkills
-        ? translator.sharedSkillFiles(assets, root: agentsSkillsRoot(home))
+        ? translator.sharedSkillFiles(assets, root: scope.skillsRoot)
         : null;
     return TranslationResult(
       changes: [

@@ -546,7 +546,8 @@ void main() {
           return const SkillsTranslator()
               .translate(
                 assets: const ClaudePluginParser().parse(root),
-                root: agentsSkillsRoot(home),
+                root: HomeScope(home).skillsRoot,
+                scope: HomeScope(home),
               )
               .changes;
         }
