@@ -46,10 +46,12 @@ void main() {
       Set<Harness> selected, {
       PluginAssets? using,
       Scope? scope,
+      List<PluginDirectory> plugins = const [],
     }) => const Translator().translate(
       assets: using ?? assets,
       scope: scope ?? UserScope(home),
       selected: selected,
+      plugins: plugins,
     );
 
     /// Every planned path under [harness]'s config directory, relative to it.
@@ -305,6 +307,76 @@ void main() {
         );
 
         expect(plan.harnesses[Harness.gemini]!.notes, isEmpty);
+      });
+
+      group('plugin files', () {
+        late List<PluginDirectory> plugins;
+
+        setUp(() {
+          fs.file('/cache/ffca/references/x.md')
+            ..createSync(recursive: true)
+            ..writeAsStringSync('x');
+          plugins = [
+            PluginDirectory(
+              plugin: const PluginRef(
+                name: 'ffca',
+                repo: 'acme/ffca',
+                version: '1.0.0',
+                gitRef: 'v1.0.0',
+              ),
+              directory: fs.directory('/cache/ffca'),
+              referencedEntries: const ['references'],
+            ),
+          ];
+        });
+
+        const copy = '/work/app/.vgv_ai/plugins/ffca@v1.0.0/references/x.md';
+
+        test('are copied beside the shared skills', () async {
+          final plan = await translate(
+            {Harness.gemini},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared!.changes.map((c) => c.file.path), contains(copy));
+          expect(
+            plan.shared!.changes.map((c) => c.file.path),
+            contains('/work/app/.agents/skills/review/SKILL.md'),
+          );
+        });
+
+        test('are copied for a harness that keeps its own skills', () async {
+          final plan = await translate(
+            {Harness.antigravity},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared!.changes.map((c) => c.file.path).single, copy);
+        });
+
+        test('are not copied for Claude Code, which installs them', () async {
+          final plan = await translate(
+            {Harness.claude},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared, isNull);
+        });
+
+        test(
+          'are not copied at home, where bodies read them in place',
+          () async {
+            final plan = await translate({Harness.gemini}, plugins: plugins);
+
+            expect(
+              plan.changes.map((c) => c.file.path),
+              everyElement(isNot(contains('.vgv_ai'))),
+            );
+          },
+        );
       });
 
       test('says nothing to Claude Code, which installs both', () async {

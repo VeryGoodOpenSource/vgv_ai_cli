@@ -63,6 +63,7 @@ class _FakeTranslator extends Fake implements Translator {
     required PluginAssets assets,
     required Scope scope,
     required Set<Harness> selected,
+    List<PluginDirectory> plugins = const [],
   }) async {
     this.selected = selected;
     return TranslationPlan(shared: TranslationResult(changes: changes));

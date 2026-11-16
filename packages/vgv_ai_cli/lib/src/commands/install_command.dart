@@ -177,13 +177,14 @@ class InstallCommand({
       return ExitCode.usage.code;
     }
 
-    final resolved = await _resolveAssets(home, plugins);
+    final resolved = await _resolveAssets(home, plugins, scope: scope);
     if (resolved == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
       assets: resolved.assets,
       scope: scope,
       selected: selected,
+      plugins: resolved.directories,
     );
 
     final reconciliation = _reconciler.apply(
@@ -397,17 +398,25 @@ class InstallCommand({
     };
   }
 
-  /// Resolves and parses the [plugins] into one asset bundle.
+  /// Resolves and parses the [plugins] into one asset bundle, with every
+  /// body naming the plugin's files where [scope] keeps them.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
   Future<ResolvedAssets?> _resolveAssets(
     Directory home,
-    Set<String> plugins,
-  ) async {
+    Set<String> plugins, {
+    required Scope scope,
+  }) async {
     final progress = _logger.progress('Resolving plugins');
 
-    switch (await _resolver.resolve(home, only: plugins, log: _logger.detail)) {
+    final resolution = await _resolver.resolve(
+      home,
+      only: plugins,
+      log: _logger.detail,
+      pluginRoot: scope.pluginRoot,
+    );
+    switch (resolution) {
       case final ResolvedAssets resolved:
         progress.complete(
           'Resolved ${resolved.assets.skills.length} skills and '

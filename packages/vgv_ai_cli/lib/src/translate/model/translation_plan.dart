@@ -5,8 +5,9 @@ import 'package:vgv_ai_cli/src/translate/model/translation_result.dart';
 /// Everything translating the plugins for the selected harnesses produced.
 /// {@endtemplate}
 class const TranslationPlan({
-  /// The shared copy of the skills, or null when no selected harness reads
-  /// it.
+  /// What no single harness owns: the shared copy of the skills, and in a
+  /// project the plugin files they reference, or null when no selected
+  /// harness reads either.
   final TranslationResult? shared,
 
   /// Each selected harness's own result, in reporting order.

@@ -15,6 +15,7 @@ class const Translator({
   final List<HarnessTranslator> translators = harnessTranslators,
   final AgentsBrick brick = const AgentsBrick(),
   final SkillsTranslator skills = const SkillsTranslator(),
+  final PluginFilesTranslator pluginFiles = const PluginFilesTranslator(),
 }) {
   /// {@macro translator}
   this;
@@ -23,10 +24,13 @@ class const Translator({
   /// shared skills when any of them reads them.
   ///
   /// A project install configures no hooks yet, so it never asks for them.
+  /// It copies the files [plugins] reference beside the skills instead,
+  /// since the bodies read them from the project.
   Future<TranslationPlan> translate({
     required PluginAssets assets,
     required Scope scope,
     required Set<Harness> selected,
+    List<PluginDirectory> plugins = const [],
   }) async {
     final chosen = [
       for (final translator in translators)
@@ -58,13 +62,7 @@ class const Translator({
     ].groupListsBy((change) => change.harness);
 
     return TranslationPlan(
-      shared: chosen.any((translator) => translator.readsSharedSkills)
-          ? skills.translate(
-              assets: assets,
-              root: scope.skillsRoot,
-              scope: scope,
-            )
-          : null,
+      shared: _shared(chosen, assets: assets, scope: scope, plugins: plugins),
       harnesses: {
         for (final translator in chosen)
           translator.harness: _result(
@@ -75,6 +73,31 @@ class const Translator({
             scope: scope,
           ),
       },
+    );
+  }
+
+  /// The files no harness owns: the shared skills when any of [chosen] reads
+  /// them, and in a project, the files [plugins] reference when any of
+  /// [chosen] reads the bodies naming them. Null when there are none.
+  TranslationResult? _shared(
+    List<HarnessTranslator> chosen, {
+    required PluginAssets assets,
+    required Scope scope,
+    required List<PluginDirectory> plugins,
+  }) {
+    final shared = chosen.any((translator) => translator.readsSharedSkills)
+        ? skills.translate(assets: assets, root: scope.skillsRoot, scope: scope)
+        : null;
+    final copies = switch (scope) {
+      final ProjectScope project
+          when chosen.any((t) => !t.installsPluginsNatively) =>
+        pluginFiles.translate(plugins: plugins, scope: project),
+      _ => null,
+    };
+    if (shared == null && copies == null) return null;
+    return TranslationResult(
+      changes: [...?shared?.changes, ...?copies?.changes],
+      notes: [...?shared?.notes, ...?copies?.notes],
     );
   }
 

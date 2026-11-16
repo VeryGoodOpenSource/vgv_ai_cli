@@ -43,6 +43,7 @@ class _FakeTranslator extends Fake implements Translator {
     required PluginAssets assets,
     required Scope scope,
     required Set<Harness> selected,
+    List<PluginDirectory> plugins = const [],
   }) async {
     this.assets = assets;
     this.scope = scope;
@@ -1025,6 +1026,85 @@ void main() {
           ),
           containsPair('enabledPlugins', isNotEmpty),
         );
+      });
+
+      group('with a plugin that references its own files', () {
+        final ffca = vgvPlugins.firstWhere(
+          (plugin) => plugin.name == 'vgv-ffca-plugin',
+        );
+        final copy = '.vgv_ai/plugins/${ffca.name}@${ffca.gitRef}';
+
+        /// Clones a plugin whose skill names a plugin file and a file of its
+        /// own, beside files nothing names.
+        Future<ProcessResult> clonePlugin(
+          String executable,
+          List<String> arguments, {
+          bool runInShell = false,
+        }) async {
+          final root = arguments.last;
+          void write(String path, String contents) =>
+              fs.file(fs.path.join(root, path))
+                ..createSync(recursive: true)
+                ..writeAsStringSync(contents);
+          write(
+            'skills/audit/SKILL.md',
+            '---\nname: audit\ndescription: d\n---\n'
+                r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+                '\n'
+                r'Run ${CLAUDE_SKILL_DIR}/run.sh'
+                '\n',
+          );
+          write('skills/audit/run.sh', 'echo');
+          write('references/x.md', 'x');
+          write('evals/big.json', '{}');
+          return ProcessResult(0, 0, '', '');
+        }
+
+        setUp(
+          () => runInstall(
+            ['--project', '--only', 'gemini', '--plugin', ffca.name],
+            runProcess: clonePlugin,
+            parser: const ClaudePluginParser(),
+            using: const Translator(),
+          ),
+        );
+
+        String skill() => project
+            .childFile('.agents/skills/audit/SKILL.md')
+            .readAsStringSync();
+
+        test('writes the skills and the files they reference', () {
+          expect(
+            filesUnder(project),
+            [
+              '$copy/references/x.md',
+              '.agents/skills/audit/SKILL.md',
+              '.agents/skills/audit/run.sh',
+              '.vgv_ai/manifest.json',
+            ]..sort(),
+          );
+        });
+
+        test('points the skill at both, relative to the project', () {
+          expect(skill(), contains('Read $copy/references/x.md'));
+          expect(skill(), contains('Run .agents/skills/audit/run.sh'));
+          expect(
+            project.childFile('$copy/references/x.md').existsSync(),
+            isTrue,
+          );
+          expect(
+            project.childFile('.agents/skills/audit/run.sh').existsSync(),
+            isTrue,
+          );
+        });
+
+        test('writes no absolute path into any file', () {
+          for (final path in filesUnder(project)) {
+            final contents = project.childFile(path).readAsStringSync();
+            expect(contents, isNot(contains(project.path)), reason: path);
+            expect(contents, isNot(contains(home.path)), reason: path);
+          }
+        });
       });
 
       test('writes nothing under home', () async {
