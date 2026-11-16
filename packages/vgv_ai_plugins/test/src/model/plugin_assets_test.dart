@@ -71,6 +71,25 @@ void main() {
     });
 
     group('merge', () {
+      test('lists every referenced entry once, sorted', () {
+        final merged = PluginAssets.merge([
+          const PluginAssets(
+            skills: [],
+            agents: [],
+            mcpServers: [],
+            referencedEntries: ['scripts'],
+          ),
+          const PluginAssets(
+            skills: [],
+            agents: [],
+            mcpServers: [],
+            referencedEntries: ['references', 'scripts'],
+          ),
+        ]);
+
+        expect(merged.referencedEntries, ['references', 'scripts']);
+      });
+
       test('names the plugins the assets came from', () {
         final merged = PluginAssets.merge(
           [pluginAssets(), pluginAssets()],

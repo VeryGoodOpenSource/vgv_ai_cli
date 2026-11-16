@@ -23,7 +23,17 @@ class const ClaudePluginParser() implements PluginParser {
   @override
   PluginAssets parse(Directory root, {String? rootReference}) {
     final reference = rootReference ?? root.path;
-    final agents = _readAgents(root, reference: reference);
+    final referenced = <String>{};
+    final agents = _readAgents(
+      root,
+      reference: reference,
+      referenced: referenced,
+    );
+    final skills = _readSkills(
+      root,
+      reference: reference,
+      referenced: referenced,
+    );
     final events = _readHookEvents(root);
     final scoped = [
       for (final agent in agents)
@@ -32,7 +42,7 @@ class const ClaudePluginParser() implements PluginParser {
     // Only a hook needs the name, so a hookless plugin needs no manifest.
     final plugin = events == null && scoped.isEmpty ? null : _pluginName(root);
     return PluginAssets(
-      skills: _readSkills(root, reference: reference),
+      skills: skills,
       agents: [for (final agent in agents) agent.asset],
       mcpServers: _readMcpServers(root.childFile('.mcp.json')),
       hooks: [
@@ -47,6 +57,7 @@ class const ClaudePluginParser() implements PluginParser {
             agent: agent.asset.name,
           ),
       ],
+      referencedEntries: referenced.toList()..sort(),
     );
   }
 
@@ -115,7 +126,11 @@ class const ClaudePluginParser() implements PluginParser {
   /// at run time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
-  /// [body] with every [_claudePluginRoot] replaced by [reference].
+  /// [_claudePluginRoot] followed by the top-level entry it names.
+  static final _referencedEntry = RegExp(r'\$\{CLAUDE_PLUGIN_ROOT\}/([\w.-]+)');
+
+  /// [body] with every [_claudePluginRoot] replaced by [reference], having
+  /// added the top-level entry each one names to [referenced].
   ///
   /// A skill or agent body points at plugin-level files, such as
   /// `references/` or `scripts/`, that sit outside the skill's own directory
@@ -123,8 +138,16 @@ class const ClaudePluginParser() implements PluginParser {
   /// root itself, the same root a hook exports through
   /// [HookCommand.rootPlaceholder], or wherever the caller keeps a copy.
   /// Claude Code installs the plugin natively and never reads these bodies.
-  String _resolveRoot(String body, String reference) =>
-      body.replaceAll(_claudePluginRoot, reference);
+  String _resolveRoot(
+    String body, {
+    required String reference,
+    required Set<String> referenced,
+  }) {
+    referenced.addAll(
+      _referencedEntry.allMatches(body).map((match) => match[1]!),
+    );
+    return body.replaceAll(_claudePluginRoot, reference);
+  }
 
   /// [name], once it is known to be safe as a file name.
   ///
@@ -137,7 +160,11 @@ class const ClaudePluginParser() implements PluginParser {
     );
   }
 
-  List<SkillAsset> _readSkills(Directory root, {required String reference}) {
+  List<SkillAsset> _readSkills(
+    Directory root, {
+    required String reference,
+    required Set<String> referenced,
+  }) {
     final skillsDir = root.childDirectory('skills');
     if (!skillsDir.existsSync()) return const [];
 
@@ -160,7 +187,11 @@ class const ClaudePluginParser() implements PluginParser {
             path: file.path,
           ),
           description: descriptionOf(frontmatter),
-          body: _resolveRoot(frontmatter.body, reference),
+          body: _resolveRoot(
+            frontmatter.body,
+            reference: reference,
+            referenced: referenced,
+          ),
           userInvocable: frontmatter.userInvocable,
           disableModelInvocation: frontmatter.disableModelInvocation,
           allowedTools: allowedToolsOf(frontmatter),
@@ -173,7 +204,11 @@ class const ClaudePluginParser() implements PluginParser {
     return skills;
   }
 
-  List<_AgentFile> _readAgents(Directory root, {required String reference}) {
+  List<_AgentFile> _readAgents(
+    Directory root, {
+    required String reference,
+    required Set<String> referenced,
+  }) {
     final agentsDir = root.childDirectory('agents');
     if (!agentsDir.existsSync()) return const [];
 
@@ -197,7 +232,11 @@ class const ClaudePluginParser() implements PluginParser {
               path: file.path,
             ),
             description: frontmatter.description,
-            body: _resolveRoot(frontmatter.body, reference),
+            body: _resolveRoot(
+              frontmatter.body,
+              reference: reference,
+              referenced: referenced,
+            ),
             skills: frontmatter.skills,
           ),
           hooks: HooksJson.decode(frontmatter.values, path: file.path).events,

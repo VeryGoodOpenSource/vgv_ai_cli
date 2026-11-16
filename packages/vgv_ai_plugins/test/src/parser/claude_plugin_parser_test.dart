@@ -322,6 +322,14 @@ void main() {
         expect(rooted.agents.single.body, 'Run /cache/ffca/scripts/y.dart\n');
       });
 
+      test('lists the top-level entries the bodies name, sorted', () {
+        expect(rooted.referencedEntries, ['references', 'scripts']);
+      });
+
+      test('lists none for bodies that name no plugin file', () {
+        expect(assets.referencedEntries, isEmpty);
+      });
+
       group('given a root reference', () {
         late PluginAssets referenced;
 
