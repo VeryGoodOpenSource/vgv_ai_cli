@@ -24,6 +24,7 @@ class _RecordingParser implements PluginParser {
         AgentAsset(name: root.path, description: '', body: '', skills: []),
       ],
       mcpServers: const [],
+      referencedEntries: ['references of ${root.basename}'],
     );
   }
 }
@@ -135,6 +136,22 @@ void main() {
           (d) => '${d.plugin.name} ${d.directory.path}',
         ),
         ['wingspan ${cached(wingspan)}', 'flutter ${cached(flutter)}'],
+      );
+    });
+
+    test('reports the entries each plugin references', () async {
+      cache(wingspan);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan],
+      );
+
+      final resolution = await resolver.resolve(home);
+
+      expect(
+        (resolution as ResolvedAssets).directories.single.referencedEntries,
+        ['references of ${wingspan.version}'],
       );
     });
 

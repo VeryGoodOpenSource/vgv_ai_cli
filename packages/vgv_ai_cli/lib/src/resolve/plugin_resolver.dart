@@ -90,10 +90,18 @@ class const PluginResolver({
       switch (await source.resolve(plugin)) {
         case ResolvedPlugin(:final directory):
           try {
+            final assets = _parser.parse(
+              directory,
+              rootReference: rootReference,
+            );
             return ResolvedAssets(
-              assets: _parser.parse(directory, rootReference: rootReference),
+              assets: assets,
               directories: [
-                PluginDirectory(plugin: plugin, directory: directory),
+                PluginDirectory(
+                  plugin: plugin,
+                  directory: directory,
+                  referencedEntries: assets.referencedEntries,
+                ),
               ],
             );
           } on PluginParseException catch (error) {

@@ -1,4 +1,4 @@
-import 'package:vgv_ai_cli/src/resolve/model/plugin_directory.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template asset_resolution}

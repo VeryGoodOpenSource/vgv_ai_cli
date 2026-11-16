@@ -8,6 +8,7 @@ export 'drift.dart';
 export 'harness.dart';
 export 'install_manifest.dart';
 export 'planned_change.dart';
+export 'plugin_directory.dart';
 export 'run_process.dart';
 export 'scope.dart';
 export 'subtraction.dart';

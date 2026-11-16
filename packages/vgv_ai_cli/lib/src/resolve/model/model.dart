@@ -2,4 +2,3 @@
 library;
 
 export 'asset_resolution.dart';
-export 'plugin_directory.dart';
