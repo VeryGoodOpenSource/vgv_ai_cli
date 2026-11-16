@@ -117,7 +117,16 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
         ),
       ).thenAnswer((_) async => true);
 
-      final result = await commandRunner.run(['update']);
+      // No home directory, so update never reinstalls into the real one.
+      final result = await runner.run(
+        ['update'],
+        updateCommand: UpdateCommand(
+          logger: logger,
+          pubUpdater: pubUpdater,
+          installation: Installation.pub,
+          environment: const {},
+        ),
+      );
       expect(result, ExitCode.success.code);
       verifyNever(() => logger.info(updatePrompt));
     });
