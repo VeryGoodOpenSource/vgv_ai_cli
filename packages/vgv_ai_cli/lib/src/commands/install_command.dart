@@ -27,6 +27,8 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// * `--plugin` installs just the named VGV plugins. Without it, a run in a
 ///   terminal asks which plugins to install, and any other run installs
 ///   every pinned one.
+/// * `--refresh` reinstalls the harnesses and plugins the manifest records,
+///   at the pinned versions, without asking. `update` runs it.
 /// {@endtemplate}
 class InstallCommand({
   required final Logger _logger,
@@ -57,6 +59,14 @@ class InstallCommand({
         'plugin',
         help: 'Install just these VGV plugins instead of choosing them.',
         allowed: [for (final plugin in vgvPlugins) plugin.name],
+      )
+      ..addFlag(
+        refreshFlag,
+        help:
+            'Reinstall the harnesses and plugins a previous install wrote, '
+            'at the pinned versions.',
+        negatable: false,
+        hide: true,
       );
     addHarnessOptions('Configure the Very Good AI tooling for');
   }
@@ -64,6 +74,10 @@ class InstallCommand({
   /// The name the CLI registers `install` under, so other code can name it
   /// without constructing one.
   static const String commandName = 'install';
+
+  /// The flag `update` passes to reinstall what a previous install wrote.
+  /// Older versions of `update` pass it too, so it must keep its name.
+  static const String refreshFlag = 'refresh';
 
   /// Whether stdin is a terminal, so install can ask which plugins to install.
   final bool _hasTerminal = hasTerminal ?? stdin.hasTerminal;
@@ -95,6 +109,8 @@ class InstallCommand({
   Future<int> run() async {
     final force = argResults!['force'] == true;
     final dryRun = argResults!['check'] == true;
+    final refresh = argResults![refreshFlag] == true;
+    if (refresh) _rejectSelectionWithRefresh();
 
     // Falling back to the working directory would scatter harness config
     // wherever install happened to run, so a missing home is fatal.
@@ -104,16 +120,6 @@ class InstallCommand({
         'Could not find your home directory. Set HOME and run install again.',
       );
       return ExitCode.config.code;
-    }
-
-    final selected = await _select();
-    if (selected.isEmpty) {
-      _logger.err(
-        'No harness selected. Install one of '
-        '${Harness.values.map((harness) => harness.displayName).join(', ')}, '
-        'or pass --only to name one explicitly.',
-      );
-      return ExitCode.usage.code;
     }
 
     // Loaded before anything is resolved, since a manifest this version
@@ -128,7 +134,15 @@ class InstallCommand({
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
 
-    final plugins = _selectPlugins(manifest, selected);
+    final selected = refresh ? manifest.plugins.keys.toSet() : await _select();
+    if (selected.isEmpty) {
+      _logger.err(refresh ? _nothingToRefresh : _noHarnessSelected);
+      return ExitCode.usage.code;
+    }
+
+    final plugins = refresh
+        ? _recordedPlugins(manifest, selected)
+        : _selectPlugins(manifest, selected);
     if (plugins.isEmpty) {
       _logger.err(
         'No plugin selected. Choose at least one, or pass --plugin to name '
@@ -169,6 +183,53 @@ class InstallCommand({
     return !recorded || anyChangeFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
+  }
+
+  /// Why there is nothing to install when no harness is selected.
+  static final String _noHarnessSelected =
+      'No harness selected. Install one of '
+      '${Harness.values.map((harness) => harness.displayName).join(', ')}, '
+      'or pass --only to name one explicitly.';
+
+  /// Why `--refresh` installs nothing when the manifest records no plugins.
+  static const String _nothingToRefresh =
+      'Nothing to refresh: no previous install recorded its plugins. Run '
+      'install to choose them.';
+
+  /// Throws a [UsageException] when `--refresh` is combined with an option
+  /// that picks harnesses or plugins, since it takes both from the manifest.
+  void _rejectSelectionWithRefresh() {
+    final picked = [
+      'only',
+      'plugin',
+      ...Harness.values.map((harness) => harness.name),
+    ].where(argResults!.wasParsed);
+    if (picked.isNotEmpty) {
+      usageException(
+        '--$refreshFlag cannot be combined with '
+        '${picked.map((option) => '--$option').join(', ')}.',
+      );
+    }
+  }
+
+  /// The plugins [manifest] records for [selected] that this version still
+  /// pins, warning about the ones it no longer does.
+  Set<String> _recordedPlugins(
+    InstallManifest manifest,
+    Set<Harness> selected,
+  ) {
+    final recorded = {
+      for (final harness in selected) ...?manifest.plugins[harness]?.keys,
+    };
+    final pinned = {for (final plugin in vgvPlugins) plugin.name};
+    final dropped = recorded.difference(pinned);
+    if (dropped.isNotEmpty) {
+      _logger.warn(
+        'Skipping ${dropped.join(', ')}, which this version no longer '
+        'installs.',
+      );
+    }
+    return recorded.intersection(pinned);
   }
 
   /// Resolves which harnesses to configure.

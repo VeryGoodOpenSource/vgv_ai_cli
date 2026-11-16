@@ -443,6 +443,92 @@ void main() {
       });
     });
 
+    group('--refresh', () {
+      setUp(() {
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.claude: TranslationResult(
+              changes: [ownChange(Harness.claude, '.claude/a.md', 'a')],
+            ),
+          },
+        );
+      });
+
+      /// Installs once, then records [plugins] as what that install wrote.
+      Future<void> recordInstall(
+        Map<Harness, Map<String, String>> plugins,
+      ) async {
+        await runInstall(['--only', 'claude']);
+        final store = ManifestStore(home);
+        store.save(store.load()!.withPlugins(plugins));
+      }
+
+      test('reinstalls the recorded harnesses and plugins', () async {
+        final kept = vgvPlugins.first;
+        await recordInstall({
+          Harness.claude: {kept.name: '0.0.1'},
+          Harness.gemini: {kept.name: '0.0.1'},
+        });
+
+        final exitCode = await runInstall(['--refresh'], hasTerminal: true);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.selected, {Harness.claude, Harness.gemini});
+        expect(translator.assets?.plugins, [kept]);
+        verifyNever(pickPlugins);
+        verifyNever(() => detector.detect(any()));
+      });
+
+      test('skips a recorded plugin this version no longer pins', () async {
+        final kept = vgvPlugins.first;
+        await recordInstall({
+          Harness.claude: {kept.name: '0.0.1', 'retired-plugin': '0.0.1'},
+        });
+
+        final exitCode = await runInstall(['--refresh']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.assets?.plugins, [kept]);
+        verify(
+          () => logger.warn(
+            'Skipping retired-plugin, which this version no longer installs.',
+          ),
+        ).called(1);
+      });
+
+      test('installs nothing without a recorded install', () async {
+        final exitCode = await runInstall(['--refresh']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(
+            'Nothing to refresh: no previous install recorded its plugins. '
+            'Run install to choose them.',
+          ),
+        ).called(1);
+      });
+
+      test('cannot be combined with a selection', () async {
+        final exitCode = await runInstall([
+          '--refresh',
+          '--only',
+          'claude',
+          '--plugin',
+          vgvPlugins.first.name,
+          '--no-codex',
+        ]);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(
+            '--refresh cannot be combined with --only, --plugin, --codex.',
+          ),
+        ).called(1);
+      });
+    });
+
     group('resolution', () {
       test('clones the plugins when there is no Claude Code cache', () async {
         final cloned = <List<String>>[];
