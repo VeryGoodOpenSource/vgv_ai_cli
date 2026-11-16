@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
 import 'package:file/memory.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
+import 'package:yaml/yaml.dart';
 
 import '../_assets.dart';
 
@@ -194,6 +196,103 @@ void main() {
         );
       });
 
+      test('escape a path the plugin already quotes, not quote it again', () {
+        // A second pair of quotes would close the plugin's own and leave the
+        // path bare, so a home that holds a space would split it.
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command:
+                      r'bash "${PLUGIN_ROOT}/hooks/scripts/analyze.sh" '
+                      r'"${PLUGIN_ROOT}/scripts/check.dart"',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                'bash "/home/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh" '
+                    '"/plugins/vgv-wingspan/scripts/check.dart"',
+              ),
+            ]),
+          ]),
+        );
+      });
+
+      test('escape a path quoted later in the word, not quote it again', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'check "--root=${PLUGIN_ROOT}/x"',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'check "--root=/plugins/vgv-wingspan/x"'),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path after a quote that opens nothing', () {
+        // A double quote inside single quotes, or escaped, is a character
+        // of the word and leaves the placeholder outside double quotes.
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'''echo 'a"b' \"${PLUGIN_ROOT}/x''',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair(
+                'command',
+                r'''echo 'a"b' \""/plugins/vgv-wingspan"/x''',
+              ),
+            ]),
+          ]),
+        );
+      });
+
+      test('quote a path that follows a closing quote', () {
+        expect(
+          events([
+            hookAsset(
+              fs,
+              commands: const [
+                HookCommand(
+                  type: 'command',
+                  command: r'echo "a"${PLUGIN_ROOT}/x',
+                ),
+              ],
+            ),
+          ]),
+          containsPair('PostToolUse', [
+            containsPair('hooks', [
+              containsPair('command', 'echo "a""/plugins/vgv-wingspan"/x'),
+            ]),
+          ]),
+        );
+      });
+
       test('quote a copy root that holds a space', () {
         final json = translator
             .hooks(
@@ -205,6 +304,35 @@ void main() {
         expect(
           json,
           contains(r'bash \"/home/Jane Doe/.codex/hooks/vgv-wingspan\"/hooks'),
+        );
+      });
+
+      test('keep a path the plugin already quotes one word', () {
+        final json = translator
+            .hooks(
+              pluginAssets(
+                hooks: [
+                  hookAsset(
+                    fs,
+                    commands: const [
+                      HookCommand(
+                        type: 'command',
+                        command:
+                            r'bash "${PLUGIN_ROOT}/hooks/scripts/analyze.sh"',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              hooksRoot: fs.directory(r'/home/Jane $Doe/.codex/hooks'),
+            )
+            .fragment!;
+
+        expect(
+          json,
+          contains(
+            r'bash \"/home/Jane \\$Doe/.codex/hooks/vgv-wingspan/hooks/scripts/analyze.sh\"',
+          ),
         );
       });
 
@@ -679,6 +807,59 @@ void main() {
         expect(translation.files, isEmpty);
         expect(translation.notes, isEmpty);
         expect(translator.notes(pluginAssets()), isEmpty);
+      });
+    });
+    group('sharedSkillFiles', () {
+      late MemoryFileSystem fs;
+      late Directory root;
+
+      setUp(() {
+        fs = MemoryFileSystem.test();
+        root = fs.directory('/home/.agents/skills');
+      });
+
+      TranslationResult translate(List<SkillAsset> skills) =>
+          translator.sharedSkillFiles(pluginAssets(skills: skills), root: root);
+
+      test('keep a skill only the user may start from the model', () {
+        final result = translate([
+          skillAsset(fs, 'create-pr', disableModelInvocation: true),
+        ]);
+
+        final policy = result.changes.single;
+        expect(
+          policy.file.path,
+          '/home/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        );
+        expect(policy.contents, CodexTranslator.policy);
+        expect(policy.harness, Harness.codex);
+        expect(loadYaml(policy.contents), {
+          'policy': {'allow_implicit_invocation': false},
+        });
+        expect(result.notes, isEmpty);
+      });
+
+      test('leave every other skill alone', () {
+        final result = translate([skillAsset(fs, 'testing')]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes, isEmpty);
+      });
+
+      test('keep the metadata the skill ships, and say so', () {
+        final skill = skillAsset(fs, 'create-pr', disableModelInvocation: true);
+        skill.directory.childFile(CodexTranslator.metadata)
+          ..createSync(recursive: true)
+          ..writeAsStringSync('interface: {}\n');
+
+        final result = translate([skill]);
+
+        expect(result.changes, isEmpty);
+        expect(result.notes.single.subject, 'the create-pr skill');
+        expect(
+          result.notes.single.reason,
+          contains('may start the skill on its own'),
+        );
       });
     });
   });

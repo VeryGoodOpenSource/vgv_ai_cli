@@ -1,5 +1,5 @@
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 import 'package:yaml/yaml.dart';
 
 /// Builders shared by the per-harness translator tests, so each test file
@@ -10,11 +10,13 @@ SkillAsset skillAsset(
   String body = '# Body\n',
   String description = 'what it does',
   bool userInvocable = true,
+  bool disableModelInvocation = false,
 }) => SkillAsset(
   name: name,
   description: description,
   body: body,
   userInvocable: userInvocable,
+  disableModelInvocation: disableModelInvocation,
   allowedTools: const [],
   portableFrontmatter: {'name': name, 'description': description},
   directory: fs.directory('/plugins/wingspan/skills/$name')
@@ -73,11 +75,13 @@ PluginAssets pluginAssets({
   List<AgentAsset> agents = const [],
   List<MCPServer> mcpServers = const [],
   List<HookAsset> hooks = const [],
+  List<PluginRef> plugins = const [],
 }) => PluginAssets(
   skills: skills,
   agents: agents,
   mcpServers: mcpServers,
   hooks: hooks,
+  plugins: plugins,
 );
 
 /// Parses a rendered `---` fenced frontmatter block back into its values.

@@ -15,4 +15,7 @@ class const TextMerge({
   /// What of [contents] VGV contributed, and null when nothing could be
   /// parsed.
   final Contribution? contribution,
-});
+}) {
+  /// {@macro text_merge}
+  this;
+}

@@ -16,4 +16,7 @@ class const HookTranslation({
 
   /// What could not be translated as intended, and what the user must do.
   final List<TranslationNote> notes = const [],
-});
+}) {
+  /// {@macro hook_translation}
+  this;
+}

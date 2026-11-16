@@ -19,6 +19,9 @@ class const TomlText(
   final DocumentCodec codec = const DocumentCodec(),
 }) {
   /// {@macro toml_text}
+  this;
+
+  /// {@macro toml_text}
   ///
   /// [map] encoded as canonical TOML with a trailing newline.
   new encode(

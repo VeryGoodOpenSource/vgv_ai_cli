@@ -11,15 +11,49 @@ current, and removes them again without touching your own configuration.
 
 ## Installation
 
-`vgv_ai` is a Dart package. You need the
+### Homebrew
+
+On macOS and Linux, install the prebuilt executable from the
+[Very Good Open Source tap](https://github.com/VeryGoodOpenSource/homebrew-tap):
+
+```sh
+brew install verygoodopensource/tap/vgv_ai
+```
+
+Naming the formula in full taps the repository and
+[trusts](https://docs.brew.sh/Tap-Trust) only that formula. Upgrade with
+`brew upgrade vgv_ai`.
+
+### Install script
+
+The script downloads the prebuilt executable for your platform from the latest
+GitHub release, checks it against its published SHA-256, and installs it to
+`~/.local/bin`. It needs no Dart SDK.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/VeryGoodOpenSource/vgv_ai_cli/main/tool/install.sh | bash
+```
+
+Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
+`VGV_AI_INSTALL_DIR` to install somewhere else. Rerun the script to upgrade.
+
+### pub
+
+`vgv_ai` is also a Dart package. You need the
 [Dart SDK](https://dart.dev/get-dart) 3.13 or later.
 
 ```sh
 dart pub global activate vgv_ai_cli
 ```
 
-This puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to confirm
-that it's installed.
+Either way puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to
+confirm that it's installed. Plugin resolution clones the VGV plugins, so `git`
+has to be on your path too.
+
+macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
+Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
+on your path. Native Windows, including Git Bash, is untested: `vgv_ai` builds
+paths with the host separator while those scripts expect POSIX ones.
 
 ## Supported harnesses
 
@@ -42,6 +76,15 @@ Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
 the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, GitHub Copilot CLI, and
 Devin CLI share one copy of the skills in `~/.agents/skills`. Antigravity CLI
 keeps its own copy inside its plugin.
+
+### Copilot in VS Code
+
+Skills that launch agents, such as `review`, need **Local** sessions in VS
+Code. In **Copilot** sessions, Ask mode is read-only and cannot launch agents.
+
+1. Switch the chat session to **Local**.
+2. Under **Configure Tools**, enable the terminal and **Run Subagent**
+   (`agent/runSubagent`).
 
 ## Commands
 
@@ -66,6 +109,9 @@ vgv_ai install --no-claude
 
 # Also overwrite your values that conflict with the ones install writes
 vgv_ai install --force
+
+# Install just the VGV plugins you name, instead of choosing them
+vgv_ai install --plugin vgv-wingspan
 ```
 
 `install` reads the pinned plugins from the Claude Code plugin cache when it
@@ -83,6 +129,19 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   are written whole. A file you edited since `install` wrote it, or one at the
   same path that `install` didn't write, is kept unless you pass `--force`.
 - **Selection:** `--only` and `--no-<harness>` can't be combined.
+- **Plugins:** pass `--plugin` once per plugin to name the ones you want.
+  Without it, `install` run in a terminal asks which plugins to install,
+  starting from the ones it installed before, or every pinned one the first
+  time; run any other way, such as in CI, it installs every pinned plugin.
+  What a previous `install` wrote for the plugins you leave out stays where
+  it is; `uninstall` removes that.
+- **Plugin files:** skills and agents that point at files elsewhere in their
+  plugin, such as references and scripts, point at the plugin where `install`
+  found it, in `~/.vgv_ai/plugins` or the Claude Code plugin cache. Nothing is
+  copied. If Claude Code drops its copy, those paths break until you run
+  `install` again, and `doctor` reports the files as outdated. If
+  `~/.vgv_ai/plugins` is cleared, `doctor` and `install` fetch it again to
+  the same place.
 
 ### doctor
 
@@ -101,7 +160,8 @@ vgv_ai doctor --no-claude
 
 For each harness, `doctor` reports the files and keys that are missing, were
 changed since, or differ from what this version installs. It also compares the
-plugin versions you installed from with the ones this version pins, suggests
+plugin versions each harness was installed from with the ones this version
+pins, notes a pinned plugin a harness wasn't installed from, suggests
 configuring a harness that's installed but not configured, and warns about a
 configured harness that's no longer installed.
 
@@ -150,14 +210,18 @@ vgv_ai uninstall --force
 
 ### update
 
-`update` updates `vgv_ai` to the latest version on pub.dev. It takes no flags.
+`update` checks pub.dev for a newer version of `vgv_ai`. It takes no flags.
 
 ```sh
 vgv_ai update
 ```
 
-Every other command also checks pub.dev for a newer version when it finishes,
-and prints how to update when there is one.
+When you installed with pub, it updates `vgv_ai` itself. Otherwise it prints
+the command that updates your installation: `brew upgrade vgv_ai` for Homebrew,
+or the install script for a prebuilt binary.
+
+Every other command also checks for a newer version when it finishes, and
+prints the same command when there is one.
 
 ## Global options
 
@@ -174,6 +238,15 @@ vgv_ai install --help
 # Log every step, including the shell commands vgv_ai runs
 vgv_ai install --verbose
 ```
+
+## Shell completion
+
+```sh
+vgv_ai install-completion-files
+```
+
+Installs shell completion for bash and zsh. Remove it again with
+`vgv_ai uninstall-completion-files`.
 
 ## Contributing
 

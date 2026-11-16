@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/copy_source.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template hook_scripts}
 /// A harness's copy of each plugin's `hooks` folder under the hooks root
@@ -25,6 +25,9 @@ class const HookScripts({
   /// What goes below the shebang of a script a hook runs.
   required final String preamble,
 }) {
+  /// {@macro hook_scripts}
+  this;
+
   /// The folder a Claude Code plugin keeps its hooks in.
   static const hooksFolder = 'hooks';
 
@@ -43,6 +46,11 @@ class const HookScripts({
   /// root, quoted or not.
   static final _hooksFile = RegExp(
     '${RegExp.escape(HookCommand.rootPlaceholder)}/($hooksFolder/[^\\s"\']+)',
+  );
+
+  /// The plugin root in a command, with the hooks folder that may follow it.
+  static final _rootReference = RegExp(
+    '${RegExp.escape(HookCommand.rootPlaceholder)}(/$hooksFolder/)?',
   );
 
   /// A command that runs its script through bash, whatever the shebang says.
@@ -86,20 +94,49 @@ class const HookScripts({
 
   /// [command] with the hooks folder pointing at the copy and the rest of
   /// the plugin at itself, both quoted.
+  ///
+  /// A placeholder the plugin already wrote inside double quotes, as the FFCA
+  /// plugin writes `"${CLAUDE_PLUGIN_ROOT}/hooks/validate_layers.sh"`, takes
+  /// the path escaped rather than quoted again: a second pair of quotes would
+  /// close the plugin's own, leaving the path bare to split on a space.
   static String command(
     HookCommand command,
     HookAsset hook, {
     required Directory hooksRoot,
-  }) => command.command
-      .replaceAll(
-        '${HookCommand.rootPlaceholder}/$hooksFolder/',
-        '${quoted(copyRoot(hook, hooksRoot).path)}/$hooksFolder/',
-      )
-      .replaceAll(HookCommand.rootPlaceholder, quoted(hook.pluginRoot.path));
+  }) => command.command.replaceAllMapped(_rootReference, (match) {
+    final hooks = match[1];
+    final path = hooks == null
+        ? hook.pluginRoot.path
+        : copyRoot(hook, hooksRoot).path;
+    final inQuotes = _inDoubleQuotes(match.input.substring(0, match.start));
+    final word = inQuotes ? _escaped(path) : quoted(path);
+    return '$word${hooks ?? ''}';
+  });
+
+  /// Whether the shell is inside double quotes at the end of [prefix]. A
+  /// double quote inside single quotes, or escaped, opens nothing.
+  static bool _inDoubleQuotes(String prefix) {
+    String? open;
+    for (var i = 0; i < prefix.length; i++) {
+      final char = prefix[i];
+      if (char == r'\' && open != "'") {
+        i++;
+      } else if (char == open) {
+        open = null;
+      } else if (open == null && (char == '"' || char == "'")) {
+        open = char;
+      }
+    }
+    return open == '"';
+  }
 
   /// [value] as one double-quoted shell word.
-  static String quoted(String value) =>
-      '"${value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}')}"';
+  static String quoted(String value) => '"${_escaped(value)}"';
+
+  /// [value] safe inside double quotes, with the characters they still
+  /// expand escaped.
+  static String _escaped(String value) =>
+      value.replaceAllMapped(RegExp(r'[\\"$`]'), (m) => '\\${m[0]}');
 
   /// The copy of every plugin [hooks] belong to, [compat] being the script
   /// the preamble sources, and a note for each file that could not be
@@ -307,7 +344,10 @@ class const HookScripts({
 class const HookCopy({
   required final List<PlannedChange> files,
   required final List<TranslationNote> notes,
-});
+}) {
+  /// {@macro hook_copy}
+  this;
+}
 
 /// One file of a plugin's hooks folder as the copy holds it; [hook] is any
 /// hook of the plugin, [relative] its path from the plugin root, and

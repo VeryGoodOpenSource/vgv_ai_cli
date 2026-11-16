@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 import '_assets.dart';
 
@@ -280,6 +280,70 @@ void main() {
         plan.harnesses[Harness.gemini]!.notes.single.reason,
         contains("nothing in Gemini's config runs one"),
       );
+    });
+
+    group('a skill only the user may start', () {
+      late PluginAssets userOnly;
+
+      setUp(() {
+        userOnly = pluginAssets(
+          skills: [
+            skillAsset(fs, 'create-pr', disableModelInvocation: true),
+            skillAsset(fs, 'testing'),
+          ],
+        );
+      });
+
+      test(
+        'is named in a note for each harness that cannot keep it so',
+        () async {
+          final unguarded = Harness.values.toSet()
+            ..removeAll({Harness.claude, Harness.codex});
+
+          final plan = await translate(unguarded, using: userOnly);
+
+          for (final harness in unguarded) {
+            final note = plan.harnesses[harness]!.notes.single;
+            expect(note.subject, 'the create-pr skill');
+            expect(
+              note.reason,
+              contains("${harness.displayName}'s config stops the model"),
+            );
+          }
+        },
+      );
+
+      test('needs no note for Claude Code or Codex', () async {
+        final plan = await translate({
+          Harness.claude,
+          Harness.codex,
+        }, using: userOnly);
+
+        expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+        expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
+      });
+
+      test("carries Codex's policy beside the shared copy", () async {
+        final plan = await translate({Harness.codex}, using: userOnly);
+
+        final policy = plan.harnesses[Harness.codex]!.changes.singleWhere(
+          (c) => c.file.path.endsWith(CodexTranslator.metadata),
+        );
+        expect(
+          policy.file.path,
+          '/home/dev/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        );
+        expect(policy.harness, Harness.codex);
+      });
+
+      test('leaves the shared copy without the policy for others', () async {
+        final plan = await translate({Harness.gemini}, using: userOnly);
+
+        expect(
+          plan.changes.map((c) => c.file.path),
+          isNot(contains(endsWith(CodexTranslator.metadata))),
+        );
+      });
     });
 
     group('renders contents the harness can read', () {

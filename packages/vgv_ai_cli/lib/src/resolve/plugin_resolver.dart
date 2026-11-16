@@ -1,9 +1,9 @@
 import 'dart:io' show Process;
 
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/resolve/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template plugin_resolver}
 /// Resolves and parses the pinned VGV plugins into one asset bundle.
@@ -18,20 +18,35 @@ class const PluginResolver({
   final PluginParser _parser = const ClaudePluginParser(),
   final List<PluginRef> _plugins = vgvPlugins,
 }) {
-  /// Resolves every plugin for [home], stopping at the first that cannot be
-  /// resolved or parsed: a half-configured harness is worse than an
-  /// unconfigured one.
-  Future<AssetResolution> resolve(Directory home) async {
+  /// {@macro plugin_resolver}
+  this;
+
+  /// Resolves the plugins [only] names for [home], or every pinned one when
+  /// it names none, stopping at the first that cannot be resolved or parsed:
+  /// a half-configured harness is worse than an unconfigured one.
+  ///
+  /// [log] receives the git command line and its stderr, for `--verbose`.
+  Future<AssetResolution> resolve(
+    Directory home, {
+    Set<String>? only,
+    LogDetail? log,
+  }) async {
     final sources = [
       LocalCachePluginSource(home: home),
       GitPluginSource(
         cacheRoot: home.childDirectory('.vgv_ai').childDirectory('plugins'),
         runGit: (args) => _runProcess('git', args),
+        log: log,
       ),
     ];
 
+    final plugins = [
+      for (final plugin in _plugins)
+        if (only?.contains(plugin.name) ?? true) plugin,
+    ];
+
     final parsed = <PluginAssets>[];
-    for (final plugin in _plugins) {
+    for (final plugin in plugins) {
       switch (await _resolveOne(plugin, sources)) {
         case ResolvedAssets(:final assets):
           parsed.add(assets);
@@ -42,10 +57,7 @@ class const PluginResolver({
       }
     }
 
-    return ResolvedAssets(
-      assets: PluginAssets.merge(parsed),
-      plugins: _plugins,
-    );
+    return ResolvedAssets(assets: PluginAssets.merge(parsed, plugins: plugins));
   }
 
   /// [plugin] parsed from the first of [sources] holding a copy that parses.
@@ -65,10 +77,7 @@ class const PluginResolver({
       switch (await source.resolve(plugin)) {
         case ResolvedPlugin(:final directory):
           try {
-            return ResolvedAssets(
-              assets: _parser.parse(directory),
-              plugins: [plugin],
-            );
+            return ResolvedAssets(assets: _parser.parse(directory));
           } on PluginParseException catch (error) {
             unparseable = UnparseableAssets(plugin, error);
           }

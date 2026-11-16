@@ -18,6 +18,9 @@ sealed class const ManifestEntry({
   /// The harness the file configures, or null for the shared skills.
   required final Harness? owner,
 }) extends Equatable {
+  /// {@macro manifest_entry}
+  this;
+
   /// How [path] was written.
   ChangeMode get mode;
 
@@ -106,6 +109,9 @@ final class const OwnedFile({
   required final String sha256,
 }) extends ManifestEntry {
   /// {@macro owned_file}
+  this;
+
+  /// {@macro owned_file}
   ///
   /// Records [bytes] as what VGV wrote to [path].
   new of({
@@ -137,6 +143,9 @@ final class const MergedDocument({
   /// The part of the document that is VGV's.
   required final Contribution contribution,
 }) extends ManifestEntry {
+  /// {@macro merged_document}
+  this;
+
   @override
   ChangeMode get mode => format.mode;
 
@@ -154,6 +163,9 @@ final class const MarkdownSections({
   /// Each section's name to the SHA-256 of the body VGV last wrote there.
   required final Map<String, String> sections,
 }) extends ManifestEntry {
+  /// {@macro markdown_sections}
+  this;
+
   /// This entry with [body] recorded as what VGV wrote into section [name].
   MarkdownSections recording(String name, String body) => MarkdownSections(
     path: path,
@@ -174,7 +186,7 @@ final class const MarkdownSections({
 
 /// {@template install_manifest}
 /// Everything VGV wrote under a home directory, by file, and the plugin
-/// versions it was written from.
+/// versions each harness was written from.
 ///
 /// `install` writes it, and `doctor` and `uninstall` read it, so this is the
 /// one place ownership is defined. It is persisted rather than recomputed
@@ -196,9 +208,9 @@ class InstallManifest extends Equatable {
   ///
   /// A malformed manifest is empty: an unrecorded file is the user's, which
   /// is the safe way to be wrong. For the same reason, an entry whose path
-  /// is absolute or leads out of [home] is dropped. A version 1 manifest is
-  /// read as one that records no plugin versions. One from a newer version
-  /// is null, because writing over it would lose everything it records.
+  /// is absolute or leads out of [home] is dropped, as are plugin versions
+  /// that are not written per harness. One from a newer version is null,
+  /// because writing over it would lose everything it records.
   static InstallManifest? decode(String source, {required String home}) {
     final Object? json;
     try {
@@ -209,22 +221,30 @@ class InstallManifest extends Equatable {
 
     return switch (json) {
       {
-        'version': 1 || InstallManifest.version,
+        'version': InstallManifest.version,
         'entries': final List<dynamic> list,
       } =>
-        InstallManifest(
-          [
-            for (final item in list)
-              ?ManifestEntry.fromJson(_resolved(item, home: home)),
-          ],
-          {
-            if (json['plugins'] case final Map<String, dynamic> plugins)
-              for (final MapEntry(:key, :value) in plugins.entries)
-                if (value is String) key: value,
-          },
-        ),
+        InstallManifest([
+          for (final item in list)
+            ?ManifestEntry.fromJson(_resolved(item, home: home)),
+        ], _plugins(json['plugins'])),
       {'version': final int other} when other > version => null,
       _ => InstallManifest(),
+    };
+  }
+
+  /// The versions [json] records per harness, without what this version
+  /// cannot read.
+  static Map<Harness, Map<String, String>> _plugins(Object? json) {
+    if (json is! Map<String, dynamic>) return const {};
+    return {
+      for (final MapEntry(:key, :value) in json.entries)
+        if (Harness.values.asNameMap()[key] case final harness?)
+          if (value is Map<String, dynamic>)
+            harness: {
+              for (final MapEntry(:key, :value) in value.entries)
+                if (value is String) key: value,
+            },
     };
   }
 
@@ -241,12 +261,16 @@ class InstallManifest extends Equatable {
   }
 
   /// The format [encode] writes.
-  static const version = 2;
+  static const version = 1;
 
   final Map<String, ManifestEntry> _entries;
 
-  /// Each plugin's name to the version VGV's files were written from.
-  final Map<String, String> plugins;
+  /// Each harness to the plugin versions its files were written from, by
+  /// plugin name.
+  ///
+  /// Per harness rather than per home, since `install --plugin` can leave a
+  /// plugin out of one harness while another is installed from it.
+  final Map<Harness, Map<String, String>> plugins;
 
   /// Every entry, in the order they were recorded.
   Iterable<ManifestEntry> get entries => _entries.values;
@@ -279,8 +303,9 @@ class InstallManifest extends Equatable {
     );
   }
 
-  /// This manifest with [plugins] as the versions it was written from.
-  InstallManifest withPlugins(Map<String, String> plugins) {
+  /// This manifest with [plugins] as the versions each harness was written
+  /// from.
+  InstallManifest withPlugins(Map<Harness, Map<String, String>> plugins) {
     return InstallManifest(entries, plugins);
   }
 
@@ -289,7 +314,9 @@ class InstallManifest extends Equatable {
   String encode({required String home}) {
     final json = {
       'version': version,
-      'plugins': plugins,
+      'plugins': {
+        for (final MapEntry(:key, :value) in plugins.entries) key.name: value,
+      },
       'entries': [
         for (final entry in entries)
           {...entry.toJson(), 'path': p.relative(entry.path, from: home)},

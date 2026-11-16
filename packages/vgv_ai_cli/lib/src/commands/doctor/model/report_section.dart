@@ -15,19 +15,37 @@ class const ReportSection({
 
   /// What was found, in the order it was found.
   required final List<Finding> findings,
+
+  /// The plugins the fix installs, empty for every pinned one, or null when
+  /// the harnesses were installed from different ones and no one `install`
+  /// fixes them all.
+  final Set<String>? plugins = const {},
 }) {
+  /// {@macro report_section}
+  this;
+
   /// Whether anything was found that is wrong.
   bool get hasProblems => findings.any((finding) => finding.isProblem);
 
   /// Whether anything was found that is worth knowing, though not wrong.
   bool get hasNotices => findings.any((finding) => finding.isNotice);
 
+  /// Whether `install` fixes something here that [fix] cannot say in one
+  /// command, because the harnesses were installed from different plugins.
+  bool get needsItsOwnFix =>
+      fix == null && findings.any((finding) => finding.needsInstall);
+
   /// The one `install` command that fixes every finding `install` can fix,
-  /// or null when there are none.
-  FixCommand? get fix => findings.any((finding) => finding.needsInstall)
-      ? FixCommand(
-          harnesses: installs,
-          force: findings.any((finding) => finding.needsForce),
-        )
-      : null;
+  /// or null when there are none, or when no one command fixes them.
+  FixCommand? get fix {
+    if (plugins case final plugins?
+        when findings.any((finding) => finding.needsInstall)) {
+      return FixCommand(
+        harnesses: installs,
+        force: findings.any((finding) => finding.needsForce),
+        plugins: plugins,
+      );
+    }
+    return null;
+  }
 }

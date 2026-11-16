@@ -1,4 +1,6 @@
+import 'package:collection/collection.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template fix_command}
 /// The `install` command that fixes what `doctor` found in [harnesses].
@@ -9,15 +11,32 @@ class const FixCommand({
 
   /// Whether VGV's values must replace ones changed since install.
   final bool force = false,
+
+  /// The plugins to install, or empty to pass no `--plugin`, which installs
+  /// every pinned one outside a terminal and pre-selects them all in one.
+  ///
+  /// Named so the fix cannot install a plugin the user left out of a
+  /// harness with `install --plugin`.
+  final Set<String> plugins = const {},
 }) {
+  /// {@macro fix_command}
+  this;
+
   /// One command that does what every one of [fixes] does, or null when
-  /// there are none.
+  /// there are none, or when they install different plugins and so cannot
+  /// be said in one command.
   static FixCommand? combine(Iterable<FixCommand?> fixes) {
-    final all = fixes.nonNulls;
+    final all = fixes.nonNulls.toList();
     if (all.isEmpty) return null;
+
+    final plugins = EqualitySet<Set<String>>(const SetEquality())
+      ..addAll(all.map((fix) => fix.plugins));
+    if (plugins.length > 1) return null;
+
     return FixCommand(
       harnesses: {for (final fix in all) ...fix.harnesses},
       force: all.any((fix) => fix.force),
+      plugins: plugins.single,
     );
   }
 
@@ -26,6 +45,8 @@ class const FixCommand({
     'vgv_ai install',
     for (final harness in Harness.values)
       if (harnesses.contains(harness)) '--only ${harness.name}',
+    for (final plugin in vgvPlugins)
+      if (plugins.contains(plugin.name)) '--plugin ${plugin.name}',
     if (force) '--force',
   ].join(' ');
 }

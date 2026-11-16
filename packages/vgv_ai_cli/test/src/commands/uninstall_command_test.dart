@@ -5,22 +5,15 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:plugin_source/plugin_source.dart';
-import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
-import 'package:vgv_ai_cli/src/version.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
-
-class _MockProgress extends Mock implements Progress;
+import '../../helpers/test_runner.dart';
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
@@ -47,8 +40,8 @@ class const _FailingAuditor() extends ManifestAuditor {
 
 void main() {
   group(UninstallCommand, () {
+    late TestRunner runner;
     late Logger logger;
-    late PubUpdater pubUpdater;
     late FileSystem fs;
     late Directory home;
     late ManifestStore store;
@@ -57,8 +50,8 @@ void main() {
     String? undeletable;
 
     setUp(() {
-      logger = _MockLogger();
-      pubUpdater = _MockPubUpdater();
+      runner = TestRunner();
+      logger = runner.logger;
       undeletable = null;
       fs = MemoryFileSystem.test(
         opHandle: (path, operation) {
@@ -69,17 +62,10 @@ void main() {
       );
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
     });
 
     Future<int> runThroughRunner(UninstallCommand command, List<String> args) =>
-        VgvAiCliCommandRunner(
-          logger: logger,
-          pubUpdater: pubUpdater,
-          uninstallCommand: command,
-        ).run(['uninstall', ...args]);
+        runner.run(['uninstall', ...args], uninstallCommand: command);
 
     Future<int> runUninstall([
       List<String> args = const [],
@@ -296,6 +282,15 @@ void main() {
           command.argParser.options['only']!.help,
           'Remove the Very Good AI tooling from just these harnesses.',
         );
+      });
+
+      test('--only lists what each harness name means', () {
+        final command = UninstallCommand(logger: logger);
+
+        expect(command.argParser.options['only']!.allowedHelp, {
+          for (final harness in Harness.values)
+            harness.name: '${harness.displayName}.',
+        });
       });
     });
 
@@ -565,6 +560,69 @@ void main() {
         expect(store.load()!.entries.map((entry) => entry.owner), [Harness.pi]);
       });
 
+      test('deletes one that records nothing it can read', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            jsonEncode({
+              'version': InstallManifest.version,
+              'entries': [
+                {'path': '.x/a', 'owner': 'unknown', 'mode': 'own'},
+              ],
+            }),
+          );
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.success.code);
+        expect(store.file.existsSync(), isFalse);
+        verify(
+          () => logger.info(
+            "VGV AI CLI hasn't installed anything here, so there is nothing "
+            'to remove.',
+          ),
+        ).called(1);
+        verify(
+          () => logger.info(
+            'Deleted ${store.file.path}, which records nothing this version '
+            'of vgv_ai can read, so the files it recorded were left in place.',
+          ),
+        ).called(1);
+      });
+
+      test('--check keeps one that records nothing it can read', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync('not json');
+
+        final exitCode = await runUninstall(['--check']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(store.file.readAsStringSync(), 'not json');
+      });
+
+      test('exits with an I/O error when one that records nothing it can '
+          'read cannot be deleted', () async {
+        store.file
+          ..createSync(recursive: true)
+          ..writeAsStringSync('not json');
+        undeletable = store.file.path;
+
+        final exitCode = await runUninstall();
+
+        expect(exitCode, ExitCode.ioError.code);
+        verify(
+          () => logger.err(
+            any(
+              that: startsWith(
+                'Could not delete ${store.file.path}, which records nothing '
+                'this version of vgv_ai can read: ',
+              ),
+            ),
+          ),
+        ).called(1);
+      });
+
       test('removes nothing over one from a newer version', () async {
         final newer = jsonEncode({'version': InstallManifest.version + 1});
         store.file
@@ -579,6 +637,12 @@ void main() {
           () => logger.err(
             'Removed nothing, because ${ManifestStore.unreadable}: '
             '${store.file.path}',
+          ),
+        ).called(1);
+        verify(
+          () => logger.err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run uninstall '
+            'again.',
           ),
         ).called(1);
       });
@@ -639,7 +703,6 @@ void main() {
       /// Installs one skill and one agent for every harness with the real
       /// translator and reconciler.
       Future<void> installEverything() async {
-        when(() => logger.progress(any())).thenReturn(_MockProgress());
         final skill = fs.directory('/plugin/skills/green-gate');
         fs.file(fs.path.join(skill.path, 'references', 'guide.md'))
           ..createSync(recursive: true)
@@ -676,22 +739,21 @@ void main() {
           return ProcessResult(0, 0, '', '');
         }
 
-        final exitCode =
-            await VgvAiCliCommandRunner(
-              logger: logger,
-              pubUpdater: pubUpdater,
-              installCommand: InstallCommand(
-                logger: logger,
-                home: home,
-                resolver: PluginResolver(
-                  runProcess: clone,
-                  parser: _FakeParser(assets),
-                ),
-              ),
-            ).run([
-              'install',
-              for (final harness in Harness.values) ...['--only', harness.name],
-            ]);
+        final exitCode = await runner.run(
+          [
+            'install',
+            for (final harness in Harness.values) ...['--only', harness.name],
+          ],
+          installCommand: InstallCommand(
+            logger: logger,
+            home: home,
+            resolver: PluginResolver(
+              runProcess: clone,
+              parser: _FakeParser(assets),
+            ),
+            hasTerminal: false,
+          ),
+        );
         expect(exitCode, ExitCode.success.code);
       }
 

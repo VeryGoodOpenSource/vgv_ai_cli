@@ -4,10 +4,7 @@ import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:plugin_source/plugin_source.dart';
-import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
-import 'package:vgv_ai_cli/src/command_runner.dart';
 import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
@@ -15,28 +12,40 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
-import 'package:vgv_ai_cli/src/version.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
+import '../../../helpers/test_runner.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
-
-class _MockProgress extends Mock implements Progress;
 
 /// A [PluginResolver] that answers with [resolution], and counts its calls.
 class _FakeResolver extends Fake implements PluginResolver {
   AssetResolution resolution = const ResolvedAssets(
-    assets: PluginAssets(skills: [], agents: [], mcpServers: []),
-    plugins: vgvPlugins,
+    assets: PluginAssets(
+      skills: [],
+      agents: [],
+      mcpServers: [],
+      plugins: vgvPlugins,
+    ),
   );
 
   int calls = 0;
 
+  /// The plugins each call asked for, in order.
+  final resolved = <Set<String>?>[];
+
+  /// The sink the command passed for `--verbose` output.
+  LogDetail? log;
+
   @override
-  Future<AssetResolution> resolve(Directory home) async {
+  Future<AssetResolution> resolve(
+    Directory home, {
+    Set<String>? only,
+    LogDetail? log,
+  }) async {
     calls++;
+    resolved.add(only);
+    this.log = log;
     return resolution;
   }
 }
@@ -72,8 +81,8 @@ void main() {
   group(DoctorCommand, () {
     setUpAll(() => registerFallbackValue(Harness.claude));
 
+    late TestRunner runner;
     late Logger logger;
-    late PubUpdater pubUpdater;
     late FileSystem fs;
     late Directory home;
     late ManifestStore store;
@@ -96,28 +105,20 @@ void main() {
     }
 
     setUp(() {
-      logger = _MockLogger();
-      pubUpdater = _MockPubUpdater();
+      runner = TestRunner();
+      logger = runner.logger;
+      progress = runner.progress;
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
       store = ManifestStore(home);
       detector = _MockDetector();
       detect();
-      progress = _MockProgress();
-      when(() => logger.progress(any())).thenReturn(progress);
       resolver = _FakeResolver();
       translator = _FakeTranslator();
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
     });
 
     Future<int> runThroughRunner(DoctorCommand command, List<String> args) =>
-        VgvAiCliCommandRunner(
-          logger: logger,
-          pubUpdater: pubUpdater,
-          doctorCommand: command,
-        ).run(['doctor', ...args]);
+        runner.run(['doctor', ...args], doctorCommand: command);
 
     Future<int> runDoctor({
       List<String> args = const [],
@@ -143,14 +144,18 @@ void main() {
     };
 
     /// Installs [changes] with the real reconciler, recording the pinned
-    /// plugin versions, as `install` does, and plans them again, so they
-    /// are current unless a test changes the plan.
+    /// plugin versions for each harness it writes for, as `install` does,
+    /// and plans them again, so they are current unless a test changes the
+    /// plan.
     void install(List<PlannedChange> changes) {
+      final manifest = const Reconciler()
+          .apply(changes, manifest: store.load()!)
+          .manifest;
       store.save(
-        const Reconciler()
-            .apply(changes, manifest: store.load()!)
-            .manifest
-            .withPlugins(pinned),
+        manifest.withPlugins({
+          ...manifest.plugins,
+          for (final change in changes) ?change.harness: pinned,
+        }),
       );
       translator.changes.addAll(changes);
     }
@@ -189,12 +194,11 @@ void main() {
       final exitCode = await runDoctor();
 
       expect(exitCode, ExitCode.success.code);
-      verifyInfo('✓ Plugins');
+      verifyInfo('✓ Shared');
+      verifyInfo('✓ Codex');
       for (final plugin in vgvPlugins) {
         verifyInfo('    ${plugin.name} ${plugin.version}');
       }
-      verifyInfo('✓ Shared');
-      verifyInfo('✓ Codex');
     });
 
     test('reports nothing installed when there is no manifest', () async {
@@ -527,6 +531,55 @@ void main() {
         verifyInfo('    Run vgv_ai install --only codex');
       });
 
+      group('a skill pointing into the plugin root', () {
+        /// The shared skills of a plugin parsed at [path], whose one skill
+        /// reads a file through `${CLAUDE_PLUGIN_ROOT}`.
+        List<PlannedChange> skillsAt(String path) {
+          final root = fs.directory(path);
+          root.childFile('skills/a/SKILL.md')
+            ..createSync(recursive: true)
+            ..writeAsStringSync(
+              '---\nname: a\ndescription: d\n---\n'
+              r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+              '\n',
+            );
+          return const SkillsTranslator()
+              .translate(
+                assets: const ClaudePluginParser().parse(root),
+                root: agentsSkillsRoot(home),
+              )
+              .changes;
+        }
+
+        setUp(
+          () => install([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            ...skillsAt('/cache/ffca/0.1.2'),
+          ]),
+        );
+
+        test('is outdated once the plugin root moves', () async {
+          replan([
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            ...skillsAt('/cache/ffca/0.1.3'),
+          ]);
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('✗ Shared');
+          verifyInfo('    outdated ~/.agents/skills/a/SKILL.md');
+          verifyInfo('    Run vgv_ai install --only codex');
+        });
+
+        test('is current while the plugin root stays put', () async {
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo('✓ Shared');
+        });
+      });
+
       test(
         'warns about a file this version no longer installs, and exits 0',
         () async {
@@ -548,6 +601,17 @@ void main() {
           verifyNever(() => logger.info(any(that: startsWith('    Run '))));
         },
       );
+
+      test('hands the resolver a sink for its verbose output', () async {
+        install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+
+        await runDoctor();
+
+        expect(resolver.calls, 1);
+        expect(resolver.log, isNotNull);
+        resolver.log!('cloning something');
+        verify(() => logger.detail('cloning something')).called(1);
+      });
 
       test('is not checked when nothing in scope is configured', () async {
         install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
@@ -639,7 +703,7 @@ void main() {
 
       void installWith(Map<String, String> plugins) {
         install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
-        store.save(store.load()!.withPlugins(plugins));
+        store.save(store.load()!.withPlugins({Harness.codex: plugins}));
       }
 
       test('an older recorded version exits 70 with the install fix', () async {
@@ -648,7 +712,7 @@ void main() {
         final exitCode = await runDoctor();
 
         expect(exitCode, ExitCode.software.code);
-        verifyInfo('✗ Plugins');
+        verifyInfo('✗ Codex');
         verifyInfo(
           '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
         );
@@ -668,41 +732,179 @@ void main() {
         verifyInfo('    Run vgv_ai install --only codex');
       });
 
-      test('a pinned plugin that was never recorded exits 70', () async {
+      test('a pinned plugin that was never installed is only noted', () async {
         installWith({});
 
         final exitCode = await runDoctor();
 
-        expect(exitCode, ExitCode.software.code);
-        verifyInfo(
-          '    ${wingspan.name} not recorded, ${wingspan.version} pinned',
-        );
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('    ${wingspan.name} ${wingspan.version} not installed');
+        // Nothing was recorded, so every pinned plugin is still checked.
+        expect(resolver.resolved, [
+          {for (final plugin in vgvPlugins) plugin.name},
+        ]);
       });
 
       test(
-        'are fixed by installing every configured harness in scope',
+        'only the plugins a harness was installed from are checked',
+        () async {
+          installWith({wingspan.name: wingspan.version});
+
+          await runDoctor();
+
+          expect(resolver.resolved, [
+            {wingspan.name},
+          ]);
+        },
+      );
+
+      test(
+        'harnesses installed from different plugins are planned apart',
         () async {
           install([
             owned('.codex/agents/a.toml', harness: Harness.codex),
             owned('.gemini/agents/a.md', harness: Harness.gemini),
-            owned('.pi/agent/a.md', harness: Harness.pi),
           ]);
-          store.save(store.load()!.withPlugins({}));
+          store.save(
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: wingspan.version},
+              Harness.gemini: pinned,
+            }),
+          );
 
-          await runDoctor(args: ['--no-pi']);
+          await runDoctor();
 
-          verifyInfo('    Run vgv_ai install --only gemini --only codex');
+          expect(
+            resolver.resolved,
+            unorderedEquals([
+              {wingspan.name},
+              {for (final plugin in vgvPlugins) plugin.name},
+            ]),
+          );
         },
       );
 
-      test('are not reported when nothing in scope is configured', () async {
+      test(
+        'the fix names the plugins the harness was installed from',
+        () async {
+          install([owned('.codex/agents/a.toml', harness: Harness.codex)]);
+          store.save(
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: '0.0.1'},
+            }),
+          );
+
+          await runDoctor();
+
+          verifyInfo(
+            '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+          );
+        },
+      );
+
+      test('are reported under each harness they were installed for', () async {
+        install([
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {...pinned, wingspan.name: '0.0.1'},
+            Harness.gemini: pinned,
+          }),
+        );
+
+        await runDoctor();
+
+        verifyInfo('✗ Codex');
+        verifyInfo(
+          '    ${wingspan.name} 0.0.1 installed, ${wingspan.version} pinned',
+        );
+        verifyInfo('    Run vgv_ai install --only codex');
+        verifyInfo('✓ Gemini');
+      });
+
+      test('the shared fix names the plugins its readers share', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {wingspan.name: wingspan.version},
+          }),
+        );
+        homeFile('.agents/skills/a/SKILL.md').deleteSync();
+
+        await runDoctor();
+
+        verifyInfo('    missing ~/.agents/skills/a/SKILL.md');
+        verifyInfo(
+          '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+        );
+      });
+
+      test('the shared fix is left out when its readers differ', () async {
+        install([
+          owned('.agents/skills/a/SKILL.md'),
+          owned('.codex/agents/a.toml', harness: Harness.codex),
+          owned('.gemini/agents/a.md', harness: Harness.gemini),
+        ]);
+        store.save(
+          store.load()!.withPlugins({
+            Harness.codex: {wingspan.name: wingspan.version},
+            Harness.gemini: pinned,
+          }),
+        );
+        homeFile('.agents/skills/a/SKILL.md').deleteSync();
+
+        await runDoctor();
+
+        verifyInfo('    missing ~/.agents/skills/a/SKILL.md');
+        verifyNever(
+          () =>
+              logger.info('    Run vgv_ai install --only gemini --only codex'),
+        );
+      });
+
+      test(
+        'nothing closes the report when the shared fix is left out',
+        () async {
+          install([
+            owned('.agents/skills/a/SKILL.md'),
+            owned('.codex/agents/a.toml', harness: Harness.codex),
+            owned('.gemini/agents/a.md', harness: Harness.gemini),
+          ]);
+          store.save(
+            store.load()!.withPlugins({
+              Harness.codex: {wingspan.name: wingspan.version},
+              Harness.gemini: pinned,
+            }),
+          );
+          homeFile('.agents/skills/a/SKILL.md').deleteSync();
+          homeFile('.codex/agents/a.toml').deleteSync();
+
+          await runDoctor();
+
+          verifyInfo(
+            '    Run vgv_ai install --only codex --plugin ${wingspan.name}',
+          );
+          verifyNever(
+            () => logger.info(
+              any(that: endsWith('to fix everything install can.')),
+            ),
+          );
+        },
+      );
+
+      test('are not reported for a harness VGV has not configured', () async {
         installWith({});
         detect(const [Harness.codex, Harness.pi]);
 
         final exitCode = await runDoctor(args: ['--only', 'pi']);
 
         expect(exitCode, ExitCode.success.code);
-        verifyNever(() => logger.info(any(that: endsWith('Plugins'))));
+        verifyNever(() => logger.info(any(that: contains(wingspan.name))));
       });
     });
 
@@ -710,9 +912,9 @@ void main() {
       String combined(String command) =>
           'Run $command to fix everything install can.';
 
-      const forceNote =
-          '--force applies to every harness listed, replacing your values '
-          "wherever they conflict with VGV's.";
+      final forceNote =
+          '${lightCyan.wrap('--force')} applies to every harness listed, '
+          "replacing your values wherever they conflict with VGV's.";
 
       void verifyNoCombined() => verifyNever(
         () =>

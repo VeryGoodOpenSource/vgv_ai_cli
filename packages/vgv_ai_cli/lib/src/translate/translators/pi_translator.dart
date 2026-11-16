@@ -1,6 +1,6 @@
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template pi_translator}
 /// Configures Pi.
@@ -11,6 +11,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// written, and nothing that would imitate the rest.
 /// {@endtemplate}
 class const PiTranslator() extends HarnessTranslator {
+  /// {@macro pi_translator}
+  this;
+
   @override
   Harness get harness => Harness.pi;
 

@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template skills_translator}
 /// Writes a copy of the skills under one root: the shared one most harnesses
@@ -14,6 +14,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// harness.
 /// {@endtemplate}
 class const SkillsTranslator() {
+  /// {@macro skills_translator}
+  this;
+
   /// Plans every skill under [root], plus the files each one ships alongside
   /// its `SKILL.md`, owned by [harness] or shared when null.
   TranslationResult translate({

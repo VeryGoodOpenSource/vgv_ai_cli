@@ -43,4 +43,7 @@ class AppliedChange({
 
   /// Why the change [ChangeOutcome.failed], and null otherwise.
   final String? error,
-});
+}) {
+  /// {@macro applied_change}
+  this;
+}

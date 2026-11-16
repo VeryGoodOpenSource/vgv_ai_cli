@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:plugin_source/plugin_source.dart';
 import 'package:toml/toml.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template gemini_translator}
 /// Configures Gemini CLI.
@@ -14,6 +14,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// argument placeholder.
 /// {@endtemplate}
 class const GeminiTranslator() extends HarnessTranslator {
+  /// {@macro gemini_translator}
+  this;
+
   /// Gemini's argument placeholder. Codex, OpenCode and Pi all keep Claude's
   /// `$ARGUMENTS`, so this substitution belongs to Gemini alone.
   static const _arguments = r'$ARGUMENTS';

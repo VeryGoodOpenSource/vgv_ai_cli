@@ -7,4 +7,7 @@ class const Subtraction({
 
   /// Whether any of what VGV wrote was kept, because the user changed it.
   required final bool kept,
-});
+}) {
+  /// {@macro subtraction}
+  this;
+}

@@ -16,4 +16,7 @@ class const WriteDecision({
   /// entry as it is, and a [MergedDocument] with an empty contribution drops
   /// it, since nothing in the file is VGV's.
   final ManifestEntry? entry,
-});
+}) {
+  /// {@macro write_decision}
+  this;
+}

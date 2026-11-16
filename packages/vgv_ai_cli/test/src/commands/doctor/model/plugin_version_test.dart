@@ -1,6 +1,6 @@
-import 'package:plugin_source/plugin_source.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 void main() {
   group(PluginVersion, () {
@@ -63,7 +63,7 @@ void main() {
       expect(version.status, PluginStatus.unrecorded);
       expect(
         version.finding,
-        isFinding(FindingKind.stale, 'wingspan not recorded, 0.2.0 pinned'),
+        isFinding(FindingKind.warning, 'wingspan 0.2.0 not installed'),
       );
     });
   });

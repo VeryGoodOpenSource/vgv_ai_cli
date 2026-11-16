@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
@@ -32,6 +30,7 @@ class UninstallCommand({
   final Map<String, String>? _environment,
   final ManifestAuditor _auditor = const ManifestAuditor(),
 }) extends Command<int> with HarnessSelection {
+  /// {@macro uninstall_command}
   this {
     argParser
       ..addFlag(
@@ -50,6 +49,8 @@ class UninstallCommand({
     );
   }
 
+  /// The name the CLI registers `uninstall` under, so other code can name it
+  /// without constructing one.
   static const String commandName = 'uninstall';
 
   /// The outcomes where something the user changed was kept.
@@ -78,7 +79,7 @@ class UninstallCommand({
     final only = onlyHarnesses;
     final selected = only ?? Harness.values.where(isEnabled).toSet();
 
-    final home = _home ?? userHome(_environment ?? Platform.environment);
+    final home = commandHome(_home, _environment);
     if (home == null) {
       _logger.err(
         'Could not find your home directory. Set HOME and run uninstall '
@@ -87,11 +88,13 @@ class UninstallCommand({
       return ExitCode.config.code;
     }
 
+    final manifestStore = ManifestStore(home);
     final store = ReportingManifestStore(
-      ManifestStore(home),
+      manifestStore,
       _logger,
       nothingDone: 'Removed nothing',
       done: 'removed',
+      retry: 'uninstall',
     );
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
@@ -100,7 +103,9 @@ class UninstallCommand({
         "VGV AI CLI hasn't installed anything here, so there is nothing to "
         'remove.',
       );
-      return ExitCode.success.code;
+      return dryRun
+          ? ExitCode.success.code
+          : _deleteUnreadable(manifestStore.file);
     }
 
     final recorded = {for (final entry in manifest.entries) ?entry.owner};
@@ -135,6 +140,28 @@ class UninstallCommand({
       (entry) => entry.outcome == ReverseOutcome.failed,
     );
     return !saved || anyFailed ? ExitCode.ioError.code : ExitCode.success.code;
+  }
+
+  /// Deletes [manifest], if there is one, since it records nothing this
+  /// version can read and so nothing it can take back, and says why.
+  int _deleteUnreadable(File manifest) {
+    if (!manifest.existsSync()) return ExitCode.success.code;
+
+    final path = manifest.path;
+    try {
+      manifest.deleteSync();
+      _logger.info(
+        'Deleted $path, which records nothing this version of vgv_ai can '
+        'read, so the files it recorded were left in place.',
+      );
+      return ExitCode.success.code;
+    } on FileSystemException catch (error) {
+      _logger.err(
+        'Could not delete $path, which records nothing this version of '
+        'vgv_ai can read: ${error.description}',
+      );
+      return ExitCode.ioError.code;
+    }
   }
 
   /// Deletes the directories each removed entry of [entries] left empty, up

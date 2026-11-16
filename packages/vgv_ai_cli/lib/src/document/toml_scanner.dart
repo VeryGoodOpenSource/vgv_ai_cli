@@ -6,6 +6,9 @@ import 'package:vgv_ai_cli/src/document/model/model.dart';
 /// or array is one statement however many lines it spans.
 /// {@endtemplate}
 class TomlScanner(final List<String> lines) {
+  /// {@macro toml_scanner}
+  this;
+
   /// The region of [lines] that holds [table], or null when the document
   /// has no `[table]` header for it. An empty [table] is the document's top
   /// level.

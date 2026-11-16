@@ -20,4 +20,7 @@ class const ReverseDecision({
   /// Only a file that is still VGV's is deleted through a link, so forcing
   /// cannot reach a file the user put at the other end.
   final bool throughLink = true,
-});
+}) {
+  /// {@macro reverse_decision}
+  this;
+}

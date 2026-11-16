@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template claude_translator}
 /// Configures Claude Code, which needs no assets translated.
@@ -14,12 +14,19 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// does, and the two copies would drift apart on the next plugin release.
 /// {@endtemplate}
 class const ClaudeTranslator() extends HarnessTranslator {
+  /// {@macro claude_translator}
+  this;
+
   @override
   Harness get harness => Harness.claude;
 
   /// The plugin system already installs the skills.
   @override
   bool get readsSharedSkills => false;
+
+  /// The plugin system reads `disable-model-invocation` as written.
+  @override
+  bool get honorsModelInvocation => true;
 
   @override
   String settings(PluginAssets assets) => jsonEncode({
@@ -29,7 +36,7 @@ class const ClaudeTranslator() extends HarnessTranslator {
       },
     },
     'enabledPlugins': {
-      for (final plugin in vgvPlugins)
+      for (final plugin in assets.plugins)
         '${plugin.name}@$vgvMarketplaceName': true,
     },
   });

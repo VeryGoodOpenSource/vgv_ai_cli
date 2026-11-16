@@ -75,6 +75,20 @@ void main() {
       );
     });
 
+    test('needs its own fix when no one command fixes what it found', () {
+      const unfixable = ReportSection(
+        title: 'Shared',
+        installs: {Harness.codex, Harness.gemini},
+        findings: [Finding.missing('a')],
+        plugins: null,
+      );
+
+      expect(unfixable.fix, isNull);
+      expect(unfixable.needsItsOwnFix, isTrue);
+      expect(section(const [Finding.missing('a')]).needsItsOwnFix, isFalse);
+      expect(section(const []).needsItsOwnFix, isFalse);
+    });
+
     test('has no fix when install changes nothing it found', () {
       expect(section(const []).fix, isNull);
       expect(

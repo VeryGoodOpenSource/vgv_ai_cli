@@ -18,17 +18,28 @@ class const ReportingManifestStore(
 
   /// What the command did to the files it records, such as `written`.
   required final String _done,
+
+  /// The command to run again once the manifest can be read, such as
+  /// `install`.
+  required final String _retry,
 }) {
+  /// {@macro reporting_manifest_store}
+  this;
+
   /// The manifest in the store, or null, having said why, when it cannot be
   /// read or was written by a newer version.
   InstallManifest? load() {
     try {
       final manifest = _store.load();
       if (manifest == null) {
-        _logger.err(
-          '$_nothingDone, because ${ManifestStore.unreadable}: '
-          '${_store.file.path}',
-        );
+        _logger
+          ..err(
+            '$_nothingDone, because ${ManifestStore.unreadable}: '
+            '${_store.file.path}',
+          )
+          ..err(
+            'Run ${lightCyan.wrap('vgv_ai update')}, then run $_retry again.',
+          );
       }
       return manifest;
     } on FileSystemException catch (error) {
@@ -40,14 +51,17 @@ class const ReportingManifestStore(
     }
   }
 
-  /// Saves [to] in the store unless it is [from], and returns whether it
-  /// could.
+  /// Saves [to] in the store unless it is [from] and still records
+  /// something, and returns whether it could.
+  ///
+  /// An empty [to] is always saved, which deletes the file, since one this
+  /// version reads as empty records nothing it can take back.
   ///
   /// A manifest that could not be saved still holds its old entries, so the
   /// files this run changed count as the user's until a later run records
   /// them.
   bool save({required InstallManifest from, required InstallManifest to}) {
-    if (to == from) return true;
+    if (to == from && to.entries.isNotEmpty) return true;
 
     try {
       _store.save(to);

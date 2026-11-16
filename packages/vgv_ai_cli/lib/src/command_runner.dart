@@ -27,15 +27,21 @@ const description =
 class VgvAiCliCommandRunner({
   Logger? logger,
   PubUpdater? pubUpdater,
+  Installation? installation,
   InstallCommand? installCommand,
   DoctorCommand? doctorCommand,
   UninstallCommand? uninstallCommand,
+  UpdateCommand? updateCommand,
 }) extends CompletionCommandRunner<int> {
   /// {@macro vgv_ai_cli_command_runner}
   ///
-  /// [installCommand], [doctorCommand] and [uninstallCommand] replace the
-  /// default `install`, `doctor` and `uninstall`, whose collaborators
-  /// otherwise reach the real home directory and plugin cache.
+  /// [installation] defaults to [Installation.current], and decides how
+  /// `update` and the update prompt tell the user to upgrade.
+  ///
+  /// [installCommand], [doctorCommand], [uninstallCommand] and
+  /// [updateCommand] replace the default `install`, `doctor`, `uninstall` and
+  /// `update`, whose collaborators otherwise reach the real home directory,
+  /// plugin cache and processes.
   this : super(executableName, description) {
     // Add root options and flags
     argParser
@@ -54,7 +60,14 @@ class VgvAiCliCommandRunner({
     addCommand(doctorCommand ?? DoctorCommand(logger: _logger));
     addCommand(installCommand ?? InstallCommand(logger: _logger));
     addCommand(uninstallCommand ?? UninstallCommand(logger: _logger));
-    addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
+    addCommand(
+      updateCommand ??
+          UpdateCommand(
+            logger: _logger,
+            pubUpdater: _pubUpdater,
+            installation: _installation,
+          ),
+    );
   }
 
   @override
@@ -62,6 +75,7 @@ class VgvAiCliCommandRunner({
 
   final Logger _logger = logger ?? Logger();
   final PubUpdater _pubUpdater = pubUpdater ?? PubUpdater();
+  final Installation _installation = installation ?? Installation.current;
 
   @override
   Future<int> run(Iterable<String> args) async {
@@ -149,10 +163,12 @@ class VgvAiCliCommandRunner({
           ..info('')
           ..info('''
 ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u2192 ${lightCyan.wrap(latestVersion)}
-Run ${lightCyan.wrap('$executableName update')} to update''');
+Run ${lightCyan.wrap(_installation.upgradeCommand)} to update''');
       }
     } on Exception catch (_) {
-      _logger.err('Failed to check for updates.');
+      // Best effort: the check runs after every command, so a user who is
+      // offline, or behind a proxy that blocks pub.dev, should not be told
+      // about it.
     }
   }
 }

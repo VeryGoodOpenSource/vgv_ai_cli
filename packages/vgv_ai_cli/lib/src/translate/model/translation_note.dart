@@ -13,6 +13,9 @@ class const TranslationNote({
   /// Why.
   required final String reason,
 }) extends Equatable {
+  /// {@macro translation_note}
+  this;
+
   @override
   List<Object?> get props => [subject, reason];
 

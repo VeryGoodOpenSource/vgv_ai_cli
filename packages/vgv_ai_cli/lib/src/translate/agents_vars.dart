@@ -1,7 +1,7 @@
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template agents_vars}
 /// The vars the `agents` brick renders against.
@@ -21,6 +21,9 @@ class const AgentsVars({
   /// The hooks fragment of each harness that has one.
   final Map<Harness, String> hooks = const {},
 }) {
+  /// {@macro agents_vars}
+  this;
+
   /// The vars, keyed as the brick reads them.
   ///
   /// `agents` and `commands` are left out when empty: the brick loops a file

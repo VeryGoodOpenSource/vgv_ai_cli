@@ -18,6 +18,9 @@ class const Reconciler({
   /// Decodes and compares what is on disk with what VGV writes.
   final DocumentCodec codec = const DocumentCodec(),
 }) {
+  /// {@macro reconciler}
+  this;
+
   /// Applies every one of [changes] against [manifest], and returns what
   /// each did and the manifest updated with what they wrote.
   ///

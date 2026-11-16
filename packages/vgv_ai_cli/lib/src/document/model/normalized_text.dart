@@ -10,6 +10,9 @@ class const NormalizedText({
   required final String ending,
 }) {
   /// {@macro normalized_text}
+  this;
+
+  /// {@macro normalized_text}
   ///
   /// Normalizes [original], so an edit of it can be turned back into
   /// [original]'s line endings.

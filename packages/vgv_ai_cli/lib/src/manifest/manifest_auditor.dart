@@ -18,6 +18,9 @@ class const ManifestAuditor({
   /// Decodes and compares what is on disk with what VGV recorded.
   final DocumentCodec codec = const DocumentCodec(),
 }) {
+  /// {@macro manifest_auditor}
+  this;
+
   /// Checks that what [entry] records is still on disk, as VGV wrote it.
   ///
   /// Never writes, and reports a file it cannot read rather than throwing.
@@ -73,12 +76,14 @@ class const ManifestAuditor({
     final narrowed = [
       for (final ReversedEntry(:retained) in reversed) ?retained,
     ];
+    final kept = [...manifest.without(settled).entries, ...narrowed];
+    final remaining = {for (final entry in kept) entry.owner};
     return Reversal(
       entries: reversed,
-      manifest: InstallManifest([
-        ...manifest.without(settled).entries,
-        ...narrowed,
-      ], manifest.plugins),
+      manifest: InstallManifest(kept, {
+        for (final MapEntry(:key, :value) in manifest.plugins.entries)
+          if (remaining.contains(key)) key: value,
+      }),
     );
   }
 

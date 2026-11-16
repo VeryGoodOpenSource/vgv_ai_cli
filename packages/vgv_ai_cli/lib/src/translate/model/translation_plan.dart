@@ -12,6 +12,9 @@ class const TranslationPlan({
   /// Each selected harness's own result, in reporting order.
   final Map<Harness, TranslationResult> harnesses = const {},
 }) {
+  /// {@macro translation_plan}
+  this;
+
   /// Every planned change, the shared ones first.
   List<PlannedChange> get changes => [
     ...?shared?.changes,

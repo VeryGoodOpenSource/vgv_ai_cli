@@ -7,13 +7,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:pub_updater/pub_updater.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/command_runner.dart';
+import 'package:vgv_ai_cli/src/commands/commands.dart';
 import 'package:vgv_ai_cli/src/version.dart';
 
-class _MockLogger extends Mock implements Logger;
-
-class _MockProgress extends Mock implements Progress;
-
-class _MockPubUpdater extends Mock implements PubUpdater;
+import '../helpers/test_runner.dart';
 
 class _FlagCommand() extends Command<int> {
   this {
@@ -43,20 +40,14 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
 
     late PubUpdater pubUpdater;
     late Logger logger;
+    late TestRunner runner;
     late VgvAiCliCommandRunner commandRunner;
 
     setUp(() {
-      pubUpdater = _MockPubUpdater();
-
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
-
-      logger = _MockLogger();
-
-      commandRunner = VgvAiCliCommandRunner(
-        logger: logger,
-        pubUpdater: pubUpdater,
-      );
+      runner = TestRunner();
+      pubUpdater = runner.pubUpdater;
+      logger = runner.logger;
+      commandRunner = runner.build();
     });
 
     test('shows update message when newer version exists', () async {
@@ -68,12 +59,34 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
       verify(() => logger.info(updatePrompt)).called(1);
     });
 
-    test('shows error message when failed to check for updates', () async {
+    for (final installation in [Installation.homebrew, Installation.script]) {
+      test('update message names the ${installation.name} upgrade '
+          'command', () async {
+        when(() => pubUpdater.getLatestVersion(any()))
+            .thenAnswer((_) async => latestVersion);
+
+        final result = await runner.run([
+          '--version',
+        ], installation: installation);
+        expect(result, ExitCode.success.code);
+        verify(
+          () => logger.info(
+            updatePrompt.replaceFirst(
+              lightCyan.wrap('$executableName update')!,
+              lightCyan.wrap(installation.upgradeCommand)!,
+            ),
+          ),
+        ).called(1);
+      });
+    }
+
+    test('stays quiet when the update check fails', () async {
       when(() => pubUpdater.getLatestVersion(any()))
           .thenThrow(Exception('Failed to check for updates'));
 
-      await commandRunner.run(['--version']);
-      verify(() => logger.err('Failed to check for updates.')).called(1);
+      final result = await commandRunner.run(['--version']);
+      expect(result, equals(ExitCode.success.code));
+      verifyNever(() => logger.err(any()));
     });
 
     test('Does not show update message when the shell calls the '
@@ -104,15 +117,16 @@ Run ${lightCyan.wrap('$executableName update')} to update''';
         ),
       ).thenAnswer((_) async => true);
 
-      final progress = _MockProgress();
-      final progressLogs = <String>[];
-      when(() => progress.complete(any())).thenAnswer((answer) {
-        final message = answer.positionalArguments.elementAt(0) as String?;
-        if (message != null) progressLogs.add(message);
-      });
-      when(() => logger.progress(any())).thenReturn(progress);
-
-      final result = await commandRunner.run(['update']);
+      // No home directory, so update never reinstalls into the real one.
+      final result = await runner.run(
+        ['update'],
+        updateCommand: UpdateCommand(
+          logger: logger,
+          pubUpdater: pubUpdater,
+          installation: Installation.pub,
+          environment: const {},
+        ),
+      );
       expect(result, ExitCode.success.code);
       verifyNever(() => logger.info(updatePrompt));
     });

@@ -1,9 +1,9 @@
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/format/format.dart';
 import 'package:vgv_ai_cli/src/translate/hook_scripts.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template harness_translator}
 /// How one harness spells what the plugins contribute.
@@ -20,6 +20,9 @@ import 'package:vgv_ai_cli/src/translate/model/model.dart';
 /// See `Harness` for every step of adding a harness.
 /// {@endtemplate}
 abstract class const HarnessTranslator() {
+  /// {@macro harness_translator}
+  this;
+
   /// Which harness this configures.
   Harness get harness;
 
@@ -30,6 +33,19 @@ abstract class const HarnessTranslator() {
   /// Where this harness keeps its own copy of the skills, for one that reads
   /// neither the shared copy nor the plugins' own, or null.
   Directory? skillsRoot(Directory home) => null;
+
+  /// Whether this harness can keep a skill that sets
+  /// `disable-model-invocation` the user's alone. One that cannot is told
+  /// so for each such skill, since its model may start the skill on its own.
+  bool get honorsModelInvocation => false;
+
+  /// The files this harness adds beside the shared copy of the skills under
+  /// [root], for one that reads it and keeps a skill's settings in a file of
+  /// its own. Only asked of a harness that [readsSharedSkills].
+  TranslationResult sharedSkillFiles(
+    PluginAssets assets, {
+    required Directory root,
+  }) => const TranslationResult(changes: []);
 
   /// The settings fragment merged into the root of this harness's config,
   /// or null for a harness with nothing to set, whose brick folder then has

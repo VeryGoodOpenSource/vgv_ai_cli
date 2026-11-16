@@ -13,6 +13,9 @@ import 'package:vgv_ai_cli/src/templates/templates.dart';
 /// back. The brick has no hooks, so the bundle's files are all it needs.
 /// {@endtemplate}
 class const AgentsBrick() {
+  /// {@macro agents_brick}
+  this;
+
   /// Renders every file [vars] select, keyed by its path in the brick.
   Future<Map<String, String>> render(Map<String, Object?> vars) async {
     final generator = MasonGenerator(

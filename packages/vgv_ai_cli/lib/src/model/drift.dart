@@ -9,6 +9,9 @@ class const Drift({
   /// The key paths, or section names, that hold a different value now.
   required final List<String> drifted,
 }) {
+  /// {@macro drift}
+  this;
+
   /// Whether nothing is missing and nothing has drifted.
   bool get isEmpty => missing.isEmpty && drifted.isEmpty;
 }

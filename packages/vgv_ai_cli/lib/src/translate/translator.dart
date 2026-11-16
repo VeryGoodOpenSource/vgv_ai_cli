@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
@@ -9,6 +8,7 @@ import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/rendered_change.dart';
 import 'package:vgv_ai_cli/src/translate/translators/translators.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template translator}
 /// Plans every change that installs the plugins into the selected harnesses.
@@ -18,6 +18,9 @@ class const Translator({
   final AgentsBrick brick = const AgentsBrick(),
   final SkillsTranslator skills = const SkillsTranslator(),
 }) {
+  /// {@macro translator}
+  this;
+
   /// The changes and notes for each of [selected], plus the shared skills
   /// when any of them reads them.
   Future<TranslationPlan> translate({
@@ -87,12 +90,21 @@ class const Translator({
       ),
       _ => null,
     };
+    final shared = translator.readsSharedSkills
+        ? translator.sharedSkillFiles(assets, root: agentsSkillsRoot(home))
+        : null;
     return TranslationResult(
-      changes: [...?rendered, ...?hooks?.files, ...?own?.changes],
+      changes: [
+        ...?rendered,
+        ...?hooks?.files,
+        ...?own?.changes,
+        ...?shared?.changes,
+      ],
       notes: [
         ...translator.notes(assets),
         ...?hooks?.notes,
         ...?own?.notes,
+        ...?shared?.notes,
         if (hooks == null && assets.hooks.isNotEmpty)
           TranslationNote(
             subject: '${assets.hooks.length} hook(s)',
@@ -100,7 +112,26 @@ class const Translator({
                 'the plugins ship them as shell commands, and nothing in '
                 "${translator.harness.displayName}'s config runs one",
           ),
+        if (!translator.honorsModelInvocation)
+          ..._userOnlyNotes(translator.harness, assets),
       ],
     );
   }
+
+  /// One note per skill only the user should start, for a [harness] whose
+  /// model can start any skill it reads.
+  List<TranslationNote> _userOnlyNotes(
+    Harness harness,
+    PluginAssets assets,
+  ) => [
+    for (final skill in assets.skills)
+      if (skill.disableModelInvocation)
+        TranslationNote(
+          subject: 'the ${skill.name} skill',
+          reason:
+              'it is meant for the user alone, but nothing in '
+              "${harness.displayName}'s config stops the model starting it, "
+              'so it may start it on its own',
+        ),
+  ];
 }

@@ -13,4 +13,7 @@ class const TranslationResult({
 
   /// Everything this harness could not express.
   final List<TranslationNote> notes = const [],
-});
+}) {
+  /// {@macro translation_result}
+  this;
+}

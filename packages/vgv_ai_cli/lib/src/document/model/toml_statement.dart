@@ -41,6 +41,9 @@ class const TomlStatement({
   /// inside a value that spans several lines.
   required final bool hasInnerComment,
 }) {
+  /// {@macro toml_statement}
+  this;
+
   /// Whether the statement opens a table or an array of tables.
   bool get isHeader =>
       kind == TomlStatementKind.table || kind == TomlStatementKind.arrayTable;

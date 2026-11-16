@@ -1,0 +1,156 @@
+name: release_binaries
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach binaries to, such as v0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    name: build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            os: macos
+            arch: arm64
+          - runner: macos-15-intel
+            os: macos
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            os: linux
+            arch: arm64
+          - runner: ubuntu-24.04
+            os: linux
+            arch: x64
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: 🎯 Setup Dart
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: "3.13.0"
+
+      - name: 📦 Install Dependencies
+        run: dart pub get
+
+      - name: 🔨 Compile
+        working-directory: packages/vgv_ai_cli
+        run: |
+          mkdir -p "$RUNNER_TEMP/dist"
+          dart compile exe bin/vgv_ai.dart -o "$RUNNER_TEMP/dist/vgv_ai"
+
+      # --version also runs the update check, which may print a second line.
+      - name: 🧪 Smoke Test
+        run: |
+          actual="$("$RUNNER_TEMP/dist/vgv_ai" --version | head -n 1)"
+          if [ "$actual" != "${TAG#v}" ]; then
+            echo "::error::vgv_ai --version printed '$actual', expected '${TAG#v}'"
+            exit 1
+          fi
+
+      - name: 📦 Package
+        working-directory: ${{ runner.temp }}/dist
+        run: |
+          archive="vgv_ai-${TAG#v}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+          tar -czf "$archive" vgv_ai
+          shasum -a 256 "$archive" > "$archive.sha256"
+          shasum -a 256 -c "$archive.sha256"
+          rm vgv_ai
+
+      - name: ⬆️ Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: vgv_ai-${{ matrix.os }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: ⬇️ Download Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vgv_ai-*
+          path: dist
+          merge-multiple: true
+
+      - name: 🚀 Attach to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Opens a PR on the tap rather than pushing to its protected main. The PR
+  # auto-merges once a code owner approves it and the tap CI is green.
+  homebrew:
+    needs: upload
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+
+      - name: ⬇️ Download Checksums
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vgv_ai-*
+          path: dist
+          merge-multiple: true
+
+      - name: 🍺 Checkout Tap
+        uses: actions/checkout@v7
+        with:
+          repository: VeryGoodOpenSource/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: ✏️ Update Formula
+        run: |
+          tool/update_homebrew_formula.sh tap/Formula/vgv_ai.rb "$TAG" dist
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: 🤖 Create Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@v8.1.3
+        with:
+          path: tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          branch: vgv_ai-${{ env.VERSION }}
+          commit-message: "chore(vgv_ai): ${{ env.VERSION }}"
+          title: "chore(vgv_ai): ${{ env.VERSION }}"
+          body: |
+            Update `vgv_ai` to [${{ env.VERSION }}](https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}).
+
+            Opened by [release_binaries](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). It merges by itself once approved and green.
+          author: VGV Bot <vgvbot@users.noreply.github.com>
+          committer: VGV Bot <vgvbot@users.noreply.github.com>
+
+      - name: 🔀 Enable Auto-Merge
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: >-
+          gh pr merge "${{ steps.pr.outputs.pull-request-number }}"
+          --auto --squash --repo VeryGoodOpenSource/homebrew-tap
