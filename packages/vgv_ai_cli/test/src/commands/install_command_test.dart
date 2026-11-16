@@ -36,16 +36,16 @@ class _FakeTranslator extends Fake implements Translator {
 
   Set<Harness>? selected;
   PluginAssets? assets;
-  Directory? home;
+  Scope? scope;
 
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required Directory home,
+    required Scope scope,
     required Set<Harness> selected,
   }) async {
     this.assets = assets;
-    this.home = home;
+    this.scope = scope;
     this.selected = selected;
     return plan;
   }
@@ -603,7 +603,10 @@ void main() {
         verify(() => progress.complete('Resolved 1 skills and 1 agents'))
             .called(1);
         expect(translator.assets!.skills.single.name, 'green-gate');
-        expect(translator.home, home);
+        expect(
+          translator.scope,
+          isA<HomeScope>().having((s) => s.root, 'root', home),
+        );
       });
     });
 

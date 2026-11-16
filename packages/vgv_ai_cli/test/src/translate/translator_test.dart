@@ -45,9 +45,10 @@ void main() {
     Future<TranslationPlan> translate(
       Set<Harness> selected, {
       PluginAssets? using,
+      Scope? scope,
     }) => const Translator().translate(
       assets: using ?? assets,
-      home: home,
+      scope: scope ?? HomeScope(home),
       selected: selected,
     );
 
@@ -267,6 +268,50 @@ void main() {
         plan.harnesses[Harness.gemini]!.notes.single.reason,
         contains("nothing in Gemini's config runs one"),
       );
+    });
+
+    group('in a project', () {
+      late Scope project;
+
+      setUp(() => project = ProjectScope(fs.directory('/work/app')));
+
+      test('plans no hook files', () async {
+        final plan = await translate({Harness.codex}, scope: project);
+
+        expect(
+          plan.changes.map((c) => c.file.path),
+          everyElement(isNot(contains('hooks'))),
+        );
+      });
+
+      test('tells each harness its hooks and MCP servers wait', () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          containsAll(['1 hook(s)', '1 MCP server(s)']),
+        );
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.reason),
+          everyElement(contains('issues/140')),
+        );
+      });
+
+      test('says nothing of hooks or MCP servers the plugins lack', () async {
+        final plan = await translate(
+          {Harness.gemini},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.gemini]!.notes, isEmpty);
+      });
+
+      test('says nothing to Claude Code, which installs both', () async {
+        final plan = await translate({Harness.claude}, scope: project);
+
+        expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+      });
     });
 
     group('a skill only the user may start', () {

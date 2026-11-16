@@ -156,7 +156,7 @@ class InstallCommand({
 
     final plan = await _translator.translate(
       assets: resolved.assets,
-      home: home,
+      scope: HomeScope(home),
       selected: selected,
     );
 

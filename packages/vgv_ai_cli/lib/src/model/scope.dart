@@ -1,5 +1,6 @@
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
+import 'package:vgv_ai_cli/src/model/harness.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template scope}
@@ -35,6 +36,13 @@ sealed class const Scope(
   Directory get skillsRoot =>
       root.fileSystem.directory(p.join(root.path, '.agents', 'skills'));
 
+  /// The directory the brick's folder for [harness] is laid out like.
+  Directory harnessRoot(Harness harness);
+
+  /// How many segments below [harnessRoot] a rendered file may sit and still
+  /// be a config file the user shares with VGV, so merged rather than owned.
+  int get sharedDepth;
+
   /// How a file written in this scope spells [path].
   String reference(String path);
 
@@ -53,6 +61,15 @@ final class const HomeScope(
 ) extends Scope {
   /// {@macro home_scope}
   this;
+
+  /// The harness's own config directory, such as `~/.codex`.
+  @override
+  Directory harnessRoot(Harness harness) => harness.configDirectory(root);
+
+  /// One: only a file at the root of the config directory, such as
+  /// `~/.codex/config.toml`, is shared.
+  @override
+  int get sharedDepth => 1;
 
   /// [path] as it is: a home install only serves this machine, so an
   /// absolute path is the one that works from any directory.
@@ -74,6 +91,17 @@ final class const ProjectScope(
 ) extends Scope {
   /// {@macro project_scope}
   this;
+
+  /// The project itself: every harness reads its project files from the
+  /// repository root.
+  @override
+  Directory harnessRoot(Harness harness) => root;
+
+  /// Two: a file at the root of the project, such as `opencode.json`, or
+  /// directly in a harness's folder, such as `.claude/settings.json`, is
+  /// shared.
+  @override
+  int get sharedDepth => 2;
 
   /// [path] relative to the project, with `/` separators, so the files read
   /// the same on every clone and every platform.

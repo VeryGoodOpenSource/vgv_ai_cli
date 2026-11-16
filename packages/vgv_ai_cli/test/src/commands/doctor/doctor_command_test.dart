@@ -59,7 +59,7 @@ class _FakeTranslator extends Fake implements Translator {
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required Directory home,
+    required Scope scope,
     required Set<Harness> selected,
   }) async {
     this.selected = selected;

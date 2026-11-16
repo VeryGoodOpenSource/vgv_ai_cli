@@ -26,6 +26,10 @@ abstract class const HarnessTranslator() {
   /// Which harness this configures.
   Harness get harness;
 
+  /// Whether this harness installs the plugins itself, hooks and MCP servers
+  /// included, so nothing it would miss needs reporting.
+  bool get installsPluginsNatively => false;
+
   /// Whether this harness loads the shared copy of the skills under
   /// `~/.agents/skills`.
   bool get readsSharedSkills => true;

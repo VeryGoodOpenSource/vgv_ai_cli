@@ -185,7 +185,7 @@ class DoctorCommand({
         case ResolvedAssets(:final assets):
           final translation = await _translator.translate(
             assets: assets,
-            home: home,
+            scope: HomeScope(home),
             selected: harnesses,
           );
           changes.addAll(

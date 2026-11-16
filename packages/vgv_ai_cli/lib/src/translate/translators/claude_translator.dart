@@ -20,6 +20,10 @@ class const ClaudeTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.claude;
 
+  /// The marketplace installs every plugin whole.
+  @override
+  bool get installsPluginsNatively => true;
+
   /// The plugin system already installs the skills.
   @override
   bool get readsSharedSkills => false;

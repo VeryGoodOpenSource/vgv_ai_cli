@@ -1,5 +1,4 @@
 import 'package:collection/collection.dart';
-import 'package:file/file.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
@@ -20,24 +19,28 @@ class const Translator({
   /// {@macro translator}
   this;
 
-  /// The changes and notes for each of [selected], plus the shared skills
-  /// when any of them reads them.
+  /// The changes and notes for each of [selected] in [scope], plus the
+  /// shared skills when any of them reads them.
+  ///
+  /// A project install configures no hooks yet, so it never asks for them.
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required Directory home,
+    required Scope scope,
     required Set<Harness> selected,
   }) async {
-    final scope = HomeScope(home);
     final chosen = [
       for (final translator in translators)
         if (selected.contains(translator.harness)) translator,
     ];
     final hooks = {
       for (final translator in chosen)
-        translator.harness: translator.hooks(
-          assets,
-          hooksRoot: translator.hooksRoot(home),
-        ),
+        translator.harness: switch (scope) {
+          HomeScope(:final root) => translator.hooks(
+            assets,
+            hooksRoot: translator.hooksRoot(root),
+          ),
+          ProjectScope() => null,
+        },
     };
     final vars = AgentsVars(
       translators: chosen,
@@ -51,7 +54,7 @@ class const Translator({
     final rendered = await brick.render(vars.toMap());
     final changes = [
       for (final MapEntry(key: path, value: contents) in rendered.entries)
-        renderedChange(path, contents: contents, home: home),
+        renderedChange(path, contents: contents, scope: scope),
     ].groupListsBy((change) => change.harness);
 
     return TranslationPlan(
@@ -76,15 +79,15 @@ class const Translator({
   }
 
   /// [translator]'s [rendered] files, the ones beside its [hooks], and its
-  /// own copy of the skills when it keeps one, with its notes. A harness
-  /// that runs no hooks is told so here, since every translator would
-  /// otherwise say it the same way.
+  /// own copy of the skills when it keeps one, with its notes. What a
+  /// harness misses is told here, since every translator would otherwise say
+  /// it the same way.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,
     required HookTranslation? hooks,
     required PluginAssets assets,
-    required HomeScope scope,
+    required Scope scope,
   }) {
     final own = switch (translator.skillsRoot(scope.root)) {
       final root? => skills.translate(
@@ -110,18 +113,56 @@ class const Translator({
         ...?hooks?.notes,
         ...?own?.notes,
         ...?shared?.notes,
-        if (hooks == null && assets.hooks.isNotEmpty)
-          TranslationNote(
-            subject: '${assets.hooks.length} hook(s)',
-            reason:
-                'the plugins ship them as shell commands, and nothing in '
-                "${translator.harness.displayName}'s config runs one",
-          ),
+        ..._missedNotes(translator, hooks: hooks, assets: assets, scope: scope),
         if (!translator.honorsModelInvocation)
           ..._userOnlyNotes(translator.harness, assets),
       ],
     );
   }
+
+  /// What [translator]'s harness will not get from [assets] in [scope]: the
+  /// hooks its config cannot run at home, and in a project, until #140, the
+  /// hooks and MCP servers, unless it installs the plugins itself.
+  List<TranslationNote> _missedNotes(
+    HarnessTranslator translator, {
+    required HookTranslation? hooks,
+    required PluginAssets assets,
+    required Scope scope,
+  }) {
+    final name = translator.harness.displayName;
+    return switch (scope) {
+      HomeScope() => [
+        if (hooks == null && assets.hooks.isNotEmpty)
+          TranslationNote(
+            subject: '${assets.hooks.length} hook(s)',
+            reason:
+                'the plugins ship them as shell commands, and nothing in '
+                "$name's config runs one",
+          ),
+      ],
+      ProjectScope() when translator.installsPluginsNatively => const [],
+      ProjectScope() => [
+        if (assets.hooks.isNotEmpty)
+          TranslationNote(
+            subject: '${assets.hooks.length} hook(s)',
+            reason:
+                'a project install does not configure $name hooks yet; '
+                'see $_projectHooksAndMcpIssue',
+          ),
+        if (assets.mcpServers.isNotEmpty)
+          TranslationNote(
+            subject: '${assets.mcpServers.length} MCP server(s)',
+            reason:
+                'a project install does not configure $name MCP servers '
+                'yet; see $_projectHooksAndMcpIssue',
+          ),
+      ],
+    };
+  }
+
+  /// The issue tracking hooks and MCP servers in a project install.
+  static const _projectHooksAndMcpIssue =
+      'https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/140';
 
   /// One note per skill only the user should start, for a [harness] whose
   /// model can start any skill it reads.

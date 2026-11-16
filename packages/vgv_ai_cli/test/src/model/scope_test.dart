@@ -19,6 +19,14 @@ void main() {
       expect(scope.root, home);
     });
 
+    test('maps a harness to its config directory', () {
+      expect(scope.harnessRoot(Harness.codex).path, '/home/dev/.codex');
+    });
+
+    test('shares only a file at the root of it', () {
+      expect(scope.sharedDepth, 1);
+    });
+
     test('keeps the shared skills in ~/.agents/skills', () {
       expect(scope.skillsRoot.path, '/home/dev/.agents/skills');
     });
@@ -41,6 +49,14 @@ void main() {
 
     test('is rooted at the project', () {
       expect(scope.root, dir);
+    });
+
+    test('maps every harness to the project', () {
+      expect(scope.harnessRoot(Harness.codex), dir);
+    });
+
+    test('shares a file in a top-level folder of it too', () {
+      expect(scope.sharedDepth, 2);
     });
 
     test('keeps the shared skills in <dir>/.agents/skills', () {

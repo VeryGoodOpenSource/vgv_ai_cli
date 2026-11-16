@@ -1,4 +1,3 @@
-import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 
@@ -9,24 +8,25 @@ const instructionsSection = 'instructions';
 /// Plans the change that writes one file the `agents` brick rendered.
 ///
 /// The brick renders each harness into a folder named after it, laid out the
-/// way that harness's config directory is. So the first segment of [path]
-/// names the harness, and the rest is where the file goes under its config
-/// directory.
+/// way [scope]'s root for that harness is. So the first segment of [path]
+/// names the harness, and the rest is where the file goes under
+/// `scope.harnessRoot`.
 ///
-/// A file at the root of the folder is a config file the user may already
-/// have edited, so it is merged. Anything deeper is an agent, command or
-/// prompt VGV owns, so it is written whole. A root markdown file is merged
-/// as the [instructionsSection] section, next to anything the user wrote.
+/// A file within `scope.sharedDepth` of that root is a config file the user
+/// may already have edited, so it is merged. Anything deeper is an agent,
+/// command or prompt VGV owns, so it is written whole. A shared markdown file
+/// is merged as the [instructionsSection] section, next to anything the user
+/// wrote.
 PlannedChange renderedChange(
   String path, {
   required String contents,
-  required Directory home,
+  required Scope scope,
 }) {
   final [folder, ...segments] = p.posix.split(path);
   final harness = Harness.values.byName(folder);
-  final file = home.fileSystem.file(
-    p.joinAll([harness.configDirectory(home).path, ...segments]),
-  );
+  final root = scope.harnessRoot(harness);
+  final file = root.fileSystem.file(p.joinAll([root.path, ...segments]));
+  final shared = segments.length <= scope.sharedDepth;
 
   PlannedChange planned(ChangeMode mode) => PlannedChange.text(
     file: file,
@@ -35,15 +35,15 @@ PlannedChange renderedChange(
     mode: mode,
   );
 
-  return switch ((segments.length, p.extension(path))) {
-    (1, '.json') => planned(ChangeMode.mergeJson),
-    (1, '.toml') => planned(ChangeMode.mergeToml),
-    (1, _) => PlannedChange.markdown(
+  return switch ((shared, p.extension(path))) {
+    (true, '.json') => planned(ChangeMode.mergeJson),
+    (true, '.toml') => planned(ChangeMode.mergeToml),
+    (true, _) => PlannedChange.markdown(
       file: file,
       contents: contents,
       harness: harness,
       section: instructionsSection,
     ),
-    _ => planned(ChangeMode.own),
+    (false, _) => planned(ChangeMode.own),
   };
 }
