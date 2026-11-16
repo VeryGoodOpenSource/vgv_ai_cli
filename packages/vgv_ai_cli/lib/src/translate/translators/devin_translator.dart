@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
-import 'package:plugin_source/plugin_source.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template devin_translator}
 /// Configures Devin CLI.
@@ -17,6 +17,9 @@ import 'package:vgv_ai_cli/src/translate/translate.dart';
 /// See https://docs.devin.ai/cli/extensibility.
 /// {@endtemplate}
 class const DevinTranslator() extends HarnessTranslator {
+  /// {@macro devin_translator}
+  this;
+
   @override
   Harness get harness => Harness.devin;
 

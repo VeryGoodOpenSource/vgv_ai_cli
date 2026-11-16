@@ -3,7 +3,7 @@
 What to change, in order, to teach `vgv_ai` a new coding agent.
 
 A harness is one coding agent the CLI configures: Claude Code, Gemini, Codex, OpenCode, Pi,
-Copilot, Antigravity. The VGV plugins are written for Claude Code and stay that way. Every
+Copilot, Antigravity, Devin. The VGV plugins are written for Claude Code and stay that way. Every
 difference another harness has is answered in one place, its **translator**.
 
 ## Research it first

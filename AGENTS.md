@@ -28,8 +28,8 @@ The repo is a **pub workspace** monorepo: the root `pubspec.yaml` declares `work
 | `jq` | Agent hooks parse their payloads with it | Guard hooks error out; the analyze and format hooks silently do nothing |
 | `gh`, authenticated with org access | This repo is private | Push and PR creation fail |
 
-macOS and Linux are supported; on Windows, use WSL. `jq` must be on `PATH` for the Codex, Copilot
-and Antigravity hooks. Native Windows, including Git Bash, is untested: the CLI builds paths with
+macOS and Linux are supported; on Windows, use WSL. `jq` must be on `PATH` for the Codex, Copilot,
+Antigravity and Devin hooks. Native Windows, including Git Bash, is untested: the CLI builds paths with
 the host separator and the hook scripts expect POSIX ones.
 
 Upgrading `very_good_cli` does not reach the MCP server until the agent session restarts — the server binds its binary at session start.
