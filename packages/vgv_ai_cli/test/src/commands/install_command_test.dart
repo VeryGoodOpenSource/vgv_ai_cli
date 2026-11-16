@@ -20,12 +20,12 @@ class _MockDetector extends Mock implements HarnessDetector;
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
-  PluginAssets parse(Directory root) => assets;
+  PluginAssets parse(Directory root, {String? rootReference}) => assets;
 }
 
 class const _ThrowingParser() implements PluginParser {
   @override
-  PluginAssets parse(Directory root) =>
+  PluginAssets parse(Directory root, {String? rootReference}) =>
       throw const PluginParseException('/plugin/agents/a.md', 'bad name');
 }
 

@@ -292,10 +292,11 @@ void main() {
     });
 
     group('plugin root in bodies', () {
+      late Directory root;
       late PluginAssets rooted;
 
       setUp(() {
-        final root = MemoryFileSystem.test().directory('/cache/ffca');
+        root = MemoryFileSystem.test().directory('/cache/ffca');
         root.childFile('skills/a/SKILL.md')
           ..createSync(recursive: true)
           ..writeAsStringSync(
@@ -319,6 +320,31 @@ void main() {
 
       test('resolves CLAUDE_PLUGIN_ROOT in an agent body', () {
         expect(rooted.agents.single.body, 'Run /cache/ffca/scripts/y.dart\n');
+      });
+
+      group('given a root reference', () {
+        late PluginAssets referenced;
+
+        setUp(() {
+          referenced = const ClaudePluginParser().parse(
+            root,
+            rootReference: '.vgv_ai/plugins/x@v1',
+          );
+        });
+
+        test('spells CLAUDE_PLUGIN_ROOT in a skill body as it', () {
+          expect(
+            referenced.skills.single.body,
+            'Read .vgv_ai/plugins/x@v1/references/x.md\n',
+          );
+        });
+
+        test('spells CLAUDE_PLUGIN_ROOT in an agent body as it', () {
+          expect(
+            referenced.agents.single.body,
+            'Run .vgv_ai/plugins/x@v1/scripts/y.dart\n',
+          );
+        });
       });
     });
 
@@ -483,6 +509,22 @@ void main() {
       test('rewrites CLAUDE_PLUGIN_ROOT to the neutral placeholder', () {
         expect(
           hookFor('SessionStart').commands.single.command,
+          'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
+        );
+      });
+
+      test('keeps the neutral placeholder given a root reference', () {
+        final referenced = const ClaudePluginParser().parse(
+          fixture('plugin'),
+          rootReference: '.vgv_ai/plugins/x@v1',
+        );
+
+        expect(
+          referenced.hooks
+              .firstWhere((h) => h.event == 'SessionStart')
+              .commands
+              .single
+              .command,
           'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
         );
       });
