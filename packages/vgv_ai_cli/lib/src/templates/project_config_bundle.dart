@@ -7,6 +7,11 @@ import 'package:mason/mason.dart';
 final projectConfigBundle = MasonBundle.fromJson(<String, dynamic>{
   "files": [
     {
+      "path": "{{#claude}}claude/.claude/settings.json{{/claude}}",
+      "data": "e3t7Y2xhdWRlX3NldHRpbmdzfX19",
+      "type": "text",
+    },
+    {
       "path": "{{~ agent.md }}",
       "data": "e3t7ZnJvbnRtYXR0ZXJ9fX0Ke3t7aW5zdHJ1Y3Rpb25zfX19",
       "type": "text",

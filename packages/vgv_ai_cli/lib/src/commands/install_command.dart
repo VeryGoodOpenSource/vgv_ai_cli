@@ -3,6 +3,7 @@ import 'dart:io' show stdin;
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
@@ -29,6 +30,10 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 ///   every pinned one.
 /// * `--refresh` reinstalls the harnesses and plugins the manifest records,
 ///   at the pinned versions, without asking. `update` runs it.
+/// * `--project [<dir>]` installs into the project at `dir`, or the working
+///   directory, for every harness rather than the detected ones, since the
+///   project is shared with whoever clones it. `--only` and `--no-<harness>`
+///   narrow the set as usual.
 /// {@endtemplate}
 class InstallCommand({
   required final Logger _logger,
@@ -39,6 +44,7 @@ class InstallCommand({
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
   bool? hasTerminal,
+  Directory? workingDirectory,
 }) extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   this {
@@ -61,6 +67,13 @@ class InstallCommand({
         allowed: [for (final plugin in vgvPlugins) plugin.name],
       )
       ..addFlag(
+        projectFlag,
+        help:
+            'Install into the project at the directory given after the '
+            'options, or the working directory, for every harness.',
+        negatable: false,
+      )
+      ..addFlag(
         refreshFlag,
         help:
             'Reinstall the harnesses and plugins a previous install wrote, '
@@ -79,8 +92,15 @@ class InstallCommand({
   /// Older versions of `update` pass it too, so it must keep its name.
   static const String refreshFlag = 'refresh';
 
+  /// The flag that installs into a project instead of the user's home.
+  static const String projectFlag = 'project';
+
   /// Whether stdin is a terminal, so install can ask which plugins to install.
   final bool _hasTerminal = hasTerminal ?? stdin.hasTerminal;
+
+  /// The directory a relative `--project` directory is resolved against.
+  final Directory _workingDirectory =
+      workingDirectory ?? const LocalFileSystem().currentDirectory;
 
   /// The outcomes that leave a file with VGV's contributions in it.
   static const Set<ChangeOutcome> _wrote = {
@@ -102,6 +122,9 @@ class InstallCommand({
   @override
   String get name => commandName;
 
+  @override
+  String get invocation => '${super.invocation} [--project [<dir>]]';
+
   /// The directory install configures, or null when it cannot be found.
   Directory? get home => commandHome(_home, _environment);
 
@@ -121,11 +144,12 @@ class InstallCommand({
       );
       return ExitCode.config.code;
     }
+    final scope = _scope(home);
 
     // Loaded before anything is resolved, since a manifest this version
     // cannot read means nothing can be installed.
     final store = ReportingManifestStore(
-      ManifestStore(home),
+      ManifestStore(scope.root),
       _logger,
       nothingDone: 'Installed nothing',
       done: 'written',
@@ -134,7 +158,9 @@ class InstallCommand({
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
 
-    final selected = refresh ? manifest.plugins.keys.toSet() : await _select();
+    final selected = refresh
+        ? manifest.plugins.keys.toSet()
+        : await _select(scope);
     if (selected.isEmpty) {
       _logger.err(refresh ? _nothingToRefresh : _noHarnessSelected);
       return ExitCode.usage.code;
@@ -156,7 +182,7 @@ class InstallCommand({
 
     final plan = await _translator.translate(
       assets: resolved.assets,
-      scope: UserScope(home),
+      scope: scope,
       selected: selected,
     );
 
@@ -197,11 +223,13 @@ class InstallCommand({
       'install to choose them.';
 
   /// Throws a [UsageException] when `--refresh` is combined with an option
-  /// that picks harnesses or plugins, since it takes both from the manifest.
+  /// that picks harnesses, plugins or the project, since it takes them from
+  /// the user's manifest.
   void _rejectSelectionWithRefresh() {
     final picked = [
       'only',
       'plugin',
+      projectFlag,
       ...Harness.values.map((harness) => harness.name),
     ].where(argResults!.wasParsed);
     if (picked.isNotEmpty) {
@@ -232,15 +260,48 @@ class InstallCommand({
     return recorded.intersection(pinned);
   }
 
-  /// Resolves which harnesses to configure.
+  /// Where this run installs: the project `--project` names, resolved
+  /// against the working directory, or the user's [home].
   ///
-  /// `--only` wins outright and bypasses detection. Otherwise every harness
-  /// that is both enabled and actually installed is configured, since writing
-  /// config for a harness the user does not have is noise. Only enabled
-  /// harnesses are probed, since each probe may wait out a timeout.
-  Future<Set<Harness>> _select() async {
+  /// Throws a [UsageException] for a directory without `--project`, more
+  /// than one directory, or one that does not exist.
+  Scope _scope(Directory home) {
+    final rest = argResults!.rest;
+    if (argResults![projectFlag] != true) {
+      if (rest.isNotEmpty) {
+        usageException(
+          'Unexpected argument "${rest.first}". Pass --$projectFlag to '
+          'install into a directory.',
+        );
+      }
+      return UserScope(home);
+    }
+
+    if (rest.length > 1) {
+      usageException('--$projectFlag takes one directory, not ${rest.length}.');
+    }
+    final path = _workingDirectory.fileSystem.path;
+    final project = _workingDirectory.fileSystem.directory(
+      path.normalize(path.join(_workingDirectory.path, rest.firstOrNull ?? '')),
+    );
+    if (!project.existsSync()) {
+      usageException('${project.path} is not a directory.');
+    }
+    return ProjectScope(project);
+  }
+
+  /// Resolves which harnesses to configure in [scope].
+  ///
+  /// `--only` wins outright and bypasses detection. A project is configured
+  /// for every enabled harness, since whoever clones it may use any of them.
+  /// Otherwise every harness that is both enabled and actually installed is
+  /// configured, since writing config for a harness the user does not have is
+  /// noise. Only enabled harnesses are probed, since each probe may wait out
+  /// a timeout.
+  Future<Set<Harness>> _select(Scope scope) async {
     final only = onlyHarnesses;
     if (only != null) return only;
+    if (scope is ProjectScope) return Harness.values.where(isEnabled).toSet();
 
     final enabled = <Harness>[];
     for (final harness in Harness.values) {

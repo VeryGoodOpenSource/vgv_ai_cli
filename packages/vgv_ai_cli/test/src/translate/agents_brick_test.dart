@@ -80,7 +80,7 @@ void main() {
         scope: ProjectScope(fs.directory('/work/app')),
       );
 
-      expect(files, isEmpty);
+      expect(files, {'claude/.claude/settings.json': '{"a":1}'});
     });
   });
 }

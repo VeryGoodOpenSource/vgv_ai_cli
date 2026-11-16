@@ -85,6 +85,7 @@ void main() {
     late HarnessDetector detector;
     late FileSystem fs;
     late Directory home;
+    late Directory project;
     late _FakeTranslator translator;
 
     setUp(() {
@@ -94,6 +95,7 @@ void main() {
       detector = _MockDetector();
       fs = MemoryFileSystem.test();
       home = fs.directory('/home/dev')..createSync(recursive: true);
+      project = fs.directory('/work/app')..createSync(recursive: true);
       translator = _FakeTranslator();
     });
 
@@ -136,6 +138,7 @@ void main() {
         ),
         translator: using ?? translator,
         hasTerminal: hasTerminal,
+        workingDirectory: project,
       ),
       args,
     );
@@ -507,6 +510,14 @@ void main() {
             'Run install to choose them.',
           ),
         ).called(1);
+      });
+
+      test('cannot be combined with --project', () async {
+        final exitCode = await runInstall(['--refresh', '--project']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(() => logger.err('--refresh cannot be combined with --project.'))
+            .called(1);
       });
 
       test('cannot be combined with a selection', () async {
@@ -984,6 +995,129 @@ void main() {
 
         expect(settingsJson(), enablesPlugin(enabled: true));
         verifyNever(() => logger.warn(any()));
+      });
+    });
+
+    group('--project', () {
+      /// Every file under [directory], relative to it.
+      List<String> filesUnder(Directory directory) => [
+        for (final entity in directory.listSync(recursive: true))
+          if (entity is File)
+            fs.path.relative(entity.path, from: directory.path),
+      ]..sort();
+
+      test('installs into the directory it names', () async {
+        final exitCode = await runInstall([
+          '--project',
+          '/work/app',
+          '--only',
+          'claude',
+        ], using: const Translator());
+
+        expect(exitCode, ExitCode.success.code);
+        expect(filesUnder(project), [
+          '.claude/settings.json',
+          '.vgv_ai/manifest.json',
+        ]);
+        expect(
+          jsonDecode(
+            project.childFile('.claude/settings.json').readAsStringSync(),
+          ),
+          containsPair('enabledPlugins', isNotEmpty),
+        );
+      });
+
+      test('writes nothing under home', () async {
+        await runInstall([
+          '--project',
+          '--only',
+          'claude',
+        ], using: const Translator());
+
+        expect(home.childFile('.claude/settings.json').existsSync(), isFalse);
+        expect(home.childFile('.vgv_ai/manifest.json').existsSync(), isFalse);
+      });
+
+      test('installs into the working directory when it names none', () async {
+        await runInstall(['--project', '--only', 'claude']);
+
+        expect(
+          translator.scope,
+          isA<ProjectScope>().having((s) => s.root.path, 'root', project.path),
+        );
+      });
+
+      test('resolves a relative directory against the working one', () async {
+        fs.directory('/work/app/packages/a').createSync(recursive: true);
+
+        await runInstall(['--project', 'packages/a', '--only', 'claude']);
+
+        expect(
+          translator.scope,
+          isA<ProjectScope>().having(
+            (s) => s.root.path,
+            'root',
+            '/work/app/packages/a',
+          ),
+        );
+      });
+
+      test('selects every enabled harness without detecting any', () async {
+        await runInstall(['--project', '--no-gemini']);
+
+        expect(
+          translator.selected,
+          Harness.values.toSet().difference({Harness.gemini}),
+        );
+        verifyNever(() => detector.detect(any()));
+      });
+
+      test('--check writes nothing', () async {
+        final exitCode = await runInstall([
+          '--project',
+          '--only',
+          'claude',
+          '--check',
+        ], using: const Translator());
+
+        expect(exitCode, ExitCode.success.code);
+        expect(filesUnder(project), isEmpty);
+      });
+
+      test('rejects a directory that does not exist', () async {
+        final exitCode = await runInstall(['--project', 'missing']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(() => logger.err('/work/app/missing is not a directory.'))
+            .called(1);
+      });
+
+      test('rejects more than one directory', () async {
+        final exitCode = await runInstall(['--project', 'a', 'b']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(() => logger.err('--project takes one directory, not 2.'))
+            .called(1);
+      });
+
+      test('a directory without it is a usage error', () async {
+        final exitCode = await runInstall(['/work/app']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(
+          () => logger.err(
+            'Unexpected argument "/work/app". Pass --project to install '
+            'into a directory.',
+          ),
+        ).called(1);
+      });
+
+      test('shows the directory in its usage', () async {
+        await runInstall(['--project', 'a', 'b']);
+
+        verify(() => logger.info(any(that: contains('[--project [<dir>]]'))))
+            .called(1);
       });
     });
 
