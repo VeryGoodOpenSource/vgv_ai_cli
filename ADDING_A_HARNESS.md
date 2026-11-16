@@ -151,7 +151,8 @@ changelog in the repo, so a harness addition never edits one by hand.
 
 ## 3. Declare the brick var
 
-`bricks/user_config/brick.yaml`
+`bricks/user_config/brick.yaml` and `bricks/project_config/brick.yaml`, which declare the same
+vars
 
 ```yaml
 antigravity:
@@ -434,10 +435,11 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 ```text
 README.md                                                 supported agents list
 packages/vgv_ai_cli/README.md                             harness table row, shared-skills line
-bricks/user_config/brick.yaml                                  boolean var
-bricks/user_config/__brick__/{{#<h>}}<h>/…{{\<h>}}             the templates
-bricks/user_config/README.md                                   capability matrix row
-packages/vgv_ai_cli/lib/src/templates/user_config_bundle.dart  regenerated, not hand-edited
+bricks/user_config/brick.yaml                             boolean var
+bricks/project_config/brick.yaml                          the same boolean var
+bricks/user_config/__brick__/{{#<h>}}<h>/…{{\<h>}}        the templates
+bricks/user_config/README.md                              capability matrix row
+packages/vgv_ai_cli/lib/src/templates/*_bundle.dart       regenerated, not hand-edited
 packages/vgv_ai_cli/lib/src/model/harness.dart            enum value
 …/lib/src/translate/translators/<h>_translator.dart       the translator
 …/lib/src/translate/translators/<h>_compat.dart           only with hooks

@@ -1,0 +1,44 @@
+name: project_config
+description: The project-level files each coding agent harness reads to use the VGV plugins.
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  mason: ^0.1.0
+
+vars:
+  claude:
+    type: boolean
+    default: true
+    description: Configure Claude Code.
+    prompt: Configure Claude Code?
+  gemini:
+    type: boolean
+    default: true
+    description: Configure Gemini CLI.
+    prompt: Configure Gemini CLI?
+  codex:
+    type: boolean
+    default: true
+    description: Configure Codex.
+    prompt: Configure Codex?
+  opencode:
+    type: boolean
+    default: true
+    description: Configure OpenCode.
+    prompt: Configure OpenCode?
+  pi:
+    type: boolean
+    default: true
+    description: Configure Pi.
+    prompt: Configure Pi?
+  copilot:
+    type: boolean
+    default: true
+    description: Configure Copilot CLI.
+    prompt: Configure Copilot CLI?
+  antigravity:
+    type: boolean
+    default: true
+    description: Configure Antigravity CLI.
+    prompt: Configure Antigravity CLI?

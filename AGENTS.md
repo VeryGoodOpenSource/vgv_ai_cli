@@ -102,10 +102,10 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 ### Adding a harness
 
-`translate/` keeps what every harness shares at its root: `Translator`, the `HarnessTranslator` base, the `user_config` brick helpers (`AgentsBrick`, `AgentsVars`, `renderedChange`) and `HookScripts`. Everything that belongs to one harness sits in `translate/translators/`, and `test/src/translate/` mirrors that layout.
+`translate/` keeps what every harness shares at its root: `Translator`, the `HarnessTranslator` base, the brick helpers (`AgentsBrick`, `AgentsVars`, `renderedChange`) and `HookScripts`. Everything that belongs to one harness sits in `translate/translators/`, and `test/src/translate/` mirrors that layout.
 
 1. Add the value to `Harness` in `lib/src/model/harness.dart`.
-2. Give it its templates in `bricks/user_config/` and regenerate the bundle with `tool/generate_bundles.sh`.
+2. Add its boolean var to both `bricks/user_config/brick.yaml` and `bricks/project_config/brick.yaml`, give it its user-level templates in `bricks/user_config/` and any project-level ones in `bricks/project_config/`, and regenerate the bundles with `tool/generate_bundles.sh`.
 3. Create `lib/src/translate/translators/<harness>_translator.dart` with a `HarnessTranslator` subclass, plus a `<harness>_compat.dart` beside it if its hooks need one.
 4. Export them from `translators/translators.dart` and add the translator to `harnessTranslators` in `translators/harness_translators.dart`.
 5. Test them under `test/src/translate/translators/`.

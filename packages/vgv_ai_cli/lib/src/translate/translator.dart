@@ -51,7 +51,7 @@ class const Translator({
           harness: ?translation?.fragment,
       },
     );
-    final rendered = await brick.render(vars.toMap());
+    final rendered = await brick.render(vars.toMap(), scope: scope);
     final changes = [
       for (final MapEntry(key: path, value: contents) in rendered.entries)
         renderedChange(path, contents: contents, scope: scope),

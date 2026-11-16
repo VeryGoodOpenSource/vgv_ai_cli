@@ -75,7 +75,8 @@ fixes the last one; step 5 fixes the other two.
 
 ## Step 2: the brick
 
-1. Add the boolean var to `bricks/user_config/brick.yaml`.
+1. Add the boolean var to `bricks/user_config/brick.yaml` and the same var to
+   `bricks/project_config/brick.yaml`.
 2. Create the brick folder, holding **only** the files the harness actually reads. A feature it
    lacks gets no file — that absence is the opt-out, so do not add an empty folder or a
    placeholder.
@@ -93,8 +94,8 @@ fixes the last one; step 5 fixes the other two.
    `bricks/user_config/CHANGELOG.md` alone — release automation owns it.
 4. Regenerate: `tool/generate_bundles.sh` from the repo root.
 
-Check: `git status` shows `packages/vgv_ai_cli/lib/src/templates/user_config_bundle.dart` modified. If
-it does not, the bundle did not regenerate and CI's `verify-bundle` job will fail. The script needs
+Check: `git status` shows the bundles in `packages/vgv_ai_cli/lib/src/templates/` modified. If
+they are not, the bundle did not regenerate and CI's `verify-bundle` job will fail. The script needs
 `dart pub global activate mason_cli 0.1.4`.
 
 ## Step 3: the translator

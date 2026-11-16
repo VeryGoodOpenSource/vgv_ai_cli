@@ -7,7 +7,7 @@ set -euo pipefail
 
 BUNDLE_OUTPUT_DIR="packages/vgv_ai_cli/lib/src/templates"
 
-for brick in user_config; do
+for brick in user_config project_config; do
   mason bundle --source path "./bricks/$brick/" -t dart --output-dir "$BUNDLE_OUTPUT_DIR"
 
   input="$BUNDLE_OUTPUT_DIR/${brick}_bundle.dart"

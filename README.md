@@ -17,7 +17,8 @@ This is a [pub workspace][pub_workspace_link] monorepo with one shared
 | [`packages/vgv_ai_cli`](packages/vgv_ai_cli)       | The `vgv_ai` CLI.                                                             |
 | [`packages/vgv_ai_plugins`](packages/vgv_ai_plugins) | Resolves the pinned VGV plugins and parses them into a harness-neutral model. |
 | [`bricks/user_config`](bricks/user_config)         | The Mason brick that lays out the user-level files each harness reads.        |
-| [`tool`](tool)                                     | Scripts, such as the one that regenerates the brick bundle.                   |
+| [`bricks/project_config`](bricks/project_config)   | The Mason brick that lays out the project-level files each harness reads.     |
+| [`tool`](tool)                                     | Scripts, such as the one that regenerates the brick bundles.                  |
 
 ## Contributing
 
