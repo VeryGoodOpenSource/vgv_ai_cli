@@ -5,7 +5,10 @@ import 'package:vgv_ai_cli/src/document/model/model.dart';
 /// Scans the TOML document [lines] into statements, so a multiline string
 /// or array is one statement however many lines it spans.
 /// {@endtemplate}
-class TomlScanner(final List<String> lines) {
+class TomlScanner(
+  /// The lines of the TOML document.
+  final List<String> lines,
+) {
   /// {@macro toml_scanner}
   this;
 

@@ -37,7 +37,7 @@ jobs:
   build:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v2
     with:
-      dart_sdk: "3.13.0"
+      dart_sdk: "3.14.0"
       working_directory: packages/vgv_ai_cli
       run_cognitive_complexity: true
       cognitive_complexity_targets: packages/vgv_ai_cli/lib
@@ -61,7 +61,7 @@ jobs:
       - name: 🎯 Setup Dart
         uses: dart-lang/setup-dart@v1.8.1
         with:
-          sdk: "3.13.0"
+          sdk: "3.14.0"
 
       - name: 🧱 Install Mason
         run: dart pub global activate mason_cli 0.1.4
@@ -89,7 +89,7 @@ jobs:
       - name: 🎯 Setup Dart
         uses: dart-lang/setup-dart@v1.8.1
         with:
-          sdk: "3.13.0"
+          sdk: "3.14.0"
 
       - name: 📦 Install Dependencies
         working-directory: packages/vgv_ai_cli

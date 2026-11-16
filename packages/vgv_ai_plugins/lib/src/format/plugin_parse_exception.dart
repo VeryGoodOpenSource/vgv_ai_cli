@@ -5,8 +5,13 @@
 /// CLI usage errors, so a corrupt plugin file would wrongly tell the user
 /// their command-line arguments were bad.
 /// {@endtemplate}
-class const PluginParseException(final String path, final String message)
-    implements Exception {
+class const PluginParseException(
+  /// The file that could not be parsed.
+  final String path,
+
+  /// Why it could not be parsed.
+  final String message,
+) implements Exception {
   /// {@macro plugin_parse_exception}
   this;
 
