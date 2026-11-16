@@ -605,7 +605,7 @@ void main() {
         expect(translator.assets!.skills.single.name, 'green-gate');
         expect(
           translator.scope,
-          isA<HomeScope>().having((s) => s.root, 'root', home),
+          isA<UserScope>().having((s) => s.root, 'root', home),
         );
       });
     });

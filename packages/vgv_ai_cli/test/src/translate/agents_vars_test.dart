@@ -18,7 +18,7 @@ void main() {
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      scope: scope ?? HomeScope(fs.directory('/home/dev')),
+      scope: scope ?? UserScope(fs.directory('/home/dev')),
       hooks: hooks,
     ).toMap();
 

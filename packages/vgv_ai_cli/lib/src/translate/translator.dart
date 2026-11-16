@@ -35,7 +35,7 @@ class const Translator({
     final hooks = {
       for (final translator in chosen)
         translator.harness: switch (scope) {
-          HomeScope(:final root) => translator.hooks(
+          UserScope(:final root) => translator.hooks(
             assets,
             hooksRoot: translator.hooksRoot(root),
           ),
@@ -131,7 +131,7 @@ class const Translator({
   }) {
     final name = translator.harness.displayName;
     return switch (scope) {
-      HomeScope() => [
+      UserScope() => [
         if (hooks == null && assets.hooks.isNotEmpty)
           TranslationNote(
             subject: '${assets.hooks.length} hook(s)',

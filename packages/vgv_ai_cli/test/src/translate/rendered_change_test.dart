@@ -8,7 +8,7 @@ void main() {
     final home = MemoryFileSystem.test().directory('/home/dev');
 
     PlannedChange plan(String path) =>
-        renderedChange(path, contents: 'x', scope: HomeScope(home));
+        renderedChange(path, contents: 'x', scope: UserScope(home));
 
     test('lands a folder in its harness config directory', () {
       final change = plan('opencode/agent/review.md');

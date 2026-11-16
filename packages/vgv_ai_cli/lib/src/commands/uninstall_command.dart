@@ -115,7 +115,7 @@ class UninstallCommand({
     final full = selected.containsAll(recorded);
     final owners = {...recorded.intersection(selected), if (full) null};
     final hasSharedSkills = manifest.entriesFor(null).isNotEmpty;
-    final skillsRoot = HomeScope(home).skillsRoot;
+    final skillsRoot = UserScope(home).skillsRoot;
     if (full && hasSharedSkills) {
       _reportSharedSkillsRemoved(skillsRoot, dryRun: dryRun);
     }
@@ -179,7 +179,7 @@ class UninstallCommand({
             .file(entry.path)
             .parent
             .deleteEmptyUpTo(
-              entry.owner?.configDirectory(home) ?? HomeScope(home).skillsRoot,
+              entry.owner?.configDirectory(home) ?? UserScope(home).skillsRoot,
             );
       } on FileSystemException catch (error) {
         _logger.warn(

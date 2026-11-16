@@ -48,7 +48,7 @@ void main() {
       Scope? scope,
     }) => const Translator().translate(
       assets: using ?? assets,
-      scope: scope ?? HomeScope(home),
+      scope: scope ?? UserScope(home),
       selected: selected,
     );
 

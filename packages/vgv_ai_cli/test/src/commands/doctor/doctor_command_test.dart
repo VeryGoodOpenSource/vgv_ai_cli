@@ -548,8 +548,8 @@ void main() {
           return const SkillsTranslator()
               .translate(
                 assets: const ClaudePluginParser().parse(root),
-                root: HomeScope(home).skillsRoot,
-                scope: HomeScope(home),
+                root: UserScope(home).skillsRoot,
+                scope: UserScope(home),
               )
               .changes;
         }

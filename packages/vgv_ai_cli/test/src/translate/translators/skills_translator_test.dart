@@ -43,7 +43,7 @@ void main() {
     }
 
     TranslationResult translate(List<SkillAsset> skills, {Scope? scope}) {
-      final chosen = scope ?? HomeScope(home);
+      final chosen = scope ?? UserScope(home);
       return const SkillsTranslator().translate(
         assets: PluginAssets(
           skills: skills,

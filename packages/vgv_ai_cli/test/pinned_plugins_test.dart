@@ -43,7 +43,7 @@ void main() {
     test('translates $vgvPlugins for ${harness.name}', () async {
       final plan = await const Translator().translate(
         assets: assets,
-        scope: HomeScope(home),
+        scope: UserScope(home),
         selected: {harness},
       );
 
@@ -58,7 +58,7 @@ void main() {
     Future<List<String>> rendered(Harness harness) async {
       final plan = await const Translator().translate(
         assets: assets,
-        scope: HomeScope(home),
+        scope: UserScope(home),
         selected: {harness},
       );
       return [

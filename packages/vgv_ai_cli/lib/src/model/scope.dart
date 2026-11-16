@@ -51,15 +51,15 @@ sealed class const Scope(
   String? pluginRoot(PluginRef plugin);
 }
 
-/// {@template home_scope}
-/// An install into the user's home, which every project on the machine
-/// shares.
+/// {@template user_scope}
+/// A user-level install into the user's home, which every project on the
+/// machine shares.
 /// {@endtemplate}
-final class const HomeScope(
+final class const UserScope(
   /// The user's home directory.
   super.root,
 ) extends Scope {
-  /// {@macro home_scope}
+  /// {@macro user_scope}
   this;
 
   /// The harness's own config directory, such as `~/.codex`.
@@ -82,8 +82,8 @@ final class const HomeScope(
 }
 
 /// {@template project_scope}
-/// An install into one project, committed so every contributor, CI and bots
-/// share it.
+/// A project-level install into one project, committed so every contributor,
+/// CI and bots share it.
 /// {@endtemplate}
 final class const ProjectScope(
   /// The project directory.

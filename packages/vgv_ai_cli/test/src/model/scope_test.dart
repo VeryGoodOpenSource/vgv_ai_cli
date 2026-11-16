@@ -11,9 +11,9 @@ void main() {
     gitRef: 'v0.0.5',
   );
 
-  group(HomeScope, () {
+  group(UserScope, () {
     final home = MemoryFileSystem.test().directory('/home/dev');
-    final scope = HomeScope(home);
+    final scope = UserScope(home);
 
     test('is rooted at home', () {
       expect(scope.root, home);
