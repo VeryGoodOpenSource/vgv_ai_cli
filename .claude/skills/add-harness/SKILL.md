@@ -1,6 +1,6 @@
 ---
 name: add-harness
-description: Adds support for a new coding agent harness to vgv_ai_cli — the Harness enum value, the agents brick folder and bundle, the HarnessTranslator, hook translation, and every test a new harness has to be added to. Use when asked to "add <agent> as a harness", "support <agent> in vgv_ai", "teach vgv_ai about <agent>", or to translate the VGV plugins for a coding agent the CLI does not configure yet. Also use when changing what an existing harness renders, since the same files and the same bundle regeneration are involved.
+description: Adds support for a new coding agent harness to vgv_ai_cli — the Harness enum value, the user_config brick folder and bundle, the HarnessTranslator, hook translation, and every test a new harness has to be added to. Use when asked to "add <agent> as a harness", "support <agent> in vgv_ai", "teach vgv_ai about <agent>", or to translate the VGV plugins for a coding agent the CLI does not configure yet. Also use when changing what an existing harness renders, since the same files and the same bundle regeneration are involved.
 ---
 
 # Adding a harness
@@ -12,7 +12,7 @@ procedure — what to do, in what order, and how to check each step landed.
 Run commands from the repo root unless a step says otherwise. Dart paths below are written in
 full from the root, so `packages/vgv_ai_cli/test/...` means that file, not `test/...` — the
 package is a level down. Never edit
-`packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart` by hand; it is generated.
+`packages/vgv_ai_cli/lib/src/templates/user_config_bundle.dart` by hand; it is generated.
 
 ## Changing a harness that already exists
 
@@ -75,7 +75,7 @@ fixes the last one; step 5 fixes the other two.
 
 ## Step 2: the brick
 
-1. Add the boolean var to `bricks/agents/brick.yaml`.
+1. Add the boolean var to `bricks/user_config/brick.yaml`.
 2. Create the brick folder, holding **only** the files the harness actually reads. A feature it
    lacks gets no file — that absence is the opt-out, so do not add an empty folder or a
    placeholder.
@@ -85,15 +85,15 @@ fixes the last one; step 5 fixes the other two.
    directory called `{{#pi}}pi/…{{\pi}}`. Pi's whole folder:
 
    ```text
-   bricks/agents/__brick__/{{#pi}}pi
-   bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
-   bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
+   bricks/user_config/__brick__/{{#pi}}pi
+   bricks/user_config/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+   bricks/user_config/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
    ```
-3. Add a row to the capability matrix in `bricks/agents/README.md`. Leave
-   `bricks/agents/CHANGELOG.md` alone — release automation owns it.
-4. Regenerate: `tool/generate_agents_bundle.sh` from the repo root.
+3. Add a row to the capability matrix in `bricks/user_config/README.md`. Leave
+   `bricks/user_config/CHANGELOG.md` alone — release automation owns it.
+4. Regenerate: `tool/generate_bundles.sh` from the repo root.
 
-Check: `git status` shows `packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart` modified. If
+Check: `git status` shows `packages/vgv_ai_cli/lib/src/templates/user_config_bundle.dart` modified. If
 it does not, the bundle did not regenerate and CI's `verify-bundle` job will fail. The script needs
 `dart pub global activate mason_cli 0.1.4`.
 
@@ -244,7 +244,7 @@ plainly rather than implying it passed.
 ## Before opening a PR
 
 Branch as `feat/<harness>-harness`, never commit to `main`, conventional commit messages. Do not
-touch any `CHANGELOG.md` — `bricks/agents/CHANGELOG.md` included — or bump any version. Release
+touch any `CHANGELOG.md` — `bricks/user_config/CHANGELOG.md` included — or bump any version. Release
 automation owns them. Fill in `.github/PULL_REQUEST_TEMPLATE.md` and nothing more.
 See [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 
@@ -252,7 +252,7 @@ See [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 
 | Symptom | Cause |
 | --- | --- |
-| `verify-bundle` fails in CI | `tool/generate_agents_bundle.sh` was not run, or its output was not committed |
+| `verify-bundle` fails in CI | `tool/generate_bundles.sh` was not run, or its output was not committed |
 | The harness renders no files | No brick folder, or the folder name does not match the enum's `name` |
 | Hook scripts are registered but absent on disk | `hooks()` never called `scripts.copy(...)` |
 | Settings land escaped or mangled | A double mustache in the template instead of a triple |

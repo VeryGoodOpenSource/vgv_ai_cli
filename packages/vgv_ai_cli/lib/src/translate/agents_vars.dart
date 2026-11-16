@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template agents_vars}
-/// The vars the `agents` brick renders against.
+/// The vars the `user_config` brick renders against.
 ///
 /// Every value is finished: the brick only chooses where each one goes.
 /// {@endtemplate}

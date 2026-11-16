@@ -102,10 +102,10 @@ A result with one status enum, such as `EntryHealth` or `ReversedEntry`, is buil
 
 ### Adding a harness
 
-`translate/` keeps what every harness shares at its root: `Translator`, the `HarnessTranslator` base, the `agents` brick helpers (`AgentsBrick`, `AgentsVars`, `renderedChange`) and `HookScripts`. Everything that belongs to one harness sits in `translate/translators/`, and `test/src/translate/` mirrors that layout.
+`translate/` keeps what every harness shares at its root: `Translator`, the `HarnessTranslator` base, the `user_config` brick helpers (`AgentsBrick`, `AgentsVars`, `renderedChange`) and `HookScripts`. Everything that belongs to one harness sits in `translate/translators/`, and `test/src/translate/` mirrors that layout.
 
 1. Add the value to `Harness` in `lib/src/model/harness.dart`.
-2. Give it its templates in `bricks/agents/` and regenerate the bundle with `tool/generate_agents_bundle.sh`.
+2. Give it its templates in `bricks/user_config/` and regenerate the bundle with `tool/generate_bundles.sh`.
 3. Create `lib/src/translate/translators/<harness>_translator.dart` with a `HarnessTranslator` subclass, plus a `<harness>_compat.dart` beside it if its hooks need one.
 4. Export them from `translators/translators.dart` and add the translator to `harnessTranslators` in `translators/harness_translators.dart`.
 5. Test them under `test/src/translate/translators/`.
@@ -164,6 +164,6 @@ Each workflow under `.github/workflows/` is path-filtered, and every reusable wo
 - A PR that touches only markdown or other files outside these filters triggers no CI at all.
 - PR titles must be [conventional commits](https://www.conventionalcommits.org). The `semantic-pull-request` job checks this, but only on PRs that trigger one of the first two workflows.
 - Markdown is spell-checked with cspell against the VGV dictionaries; add project-specific words to `words` in `.github/cspell.json`. The job includes `**/*.md` and `.*/**/*.md`, excludes `bricks/**/__brick__/**`, and runs with `modified_files_only: false`, so it lints **every** markdown file whenever it runs.
-- `verify-bundle` regenerates `packages/vgv_ai_cli/lib/src/templates` with `tool/generate_agents_bundle.sh` (mason_cli `0.1.3`) and fails if the committed bundle differs. Run the script whenever `bricks/agents` changes.
+- `verify-bundle` regenerates `packages/vgv_ai_cli/lib/src/templates` with `tool/generate_bundles.sh` (mason_cli `0.1.3`) and fails if the committed bundle differs. Run the script whenever `bricks/user_config` changes.
 - The pinned plugins in `vgvPlugins` (`packages/vgv_ai_plugins/lib/src/plugin_ref.dart`) are bumped by `.github/workflows/bot_bump_plugin_pins.yaml`. Every Monday it runs `packages/vgv_ai_plugins/tool/bump_plugin_pins.dart`, which moves each pin to its plugin's latest GitHub release, and opens or updates one PR on `vgvbot/bump_plugin_pins`. The tool rewrites the `version` and `gitRef` lines of each `PluginRef(...)` block in place, so keep that shape when editing the file by hand.
 - The bot PR is opened with the default `GITHUB_TOKEN`, so CI does not start on it by itself. Push a commit to it, or close and reopen it, before merging. Its `verify-pins` job runs `test/pinned_plugins_test.dart` (tagged `pinned-plugins`, skipped by default), which clones the real pinned plugins and translates them for every harness. Run it locally with `dart run test --run-skipped -t pinned-plugins`.

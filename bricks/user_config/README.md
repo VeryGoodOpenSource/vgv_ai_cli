@@ -1,4 +1,4 @@
-# agents
+# user_config
 
 The files each coding agent harness reads to use the VGV plugins.
 
@@ -80,5 +80,5 @@ every top-level list, and renders an empty list as a file with no name. The
 The bundle is committed and CI fails if it drifts:
 
 ```sh
-tool/generate_agents_bundle.sh
+tool/generate_bundles.sh
 ```

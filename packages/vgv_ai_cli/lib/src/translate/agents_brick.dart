@@ -4,7 +4,7 @@ import 'package:mason/mason.dart';
 import 'package:vgv_ai_cli/src/templates/templates.dart';
 
 /// {@template agents_brick}
-/// Renders the `agents` brick into memory.
+/// Renders the `user_config` brick into memory.
 ///
 /// Nothing is generated into `$HOME` or a staging directory, so `--check`
 /// stays a true dry run and the reconcile layer decides what reaches disk.
@@ -19,10 +19,10 @@ class const AgentsBrick() {
   /// Renders every file [vars] select, keyed by its path in the brick.
   Future<Map<String, String>> render(Map<String, Object?> vars) async {
     final generator = MasonGenerator(
-      agentsBundle.name,
-      agentsBundle.description,
+      userConfigBundle.name,
+      userConfigBundle.description,
       files: [
-        for (final file in agentsBundle.files)
+        for (final file in userConfigBundle.files)
           TemplateFile.fromBytes(file.path, base64.decode(file.data)),
       ],
     );

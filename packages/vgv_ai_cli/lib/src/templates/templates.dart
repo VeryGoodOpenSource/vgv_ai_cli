@@ -1,1 +1,1 @@
-export 'agents_bundle.dart';
+export 'user_config_bundle.dart';

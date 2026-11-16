@@ -5,7 +5,7 @@ import 'package:vgv_ai_cli/src/model/model.dart';
 /// rendered instructions are written to.
 const instructionsSection = 'instructions';
 
-/// Plans the change that writes one file the `agents` brick rendered.
+/// Plans the change that writes one file the `user_config` brick rendered.
 ///
 /// The brick renders each harness into a folder named after it, laid out the
 /// way [scope]'s root for that harness is. So the first segment of [path]

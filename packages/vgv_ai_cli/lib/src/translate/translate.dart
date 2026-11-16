@@ -1,6 +1,6 @@
 /// Turns the harness-neutral plugin assets into each harness's own files.
 ///
-/// The `agents` brick decides which files each harness gets. Each
+/// The `user_config` brick decides which files each harness gets. Each
 /// `HarnessTranslator` spells the contents the brick cannot, and
 /// `SkillsTranslator` writes the single shared copy of the skills. None
 /// depends on another translator.

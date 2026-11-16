@@ -12,9 +12,9 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// difference another harness has is answered here, config files and hook
 /// payloads alike.
 ///
-/// A translator supplies what the `agents` brick cannot produce itself, and
-/// the brick decides which files exist. A feature the harness lacks has no
-/// folder in the brick.
+/// A translator supplies what the `user_config` brick cannot produce itself,
+/// and the brick decides which files exist. A feature the harness lacks has
+/// no folder in the brick.
 ///
 /// One implementation per harness, and none depends on another translator.
 /// See `Harness` for every step of adding a harness.
