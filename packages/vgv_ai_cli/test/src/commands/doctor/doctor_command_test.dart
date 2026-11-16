@@ -27,6 +27,7 @@ class _FakeResolver extends Fake implements PluginResolver {
       mcpServers: [],
       plugins: vgvPlugins,
     ),
+    directories: [],
   );
 
   int calls = 0;
@@ -42,6 +43,7 @@ class _FakeResolver extends Fake implements PluginResolver {
     Directory home, {
     Set<String>? only,
     LogDetail? log,
+    String? Function(PluginRef plugin)? pluginRoot,
   }) async {
     calls++;
     resolved.add(only);

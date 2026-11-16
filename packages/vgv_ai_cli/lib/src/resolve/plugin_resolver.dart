@@ -26,10 +26,15 @@ class const PluginResolver({
   /// a half-configured harness is worse than an unconfigured one.
   ///
   /// [log] receives the git command line and its stderr, for `--verbose`.
+  ///
+  /// A skill or agent body names the plugin's files under what [pluginRoot]
+  /// answers for it, such as `Scope.pluginRoot`, or under the directory the
+  /// plugin was resolved to when it answers null.
   Future<AssetResolution> resolve(
     Directory home, {
     Set<String>? only,
     LogDetail? log,
+    String? Function(PluginRef plugin)? pluginRoot,
   }) async {
     final sources = [
       LocalCachePluginSource(home: home),
@@ -46,10 +51,13 @@ class const PluginResolver({
     ];
 
     final parsed = <PluginAssets>[];
+    final directories = <PluginDirectory>[];
     for (final plugin in plugins) {
-      switch (await _resolveOne(plugin, sources)) {
-        case ResolvedAssets(:final assets):
+      final rootReference = pluginRoot?.call(plugin);
+      switch (await _resolveOne(plugin, sources, rootReference)) {
+        case ResolvedAssets(:final assets, directories: final resolved):
           parsed.add(assets);
+          directories.addAll(resolved);
         case final UnavailableAssets failure:
           return failure;
         case final UnparseableAssets failure:
@@ -57,10 +65,14 @@ class const PluginResolver({
       }
     }
 
-    return ResolvedAssets(assets: PluginAssets.merge(parsed, plugins: plugins));
+    return ResolvedAssets(
+      assets: PluginAssets.merge(parsed, plugins: plugins),
+      directories: directories,
+    );
   }
 
-  /// [plugin] parsed from the first of [sources] holding a copy that parses.
+  /// [plugin] parsed from the first of [sources] holding a copy that parses,
+  /// naming its files under [rootReference] when there is one.
   ///
   /// A copy that fails to parse falls through to the next source rather than
   /// failing the run: Claude Code fills its cache from the plugin's default
@@ -70,6 +82,7 @@ class const PluginResolver({
   Future<AssetResolution> _resolveOne(
     PluginRef plugin,
     List<PluginSource> sources,
+    String? rootReference,
   ) async {
     final reasons = <String>[];
     UnparseableAssets? unparseable;
@@ -77,7 +90,12 @@ class const PluginResolver({
       switch (await source.resolve(plugin)) {
         case ResolvedPlugin(:final directory):
           try {
-            return ResolvedAssets(assets: _parser.parse(directory));
+            return ResolvedAssets(
+              assets: _parser.parse(directory, rootReference: rootReference),
+              directories: [
+                PluginDirectory(plugin: plugin, directory: directory),
+              ],
+            );
           } on PluginParseException catch (error) {
             unparseable = UnparseableAssets(plugin, error);
           }

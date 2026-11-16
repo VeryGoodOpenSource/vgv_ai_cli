@@ -8,13 +8,16 @@ import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// A [PluginParser] that gives each plugin root one agent named after the
-/// root's path, and records the roots it was asked to parse.
+/// root's path, and records the roots and root references it was asked to
+/// parse with.
 class _RecordingParser implements PluginParser {
   final roots = <String>[];
+  final references = <String?>[];
 
   @override
-  PluginAssets parse(Directory root) {
+  PluginAssets parse(Directory root, {String? rootReference}) {
     roots.add(root.path);
+    references.add(rootReference);
     return PluginAssets(
       skills: const [],
       agents: [
@@ -29,11 +32,11 @@ class _RecordingParser implements PluginParser {
 /// root, and otherwise parses like [_RecordingParser].
 class _RejectingParser(final String rejected) extends _RecordingParser {
   @override
-  PluginAssets parse(Directory root) {
+  PluginAssets parse(Directory root, {String? rootReference}) {
     if (root.path.startsWith(rejected)) {
       throw PluginParseException(root.path, 'bad name');
     }
-    return super.parse(root);
+    return super.parse(root, rootReference: rootReference);
   }
 }
 
@@ -114,6 +117,55 @@ void main() {
 
     test('uses the real Process.run and parser when none is injected', () {
       expect(const PluginResolver(), isNotNull);
+    });
+
+    test('reports the directory each plugin was resolved to', () async {
+      cache(wingspan);
+      cache(flutter);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan, flutter],
+      );
+
+      final resolution = await resolver.resolve(home);
+
+      expect(
+        (resolution as ResolvedAssets).directories.map(
+          (d) => '${d.plugin.name} ${d.directory.path}',
+        ),
+        ['wingspan ${cached(wingspan)}', 'flutter ${cached(flutter)}'],
+      );
+    });
+
+    test('parses each plugin against the root it is given', () async {
+      cache(wingspan);
+      cache(flutter);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan, flutter],
+      );
+
+      await resolver.resolve(
+        home,
+        pluginRoot: (plugin) => plugin == wingspan ? 'copies/wingspan' : null,
+      );
+
+      expect(parser.references, ['copies/wingspan', null]);
+    });
+
+    test('parses against the resolved root when given none', () async {
+      cache(wingspan);
+      final resolver = PluginResolver(
+        runProcess: processes.never,
+        parser: parser,
+        plugins: const [wingspan],
+      );
+
+      await resolver.resolve(home);
+
+      expect(parser.references, [null]);
     });
 
     test('prefers a complete Claude Code cache, and runs no git', () async {
