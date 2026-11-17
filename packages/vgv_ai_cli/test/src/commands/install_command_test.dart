@@ -1381,6 +1381,36 @@ void main() {
         });
       });
 
+      test(
+        'runs without a prompt outside a terminal, saying what it skips',
+        () async {
+          final exitCode = await runInstall(
+            ['--project'],
+            parser: _FakeParser(
+              PluginAssets(
+                skills: assets(fs).skills,
+                agents: const [],
+                mcpServers: const [
+                  LocalMCPServer(name: 'dart', command: 'dart'),
+                ],
+              ),
+            ),
+            using: const Translator(),
+          );
+
+          expect(exitCode, ExitCode.success.code);
+          verifyNever(pickPlugins);
+          verifyNever(() => detector.detect(any()));
+          verify(
+            () => logger.warn(
+              'Codex: 1 MCP server(s): a project install does not configure '
+              'Codex MCP servers yet; see '
+              'https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/140',
+            ),
+          ).called(1);
+        },
+      );
+
       test('writes nothing under home', () async {
         await runInstall([
           '--project',
