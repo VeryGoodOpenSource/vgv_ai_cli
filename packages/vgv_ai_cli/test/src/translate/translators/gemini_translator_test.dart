@@ -95,6 +95,7 @@ void main() {
       final fields = translator.agent(
         agentAsset('reviewer', description: 'reviews: code'),
         instructions: 'x',
+        scope: userScope,
       );
 
       expect(frontmatterValues(fields.frontmatter), {

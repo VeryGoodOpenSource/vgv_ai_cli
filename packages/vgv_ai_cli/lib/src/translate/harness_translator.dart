@@ -31,12 +31,12 @@ abstract class const HarnessTranslator() {
   bool get installsPluginsNatively => false;
 
   /// Whether this harness loads the shared copy of the skills under
-  /// `~/.agents/skills`.
-  bool get readsSharedSkills => true;
+  /// `scope.skillsRoot`: every harness that keeps no copy of its own there.
+  bool readsSharedSkills(Scope scope) => skillsRoot(scope) == null;
 
-  /// Where this harness keeps its own copy of the skills, for one that reads
-  /// neither the shared copy nor the plugins' own, or null.
-  Directory? skillsRoot(Directory home) => null;
+  /// Where this harness keeps its own copy of the skills in [scope], for one
+  /// that reads neither the shared copy nor the plugins' own there, or null.
+  Directory? skillsRoot(Scope scope) => null;
 
   /// Whether this harness can keep a skill that sets
   /// `disable-model-invocation` the user's alone. One that cannot is told
@@ -58,9 +58,13 @@ abstract class const HarnessTranslator() {
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///
-  /// [instructions] is the agent body every harness shares.
-  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
-      const HarnessFields();
+  /// [instructions] is the agent body every harness shares, pointing at the
+  /// shared skills as [scope] spells them.
+  HarnessFields agent(
+    AgentAsset agent, {
+    required String instructions,
+    required Scope scope,
+  }) => const HarnessFields();
 
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();

@@ -26,7 +26,7 @@ class const ClaudeTranslator() extends HarnessTranslator {
 
   /// The plugin system already installs the skills.
   @override
-  bool get readsSharedSkills => false;
+  bool readsSharedSkills(Scope scope) => false;
 
   /// The plugin system reads `disable-model-invocation` as written.
   @override

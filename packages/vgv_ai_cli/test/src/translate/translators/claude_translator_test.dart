@@ -53,7 +53,11 @@ void main() {
       final fs = MemoryFileSystem.test();
 
       expect(
-        translator.agent(agentAsset('reviewer'), instructions: 'x'),
+        translator.agent(
+          agentAsset('reviewer'),
+          instructions: 'x',
+          scope: userScope,
+        ),
         const HarnessFields(),
       );
       expect(translator.command(skillAsset(fs, 'plan')), const HarnessFields());

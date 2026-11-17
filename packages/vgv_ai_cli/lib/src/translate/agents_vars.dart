@@ -70,7 +70,7 @@ class const AgentsVars({
       'instructions': instructions,
       for (final translator in translators)
         translator.harness.name: translator
-            .agent(agent, instructions: instructions)
+            .agent(agent, instructions: instructions, scope: scope)
             .toMap(),
     };
   }

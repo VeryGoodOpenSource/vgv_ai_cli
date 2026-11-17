@@ -85,7 +85,8 @@ class const Translator({
     required Scope scope,
     required List<PluginDirectory> plugins,
   }) {
-    final shared = chosen.any((translator) => translator.readsSharedSkills)
+    final shared =
+        chosen.any((translator) => translator.readsSharedSkills(scope))
         ? skills.translate(assets: assets, root: scope.skillsRoot, scope: scope)
         : null;
     final copies = switch (scope) {
@@ -112,7 +113,7 @@ class const Translator({
     required PluginAssets assets,
     required Scope scope,
   }) {
-    final own = switch (translator.skillsRoot(scope.root)) {
+    final own = switch (translator.skillsRoot(scope)) {
       final root? => skills.translate(
         assets: assets,
         root: root,
@@ -121,7 +122,7 @@ class const Translator({
       ),
       _ => null,
     };
-    final shared = translator.readsSharedSkills
+    final shared = translator.readsSharedSkills(scope)
         ? translator.sharedSkillFiles(assets, root: scope.skillsRoot)
         : null;
     return TranslationResult(

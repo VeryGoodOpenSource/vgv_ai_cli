@@ -28,9 +28,9 @@ void main() {
     });
 
     test('keeps its own copy of the skills inside the plugin', () {
-      expect(translator.readsSharedSkills, isFalse);
+      expect(translator.readsSharedSkills(UserScope(home)), isFalse);
       expect(
-        translator.skillsRoot(home).path,
+        translator.skillsRoot(UserScope(home)).path,
         '/home/dev/.gemini/config/plugins/vgv/skills',
       );
     });
@@ -78,6 +78,7 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer', skills: ['bloc', 'testing']),
           instructions: 'shared',
+          scope: userScope,
         );
 
         expect(frontmatterValues(fields.frontmatter), {
@@ -92,6 +93,7 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer'),
           instructions: 'shared',
+          scope: userScope,
         );
 
         expect(
@@ -104,6 +106,7 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer', body: 'You review code.'),
           instructions: 'shared, with a skills pointer\n',
+          scope: userScope,
         );
 
         expect(fields.instructions, 'You review code.\n');

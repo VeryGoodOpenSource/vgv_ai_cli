@@ -40,13 +40,16 @@ class const OpenCodeTranslator() extends HarnessTranslator {
   });
 
   @override
-  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
-      HarnessFields(
-        frontmatter: Frontmatter.render({
-          'description': agent.description,
-          'mode': 'subagent',
-        }),
-      );
+  HarnessFields agent(
+    AgentAsset agent, {
+    required String instructions,
+    required Scope scope,
+  }) => HarnessFields(
+    frontmatter: Frontmatter.render({
+      'description': agent.description,
+      'mode': 'subagent',
+    }),
+  );
 
   @override
   HarnessFields command(SkillAsset skill) => HarnessFields(

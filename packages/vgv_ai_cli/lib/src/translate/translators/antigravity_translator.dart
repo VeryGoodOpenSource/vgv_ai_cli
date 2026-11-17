@@ -32,9 +32,6 @@ class const AntigravityTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.antigravity;
 
-  @override
-  bool get readsSharedSkills => false;
-
   /// The plugin's root under Antigravity's config directory.
   Directory pluginRoot(Directory home) {
     final config = harness.configDirectory(home);
@@ -42,8 +39,8 @@ class const AntigravityTranslator() extends HarnessTranslator {
   }
 
   @override
-  Directory skillsRoot(Directory home) =>
-      pluginRoot(home).childDirectory('skills');
+  Directory skillsRoot(Scope scope) =>
+      pluginRoot(scope.root).childDirectory('skills');
 
   @override
   Directory hooksRoot(Directory home) =>
@@ -68,17 +65,20 @@ class const AntigravityTranslator() extends HarnessTranslator {
   /// An agent names its skills in the frontmatter, relative to the plugin,
   /// so its instructions are the body alone rather than the shared pointer.
   @override
-  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
-      HarnessFields(
-        frontmatter: Frontmatter.render({
-          'name': agent.name,
-          'description': agent.description,
-          'subagent': true,
-          if (agent.skills.isNotEmpty)
-            'skills': [for (final skill in agent.skills) 'skills/$skill'],
-        }),
-        instructions: '${agent.body.trimRight()}\n',
-      );
+  HarnessFields agent(
+    AgentAsset agent, {
+    required String instructions,
+    required Scope scope,
+  }) => HarnessFields(
+    frontmatter: Frontmatter.render({
+      'name': agent.name,
+      'description': agent.description,
+      'subagent': true,
+      if (agent.skills.isNotEmpty)
+        'skills': [for (final skill in agent.skills) 'skills/$skill'],
+    }),
+    instructions: '${agent.body.trimRight()}\n',
+  );
 
   /// The plugins' hooks as the plugin's `hooks.json` spells them: one set
   /// per source plugin, under the event names Antigravity shares with Claude

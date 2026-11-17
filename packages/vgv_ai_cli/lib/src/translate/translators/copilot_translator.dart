@@ -48,13 +48,16 @@ class const CopilotTranslator() extends HarnessTranslator {
   });
 
   @override
-  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
-      HarnessFields(
-        frontmatter: Frontmatter.render({
-          'name': agent.name,
-          'description': agent.description,
-        }),
-      );
+  HarnessFields agent(
+    AgentAsset agent, {
+    required String instructions,
+    required Scope scope,
+  }) => HarnessFields(
+    frontmatter: Frontmatter.render({
+      'name': agent.name,
+      'description': agent.description,
+    }),
+  );
 
   /// The plugins' hooks as `~/.copilot/hooks/vgv.json` spells them, with
   /// Copilot's copy of each plugin's `hooks` folder under [hooksRoot] and
