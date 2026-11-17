@@ -18,6 +18,24 @@ import '../../helpers/test_runner.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
 
+/// A [ManifestAuditor] that fails to reverse every entry it is given.
+class const _FailingAuditor() extends ManifestAuditor {
+  @override
+  Reversal reverse(
+    InstallManifest manifest,
+    FileSystem fileSystem, {
+    Set<Harness?>? owners,
+    bool force = false,
+    bool dryRun = false,
+  }) => Reversal(
+    entries: [
+      for (final entry in manifest.entries)
+        ReversedEntry.failed(entry, error: 'Permission denied'),
+    ],
+    manifest: manifest,
+  );
+}
+
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
   PluginAssets parse(Directory root, {String? rootReference}) => assets;
@@ -89,12 +107,22 @@ void main() {
     late Directory project;
     late _FakeTranslator translator;
 
+    /// A directory that cannot be deleted, or null when every one can.
+    String? undeletable;
+
     setUp(() {
       runner = TestRunner();
       logger = runner.logger;
       progress = runner.progress;
       detector = _MockDetector();
-      fs = MemoryFileSystem.test();
+      undeletable = null;
+      fs = MemoryFileSystem.test(
+        opHandle: (path, operation) {
+          if (path == undeletable && operation == FileSystemOp.delete) {
+            throw FileSystemException('Cannot delete', path);
+          }
+        },
+      );
       home = fs.directory('/home/dev')..createSync(recursive: true);
       project = fs.directory('/work/app')..createSync(recursive: true);
       translator = _FakeTranslator();
@@ -128,6 +156,8 @@ void main() {
       PluginParser? parser,
       Translator? using,
       bool hasTerminal = false,
+      List<PluginRef> pins = vgvPlugins,
+      ManifestAuditor auditor = const ManifestAuditor(),
     }) => runThroughRunner(
       InstallCommand(
         logger: logger,
@@ -136,7 +166,9 @@ void main() {
         resolver: PluginResolver(
           runProcess: runProcess ?? clone,
           parser: parser ?? _FakeParser(assets(fs)),
+          plugins: pins,
         ),
+        auditor: auditor,
         translator: using ?? translator,
         hasTerminal: hasTerminal,
         workingDirectory: project,
@@ -1106,6 +1138,246 @@ void main() {
             expect(contents, isNot(contains(project.path)), reason: path);
             expect(contents, isNot(contains(home.path)), reason: path);
           }
+        });
+      });
+
+      group('a rerun', () {
+        final ffca = vgvPlugins.firstWhere(
+          (plugin) => plugin.name == 'vgv-ffca-plugin',
+        );
+
+        PluginRef pinned(String tag) => PluginRef(
+          name: ffca.name,
+          repo: ffca.repo,
+          version: tag.substring(1),
+          gitRef: tag,
+        );
+
+        /// Whether the next clone ships the `auditor` agent.
+        late bool shipsAgent;
+
+        setUp(() => shipsAgent = true);
+
+        Future<ProcessResult> clonePlugin(
+          String executable,
+          List<String> arguments, {
+          bool runInShell = false,
+        }) async {
+          final root = arguments.last;
+          void write(String path, String contents) =>
+              fs.file(fs.path.join(root, path))
+                ..createSync(recursive: true)
+                ..writeAsStringSync(contents);
+          write(
+            'skills/audit/SKILL.md',
+            '---\nname: audit\ndescription: d\n---\n'
+                r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+                '\n',
+          );
+          write('references/x.md', 'x');
+          if (shipsAgent) {
+            write('agents/auditor.md', '---\nname: auditor\n---\nAudit.\n');
+          }
+          return ProcessResult(0, 0, '', '');
+        }
+
+        Future<int> install({
+          String tag = 'v1.0.0',
+          List<String> args = const [],
+          ManifestAuditor auditor = const ManifestAuditor(),
+        }) => runInstall(
+          [
+            '--project',
+            '--only',
+            'gemini,codex',
+            '--plugin',
+            ffca.name,
+            ...args,
+          ],
+          runProcess: clonePlugin,
+          parser: const ClaudePluginParser(),
+          using: const Translator(),
+          pins: [pinned(tag)],
+          auditor: auditor,
+        );
+
+        /// Every path the project's manifest records, relative to it.
+        List<String> recorded() {
+          final json = jsonDecode(
+            project.childFile('.vgv_ai/manifest.json').readAsStringSync(),
+          ) as Map<String, dynamic>;
+          return [
+            for (final entry in json['entries'] as List<dynamic>)
+              (entry as Map<String, dynamic>)['path'] as String,
+          ];
+        }
+
+        /// Every file under the project, with its contents.
+        Map<String, String> snapshot() => {
+          for (final path in filesUnder(project))
+            path: project.childFile(path).readAsStringSync(),
+        };
+
+        File agent() => project.childFile('.gemini/agents/auditor.md');
+
+        Directory oldCopy() =>
+            project.childDirectory('.vgv_ai/plugins/${ffca.name}@v1.0.0');
+
+        test('changes nothing when nothing changed', () async {
+          await install();
+          final before = snapshot();
+          clearInteractions(logger);
+
+          await install();
+
+          expect(snapshot(), before);
+          verify(() => logger.info('Everything is already up to date.'))
+              .called(1);
+        });
+
+        test('removes the plugin copy of the previous tag', () async {
+          await install();
+          expect(oldCopy().existsSync(), isTrue);
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          expect(oldCopy().existsSync(), isFalse);
+          expect(
+            project
+                .childFile(
+                  '.vgv_ai/plugins/${ffca.name}@v2.0.0/references/x.md',
+                )
+                .existsSync(),
+            isTrue,
+          );
+          expect(recorded(), everyElement(isNot(contains('@v1.0.0'))));
+          verify(() => logger.info('  Removed 1 file(s) VGV no longer writes'))
+              .called(1);
+        });
+
+        test('removes an agent the plugin no longer ships', () async {
+          await install();
+          expect(agent().existsSync(), isTrue);
+          shipsAgent = false;
+
+          await install(tag: 'v2.0.0');
+
+          expect(agent().existsSync(), isFalse);
+          expect(
+            project.childFile('.codex/agents/auditor.toml').existsSync(),
+            isFalse,
+          );
+        });
+
+        test(
+          'keeps a file VGV no longer writes once the user changed it',
+          () async {
+            await install();
+            agent().writeAsStringSync('mine');
+            shipsAgent = false;
+
+            await install(tag: 'v2.0.0');
+
+            expect(agent().readAsStringSync(), 'mine');
+            expect(recorded(), isNot(contains('.gemini/agents/auditor.md')));
+            verify(
+              () => logger.warn(
+                'Kept ${agent().path}, which VGV no longer writes but you have '
+                'changed. It is yours now.',
+              ),
+            ).called(1);
+          },
+        );
+
+        test('says nothing of a file the user already deleted', () async {
+          await install();
+          agent().deleteSync();
+          shipsAgent = false;
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          expect(recorded(), isNot(contains('.gemini/agents/auditor.md')));
+          verifyNever(() => logger.warn(any(that: contains('auditor.md'))));
+        });
+
+        test('--force removes it anyway', () async {
+          await install();
+          agent().writeAsStringSync('mine');
+          shipsAgent = false;
+
+          await install(tag: 'v2.0.0', args: ['--force']);
+
+          expect(agent().existsSync(), isFalse);
+        });
+
+        test('--check says what it would remove and removes nothing', () async {
+          await install();
+          final before = snapshot();
+
+          await install(tag: 'v2.0.0', args: ['--check']);
+
+          expect(snapshot(), before);
+          verify(
+            () => logger.info(
+              'Would remove ${oldCopy().childFile('references/x.md').path}',
+            ),
+          ).called(1);
+        });
+
+        test('leaves alone what a harness it skipped wrote', () async {
+          await install();
+
+          await runInstall(
+            ['--project', '--only', 'gemini', '--plugin', ffca.name],
+            runProcess: clonePlugin,
+            parser: const ClaudePluginParser(),
+            using: const Translator(),
+            pins: [pinned('v2.0.0')],
+          );
+
+          expect(oldCopy().existsSync(), isTrue);
+          expect(
+            project.childFile('.codex/agents/auditor.toml').existsSync(),
+            isTrue,
+          );
+        });
+
+        test(
+          'fails when a file it no longer writes cannot be removed',
+          () async {
+            await install();
+
+            final exitCode = await install(
+              tag: 'v2.0.0',
+              auditor: const _FailingAuditor(),
+            );
+
+            expect(exitCode, ExitCode.ioError.code);
+            verify(
+              () => logger.err(
+                'Could not remove '
+                '${oldCopy().childFile('references/x.md').path}: '
+                'Permission denied',
+              ),
+            ).called(1);
+          },
+        );
+
+        test('warns when an emptied directory cannot be deleted', () async {
+          await install();
+          undeletable = oldCopy().childDirectory('references').path;
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          verify(
+            () => logger.warn(
+              'Could not delete the empty directories above '
+              '${oldCopy().childFile('references/x.md').path}: Cannot delete',
+            ),
+          ).called(1);
         });
       });
 
