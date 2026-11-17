@@ -368,6 +368,81 @@ void main() {
         expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
       });
 
+      test('OpenCode gets agents and commands', () async {
+        expect(await projectTree(Harness.opencode), [
+          '.opencode/agents/planner.md',
+          '.opencode/agents/review.md',
+          '.opencode/commands/plan.md',
+          '.opencode/commands/review.md',
+          '.opencode/commands/testing.md',
+        ]);
+      });
+
+      test('Pi gets prompts, and no agents', () async {
+        expect(await projectTree(Harness.pi), [
+          '.pi/prompts/plan.md',
+          '.pi/prompts/review.md',
+          '.pi/prompts/testing.md',
+        ]);
+      });
+
+      test('Pi is told to trust the project for its skills', () async {
+        final plan = await translate({Harness.pi}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.pi]!.notes.map((n) => n.subject),
+          contains("the project's skills and prompts"),
+        );
+      });
+
+      test('Pi needs no trust note without skills', () async {
+        final plan = await translate(
+          {Harness.pi},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.pi]!.notes, isEmpty);
+      });
+
+      test('Pi gets one note for its MCP servers, its own', () async {
+        final plan = await translate({Harness.pi}, scope: project);
+
+        final mcp = plan.harnesses[Harness.pi]!.notes.where(
+          (n) => n.subject == '1 MCP server(s)',
+        );
+        expect(mcp.single.reason, contains('Pi has no MCP support'));
+      });
+
+      test('writes no instructions file for any harness', () async {
+        final plan = await translate(Harness.values.toSet(), scope: project);
+
+        expect(
+          plan.changes.map((c) => fs.path.basename(c.file.path)),
+          everyElement(
+            isNot(
+              anyOf(
+                'AGENTS.md',
+                'GEMINI.md',
+                'CLAUDE.md',
+                'copilot-instructions.md',
+              ),
+            ),
+          ),
+        );
+        expect(
+          plan.changes.map((c) => c.mode),
+          everyElement(isNot(ChangeMode.mergeMarkdown)),
+        );
+      });
+
+      test('Copilot gets agents', () async {
+        expect(await projectTree(Harness.copilot), [
+          '.github/agents/planner.agent.md',
+          '.github/agents/review.agent.md',
+        ]);
+      });
+
       test('plans no hook files', () async {
         final plan = await translate({Harness.codex}, scope: project);
 
@@ -377,16 +452,30 @@ void main() {
         );
       });
 
-      test('tells each harness its hooks and MCP servers wait', () async {
+      test(
+        'tells a harness that runs hooks they wait, with its MCP servers',
+        () async {
+          final plan = await translate({Harness.codex}, scope: project);
+
+          final waiting = plan.harnesses[Harness.codex]!.notes.where(
+            (n) => n.subject == '1 hook(s)' || n.subject == '1 MCP server(s)',
+          );
+          expect(waiting, hasLength(2));
+          expect(
+            waiting.map((n) => n.reason),
+            everyElement(contains('issues/140')),
+          );
+        },
+      );
+
+      test('tells a harness that runs no hooks so, as at home', () async {
         final plan = await translate({Harness.opencode}, scope: project);
 
         expect(
-          plan.harnesses[Harness.opencode]!.notes.map((n) => n.subject),
-          containsAll(['1 hook(s)', '1 MCP server(s)']),
-        );
-        expect(
-          plan.harnesses[Harness.opencode]!.notes.map((n) => n.reason),
-          everyElement(contains('issues/140')),
+          plan.harnesses[Harness.opencode]!.notes
+              .singleWhere((n) => n.subject == '1 hook(s)')
+              .reason,
+          contains("nothing in OpenCode's config runs one"),
         );
       });
 

@@ -145,8 +145,9 @@ class const Translator({
   }
 
   /// What [translator]'s harness will not get from [assets] in [scope]: the
-  /// hooks its config cannot run at home, and in a project, until #140, the
-  /// hooks and MCP servers, unless it installs the plugins itself.
+  /// hooks its config cannot run, and in a project, until #140, the hooks it
+  /// can and the MCP servers, unless it installs the plugins itself or its
+  /// own notes already say why it gets none.
   List<TranslationNote> _missedNotes(
     HarnessTranslator translator, {
     required HookTranslation? hooks,
@@ -154,19 +155,21 @@ class const Translator({
     required Scope scope,
   }) {
     final name = translator.harness.displayName;
+    final runsNoHooks = TranslationNote(
+      subject: '${assets.hooks.length} hook(s)',
+      reason:
+          'the plugins ship them as shell commands, and nothing in '
+          "$name's config runs one",
+    );
     return switch (scope) {
       UserScope() => [
-        if (hooks == null && assets.hooks.isNotEmpty)
-          TranslationNote(
-            subject: '${assets.hooks.length} hook(s)',
-            reason:
-                'the plugins ship them as shell commands, and nothing in '
-                "$name's config runs one",
-          ),
+        if (hooks == null && assets.hooks.isNotEmpty) runsNoHooks,
       ],
       ProjectScope() when translator.installsPluginsNatively => const [],
-      ProjectScope() => [
-        if (assets.hooks.isNotEmpty)
+      ProjectScope() => _withoutOwnSubjects(translator, assets, [
+        if (assets.hooks.isNotEmpty && translator.scripts == null)
+          runsNoHooks
+        else if (assets.hooks.isNotEmpty)
           TranslationNote(
             subject: '${assets.hooks.length} hook(s)',
             reason:
@@ -180,8 +183,24 @@ class const Translator({
                 'a project install does not configure $name MCP servers '
                 'yet; see $_projectHooksAndMcpIssue',
           ),
-      ],
+      ]),
     };
+  }
+
+  /// [notes] without the ones whose subject [translator]'s own notes on
+  /// [assets] already explain, such as Pi's MCP servers.
+  List<TranslationNote> _withoutOwnSubjects(
+    HarnessTranslator translator,
+    PluginAssets assets,
+    List<TranslationNote> notes,
+  ) {
+    final explained = {
+      for (final note in translator.notes(assets)) note.subject,
+    };
+    return [
+      for (final note in notes)
+        if (!explained.contains(note.subject)) note,
+    ];
   }
 
   /// The issue tracking hooks and MCP servers in a project install.

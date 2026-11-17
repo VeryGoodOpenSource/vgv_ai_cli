@@ -30,4 +30,15 @@ class const PiTranslator() extends HarnessTranslator {
         reason: 'Pi has no MCP support, so it gets none',
       ),
   ];
+
+  /// Pi loads a project's skills and prompts only once the project is
+  /// trusted.
+  @override
+  List<TranslationNote> projectNotes(PluginAssets assets) => [
+    if (assets.skills.isNotEmpty)
+      const TranslationNote(
+        subject: "the project's skills and prompts",
+        reason: 'Pi loads them only once you trust the project',
+      ),
+  ];
 }

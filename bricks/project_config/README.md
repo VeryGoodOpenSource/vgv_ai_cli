@@ -18,11 +18,14 @@ written whole.
 No harness folder holds an instructions file: a project install never writes
 the repository's `AGENTS.md`.
 
-| Harness | Settings                 | Agents                 | Commands                  |
-| ------- | ------------------------ | ---------------------- | ------------------------- |
-| claude  | `.claude/settings.json`  |                        |                           |
-| gemini  | `.gemini/settings.json`  | `.gemini/agents/*.md`  | `.gemini/commands/*.toml` |
-| codex   |                          | `.codex/agents/*.toml` |                           |
+| Harness  | Settings                | Agents                      | Commands                   |
+| -------- | ----------------------- | --------------------------- | -------------------------- |
+| claude   | `.claude/settings.json` |                             |                            |
+| gemini   | `.gemini/settings.json` | `.gemini/agents/*.md`       | `.gemini/commands/*.toml`  |
+| codex    |                         | `.codex/agents/*.toml`      |                            |
+| opencode |                         | `.opencode/agents/*.md`     | `.opencode/commands/*.md`  |
+| pi       |                         |                             | `.pi/prompts/*.md`         |
+| copilot  |                         | `.github/agents/*.agent.md` |                            |
 
 The skills are not in the brick. The CLI writes one shared copy to
 `.agents/skills`, which every harness but Claude Code reads in a project, and

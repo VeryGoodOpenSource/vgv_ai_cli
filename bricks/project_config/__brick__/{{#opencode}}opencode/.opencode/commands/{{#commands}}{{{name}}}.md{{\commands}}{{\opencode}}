@@ -1,0 +1,2 @@
+{{#commands}}{{#opencode}}{{{frontmatter}}}
+{{{body}}}{{/opencode}}{{/commands}}
