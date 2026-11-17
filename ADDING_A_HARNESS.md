@@ -146,9 +146,6 @@ Three rules:
 
 Then add a row to the capability matrix in [`bricks/user_config/README.md`](bricks/user_config/README.md).
 
-Leave `bricks/user_config/CHANGELOG.md` alone. Release automation owns it, the same as every other
-changelog in the repo, so a harness addition never edits one by hand.
-
 ## 3. Declare the brick var
 
 `bricks/user_config/brick.yaml` and `bricks/project_config/brick.yaml`, which declare the same
@@ -427,8 +424,8 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 - **The manifest.** `ManifestEntry.owner` is a `Harness?`, written and read back by name.
 - **Reconciliation.** The change mode comes from the file's path in the brick, not from the
   harness.
-- **Changelogs and versions.** Release automation owns every `CHANGELOG.md`, including the
-  `user_config` brick's, and every version bump.
+- **Changelogs and versions.** Release automation owns every `CHANGELOG.md` and every version
+  bump.
 
 ## Checklist
 

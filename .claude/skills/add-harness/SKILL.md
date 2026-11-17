@@ -90,8 +90,7 @@ fixes the last one; step 5 fixes the other two.
    bricks/user_config/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
    bricks/user_config/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
    ```
-3. Add a row to the capability matrix in `bricks/user_config/README.md`. Leave
-   `bricks/user_config/CHANGELOG.md` alone — release automation owns it.
+3. Add a row to the capability matrix in `bricks/user_config/README.md`.
 4. Regenerate: `tool/generate_bundles.sh` from the repo root.
 
 Check: `git status` shows the bundles in `packages/vgv_ai_cli/lib/src/templates/` modified. If
@@ -245,8 +244,7 @@ plainly rather than implying it passed.
 ## Before opening a PR
 
 Branch as `feat/<harness>-harness`, never commit to `main`, conventional commit messages. Do not
-touch any `CHANGELOG.md` — `bricks/user_config/CHANGELOG.md` included — or bump any version. Release
-automation owns them. Fill in `.github/PULL_REQUEST_TEMPLATE.md` and nothing more.
+touch any `CHANGELOG.md` or bump any version. Release automation owns them. Fill in `.github/PULL_REQUEST_TEMPLATE.md` and nothing more.
 See [CONTRIBUTING.md](../../../CONTRIBUTING.md).
 
 ## Common failures

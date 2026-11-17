@@ -144,8 +144,7 @@ open coverage/index.html
   `semantic-pull-request` job checks the title.
 - Fill in [the pull request template](.github/PULL_REQUEST_TEMPLATE.md) and
   nothing more.
-- Leave every `CHANGELOG.md` and version bump alone, the `user_config` brick's included. Release
-  automation owns them.
+- Leave every `CHANGELOG.md` and version bump alone. Release automation owns them.
 
 ## Releases
 
