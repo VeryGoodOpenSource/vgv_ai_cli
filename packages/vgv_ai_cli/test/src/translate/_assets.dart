@@ -1,14 +1,6 @@
 import 'package:file/file.dart';
-import 'package:file/memory.dart';
-import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 import 'package:yaml/yaml.dart';
-
-/// A user-level install into `/home/dev`, for a test that only needs some
-/// scope.
-final UserScope userScope = UserScope(
-  MemoryFileSystem.test().directory('/home/dev'),
-);
 
 /// Builders shared by the per-harness translator tests, so each test file
 /// asserts on translation rather than on fixture construction.

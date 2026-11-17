@@ -42,6 +42,11 @@ project-level MCP support.
 `{{~ agent.md }}` is a symlink to the `user_config` partial, so both bricks
 frame an agent the same way from one copy. `mason bundle` follows it.
 
+Antigravity's agents do not use it. At user level their frontmatter names the
+skills inside its plugin, which a project's plugin does not hold, so its
+template takes `shared_skills_frontmatter` and the agent's shared
+`instructions`, which point at `.agents/skills`.
+
 ## Variables
 
 The same as `user_config`'s. See its [README](../user_config/README.md#variables).

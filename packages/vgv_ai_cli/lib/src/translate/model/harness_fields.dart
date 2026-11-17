@@ -17,6 +17,11 @@ class const HarnessFields({
   /// An agent's instructions, for a harness that spells its skills in the
   /// frontmatter rather than through the shared pointer.
   final String? instructions,
+
+  /// The [frontmatter] of an agent that reads the shared skills through the
+  /// shared pointer instead, for a harness whose [frontmatter] names a copy
+  /// of its own that a template may not have.
+  final String? sharedSkillsFrontmatter,
 }) extends Equatable {
   /// {@macro harness_fields}
   this;
@@ -26,8 +31,14 @@ class const HarnessFields({
     'frontmatter': ?frontmatter,
     'toml': ?toml,
     'instructions': ?instructions,
+    'shared_skills_frontmatter': ?sharedSkillsFrontmatter,
   };
 
   @override
-  List<Object?> get props => [frontmatter, toml, instructions];
+  List<Object?> get props => [
+    frontmatter,
+    toml,
+    instructions,
+    sharedSkillsFrontmatter,
+  ];
 }

@@ -85,7 +85,6 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer', skills: ['bloc', 'testing']),
           instructions: 'shared',
-          scope: userScope,
         );
 
         expect(frontmatterValues(fields.frontmatter), {
@@ -100,7 +99,6 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer'),
           instructions: 'shared',
-          scope: userScope,
         );
 
         expect(
@@ -113,38 +111,21 @@ void main() {
         final fields = translator.agent(
           agentAsset('reviewer', body: 'You review code.'),
           instructions: 'shared, with a skills pointer\n',
-          scope: userScope,
         );
 
         expect(fields.instructions, 'You review code.\n');
       });
 
-      group('in a project', () {
-        final project = ProjectScope(
-          MemoryFileSystem.test().directory('/work/app'),
+      test('offers a frontmatter without the skills, for a project', () {
+        final fields = translator.agent(
+          agentAsset('reviewer', skills: ['bloc']),
+          instructions: 'shared',
         );
 
-        test('names no skills, which sit outside the plugin', () {
-          final fields = translator.agent(
-            agentAsset('reviewer', skills: ['bloc']),
-            instructions: 'shared',
-            scope: project,
-          );
-
-          expect(
-            frontmatterValues(fields.frontmatter),
-            isNot(contains('skills')),
-          );
-        });
-
-        test('takes the shared pointer as its instructions', () {
-          final fields = translator.agent(
-            agentAsset('reviewer', body: 'You review code.'),
-            instructions: 'shared, with a skills pointer\n',
-            scope: project,
-          );
-
-          expect(fields.instructions, 'shared, with a skills pointer\n');
+        expect(frontmatterValues(fields.sharedSkillsFrontmatter), {
+          'name': 'reviewer',
+          'description': 'reviews code',
+          'subagent': true,
         });
       });
     });

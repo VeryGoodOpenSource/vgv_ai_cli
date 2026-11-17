@@ -18,7 +18,8 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// agents register natively, so no rule indexes them.
 ///
 /// In a project it reads the shared `.agents/skills`, so the workspace
-/// plugin, `.agents/plugins/vgv/`, holds only the agents.
+/// plugin, `.agents/plugins/vgv/`, holds only the agents, which point at the
+/// shared skills as every other harness's do.
 ///
 /// See https://antigravity.google/docs/plugins/ and
 /// https://antigravity.google/docs/skills.
@@ -70,28 +71,29 @@ class const AntigravityTranslator() extends HarnessTranslator {
     },
   });
 
-  /// At home an agent names its skills in the frontmatter, relative to the
-  /// plugin that holds them, so its instructions are the body alone. In a
-  /// project the skills sit outside the plugin, so it takes the shared
-  /// pointer every other harness gets.
+  /// An agent names its skills in the frontmatter, relative to the plugin,
+  /// so its instructions are the body alone rather than the shared pointer.
+  ///
+  /// A project's plugin holds no skills, since Antigravity reads the shared
+  /// ones there, so its template takes [HarnessFields.sharedSkillsFrontmatter]
+  /// and the shared pointer instead.
   @override
-  HarnessFields agent(
-    AgentAsset agent, {
-    required String instructions,
-    required Scope scope,
-  }) => HarnessFields(
-    frontmatter: Frontmatter.render({
+  HarnessFields agent(AgentAsset agent, {required String instructions}) {
+    final frontmatter = {
       'name': agent.name,
       'description': agent.description,
       'subagent': true,
-      if (scope is UserScope && agent.skills.isNotEmpty)
-        'skills': [for (final skill in agent.skills) 'skills/$skill'],
-    }),
-    instructions: switch (scope) {
-      UserScope() => '${agent.body.trimRight()}\n',
-      ProjectScope() => instructions,
-    },
-  );
+    };
+    return HarnessFields(
+      frontmatter: Frontmatter.render({
+        ...frontmatter,
+        if (agent.skills.isNotEmpty)
+          'skills': [for (final skill in agent.skills) 'skills/$skill'],
+      }),
+      instructions: '${agent.body.trimRight()}\n',
+      sharedSkillsFrontmatter: Frontmatter.render(frontmatter),
+    );
+  }
 
   /// The plugins' hooks as the plugin's `hooks.json` spells them: one set
   /// per source plugin, under the event names Antigravity shares with Claude

@@ -101,17 +101,14 @@ policy:
   /// An agent body is a whole markdown document full of quotes, backticks and
   /// backslashes, which is why TOML serializes it rather than mustache.
   @override
-  HarnessFields agent(
-    AgentAsset agent, {
-    required String instructions,
-    required Scope scope,
-  }) => HarnessFields(
-    toml: TomlDocument.fromMap({
-      'name': agent.name,
-      'description': agent.description,
-      'developer_instructions': instructions,
-    }).toString(),
-  );
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      HarnessFields(
+        toml: TomlDocument.fromMap({
+          'name': agent.name,
+          'description': agent.description,
+          'developer_instructions': instructions,
+        }).toString(),
+      );
 
   /// The plugins' hooks as `~/.codex/hooks.json` spells them: Claude's shape,
   /// Codex's tool names, and commands pointing at Codex's copy of each

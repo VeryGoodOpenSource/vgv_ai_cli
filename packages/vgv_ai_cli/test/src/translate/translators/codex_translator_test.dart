@@ -54,11 +54,7 @@ void main() {
     group('agents', () {
       test('carry the three keys the loader needs, as parseable TOML', () {
         final toml = translator
-            .agent(
-              agentAsset('reviewer'),
-              instructions: 'You review code.\n',
-              scope: userScope,
-            )
+            .agent(agentAsset('reviewer'), instructions: 'You review code.\n')
             .toml!;
 
         expect(TomlDocument.parse(toml).toMap(), {
@@ -74,11 +70,7 @@ void main() {
           const instructions = 'Say "no" to `rm -rf`\\ and \'"""\' too.\n';
 
           final toml = translator
-              .agent(
-                agentAsset('reviewer'),
-                instructions: instructions,
-                scope: userScope,
-              )
+              .agent(agentAsset('reviewer'), instructions: instructions)
               .toml!;
 
           expect(

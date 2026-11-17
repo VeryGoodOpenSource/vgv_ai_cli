@@ -422,6 +422,17 @@ void main() {
         ]);
       });
 
+      test('an Antigravity agent points at the shared skills', () async {
+        final plan = await translate({Harness.antigravity}, scope: project);
+        final agent = changeAt(
+          plan,
+          '.agents/plugins/vgv/agents/review.md',
+        ).contents;
+
+        expect(frontmatterValues(agent), isNot(contains('skills')));
+        expect(agent, contains('`.agents/skills`'));
+      });
+
       test('Antigravity reads the shared skills', () async {
         final plan = await translate({Harness.antigravity}, scope: project);
 

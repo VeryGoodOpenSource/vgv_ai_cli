@@ -51,16 +51,13 @@ class const GeminiTranslator() extends HarnessTranslator {
   ];
 
   @override
-  HarnessFields agent(
-    AgentAsset agent, {
-    required String instructions,
-    required Scope scope,
-  }) => HarnessFields(
-    frontmatter: Frontmatter.render({
-      'name': agent.name,
-      'description': agent.description,
-    }),
-  );
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      HarnessFields(
+        frontmatter: Frontmatter.render({
+          'name': agent.name,
+          'description': agent.description,
+        }),
+      );
 
   /// Gemini's schema is strict: `prompt` is required, `description` optional,
   /// and nothing else is accepted.

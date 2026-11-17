@@ -9,6 +9,12 @@ void main() {
       expect(fields.toMap(), {'frontmatter': '---\n---\n', 'toml': 'a = 1\n'});
     });
 
+    test('keys the shared skills frontmatter in snake case', () {
+      const fields = HarnessFields(sharedSkillsFrontmatter: '---\n---\n');
+
+      expect(fields.toMap(), {'shared_skills_frontmatter': '---\n---\n'});
+    });
+
     test('leaves out every field it does not have', () {
       expect(const HarnessFields().toMap(), isEmpty);
     });

@@ -58,13 +58,9 @@ abstract class const HarnessTranslator() {
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///
-  /// [instructions] is the agent body every harness shares, pointing at the
-  /// shared skills as [scope] spells them.
-  HarnessFields agent(
-    AgentAsset agent, {
-    required String instructions,
-    required Scope scope,
-  }) => const HarnessFields();
+  /// [instructions] is the agent body every harness shares.
+  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
+      const HarnessFields();
 
   /// What the brick renders [skill] as a command with, under its name.
   HarnessFields command(SkillAsset skill) => const HarnessFields();
