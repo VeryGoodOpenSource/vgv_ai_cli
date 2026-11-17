@@ -1073,13 +1073,15 @@ void main() {
             .childFile('.agents/skills/audit/SKILL.md')
             .readAsStringSync();
 
-        test('writes the skills and the files they reference', () {
+        test("writes the skills, the files they reference, and Gemini's", () {
           expect(
             filesUnder(project),
             [
               '$copy/references/x.md',
               '.agents/skills/audit/SKILL.md',
               '.agents/skills/audit/run.sh',
+              '.gemini/commands/audit.toml',
+              '.gemini/settings.json',
               '.vgv_ai/manifest.json',
             ]..sort(),
           );

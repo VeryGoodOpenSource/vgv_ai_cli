@@ -1,0 +1,1 @@
+{{#agents}}{{#gemini}}{{> agent.md }}{{/gemini}}{{/agents}}

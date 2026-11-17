@@ -277,6 +277,97 @@ void main() {
 
       setUp(() => project = ProjectScope(fs.directory('/work/app')));
 
+      /// Every path [harness] plans in the project, relative to it.
+      Future<List<String>> projectTree(
+        Harness harness, {
+        PluginAssets? using,
+      }) async {
+        final plan = await translate({harness}, using: using, scope: project);
+        return [
+          for (final change in plan.harnesses[harness]!.changes)
+            fs.path.relative(change.file.path, from: project.root.path),
+        ]..sort();
+      }
+
+      PlannedChange changeAt(TranslationPlan plan, String path) =>
+          plan.changes.singleWhere((c) => c.file.path == '/work/app/$path');
+
+      test('Claude Code gets only the marketplace settings', () async {
+        expect(await projectTree(Harness.claude), ['.claude/settings.json']);
+      });
+
+      test('Gemini gets settings, agents and commands', () async {
+        expect(await projectTree(Harness.gemini), [
+          '.gemini/agents/planner.md',
+          '.gemini/agents/review.md',
+          '.gemini/commands/plan.toml',
+          '.gemini/commands/review.toml',
+          '.gemini/commands/testing.toml',
+          '.gemini/settings.json',
+        ]);
+      });
+
+      test("Gemini's settings only point it at AGENTS.md", () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+        final settings = changeAt(plan, '.gemini/settings.json');
+
+        expect(settings.mode, ChangeMode.mergeJson);
+        expect(jsonDecode(settings.contents), {
+          'context': {
+            'fileName': ['AGENTS.md', 'GEMINI.md'],
+          },
+        });
+      });
+
+      test('an agent points at the skills relative to the project', () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+
+        expect(
+          changeAt(plan, '.gemini/agents/review.md').contents,
+          contains('`.agents/skills`'),
+        );
+      });
+
+      test('Codex gets agents', () async {
+        expect(await projectTree(Harness.codex), [
+          '.codex/agents/planner.toml',
+          '.codex/agents/review.toml',
+        ]);
+      });
+
+      test("Codex's policy lands beside the project's skills", () async {
+        final plan = await translate(
+          {Harness.codex},
+          using: pluginAssets(
+            skills: [skillAsset(fs, 'create-pr', disableModelInvocation: true)],
+          ),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.codex]!.changes.map((c) => c.file.path), [
+          '/work/app/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        ]);
+      });
+
+      test('Codex is told to trust the project for its agents', () async {
+        final plan = await translate({Harness.codex}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.codex]!.notes.map((n) => n.subject),
+          contains('2 agent(s) in .codex/agents'),
+        );
+      });
+
+      test('Codex needs no trust note without agents', () async {
+        final plan = await translate(
+          {Harness.codex},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
+      });
+
       test('plans no hook files', () async {
         final plan = await translate({Harness.codex}, scope: project);
 
@@ -287,26 +378,44 @@ void main() {
       });
 
       test('tells each harness its hooks and MCP servers wait', () async {
-        final plan = await translate({Harness.gemini}, scope: project);
+        final plan = await translate({Harness.opencode}, scope: project);
 
         expect(
-          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          plan.harnesses[Harness.opencode]!.notes.map((n) => n.subject),
           containsAll(['1 hook(s)', '1 MCP server(s)']),
         );
         expect(
-          plan.harnesses[Harness.gemini]!.notes.map((n) => n.reason),
+          plan.harnesses[Harness.opencode]!.notes.map((n) => n.reason),
           everyElement(contains('issues/140')),
         );
       });
 
       test('says nothing of hooks or MCP servers the plugins lack', () async {
         final plan = await translate(
-          {Harness.gemini},
+          {Harness.opencode},
           using: pluginAssets(),
           scope: project,
         );
 
-        expect(plan.harnesses[Harness.gemini]!.notes, isEmpty);
+        expect(plan.harnesses[Harness.opencode]!.notes, isEmpty);
+      });
+
+      test("adds a harness's own project notes", () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          contains("the project's .gemini folder"),
+        );
+      });
+
+      test('adds no project notes at home', () async {
+        final plan = await translate({Harness.gemini});
+
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          isNot(contains("the project's .gemini folder")),
+        );
       });
 
       group('plugin files', () {
@@ -586,79 +695,90 @@ void main() {
 
     // The brick is checked file by file above. These sweep every file every
     // harness gets, so a template bug in a file no test names still fails.
-    group('renders every file cleanly', () {
-      late Map<String, String> files;
+    for (final inProject in [false, true]) {
+      group('renders every ${inProject ? 'project' : 'user'} file cleanly', () {
+        late Map<String, String> files;
 
-      setUp(() async {
-        // Characters mustache would HTML-escape if a template used a double
-        // mustache where it needs a triple one.
-        const awkward = 'Compare <T> & "U" with \'V\'.';
-        final plan = await translate(
-          Harness.values.toSet(),
-          using: pluginAssets(
-            skills: [
-              skillAsset(fs, 'plan', body: '$awkward\n', description: awkward),
-            ],
-            agents: [agentAsset('review', body: '$awkward\n')],
-            mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
-          ),
-        );
-        files = {
-          for (final change in plan.changes) change.file.path: change.contents,
-        };
-      });
-
-      test('covers every harness', () {
-        for (final harness in Harness.values) {
-          expect(
-            files.keys,
-            contains(startsWith(harness.configDirectory(home).path)),
+        setUp(() async {
+          // Characters mustache would HTML-escape if a template used a double
+          // mustache where it needs a triple one.
+          const awkward = 'Compare <T> & "U" with \'V\'.';
+          final plan = await translate(
+            Harness.values.toSet(),
+            using: pluginAssets(
+              skills: [
+                skillAsset(
+                  fs,
+                  'plan',
+                  body: '$awkward\n',
+                  description: awkward,
+                ),
+              ],
+              agents: [agentAsset('review', body: '$awkward\n')],
+              mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+            ),
+            scope: inProject ? ProjectScope(fs.directory('/work/app')) : null,
           );
-        }
-      });
+          files = {
+            for (final change in plan.changes)
+              change.file.path: change.contents,
+          };
+        });
 
-      test('leaves no unrendered mustache behind', () {
-        // A whole tag, since a JSON object nested last closes with `}}`.
-        final tag = RegExp(r'\{\{[^{}]*\}\}');
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(
-            contents,
-            isNot(contains(tag)),
-            reason: '$path still contains mustache syntax',
+        if (!inProject) {
+          test('covers every harness', () {
+            for (final harness in Harness.values) {
+              expect(
+                files.keys,
+                contains(startsWith(harness.configDirectory(home).path)),
+              );
+            }
+          });
+        }
+
+        test('leaves no unrendered mustache behind', () {
+          // A whole tag, since a JSON object nested last closes with `}}`.
+          final tag = RegExp(r'\{\{[^{}]*\}\}');
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(
+              contents,
+              isNot(contains(tag)),
+              reason: '$path still contains mustache syntax',
+            );
+          }
+        });
+
+        test('writes no empty file', () {
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(contents.trim(), isNotEmpty, reason: '$path is empty');
+          }
+        });
+
+        test('never HTML-escapes', () {
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(
+              contents,
+              isNot(anyOf(contains('&amp;'), contains('&lt;'), contains('&#'))),
+              reason: '$path contains HTML-escaped output',
+            );
+          }
+        });
+
+        test('writes JSON and TOML that parse', () {
+          final structured = files.entries.where(
+            (file) => file.key.endsWith('.json') || file.key.endsWith('.toml'),
           );
-        }
-      });
 
-      test('writes no empty file', () {
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(contents.trim(), isNotEmpty, reason: '$path is empty');
-        }
+          expect(structured, isNotEmpty);
+          for (final MapEntry(key: path, value: contents) in structured) {
+            expect(
+              () => parseStructured(path, contents),
+              returnsNormally,
+              reason: path,
+            );
+          }
+        });
       });
-
-      test('never HTML-escapes', () {
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(
-            contents,
-            isNot(anyOf(contains('&amp;'), contains('&lt;'), contains('&#'))),
-            reason: '$path contains HTML-escaped output',
-          );
-        }
-      });
-
-      test('writes JSON and TOML that parse', () {
-        final structured = files.entries.where(
-          (file) => file.key.endsWith('.json') || file.key.endsWith('.toml'),
-        );
-
-        expect(structured, isNotEmpty);
-        for (final MapEntry(key: path, value: contents) in structured) {
-          expect(
-            () => parseStructured(path, contents),
-            returnsNormally,
-            reason: path,
-          );
-        }
-      });
-    });
+    }
   });
 }

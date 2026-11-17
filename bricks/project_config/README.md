@@ -18,6 +18,20 @@ written whole.
 No harness folder holds an instructions file: a project install never writes
 the repository's `AGENTS.md`.
 
+| Harness | Settings                 | Agents                 | Commands                  |
+| ------- | ------------------------ | ---------------------- | ------------------------- |
+| claude  | `.claude/settings.json`  |                        |                           |
+| gemini  | `.gemini/settings.json`  | `.gemini/agents/*.md`  | `.gemini/commands/*.toml` |
+| codex   |                          | `.codex/agents/*.toml` |                           |
+
+The skills are not in the brick. The CLI writes one shared copy to
+`.agents/skills`, which every harness but Claude Code reads in a project, and
+copies the plugin files those skills name to `.vgv_ai/plugins/`.
+
+Gemini's settings only name `AGENTS.md` and `GEMINI.md` as context files, so
+Gemini reads the repository's own `AGENTS.md`. Its MCP servers wait for
+project-level MCP support.
+
 ## Partials
 
 `{{~ agent.md }}` is a symlink to the `user_config` partial, so both bricks

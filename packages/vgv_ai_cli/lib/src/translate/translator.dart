@@ -133,6 +133,7 @@ class const Translator({
       ],
       notes: [
         ...translator.notes(assets),
+        if (scope is ProjectScope) ...translator.projectNotes(assets),
         ...?hooks?.notes,
         ...?own?.notes,
         ...?shared?.notes,

@@ -83,4 +83,8 @@ abstract class const HarnessTranslator() {
   /// What the user needs to know about [assets] for this harness, beyond
   /// what [hooks] reports.
   List<TranslationNote> notes(PluginAssets assets) => const [];
+
+  /// What the user needs to know about [assets] in a project install, beyond
+  /// [notes], such as a harness that reads a project only once trusted.
+  List<TranslationNote> projectNotes(PluginAssets assets) => const [];
 }
