@@ -30,9 +30,16 @@ void main() {
     test('keeps its own copy of the skills inside the plugin', () {
       expect(translator.readsSharedSkills(UserScope(home)), isFalse);
       expect(
-        translator.skillsRoot(UserScope(home)).path,
+        translator.skillsRoot(UserScope(home))?.path,
         '/home/dev/.gemini/config/plugins/vgv/skills',
       );
+    });
+
+    test('reads the shared skills in a project', () {
+      final project = ProjectScope(fs.directory('/work/app'));
+
+      expect(translator.readsSharedSkills(project), isTrue);
+      expect(translator.skillsRoot(project), isNull);
     });
 
     test('keeps its copy of the scripts inside the plugin', () {
@@ -110,6 +117,35 @@ void main() {
         );
 
         expect(fields.instructions, 'You review code.\n');
+      });
+
+      group('in a project', () {
+        final project = ProjectScope(
+          MemoryFileSystem.test().directory('/work/app'),
+        );
+
+        test('names no skills, which sit outside the plugin', () {
+          final fields = translator.agent(
+            agentAsset('reviewer', skills: ['bloc']),
+            instructions: 'shared',
+            scope: project,
+          );
+
+          expect(
+            frontmatterValues(fields.frontmatter),
+            isNot(contains('skills')),
+          );
+        });
+
+        test('takes the shared pointer as its instructions', () {
+          final fields = translator.agent(
+            agentAsset('reviewer', body: 'You review code.'),
+            instructions: 'shared, with a skills pointer\n',
+            scope: project,
+          );
+
+          expect(fields.instructions, 'shared, with a skills pointer\n');
+        });
       });
     });
 

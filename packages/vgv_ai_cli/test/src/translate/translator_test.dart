@@ -414,6 +414,27 @@ void main() {
         expect(mcp.single.reason, contains('Pi has no MCP support'));
       });
 
+      test('Antigravity gets a workspace plugin holding its agents', () async {
+        expect(await projectTree(Harness.antigravity), [
+          '.agents/plugins/vgv/agents/planner.md',
+          '.agents/plugins/vgv/agents/review.md',
+          '.agents/plugins/vgv/plugin.json',
+        ]);
+      });
+
+      test('Antigravity reads the shared skills', () async {
+        final plan = await translate({Harness.antigravity}, scope: project);
+
+        expect(
+          plan.shared!.changes.map((c) => c.file.path),
+          contains('/work/app/.agents/skills/review/SKILL.md'),
+        );
+        expect(
+          plan.changes.map((c) => c.file.path),
+          everyElement(isNot(contains('.gemini/config'))),
+        );
+      });
+
       test('writes no instructions file for any harness', () async {
         final plan = await translate(Harness.values.toSet(), scope: project);
 
@@ -544,14 +565,14 @@ void main() {
           );
         });
 
-        test('are copied for a harness that keeps its own skills', () async {
+        test('are copied for Antigravity', () async {
           final plan = await translate(
             {Harness.antigravity},
             scope: project,
             plugins: plugins,
           );
 
-          expect(plan.shared!.changes.map((c) => c.file.path).single, copy);
+          expect(plan.shared!.changes.map((c) => c.file.path), contains(copy));
         });
 
         test('are not copied for Claude Code, which installs them', () async {

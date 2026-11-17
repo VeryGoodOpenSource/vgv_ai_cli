@@ -18,18 +18,20 @@ written whole.
 No harness folder holds an instructions file: a project install never writes
 the repository's `AGENTS.md`.
 
-| Harness  | Settings                | Agents                      | Commands                   |
-| -------- | ----------------------- | --------------------------- | -------------------------- |
-| claude   | `.claude/settings.json` |                             |                            |
-| gemini   | `.gemini/settings.json` | `.gemini/agents/*.md`       | `.gemini/commands/*.toml`  |
-| codex    |                         | `.codex/agents/*.toml`      |                            |
-| opencode |                         | `.opencode/agents/*.md`     | `.opencode/commands/*.md`  |
-| pi       |                         |                             | `.pi/prompts/*.md`         |
-| copilot  |                         | `.github/agents/*.agent.md` |                            |
+| Harness     | Settings                          | Agents                            | Commands                  |
+| ----------- | --------------------------------- | --------------------------------- | ------------------------- |
+| claude      | `.claude/settings.json`           |                                   |                           |
+| gemini      | `.gemini/settings.json`           | `.gemini/agents/*.md`             | `.gemini/commands/*.toml` |
+| codex       |                                   | `.codex/agents/*.toml`            |                           |
+| opencode    |                                   | `.opencode/agents/*.md`           | `.opencode/commands/*.md` |
+| pi          |                                   |                                   | `.pi/prompts/*.md`        |
+| copilot     |                                   | `.github/agents/*.agent.md`       |                           |
+| antigravity | `.agents/plugins/vgv/plugin.json` | `.agents/plugins/vgv/agents/*.md` | the skills, as `/<name>`  |
 
 The skills are not in the brick. The CLI writes one shared copy to
-`.agents/skills`, which every harness but Claude Code reads in a project, and
-copies the plugin files those skills name to `.vgv_ai/plugins/`.
+`.agents/skills`, which every harness but Claude Code reads in a project,
+Antigravity included, so its workspace plugin holds only the agents. The CLI
+also copies the plugin files those skills name to `.vgv_ai/plugins/`.
 
 Gemini's settings only name `AGENTS.md` and `GEMINI.md` as context files, so
 Gemini reads the repository's own `AGENTS.md`. Its MCP servers wait for

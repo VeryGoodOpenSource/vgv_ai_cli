@@ -12,12 +12,16 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 ///
 /// Everything goes into one Antigravity plugin, `plugins/vgv/` under the
 /// config it shares with the Antigravity IDE, which is how Antigravity
-/// bundles skills, agents, MCP servers and hooks. It reads neither
+/// bundles skills, agents, MCP servers and hooks. At home it reads neither
 /// `~/.agents/skills` nor a commands folder: the skills are copied into the
 /// plugin and each becomes a `/<name>` command on its own. The skills and
 /// agents register natively, so no rule indexes them.
 ///
-/// See https://antigravity.google/docs/plugins/.
+/// In a project it reads the shared `.agents/skills`, so the workspace
+/// plugin, `.agents/plugins/vgv/`, holds only the agents.
+///
+/// See https://antigravity.google/docs/plugins/ and
+/// https://antigravity.google/docs/skills.
 /// {@endtemplate}
 class const AntigravityTranslator() extends HarnessTranslator {
   /// {@macro antigravity_translator}
@@ -38,9 +42,13 @@ class const AntigravityTranslator() extends HarnessTranslator {
     return config.fileSystem.directory(p.join(config.path, 'plugins', plugin));
   }
 
+  /// The plugin's own copy at home, and none in a project, where Antigravity
+  /// reads the shared skills.
   @override
-  Directory skillsRoot(Scope scope) =>
-      pluginRoot(scope.root).childDirectory('skills');
+  Directory? skillsRoot(Scope scope) => switch (scope) {
+    UserScope(:final root) => pluginRoot(root).childDirectory('skills'),
+    ProjectScope() => null,
+  };
 
   @override
   Directory hooksRoot(Directory home) =>
@@ -62,8 +70,10 @@ class const AntigravityTranslator() extends HarnessTranslator {
     },
   });
 
-  /// An agent names its skills in the frontmatter, relative to the plugin,
-  /// so its instructions are the body alone rather than the shared pointer.
+  /// At home an agent names its skills in the frontmatter, relative to the
+  /// plugin that holds them, so its instructions are the body alone. In a
+  /// project the skills sit outside the plugin, so it takes the shared
+  /// pointer every other harness gets.
   @override
   HarnessFields agent(
     AgentAsset agent, {
@@ -74,10 +84,13 @@ class const AntigravityTranslator() extends HarnessTranslator {
       'name': agent.name,
       'description': agent.description,
       'subagent': true,
-      if (agent.skills.isNotEmpty)
+      if (scope is UserScope && agent.skills.isNotEmpty)
         'skills': [for (final skill in agent.skills) 'skills/$skill'],
     }),
-    instructions: '${agent.body.trimRight()}\n',
+    instructions: switch (scope) {
+      UserScope() => '${agent.body.trimRight()}\n',
+      ProjectScope() => instructions,
+    },
   );
 
   /// The plugins' hooks as the plugin's `hooks.json` spells them: one set
