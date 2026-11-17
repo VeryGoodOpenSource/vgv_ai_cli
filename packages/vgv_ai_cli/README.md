@@ -142,6 +142,68 @@ how `doctor` and `uninstall` tell what's yours from what's VGV's.
   `~/.vgv_ai/plugins` is cleared, `doctor` and `install` fetch it again to
   the same place.
 
+#### Into a project
+
+`install --project [dir]` writes the tooling into a repository instead of your
+home directory, so a team can commit one setup that every contributor, CI job,
+and bot that reads the repository shares. `dir` defaults to the working
+directory.
+
+```sh
+# Configure every harness for the repository you're in
+vgv_ai install --project
+
+# Configure some harnesses for another repository
+vgv_ai install --project ../my_app --only codex --only gemini
+```
+
+Every harness is configured, whether or not it's installed on your machine,
+since whoever clones the repository may use any of them. `--only` and
+`--no-<harness>` narrow the set. Each harness gets the files it reads in a
+repository:
+
+| Harness     | Files                                                                  |
+| ----------- | ---------------------------------------------------------------------- |
+| Claude Code | `.claude/settings.json`, enabling the VGV plugins from the marketplace |
+| Gemini      | `.gemini/settings.json`, `.gemini/agents/`, `.gemini/commands/`        |
+| Codex       | `.codex/agents/`                                                       |
+| OpenCode    | `.opencode/agents/`, `.opencode/commands/`                             |
+| Pi          | `.pi/prompts/`                                                         |
+| Copilot     | `.github/agents/`                                                      |
+| Antigravity | `.agents/plugins/vgv/`, a workspace plugin holding the agents          |
+
+Every harness but Claude Code reads the skills from `.agents/skills`. The
+plugin files those skills and agents point at, such as references and scripts,
+are copied to `.vgv_ai/plugins/<plugin>@<tag>/`. Every path `install` writes
+into a file is relative to the repository root, so the setup works on any
+clone, as long as the agent starts at the root. Nothing is written to your home
+directory, apart from the plugins `install` clones into `~/.vgv_ai/plugins`.
+
+- **Instructions:** `install --project` never writes the repository's
+  `AGENTS.md` or any other instructions file. Gemini's settings point it at
+  `AGENTS.md`, which it reads as written.
+- **Trust:** Codex and Pi load a repository's files only once you trust the
+  project, and Gemini too when its folder trust is on. `install` reminds you.
+- **Reruns:** `.vgv_ai/manifest.json` records what `install --project` wrote.
+  A rerun that covers every harness and plugin it records also removes what
+  it no longer writes, such as the copy of a plugin from its previous tag. A
+  file you changed is kept and becomes yours.
+- **CI:** outside a terminal it never prompts, installs every pinned plugin,
+  and exits 0, warning about what it skipped.
+
+Not installed yet, each tracked as part of
+[#136](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/136):
+
+- Hooks and MCP servers
+  ([#140](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/140)).
+- `doctor --project` and `uninstall --project`
+  ([#138](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/138),
+  [#139](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/139)).
+- Failing on anything it can't translate
+  ([#141](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/141)).
+- A content hash per plugin in the manifest
+  ([#142](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/142)).
+
 ### doctor
 
 `doctor` checks that the Very Good AI tooling `install` wrote is still there,
