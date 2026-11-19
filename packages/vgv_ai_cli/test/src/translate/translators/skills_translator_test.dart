@@ -42,15 +42,18 @@ void main() {
       );
     }
 
-    TranslationResult translate(List<SkillAsset> skills) =>
-        const SkillsTranslator().translate(
-          assets: PluginAssets(
-            skills: skills,
-            agents: const [],
-            mcpServers: const [],
-          ),
-          root: agentsSkillsRoot(home),
-        );
+    TranslationResult translate(List<SkillAsset> skills, {Scope? scope}) {
+      final chosen = scope ?? UserScope(home);
+      return const SkillsTranslator().translate(
+        assets: PluginAssets(
+          skills: skills,
+          agents: const [],
+          mcpServers: const [],
+        ),
+        root: chosen.skillsRoot,
+        scope: chosen,
+      );
+    }
 
     PlannedChange changeAt(TranslationResult result, String suffix) =>
         result.changes.firstWhere((c) => c.file.path.endsWith(suffix));
@@ -169,6 +172,17 @@ void main() {
         expect(
           changeAt(result, 'review/reference.md').contents,
           'See $target/a.md\n',
+        );
+      });
+
+      test('is spelled relative to the project in project scope', () {
+        final result = translate([
+          skill('review', body: 'Run $variable/scripts/scope.sh\n'),
+        ], scope: ProjectScope(fs.directory('/work/app')));
+
+        expect(
+          changeAt(result, 'review/SKILL.md').contents,
+          contains('Run .agents/skills/review/scripts/scope.sh'),
         );
       });
     });

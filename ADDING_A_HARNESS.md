@@ -74,9 +74,9 @@ The folder is named `{{#<harness>}}<harness>`, and **every file inside it ends w
 file name. It is not a single path segment. Pi's whole folder is three entries:
 
 ```text
-bricks/agents/__brick__/{{#pi}}pi
-bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
-bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
+bricks/user_config/__brick__/{{#pi}}pi
+bricks/user_config/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+bricks/user_config/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
 ```
 
 Nested loops close inside out: the commands loop closes with `{{\commands}}` before the harness
@@ -144,14 +144,12 @@ Three rules:
    name, which is why `agents` and `commands` are left out when empty and the `AGENTS.md` lists
    live inside `index`.
 
-Then add a row to the capability matrix in [`bricks/agents/README.md`](bricks/agents/README.md).
-
-Leave `bricks/agents/CHANGELOG.md` alone. Release automation owns it, the same as every other
-changelog in the repo, so a harness addition never edits one by hand.
+Then add a row to the capability matrix in [`bricks/user_config/README.md`](bricks/user_config/README.md).
 
 ## 3. Declare the brick var
 
-`bricks/agents/brick.yaml`
+`bricks/user_config/brick.yaml` and `bricks/project_config/brick.yaml`, which declare the same
+vars
 
 ```yaml
 antigravity:
@@ -167,7 +165,7 @@ Only the harness booleans are declared. Everything else is passed at render time
 
 ```sh
 # From the repo root
-tool/generate_agents_bundle.sh
+tool/generate_bundles.sh
 ```
 
 The bundle is committed, and CI's `verify-bundle` job fails if it drifts. Needs
@@ -426,18 +424,19 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 - **The manifest.** `ManifestEntry.owner` is a `Harness?`, written and read back by name.
 - **Reconciliation.** The change mode comes from the file's path in the brick, not from the
   harness.
-- **Changelogs and versions.** Release automation owns every `CHANGELOG.md`, including the
-  `agents` brick's, and every version bump.
+- **Changelogs and versions.** Release automation owns every `CHANGELOG.md` and every version
+  bump.
 
 ## Checklist
 
 ```text
 README.md                                                 supported agents list
 packages/vgv_ai_cli/README.md                             harness table row, shared-skills line
-bricks/agents/brick.yaml                                  boolean var
-bricks/agents/__brick__/{{#<h>}}<h>/…{{\<h>}}             the templates
-bricks/agents/README.md                                   capability matrix row
-packages/vgv_ai_cli/lib/src/templates/agents_bundle.dart  regenerated, not hand-edited
+bricks/user_config/brick.yaml                             boolean var
+bricks/project_config/brick.yaml                          the same boolean var
+bricks/user_config/__brick__/{{#<h>}}<h>/…{{\<h>}}        the templates
+bricks/user_config/README.md                              capability matrix row
+packages/vgv_ai_cli/lib/src/templates/*_bundle.dart       regenerated, not hand-edited
 packages/vgv_ai_cli/lib/src/model/harness.dart            enum value
 …/lib/src/translate/translators/<h>_translator.dart       the translator
 …/lib/src/translate/translators/<h>_compat.dart           only with hooks
@@ -450,7 +449,7 @@ packages/vgv_ai_cli/lib/src/model/harness.dart            enum value
 …/test/src/translate/translator_test.dart                 rendered tree
 ```
 
-Then: `tool/generate_agents_bundle.sh`, the full coverage run,
+Then: `tool/generate_bundles.sh`, the full coverage run,
 `dart run test --run-skipped -t pinned-plugins`, and the green gate against the real harness, with
 its version in the PR.
 

@@ -1,5 +1,5 @@
-name: agents
-description: The files each coding agent harness reads to use the VGV plugins.
+name: user_config
+description: The user-level files each coding agent harness reads to use the VGV plugins.
 version: 0.1.0+1
 publish_to: none
 

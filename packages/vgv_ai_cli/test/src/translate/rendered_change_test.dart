@@ -8,7 +8,7 @@ void main() {
     final home = MemoryFileSystem.test().directory('/home/dev');
 
     PlannedChange plan(String path) =>
-        renderedChange(path, contents: 'x', home: home);
+        renderedChange(path, contents: 'x', scope: UserScope(home));
 
     test('lands a folder in its harness config directory', () {
       final change = plan('opencode/agent/review.md');
@@ -37,6 +37,31 @@ void main() {
 
     test('rejects a folder no harness is named after', () {
       expect(() => plan('cursor/settings.json'), throwsArgumentError);
+    });
+
+    group('in a project', () {
+      final project = ProjectScope(
+        MemoryFileSystem.test().directory('/work/app'),
+      );
+
+      PlannedChange plan(String path) =>
+          renderedChange(path, contents: 'x', scope: project);
+
+      test('lands a folder at the project root', () {
+        final change = plan('gemini/.gemini/agents/review.md');
+
+        expect(change.file.path, '/work/app/.gemini/agents/review.md');
+        expect(change.harness, Harness.gemini);
+      });
+
+      test('merges a root or top-level folder config file', () {
+        expect(plan('claude/.claude/settings.json').mode, ChangeMode.mergeJson);
+        expect(plan('opencode/opencode.json').mode, ChangeMode.mergeJson);
+      });
+
+      test('owns anything deeper', () {
+        expect(plan('gemini/.gemini/agents/x.md').mode, ChangeMode.own);
+      });
     });
   });
 }

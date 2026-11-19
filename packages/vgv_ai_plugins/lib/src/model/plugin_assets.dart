@@ -23,6 +23,11 @@ class const PluginAssets({
   /// The plugins these come from, which the harness that installs them
   /// itself names in its settings.
   final List<PluginRef> plugins = const [],
+
+  /// The top-level entries of the plugin root, such as `references`, that a
+  /// skill or agent body names, sorted. A body reads them in place, so a
+  /// copy of the skills alone needs them copied beside it.
+  final List<String> referencedEntries = const [],
 }) {
   /// {@macro plugin_assets}
   this;
@@ -43,6 +48,8 @@ class const PluginAssets({
     ], (s) => s.name),
     hooks: [for (final a in assets) ...a.hooks],
     plugins: plugins,
+    referencedEntries: {for (final a in assets) ...a.referencedEntries}.toList()
+      ..sort(),
   );
 
   /// The skills a user can invoke as a command.

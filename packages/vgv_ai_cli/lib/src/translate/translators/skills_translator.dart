@@ -18,10 +18,12 @@ class const SkillsTranslator() {
   this;
 
   /// Plans every skill under [root], plus the files each one ships alongside
-  /// its `SKILL.md`, owned by [harness] or shared when null.
+  /// its `SKILL.md`, owned by [harness] or shared when null. Each skill spells
+  /// its own directory the way [scope] does.
   TranslationResult translate({
     required PluginAssets assets,
     required Directory root,
+    required Scope scope,
     Harness? harness,
   }) {
     final changes = <PlannedChange>[];
@@ -33,11 +35,16 @@ class const SkillsTranslator() {
         ..add(
           PlannedChange(
             file: target.fileSystem.file(p.join(target.path, 'SKILL.md')),
-            bytes: _expandSkillDir(utf8.encode(_skillDocument(skill)), target),
+            bytes: _expandSkillDir(
+              utf8.encode(_skillDocument(skill)),
+              scope.reference(target.path),
+            ),
             harness: harness,
           ),
         )
-        ..addAll(_bundledFiles(skill, target, notes, harness: harness));
+        ..addAll(
+          _bundledFiles(skill, target, notes, scope: scope, harness: harness),
+        );
     }
 
     return TranslationResult(changes: changes, notes: notes);
@@ -67,6 +74,7 @@ class const SkillsTranslator() {
     SkillAsset skill,
     Directory target,
     List<TranslationNote> notes, {
+    required Scope scope,
     required Harness? harness,
   }) {
     // The parser only builds a skill from a directory holding a SKILL.md, so
@@ -105,7 +113,10 @@ class const SkillsTranslator() {
       changes.add(
         PlannedChange(
           file: target.fileSystem.file(p.join(target.path, relative)),
-          bytes: _expandSkillDir(source.readAsBytesSync(), target),
+          bytes: _expandSkillDir(
+            source.readAsBytesSync(),
+            scope.reference(target.path),
+          ),
           harness: harness,
           source: source,
         ),
@@ -114,15 +125,15 @@ class const SkillsTranslator() {
     return changes;
   }
 
-  /// [bytes] with [_claudeSkillDir] spelled out as [target]'s path.
+  /// [bytes] with [_claudeSkillDir] spelled out as [target].
   ///
   /// Every file a skill ships goes through here, `SKILL.md` included, so this
   /// is the one place that knows the variable. A file that is not UTF-8
   /// text, such as an image, is copied untouched.
-  List<int> _expandSkillDir(List<int> bytes, Directory target) {
+  List<int> _expandSkillDir(List<int> bytes, String target) {
     try {
       return utf8.encode(
-        utf8.decode(bytes).replaceAll(_claudeSkillDir, target.path),
+        utf8.decode(bytes).replaceAll(_claudeSkillDir, target),
       );
     } on FormatException {
       return bytes;

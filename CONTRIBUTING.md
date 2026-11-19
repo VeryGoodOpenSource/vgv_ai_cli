@@ -11,7 +11,7 @@ on it. For what the repository holds, see the [README](README.md).
 | [Very Good CLI](https://cli.vgv.dev) `^1.5.0`   | The coverage run needs its pub workspace support. |
 | [jq](https://jqlang.org)                        | The agent hooks parse their payloads with it.     |
 | [GitHub CLI](https://cli.github.com), signed in | Pushing branches and opening pull requests.       |
-| [Mason CLI](https://docs.brickhub.dev) `0.1.4`  | Regenerating the `agents` brick bundle.           |
+| [Mason CLI](https://docs.brickhub.dev) `0.1.4`  | Regenerating the brick bundles.                   |
 
 The Dart version matters more than it looks: on 3.12 the analyze hook reports
 errors against this codebase's Dart 3.13 syntax, and those errors read as real
@@ -82,10 +82,10 @@ dart run test --run-skipped -t version-verify
 dart run test --run-skipped -t pinned-plugins
 ```
 
-From the repo root, after changing anything under `bricks/agents`:
+From the repo root, after changing anything under `bricks/user_config`:
 
 ```sh
-tool/generate_agents_bundle.sh
+tool/generate_bundles.sh
 ```
 
 CI runs the full suite with a 100% coverage gate:
@@ -122,8 +122,8 @@ open coverage/index.html
 - **Cognitive complexity** stays at or below 15 per function. Split the
   function rather than raising the threshold.
 - **Generated files** are never edited by hand: `lib/src/version.dart` comes
-  from `build_runner`, and `lib/src/templates/agents_bundle.dart` from
-  `tool/generate_agents_bundle.sh`.
+  from `build_runner`, and `lib/src/templates/user_config_bundle.dart` from
+  `tool/generate_bundles.sh`.
 
 ## Testing
 
@@ -144,8 +144,7 @@ open coverage/index.html
   `semantic-pull-request` job checks the title.
 - Fill in [the pull request template](.github/PULL_REQUEST_TEMPLATE.md) and
   nothing more.
-- Leave every `CHANGELOG.md` and version bump alone, the `agents` brick's included. Release
-  automation owns them.
+- Leave every `CHANGELOG.md` and version bump alone. Release automation owns them.
 
 ## Releases
 
@@ -205,7 +204,7 @@ Most jobs live in
 | `semantic-pull-request` | The pull request title is a conventional commit.                         |
 | `build`                 | Format, analyze, 100% coverage, cognitive complexity.                    |
 | `spell-check`           | cspell over every markdown file but the brick templates, changed or not. |
-| `verify-bundle`         | `tool/generate_agents_bundle.sh` produces no diff.                       |
+| `verify-bundle`         | `tool/generate_bundles.sh` produces no diff.                       |
 | `verify-version`        | `lib/src/version.dart` matches `pubspec.yaml`.                           |
 | `verify-pins`           | The pinned plugins still resolve, parse and translate.                   |
 
@@ -222,7 +221,7 @@ runs when a `pubspec.yaml` changes, and restricts dependency licenses to `MIT`,
 ## Adding a harness
 
 Teaching the CLI a coding agent it does not configure yet touches the `Harness`
-enum, the `agents` brick, a translator, and four test files — five if it has
+enum, the `user_config` brick, a translator, and four test files — five if it has
 hooks. See [adding a harness](ADDING_A_HARNESS.md).
 
 ## Adding a plugin

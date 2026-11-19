@@ -292,10 +292,11 @@ void main() {
     });
 
     group('plugin root in bodies', () {
+      late Directory root;
       late PluginAssets rooted;
 
       setUp(() {
-        final root = MemoryFileSystem.test().directory('/cache/ffca');
+        root = MemoryFileSystem.test().directory('/cache/ffca');
         root.childFile('skills/a/SKILL.md')
           ..createSync(recursive: true)
           ..writeAsStringSync(
@@ -319,6 +320,56 @@ void main() {
 
       test('resolves CLAUDE_PLUGIN_ROOT in an agent body', () {
         expect(rooted.agents.single.body, 'Run /cache/ffca/scripts/y.dart\n');
+      });
+
+      test('lists the top-level entries the bodies name, sorted', () {
+        expect(rooted.referencedEntries, ['references', 'scripts']);
+      });
+
+      test('lists no entry for . or ..', () {
+        root
+            .childFile('skills/a/SKILL.md')
+            .writeAsStringSync(
+              '---\nname: a\ndescription: d\n---\n'
+              r'Read ${CLAUDE_PLUGIN_ROOT}/../shared/x.md and '
+              r'${CLAUDE_PLUGIN_ROOT}/./scripts/y.sh and '
+              r'${CLAUDE_PLUGIN_ROOT}/.config'
+              '\n',
+            );
+
+        expect(const ClaudePluginParser().parse(root).referencedEntries, [
+          '.config',
+          'scripts',
+        ]);
+      });
+
+      test('lists none for bodies that name no plugin file', () {
+        expect(assets.referencedEntries, isEmpty);
+      });
+
+      group('given a root reference', () {
+        late PluginAssets referenced;
+
+        setUp(() {
+          referenced = const ClaudePluginParser().parse(
+            root,
+            rootReference: '.vgv_ai/plugins/x@v1',
+          );
+        });
+
+        test('spells CLAUDE_PLUGIN_ROOT in a skill body as it', () {
+          expect(
+            referenced.skills.single.body,
+            'Read .vgv_ai/plugins/x@v1/references/x.md\n',
+          );
+        });
+
+        test('spells CLAUDE_PLUGIN_ROOT in an agent body as it', () {
+          expect(
+            referenced.agents.single.body,
+            'Run .vgv_ai/plugins/x@v1/scripts/y.dart\n',
+          );
+        });
       });
     });
 
@@ -483,6 +534,22 @@ void main() {
       test('rewrites CLAUDE_PLUGIN_ROOT to the neutral placeholder', () {
         expect(
           hookFor('SessionStart').commands.single.command,
+          'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
+        );
+      });
+
+      test('keeps the neutral placeholder given a root reference', () {
+        final referenced = const ClaudePluginParser().parse(
+          fixture('plugin'),
+          rootReference: '.vgv_ai/plugins/x@v1',
+        );
+
+        expect(
+          referenced.hooks
+              .firstWhere((h) => h.event == 'SessionStart')
+              .commands
+              .single
+              .command,
           'bash ${HookCommand.rootPlaceholder}/hooks/scripts/warn.sh',
         );
       });

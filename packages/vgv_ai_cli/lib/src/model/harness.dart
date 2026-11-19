@@ -10,15 +10,16 @@ import 'package:path/path.dart' as p;
 /// 1. Add an entry here.
 /// 2. Write its `HarnessTranslator` and add it to `harnessTranslators`.
 ///    Override `hooks()` when its config can run a shell command.
-/// 3. Add a boolean var named after it to `bricks/agents/brick.yaml`, and a
-///    folder of the same name under `__brick__` holding the files it reads.
-/// 4. Regenerate the bundle with `tool/generate_agents_bundle.sh`.
+/// 3. Add a boolean var named after it to `bricks/user_config/brick.yaml`,
+///    and a folder of the same name under `__brick__` holding the files it
+///    reads.
+/// 4. Regenerate the bundle with `tool/generate_bundles.sh`.
 /// {@endtemplate}
 enum Harness({
   /// A human readable name, for output.
   ///
   /// The enum's own [name] is the flag and reporting name, such as `opencode`,
-  /// and the folder the `agents` brick renders this harness into.
+  /// and the folder the `user_config` brick renders this harness into.
   required final String displayName,
 
   /// The binary looked for on the path.

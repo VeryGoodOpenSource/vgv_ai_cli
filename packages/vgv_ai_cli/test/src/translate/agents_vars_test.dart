@@ -14,10 +14,11 @@ void main() {
       List<HarnessTranslator> translators, {
       PluginAssets? assets,
       Map<Harness, String> hooks = const {},
+      Scope? scope,
     }) => AgentsVars(
       translators: translators,
       assets: assets ?? pluginAssets(),
-      skillsRoot: '/home/dev/.agents/skills',
+      scope: scope ?? UserScope(fs.directory('/home/dev')),
       hooks: hooks,
     ).toMap();
 
@@ -90,6 +91,25 @@ void main() {
             containsPair('opencode', contains('frontmatter')),
             containsPair('pi', isEmpty),
           ),
+        ]),
+      );
+    });
+
+    test('points a project agent at the skills relative to it', () {
+      final vars = varsFor(
+        const [OpenCodeTranslator()],
+        assets: pluginAssets(
+          agents: [
+            agentAsset('review', skills: ['plan']),
+          ],
+        ),
+        scope: ProjectScope(fs.directory('/work/app')),
+      );
+
+      expect(
+        vars,
+        containsPair('agents', [
+          containsPair('instructions', contains('`.agents/skills`')),
         ]),
       );
     });

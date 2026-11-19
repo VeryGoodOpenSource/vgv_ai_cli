@@ -1,0 +1,2 @@
+{{#agents}}{{#antigravity}}{{{shared_skills_frontmatter}}}{{/antigravity}}
+{{{instructions}}}{{/agents}}

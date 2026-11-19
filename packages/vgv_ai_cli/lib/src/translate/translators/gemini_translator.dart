@@ -38,6 +38,18 @@ class const GeminiTranslator() extends HarnessTranslator {
     },
   });
 
+  /// With folder trust on, Gemini ignores a project's settings and commands
+  /// until the user trusts it.
+  @override
+  List<TranslationNote> projectNotes(PluginAssets assets) => const [
+    TranslationNote(
+      subject: "the project's .gemini folder",
+      reason:
+          'when folder trust is on, Gemini ignores its settings and commands '
+          'until you trust the project',
+    ),
+  ];
+
   @override
   HarnessFields agent(AgentAsset agent, {required String instructions}) =>
       HarnessFields(

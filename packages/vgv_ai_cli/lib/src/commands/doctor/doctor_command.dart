@@ -51,11 +51,11 @@ class DoctorCommand({
   /// without constructing one.
   static const String commandName = 'doctor';
 
-  /// The harnesses that load the shared skills, so whose `install` fixes
-  /// them.
-  static final Set<Harness> _readShared = {
+  /// The harnesses that load the shared skills under [home], so whose
+  /// `install` fixes them.
+  static Set<Harness> _readShared(Directory home) => {
     for (final translator in harnessTranslators)
-      if (translator.readsSharedSkills) translator.harness,
+      if (translator.readsSharedSkills(UserScope(home))) translator.harness,
   };
 
   @override
@@ -185,7 +185,7 @@ class DoctorCommand({
         case ResolvedAssets(:final assets):
           final translation = await _translator.translate(
             assets: assets,
-            home: home,
+            scope: UserScope(home),
             selected: harnesses,
           );
           changes.addAll(
@@ -266,7 +266,7 @@ class DoctorCommand({
     required Set<Harness> detected,
     required ContentPlan plan,
   }) {
-    final readsShared = installed.intersection(_readShared);
+    final readsShared = installed.intersection(_readShared(home));
 
     return [
       if (plan.skipped case final skipped?)

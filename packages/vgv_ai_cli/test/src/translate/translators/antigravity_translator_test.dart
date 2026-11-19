@@ -28,11 +28,18 @@ void main() {
     });
 
     test('keeps its own copy of the skills inside the plugin', () {
-      expect(translator.readsSharedSkills, isFalse);
+      expect(translator.readsSharedSkills(UserScope(home)), isFalse);
       expect(
-        translator.skillsRoot(home).path,
+        translator.skillsRoot(UserScope(home))?.path,
         '/home/dev/.gemini/config/plugins/vgv/skills',
       );
+    });
+
+    test('reads the shared skills in a project', () {
+      final project = ProjectScope(fs.directory('/work/app'));
+
+      expect(translator.readsSharedSkills(project), isTrue);
+      expect(translator.skillsRoot(project), isNull);
     });
 
     test('keeps its copy of the scripts inside the plugin', () {
@@ -107,6 +114,19 @@ void main() {
         );
 
         expect(fields.instructions, 'You review code.\n');
+      });
+
+      test('offers a frontmatter without the skills, for a project', () {
+        final fields = translator.agent(
+          agentAsset('reviewer', skills: ['bloc']),
+          instructions: 'shared',
+        );
+
+        expect(frontmatterValues(fields.sharedSkillsFrontmatter), {
+          'name': 'reviewer',
+          'description': 'reviews code',
+          'subagent': true,
+        });
       });
     });
 

@@ -7,7 +7,6 @@ import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
-import 'package:vgv_ai_cli/src/translate/translate.dart';
 
 /// {@template uninstall_command}
 /// Takes back what the install manifest proves VGV wrote, and nothing else.
@@ -116,7 +115,7 @@ class UninstallCommand({
     final full = selected.containsAll(recorded);
     final owners = {...recorded.intersection(selected), if (full) null};
     final hasSharedSkills = manifest.entriesFor(null).isNotEmpty;
-    final skillsRoot = agentsSkillsRoot(home);
+    final skillsRoot = UserScope(home).skillsRoot;
     if (full && hasSharedSkills) {
       _reportSharedSkillsRemoved(skillsRoot, dryRun: dryRun);
     }
@@ -180,7 +179,7 @@ class UninstallCommand({
             .file(entry.path)
             .parent
             .deleteEmptyUpTo(
-              entry.owner?.configDirectory(home) ?? agentsSkillsRoot(home),
+              entry.owner?.configDirectory(home) ?? UserScope(home).skillsRoot,
             );
       } on FileSystemException catch (error) {
         _logger.warn(

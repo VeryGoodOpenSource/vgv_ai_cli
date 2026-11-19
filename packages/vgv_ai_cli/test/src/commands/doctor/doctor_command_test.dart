@@ -27,6 +27,7 @@ class _FakeResolver extends Fake implements PluginResolver {
       mcpServers: [],
       plugins: vgvPlugins,
     ),
+    directories: [],
   );
 
   int calls = 0;
@@ -42,6 +43,7 @@ class _FakeResolver extends Fake implements PluginResolver {
     Directory home, {
     Set<String>? only,
     LogDetail? log,
+    String? Function(PluginRef plugin)? pluginRoot,
   }) async {
     calls++;
     resolved.add(only);
@@ -59,8 +61,9 @@ class _FakeTranslator extends Fake implements Translator {
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required Directory home,
+    required Scope scope,
     required Set<Harness> selected,
+    List<PluginDirectory> plugins = const [],
   }) async {
     this.selected = selected;
     return TranslationPlan(shared: TranslationResult(changes: changes));
@@ -546,7 +549,8 @@ void main() {
           return const SkillsTranslator()
               .translate(
                 assets: const ClaudePluginParser().parse(root),
-                root: agentsSkillsRoot(home),
+                root: UserScope(home).skillsRoot,
+                scope: UserScope(home),
               )
               .changes;
         }

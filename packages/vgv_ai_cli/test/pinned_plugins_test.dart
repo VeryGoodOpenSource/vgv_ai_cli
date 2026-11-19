@@ -43,7 +43,7 @@ void main() {
     test('translates $vgvPlugins for ${harness.name}', () async {
       final plan = await const Translator().translate(
         assets: assets,
-        home: home,
+        scope: UserScope(home),
         selected: {harness},
       );
 
@@ -58,7 +58,7 @@ void main() {
     Future<List<String>> rendered(Harness harness) async {
       final plan = await const Translator().translate(
         assets: assets,
-        home: home,
+        scope: UserScope(home),
         selected: {harness},
       );
       return [
@@ -101,4 +101,87 @@ void main() {
       expect(referenced(await rendered(Harness.claude)), isEmpty);
     });
   });
+
+  group('in a project', () {
+    late ProjectScope project;
+    late PluginAssets projectAssets;
+    late List<PluginDirectory> plugins;
+
+    setUpAll(() async {
+      project = ProjectScope(home.childDirectory('project')..createSync());
+      final resolution = await const PluginResolver().resolve(
+        home,
+        pluginRoot: project.pluginRoot,
+      );
+      (projectAssets, plugins) = switch (resolution) {
+        ResolvedAssets(:final assets, :final directories) => (
+          assets,
+          directories,
+        ),
+        _ => fail('Could not resolve $vgvPlugins for a project'),
+      };
+    });
+
+    Future<TranslationPlan> translate(Harness harness) =>
+        const Translator().translate(
+          assets: projectAssets,
+          scope: project,
+          selected: {harness},
+          plugins: plugins,
+        );
+
+    /// Every planned file's contents that decode as text.
+    List<String> texts(TranslationPlan plan) => [
+      for (final change in plan.changes) ?_text(change),
+    ];
+
+    for (final harness in Harness.values) {
+      test('writes ${harness.name} no absolute path', () async {
+        final plan = await translate(harness);
+
+        expect(plan.changes, isNotEmpty);
+        expect(
+          plan.changes.map((c) => c.file.path),
+          everyElement(startsWith(project.root.path)),
+        );
+        expect(texts(plan), everyElement(isNot(contains(home.path))));
+      });
+    }
+
+    for (final harness in Harness.values.where((h) => h != Harness.claude)) {
+      test('points ${harness.name} at plugin files it copies', () async {
+        final plan = await translate(harness);
+        final planned = {
+          for (final change in plan.changes)
+            project.reference(change.file.path),
+        };
+        final copy = RegExp(
+          '${RegExp.escape('.vgv_ai/plugins')}/[^\\s`\'")]*[^\\s`\'").,;:/]',
+        );
+        final copies = {
+          for (final text in texts(plan))
+            for (final match in copy.allMatches(text)) match[0]!,
+        };
+
+        expect(copies, isNotEmpty);
+        expect(
+          copies.where(
+            (path) => !planned.any(
+              (file) => file == path || file.startsWith('$path/'),
+            ),
+          ),
+          isEmpty,
+        );
+      });
+    }
+  });
+}
+
+/// [change]'s contents, or null when they are not UTF-8 text.
+String? _text(PlannedChange change) {
+  try {
+    return change.contents;
+  } on FormatException {
+    return null;
+  }
 }
