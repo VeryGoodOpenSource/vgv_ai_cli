@@ -348,7 +348,7 @@ class InstallCommand({
   /// against the working directory, or the user's [home].
   ///
   /// Throws a [UsageException] for a directory without `--project`, more
-  /// than one directory, or one that does not exist.
+  /// than one directory, one that does not exist, or [home] itself.
   Scope _scope(Directory home) {
     final rest = argResults!.rest;
     if (argResults![projectFlag] != true) {
@@ -370,6 +370,18 @@ class InstallCommand({
     );
     if (!project.existsSync()) {
       usageException('${project.path} is not a directory.');
+    }
+    // A project rooted at home would share the user install's manifest and
+    // skills, and a rerun would then prune the user install.
+    if (home.existsSync() &&
+        path.equals(
+          project.resolveSymbolicLinksSync(),
+          home.resolveSymbolicLinksSync(),
+        )) {
+      usageException(
+        '${project.path} is your home directory. Pass --$projectFlag a '
+        'repository instead.',
+      );
     }
     return ProjectScope(project);
   }

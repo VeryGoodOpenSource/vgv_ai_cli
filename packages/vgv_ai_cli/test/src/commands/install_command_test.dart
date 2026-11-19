@@ -1477,6 +1477,28 @@ void main() {
             .called(1);
       });
 
+      test('rejects the home directory', () async {
+        final exitCode = await runInstall(['--project', '/home/dev/']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(
+            '/home/dev is your home directory. Pass --project a repository '
+            'instead.',
+          ),
+        ).called(1);
+      });
+
+      test('rejects a link to the home directory', () async {
+        fs.link('/work/home').createSync('/home/dev');
+
+        final exitCode = await runInstall(['--project', '/work/home']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+      });
+
       test('rejects more than one directory', () async {
         final exitCode = await runInstall(['--project', 'a', 'b']);
 

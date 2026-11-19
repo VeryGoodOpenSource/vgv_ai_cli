@@ -326,6 +326,23 @@ void main() {
         expect(rooted.referencedEntries, ['references', 'scripts']);
       });
 
+      test('lists no entry for . or ..', () {
+        root
+            .childFile('skills/a/SKILL.md')
+            .writeAsStringSync(
+              '---\nname: a\ndescription: d\n---\n'
+              r'Read ${CLAUDE_PLUGIN_ROOT}/../shared/x.md and '
+              r'${CLAUDE_PLUGIN_ROOT}/./scripts/y.sh and '
+              r'${CLAUDE_PLUGIN_ROOT}/.config'
+              '\n',
+            );
+
+        expect(const ClaudePluginParser().parse(root).referencedEntries, [
+          '.config',
+          'scripts',
+        ]);
+      });
+
       test('lists none for bodies that name no plugin file', () {
         expect(assets.referencedEntries, isEmpty);
       });

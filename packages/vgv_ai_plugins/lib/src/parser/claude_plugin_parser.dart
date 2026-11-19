@@ -126,8 +126,12 @@ class const ClaudePluginParser() implements PluginParser {
   /// at run time stays as written.
   static const _claudePluginRoot = r'${CLAUDE_PLUGIN_ROOT}';
 
-  /// [_claudePluginRoot] followed by the top-level entry it names.
-  static final _referencedEntry = RegExp(r'\$\{CLAUDE_PLUGIN_ROOT\}/([\w.-]+)');
+  /// [_claudePluginRoot] followed by the top-level entry it names. A `.` or
+  /// `..` names no entry, since copying it would copy the whole plugin or
+  /// every plugin beside it.
+  static final _referencedEntry = RegExp(
+    r'\$\{CLAUDE_PLUGIN_ROOT\}/(?!\.\.?(?![\w.-]))([\w.-]+)',
+  );
 
   /// [body] with every [_claudePluginRoot] replaced by [reference], having
   /// added the top-level entry each one names to [referenced].
