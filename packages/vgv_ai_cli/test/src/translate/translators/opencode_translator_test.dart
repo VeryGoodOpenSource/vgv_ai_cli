@@ -16,6 +16,16 @@ void main() {
       expect(translator.harness, Harness.opencode);
     });
 
+    test('replaced the singular agent and command folders', () {
+      final home = MemoryFileSystem.test().directory('/home/dev');
+
+      expect(translator.formerFolders(home), {
+        '/home/dev/.config/opencode/agents': '/home/dev/.config/opencode/agent',
+        '/home/dev/.config/opencode/commands':
+            '/home/dev/.config/opencode/command',
+      });
+    });
+
     test('runs none of the hooks', () {
       final fs = MemoryFileSystem.test();
 

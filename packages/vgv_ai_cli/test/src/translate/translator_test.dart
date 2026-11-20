@@ -215,6 +215,43 @@ void main() {
       }
     });
 
+    group('supersedes', () {
+      test("OpenCode's singular folders, file by file", () async {
+        final plan = await translate({Harness.opencode});
+        final root = Harness.opencode.configDirectory(home).path;
+
+        expect(plan.harnesses[Harness.opencode]!.superseded, {
+          '$root/agent/planner.md': '$root/agents/planner.md',
+          '$root/agent/review.md': '$root/agents/review.md',
+          '$root/command/plan.md': '$root/commands/plan.md',
+          '$root/command/review.md': '$root/commands/review.md',
+          '$root/command/testing.md': '$root/commands/testing.md',
+        });
+        expect(plan.superseded, plan.harnesses[Harness.opencode]!.superseded);
+      });
+
+      test('only the files the plan writes anew', () async {
+        final plan = await translate({
+          Harness.opencode,
+        }, using: pluginAssets(agents: [agentAsset('review')]));
+
+        final root = Harness.opencode.configDirectory(home).path;
+
+        expect(plan.superseded, {
+          '$root/agent/review.md': '$root/agents/review.md',
+        });
+      });
+
+      test('nothing for any other harness or the shared skills', () async {
+        final plan = await translate(
+          Harness.values.toSet().difference({Harness.opencode}),
+        );
+
+        expect(plan.shared!.superseded, isEmpty);
+        expect(plan.superseded, isEmpty);
+      });
+    });
+
     test('plans the shared skills once, when a harness reads them', () async {
       final plan = await translate({Harness.gemini, Harness.pi});
       final documents = plan.shared!.changes
