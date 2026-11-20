@@ -120,7 +120,7 @@ Each package releases on its own, through its own release PR (`separate-pull-req
 
 The CLI depends on `vgv_ai_plugins` with a hosted caret constraint, the way `mason_cli` depends on `mason`, and the workspace resolves it from `packages/vgv_ai_plugins` locally. Before 1.0, `feat:` bumps the minor and so does a breaking change (`bump-minor-pre-major`), which takes the new version out of the caret's range. The `raise_plugins_constraint` job in `.github/workflows/release_please.yaml` therefore rewrites the constraint to the `vgv_ai_plugins` version in the manifest, on the CLI's release branch, after every release-please run, since release-please force-pushes that branch and would drop a hand-made commit. When both release PRs are open, merge the `vgv_ai_plugins` one first. Never raise it by hand.
 
-The CLI is tagged `vX.Y.Z` and `vgv_ai_plugins` as `vgv_ai_plugins-vX.Y.Z`; `pub_publish.yaml` fires on the former.
+The CLI is tagged `vX.Y.Z` and `vgv_ai_plugins` as `vgv_ai_plugins-vX.Y.Z`. `pub_publish.yaml` publishes the CLI on the former, and `pub_publish_plugins.yaml` publishes `vgv_ai_plugins` on the latter. Each tag pattern must match the one set for that package on pub.dev.
 
 You should not need to bump the version by hand at all: release-please owns it. It writes the bump into `pubspec.yaml` and, through the CLI's `extra-files` entry, into this file, so `verify-version` passes on the release PR.
 

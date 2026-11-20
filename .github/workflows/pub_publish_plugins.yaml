@@ -1,0 +1,29 @@
+name: pub_publish_plugins
+
+on:
+  push:
+    tags:
+      - "vgv_ai_plugins-v[0-9]+.[0-9]+.[0-9]+*" # tag pattern on pub.dev: 'vgv_ai_plugins-v{{version}}'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      id-token: write # Required for authentication using OIDC
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v7
+
+      - name: 🎯 Setup Dart
+        uses: dart-lang/setup-dart@v1.8.2
+        with:
+          sdk: "3.14.0"
+
+      - name: 📦 Install Dependencies
+        run: dart pub get
+
+      - name: 📢 Publish vgv_ai_plugins
+        working-directory: packages/vgv_ai_plugins
+        run: dart pub publish --force
