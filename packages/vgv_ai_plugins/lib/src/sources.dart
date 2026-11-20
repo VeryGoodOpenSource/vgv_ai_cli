@@ -132,7 +132,7 @@ class const GitPluginSource({
     final target = fileSystem.directory(
       fileSystem.path.join(cacheRoot.path, ref.name, ref.version),
     );
-    if (target.existsSync()) return ResolvedPlugin(target);
+    if (target.existsSync()) return _resolved(target, ref);
 
     // Clone into a sibling temp path and publish by rename, so the version
     // directory only ever exists complete. This defeats both the interrupted
@@ -197,15 +197,22 @@ class const GitPluginSource({
       _deleteTemp(temp);
       // Almost always means a concurrent run published first. Never delete the
       // target: that tree is good, and it may be in use.
-      if (target.existsSync()) return ResolvedPlugin(target);
+      if (target.existsSync()) return _resolved(target, ref);
       return UnavailablePlugin.single(
         'Could not move the clone of $ref into ${target.path}: '
         '${error.message}',
       );
     }
 
-    return ResolvedPlugin(target);
+    return _resolved(target, ref);
   }
+
+  /// The plugin inside [clone], the whole repo cloned at [ref]'s tag.
+  ResolvedPlugin _resolved(Directory clone, PluginRef ref) => ResolvedPlugin(
+    clone.fileSystem.directory(
+      clone.fileSystem.path.joinAll([clone.path, ?ref.path]),
+    ),
+  );
 
   void _deleteTemp(Directory temp) {
     if (temp.existsSync()) temp.deleteSync(recursive: true);
