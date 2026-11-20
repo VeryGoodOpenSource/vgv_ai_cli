@@ -10,20 +10,7 @@ jobs:
   publish:
     permissions:
       id-token: write # Required for authentication using OIDC
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📚 Git Checkout
-        uses: actions/checkout@v7
-
-      - name: 🎯 Setup Dart
-        uses: dart-lang/setup-dart@v1.8.2
-        with:
-          sdk: "3.14.0"
-
-      - name: 📦 Install Dependencies
-        run: dart pub get
-
-      - name: 📢 Publish vgv_ai_plugins
-        working-directory: packages/vgv_ai_plugins
-        run: dart pub publish --force
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_pub_publish.yml@v2
+    with:
+      dart_sdk: "3.14.0"
+      working_directory: packages/vgv_ai_plugins
