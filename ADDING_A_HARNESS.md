@@ -16,6 +16,13 @@ memory — these tools change their config format between minor releases. Instal
 run `<executable> --version`, and record that version in the PR. It is what the next person needs
 in order to tell a format that changed from a translator that was always wrong.
 
+Also find the **oldest** version that supports each file you render, from the harness's changelog
+or docs, and record it in the PR. Do the same when changing a file the brick renders for a
+harness that already exists, so users on an older version are not left with a file their harness
+ignores. Nothing in the code records it yet, so add it to
+[#157](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/157) too, which will track the
+minimum version of each harness.
+
 | Question | Where the answer goes |
 | --- | --- |
 | What does the binary answer `--version` with? | `executable` on the enum |
@@ -408,6 +415,10 @@ accounts for, so they are **breaking changes of behavior**:
 - Moving its config directory, `hooksRoot()` or `skillsRoot()`.
 - Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
 - Dropping or renaming a settings key already written into a config the user shares with us.
+- Moving a file the brick renders, such as an agents or commands folder, unless you also map the
+  new folder to the old one by overriding `formerFolders()` in the harness's translator, as
+  `OpenCodeTranslator` does. `install` then takes back the copies an earlier version wrote, so the
+  harness does not load both.
 
 Take any of those to an issue or a discussion before writing the PR, and link it. See
 [breaking changes](CONTRIBUTING.md#breaking-changes).
