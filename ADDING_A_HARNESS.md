@@ -19,6 +19,7 @@ in order to tell a format that changed from a translator that was always wrong.
 | Question | Where the answer goes |
 | --- | --- |
 | What does the binary answer `--version` with? | `executable` on the enum |
+| Which release first reads every file you render for it? | `minimumVersion` on the enum |
 | Which directory under `$HOME` holds its user config? | `config` on the enum |
 | Does it have a settings file, and what's its schema? | `settings()` on the translator |
 | Does it read `~/.agents/skills` with no configuration? | `readsSharedSkills` |
@@ -46,6 +47,7 @@ compat script.
 antigravity(
   displayName: 'Antigravity',
   executable: 'agy',
+  minimumVersion: '1.2.0',
   config: '.gemini/config',
 );
 ```
@@ -56,6 +58,10 @@ antigravity(
 - `displayName` is what reports and `--help` print.
 - `executable` is the binary probed with `<executable> --version`. A non-zero exit reads as not
   installed.
+- `minimumVersion` is the oldest `x.y.z` that reads every file the brick renders for the harness:
+  the latest of the releases that added each feature you translate, from its changelog. Cite them
+  in the PR. `install` warns about an older harness and `doctor` reports it. Raise it whenever the
+  harness starts rendering something a newer release added.
 - `config` is relative to `$HOME` with `/` separators, whatever the platform.
 
 Position matters: `Harness.values` is the order every report and the translator registry use.
@@ -63,7 +69,8 @@ Position matters: `Harness.values` is the order every report and the translator 
 Two user-facing lists name every harness, and both need the new one:
 
 - `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table (flag, display name,
-  executable, config directory), and the paragraph under it saying which harnesses share
+  executable, config directory, minimum version), which `harness_test.dart` checks row for row
+  against `Harness.values`, and the paragraph under it saying which harnesses share
   `~/.agents/skills` and which keep their own copy.
 - `README.md` — the agents listed in the opening sentence.
 

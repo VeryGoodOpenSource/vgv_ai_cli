@@ -59,17 +59,20 @@ paths with the host separator while those scripts expect POSIX ones.
 
 `vgv_ai` calls each coding agent a harness. The flag name is what you pass to
 `--only` and `--[no-]<harness>`, and the config directory is where `vgv_ai`
-writes that harness's files, relative to your home directory.
+writes that harness's files, relative to your home directory. The minimum
+version is the oldest one that reads everything this release of `vgv_ai`
+writes for that harness. `install` warns about an older one and still
+configures it, and `doctor` reports it as a step to fix.
 
-| Flag          | Harness            | Executable | Config directory     |
-| ------------- | ------------------ | ---------- | -------------------- |
-| `claude`      | Claude Code        | `claude`   | `~/.claude`          |
-| `gemini`      | Gemini CLI         | `gemini`   | `~/.gemini`          |
-| `codex`       | Codex              | `codex`    | `~/.codex`           |
-| `opencode`    | OpenCode           | `opencode` | `~/.config/opencode` |
-| `pi`          | Pi                 | `pi`       | `~/.pi/agent`        |
-| `copilot`     | GitHub Copilot CLI | `copilot`  | `~/.copilot`         |
-| `antigravity` | Antigravity CLI    | `agy`      | `~/.gemini/config`   |
+| Flag          | Harness            | Executable | Config directory     | Minimum version |
+| ------------- | ------------------ | ---------- | -------------------- | --------------- |
+| `claude`      | Claude Code        | `claude`   | `~/.claude`          | 2.0.12          |
+| `gemini`      | Gemini CLI         | `gemini`   | `~/.gemini`          | 0.35.0          |
+| `codex`       | Codex              | `codex`    | `~/.codex`           | 0.124.0         |
+| `opencode`    | OpenCode           | `opencode` | `~/.config/opencode` | 1.1.50          |
+| `pi`          | Pi                 | `pi`       | `~/.pi/agent`        | 0.54.0          |
+| `copilot`     | GitHub Copilot CLI | `copilot`  | `~/.copilot`         | 1.0.11          |
+| `antigravity` | Antigravity CLI    | `agy`      | `~/.gemini/config`   | 1.2.0           |
 
 Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
 the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
@@ -162,7 +165,9 @@ changed since, or differ from what this version installs. It also compares the
 plugin versions each harness was installed from with the ones this version
 pins, notes a pinned plugin a harness wasn't installed from, suggests
 configuring a harness that's installed but not configured, and warns about a
-configured harness that's no longer installed.
+configured harness that's no longer installed. It reports a harness older
+than its [minimum version](#supported-harnesses) as a problem only updating it
+fixes, and warns when it can't read a harness's version.
 
 Every problem comes with the `install` command that fixes it, and the report
 ends with one command that fixes everything `install` can, such as
