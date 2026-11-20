@@ -27,6 +27,7 @@ class const _FailingAuditor() extends ManifestAuditor {
     InstallManifest manifest,
     FileSystem fileSystem, {
     Set<Harness?>? owners,
+    Set<String>? paths,
     bool force = false,
     bool dryRun = false,
   }) => Reversal(
