@@ -13,6 +13,8 @@ export 'codex_compat.dart';
 export 'codex_translator.dart';
 export 'copilot_compat.dart';
 export 'copilot_translator.dart';
+export 'devin_compat.dart';
+export 'devin_translator.dart';
 export 'gemini_translator.dart';
 export 'harness_translators.dart';
 export 'opencode_translator.dart';
