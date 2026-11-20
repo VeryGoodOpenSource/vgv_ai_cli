@@ -40,7 +40,7 @@ Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
 ### pub
 
 `vgv_ai` is also a Dart package. You need the
-[Dart SDK](https://dart.dev/get-dart) 3.13 or later.
+[Dart SDK](https://dart.dev/get-dart) 3.14 or later.
 
 ```sh
 dart pub global activate vgv_ai_cli
