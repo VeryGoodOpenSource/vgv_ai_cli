@@ -85,6 +85,21 @@ const vgvPlugins = <PluginRef>[
 
       expect(bump?.gitRef, 'v0.0.5-fix');
     });
+
+    test('keeps the path of the pin', () {
+      final bump = bumpFor(
+        const PluginRef(
+          name: 'vgv-wingspan',
+          repo: 'VeryGoodOpenSource/vgv-wingspan',
+          version: '0.0.5',
+          gitRef: 'v0.0.5',
+          path: 'plugin',
+        ),
+        const PluginRelease(tag: 'v0.1.0', version: '0.1.0'),
+      );
+
+      expect(bump?.path, 'plugin');
+    });
   });
 
   group('rewritePin', () {
@@ -172,7 +187,34 @@ const vgvPlugins = <PluginRef>[
 
       expect(release.tag, 'v0.1.0');
       expect(release.version, '0.1.0');
-      expect(calls.last[1], contains('plugin.json?ref=v0.1.0'));
+      expect(
+        calls.last[1],
+        endsWith('contents/.claude-plugin/plugin.json?ref=v0.1.0'),
+      );
+    });
+
+    test('reads plugin.json under the path of the pin', () async {
+      final calls = <List<String>>[];
+      await latestRelease(
+        const PluginRef(
+          name: 'vgv-wingspan',
+          repo: 'VeryGoodOpenSource/vgv-wingspan',
+          version: '0.0.5',
+          gitRef: 'v0.0.5',
+          path: 'plugin',
+        ),
+        runGh: (args) async {
+          calls.add(args);
+          return args[1].contains('releases/latest')
+              ? ok('v0.1.0\n')
+              : ok(jsonEncode({'name': 'vgv-wingspan', 'version': '0.1.0'}));
+        },
+      );
+
+      expect(
+        calls.last[1],
+        endsWith('contents/plugin/.claude-plugin/plugin.json?ref=v0.1.0'),
+      );
     });
 
     test('throws with stderr when gh fails', () {

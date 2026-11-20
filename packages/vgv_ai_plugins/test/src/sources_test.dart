@@ -146,6 +146,52 @@ void main() {
       expect(args, isNot(contains('0.0.5')));
     });
 
+    test('resolves to the root of the clone without a path', () async {
+      await expectLater(
+        GitPluginSource(
+          cacheRoot: cacheRoot,
+          runGit: (a) async {
+            fileSystem.directory(a.last).createSync(recursive: true);
+            return ok();
+          },
+        ).resolve(ref),
+        completion(
+          isA<ResolvedPlugin>().having(
+            (r) => r.directory.path,
+            'directory',
+            p.join(cacheRoot.path, ref.name, '0.0.5'),
+          ),
+        ),
+      );
+    });
+
+    test('resolves to the path inside the clone', () async {
+      const nested = PluginRef(
+        name: 'vgv-wingspan',
+        repo: 'VeryGoodOpenSource/vgv-wingspan',
+        version: '0.0.5',
+        gitRef: 'v0.0.5',
+        path: 'plugin',
+      );
+
+      await expectLater(
+        GitPluginSource(
+          cacheRoot: cacheRoot,
+          runGit: (a) async {
+            fileSystem.directory(a.last).createSync(recursive: true);
+            return ok();
+          },
+        ).resolve(nested),
+        completion(
+          isA<ResolvedPlugin>().having(
+            (r) => r.directory.path,
+            'directory',
+            p.join(cacheRoot.path, ref.name, '0.0.5', 'plugin'),
+          ),
+        ),
+      );
+    });
+
     test('publishes the version directory only after git succeeds', () async {
       final target = fileSystem.directory(
         p.join(cacheRoot.path, ref.name, '0.0.5'),
