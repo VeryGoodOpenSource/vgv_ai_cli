@@ -66,13 +66,15 @@ antigravity(
 
 Position matters: `Harness.values` is the order every report and the translator registry use.
 
-Two user-facing lists name every harness, and both need the new one:
+The user-facing docs name every harness, and all of them need the new one:
 
 - `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table (flag, display name,
   executable, config directory, minimum version), which `harness_test.dart` checks row for row
   against `Harness.values`, and the paragraph under it saying which harnesses share
-  `~/.agents/skills` and which keep their own copy.
+  `~/.agents/skills` and which keep their own copy. The harness name links to its docs page.
 - `README.md` — the agents listed in the opening sentence.
+- `packages/vgv_ai_cli/docs/<harness>.md` — a new page saying what `install` writes there,
+  what the harness doesn't get, and any setup it needs, plus a row in `docs/README.md`.
 
 ## 2. Give it a brick folder
 
@@ -441,6 +443,8 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 ```text
 README.md                                                 supported agents list
 packages/vgv_ai_cli/README.md                             harness table row, shared-skills line
+packages/vgv_ai_cli/docs/<h>.md                           harness page
+packages/vgv_ai_cli/docs/README.md                        index row
 bricks/agents/brick.yaml                                  boolean var
 bricks/agents/__brick__/{{#<h>}}<h>/…{{\<h>}}             the templates
 bricks/agents/README.md                                   capability matrix row

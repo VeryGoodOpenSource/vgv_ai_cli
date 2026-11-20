@@ -64,29 +64,24 @@ version is the oldest one that reads everything this release of `vgv_ai`
 writes for that harness. `install` warns about an older one and still
 configures it, and `doctor` reports it as a step to fix.
 
-| Flag          | Harness            | Executable | Config directory     | Minimum version |
-| ------------- | ------------------ | ---------- | -------------------- | --------------- |
-| `claude`      | Claude Code        | `claude`   | `~/.claude`          | 2.0.12          |
-| `gemini`      | Gemini CLI         | `gemini`   | `~/.gemini`          | 0.35.0          |
-| `codex`       | Codex              | `codex`    | `~/.codex`           | 0.124.0         |
-| `opencode`    | OpenCode           | `opencode` | `~/.config/opencode` | 1.1.50          |
-| `pi`          | Pi                 | `pi`       | `~/.pi/agent`        | 0.54.0          |
-| `copilot`     | GitHub Copilot CLI | `copilot`  | `~/.copilot`         | 1.0.11          |
-| `antigravity` | Antigravity CLI    | `agy`      | `~/.gemini/config`   | 1.2.0           |
+| Flag          | Harness                                | Executable | Config directory     | Minimum version |
+| ------------- | -------------------------------------- | ---------- | -------------------- | --------------- |
+| `claude`      | [Claude Code](docs/claude.md)          | `claude`   | `~/.claude`          | 2.0.12          |
+| `gemini`      | [Gemini CLI](docs/gemini.md)           | `gemini`   | `~/.gemini`          | 0.35.0          |
+| `codex`       | [Codex](docs/codex.md)                 | `codex`    | `~/.codex`           | 0.124.0         |
+| `opencode`    | [OpenCode](docs/opencode.md)           | `opencode` | `~/.config/opencode` | 1.1.50          |
+| `pi`          | [Pi](docs/pi.md)                       | `pi`       | `~/.pi/agent`        | 0.54.0          |
+| `copilot`     | [GitHub Copilot CLI](docs/copilot.md)  | `copilot`  | `~/.copilot`         | 1.0.11          |
+| `antigravity` | [Antigravity CLI](docs/antigravity.md) | `agy`      | `~/.gemini/config`   | 1.2.0           |
 
 Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
 the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
 share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
 own copy inside its plugin.
 
-### Copilot in VS Code
-
-Skills that launch agents, such as `review`, need **Local** sessions in VS
-Code. In **Copilot** sessions, Ask mode is read-only and cannot launch agents.
-
-1. Switch the chat session to **Local**.
-2. Under **Configure Tools**, enable the terminal and **Run Subagent**
-   (`agent/runSubagent`).
+Each harness has its own page in [`docs`](docs/README.md), covering what
+`install` writes there and any setup the harness needs, such as running agent
+skills from Copilot in VS Code.
 
 ## Commands
 

@@ -175,11 +175,13 @@ Existing, all four must be updated or the suite fails:
 - `test/src/translate/agents_vars_test.dart` — the flags map
 - `test/src/translate/translator_test.dart` — a `tree()` expectation for every file it gets
 
-Then the two user-facing lists no test covers:
+Then the user-facing docs, which no test covers:
 
 - `packages/vgv_ai_cli/README.md` — the paragraph under the **Supported harnesses** table about
-  which harnesses share `~/.agents/skills`
+  which harnesses share `~/.agents/skills`. In the table, link the harness name to its docs page
 - `README.md` — the agents named in the opening sentence
+- `packages/vgv_ai_cli/docs/<harness>.md` — a new page: what `install` writes there, what the
+  harness doesn't get, and any setup it needs. Add it to the index in `docs/README.md`
 
 ## Step 6: verify
 
