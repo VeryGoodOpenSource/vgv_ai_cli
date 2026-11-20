@@ -114,14 +114,18 @@ void main() {
         ]);
       });
 
-      test('Pi gets instructions and prompts, and no agents', () async {
-        expect(await tree(Harness.pi), [
-          'AGENTS.md',
-          'prompts/plan.md',
-          'prompts/review.md',
-          'prompts/testing.md',
-        ]);
-      });
+      test(
+        'Pi gets instructions, MCP config and prompts, and no agents',
+        () async {
+          expect(await tree(Harness.pi), [
+            'AGENTS.md',
+            'mcp.json',
+            'prompts/plan.md',
+            'prompts/review.md',
+            'prompts/testing.md',
+          ]);
+        },
+      );
 
       test('Copilot gets MCP config, instructions, agents and hooks', () async {
         expect(await tree(Harness.copilot), [
@@ -183,6 +187,7 @@ void main() {
         containsPair('.copilot/mcp-config.json', ChangeMode.mergeJson),
       );
       expect(modes, containsPair('.copilot/hooks/vgv.json', ChangeMode.own));
+      expect(modes, containsPair('.pi/agent/mcp.json', ChangeMode.mergeJson));
       expect(
         modes,
         containsPair(
