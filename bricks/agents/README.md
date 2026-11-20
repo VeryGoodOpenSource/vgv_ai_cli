@@ -18,7 +18,7 @@ out of agents and settings.
 | claude      | `settings.json`               |                           |                           |                   |                          |
 | gemini      | `settings.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.toml` |                          |
 | codex       | `config.toml`                 | `AGENTS.md`               | `agents/*.toml`           |                   | `hooks.json`             |
-| opencode    | `opencode.json`               | `AGENTS.md`               | `agent/*.md`              | `command/*.md`    |                          |
+| opencode    | `opencode.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.md`   |                          |
 | pi          |                               | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
 | copilot     | `mcp-config.json`             | `copilot-instructions.md` | `agents/*.agent.md`       |                   | `hooks/vgv.json`         |
 | antigravity | `plugins/vgv/mcp_config.json` |                           | `plugins/vgv/agents/*.md` |                   | `plugins/vgv/hooks.json` |

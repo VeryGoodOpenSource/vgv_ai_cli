@@ -791,8 +791,8 @@ void main() {
           '.gemini/agents',
           '.gemini/commands',
           '.codex/agents',
-          '.config/opencode/agent',
-          '.config/opencode/command',
+          '.config/opencode/agents',
+          '.config/opencode/commands',
           '.pi/agent/prompts',
         ]) {
           expect(

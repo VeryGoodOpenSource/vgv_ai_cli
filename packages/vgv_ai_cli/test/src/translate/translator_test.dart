@@ -105,11 +105,11 @@ void main() {
       test('OpenCode gets config, instructions, agents and commands', () async {
         expect(await tree(Harness.opencode), [
           'AGENTS.md',
-          'agent/planner.md',
-          'agent/review.md',
-          'command/plan.md',
-          'command/review.md',
-          'command/testing.md',
+          'agents/planner.md',
+          'agents/review.md',
+          'commands/plan.md',
+          'commands/review.md',
+          'commands/testing.md',
           'opencode.json',
         ]);
       });
@@ -364,7 +364,7 @@ void main() {
       );
 
       test('an OpenCode command is frontmatter over the skill body', () async {
-        final command = await contents(Harness.opencode, 'command/plan.md');
+        final command = await contents(Harness.opencode, 'commands/plan.md');
 
         expect(command, '---\ndescription: "what it does"\n---\n\n# Body\n');
       });
