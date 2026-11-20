@@ -26,6 +26,8 @@ coverage/
 
 # Wingspan output (local working artifacts, not tracked)
 docs/
+# except the CLI's per-harness setup docs
+!packages/vgv_ai_cli/docs/
 
 tasks/
 
