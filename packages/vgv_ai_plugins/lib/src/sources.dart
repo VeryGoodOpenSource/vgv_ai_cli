@@ -42,7 +42,10 @@ abstract class const PluginSource() {
 /// marketplace's declared name, which names the cache directory.
 /// {@endtemplate}
 class const LocalCachePluginSource({
+  /// The directory holding `.claude`.
   required final Directory home,
+
+  /// The marketplace's declared name, which names the cache directory.
   final String marketplace = vgvMarketplaceName,
 }) extends PluginSource {
   /// {@macro local_cache_plugin_source}
@@ -108,9 +111,16 @@ class const LocalCachePluginSource({
 /// that is waiting. [log] receives the command line and git's stderr.
 /// {@endtemplate}
 class const GitPluginSource({
+  /// Where clones are kept between runs.
   required final Directory cacheRoot,
+
+  /// Runs git.
   required final RunGit runGit,
+
+  /// How long a clone may take before it is given up on.
   final Duration timeout = const Duration(minutes: 2),
+
+  /// Receives the command line and git's stderr.
   final LogDetail? log,
 }) extends PluginSource {
   /// {@macro git_plugin_source}

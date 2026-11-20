@@ -23,7 +23,7 @@ The repo is a **pub workspace** monorepo: the root `pubspec.yaml` declares `work
 
 | Requirement | Why | Symptom when wrong |
 |---|---|---|
-| Dart SDK `^3.13.0` (CI pins `3.13.0`) | The code uses 3.13 syntax | `dart pub get` fails version solving. Worse, on 3.12 `dart analyze` reports `experiment_not_enabled_off_by_default` against the `new(...)` constructors — **do not "fix" that by rewriting them**, fix the SDK |
+| Dart SDK `^3.14.0` (CI pins `3.14.0`) | The code uses 3.13 syntax | `dart pub get` fails version solving. Worse, on 3.12 `dart analyze` reports `experiment_not_enabled_off_by_default` against the `new(...)` constructors — **do not "fix" that by rewriting them**, fix the SDK |
 | `very_good_cli ^1.5.0` | Pub workspace coverage support | Coverage dies with `Directory listing failed, path = './coverage/'`. A stale binary also prints `Invalid kernel binary format version` — reactivate with `dart pub global activate very_good_cli "^1.5.0"` |
 | `jq` | Agent hooks parse their payloads with it | Guard hooks error out; the analyze and format hooks silently do nothing |
 | `gh`, authenticated with org access | This repo is private | Push and PR creation fail |
