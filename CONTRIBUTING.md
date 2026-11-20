@@ -141,7 +141,7 @@ open coverage/index.html
   `<type>/<short-kebab-description>`, such as `feat/antigravity-hooks`.
 - Commits and pull request titles follow
   [Conventional Commits](https://www.conventionalcommits.org/). The
-  `semantic-pull-request` job checks the title.
+  `semantic-pull-request` job in `ci.yaml` checks the title.
 - Fill in [the pull request template](.github/PULL_REQUEST_TEMPLATE.md) and
   nothing more.
 - Leave every `CHANGELOG.md` and version bump alone, the `agents` brick's included. Release
@@ -197,23 +197,30 @@ and a translator, and touches no existing harness.
 
 ## CI
 
-Most jobs live in
-[`.github/workflows/vgv_ai_cli.yaml`](.github/workflows/vgv_ai_cli.yaml):
+[`.github/workflows/ci.yaml`](.github/workflows/ci.yaml) runs on every pull
+request against `main`, and again when its title or description is edited:
 
 | Job                     | What it checks                                                           |
 | ----------------------- | ------------------------------------------------------------------------ |
 | `semantic-pull-request` | The pull request title is a conventional commit.                         |
-| `build`                 | Format, analyze, 100% coverage, cognitive complexity.                    |
 | `spell-check`           | cspell over every markdown file but the brick templates, changed or not. |
-| `verify-bundle`         | `tool/generate_agents_bundle.sh` produces no diff.                       |
-| `verify-version`        | `lib/src/version.dart` matches `pubspec.yaml`.                           |
-| `verify-pins`           | The pinned plugins still resolve, parse and translate.                   |
+
+Add a word to `words` in [`.github/cspell.json`](.github/cspell.json) when
+spell-check rejects one.
+
+Most other jobs live in
+[`.github/workflows/vgv_ai_cli.yaml`](.github/workflows/vgv_ai_cli.yaml):
+
+| Job              | What it checks                                         |
+| ---------------- | ------------------------------------------------------ |
+| `build`          | Format, analyze, 100% coverage, cognitive complexity.  |
+| `verify-bundle`  | `tool/generate_agents_bundle.sh` produces no diff.     |
+| `verify-version` | `lib/src/version.dart` matches `pubspec.yaml`.         |
+| `verify-pins`    | The pinned plugins still resolve, parse and translate. |
 
 That workflow is path-filtered to the two packages' `lib/`, `test/` and
-`pubspec.yaml`, plus `bricks/`, `tool/` and `.github/cspell.json`. A docs-only
-pull request triggers none of it, so a markdown mistake surfaces on the next
-code change instead. Add a word to `words` in
-[`.github/cspell.json`](.github/cspell.json) when spell-check rejects one.
+`pubspec.yaml`, plus `bricks/` and `tool/`. A docs-only pull request triggers
+none of it.
 
 [`license_check.yaml`](.github/workflows/license_check.yaml) is separate. It
 runs when a `pubspec.yaml` changes, and restricts dependency licenses to `MIT`,
