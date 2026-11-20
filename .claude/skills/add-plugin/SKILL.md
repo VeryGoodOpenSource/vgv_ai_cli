@@ -227,9 +227,8 @@ from the PR. When the plugin releases the fix, the weekly bump bot picks it up.
   they describe this repo's own `.claude/settings.json`, not what `install` ships.
 - **Spelling is checked in every markdown file and in the PR title**, against the VGV dictionaries
   plus the `words` in `.github/cspell.json`. A plugin's acronym fails both, as "ffca" did. Add the
-  acronym to `words` in its own commit (`chore: …`). That also runs `vgv_ai_cli.yaml`, whose
-  filters include `.github/cspell.json`. Editing the title does not re-run CI, so after fixing a
-  title, close and reopen the PR.
+  acronym to `words` in its own commit (`chore: …`). Both checks live in `ci.yaml`, which runs on
+  every push to the PR and again when the title is edited.
 - Fill in `.github/PULL_REQUEST_TEMPLATE.md`. Under a "Known limitations" heading, list what the
   audit found that the PR does not fix, with links to the upstream issues.
 
@@ -246,5 +245,5 @@ run a check, say so plainly rather than implying it passed.
 | `bump_plugin_pins_test.dart` fails after the pin                             | `pinsSource` or a `releases({...})` map is missing the new plugin                                                                           |
 | The weekly bump PR fails on the new plugin                                   | The `PluginRef(...)` block was reformatted, so `rewritePin` cannot find it                                                                  |
 | A skill or agent from the new plugin never installs                          | Its name collides with one an earlier pin declares. `merge` dropped it                                                                      |
-| `spell-check / build` fails on **Spell Check PR Title**                      | An acronym missing from `words` in `.github/cspell.json`. Add it, then close and reopen the PR                                              |
+| `spell-check / build` fails on **Spell Check PR Title**                      | An acronym missing from `words` in `.github/cspell.json`. Add it and push; the check re-runs                                                |
 | `doctor` reports every file of the plugin as outdated after `install`        | Expected once Claude Code caches the plugin: bodies point at whichever copy the resolver found. See the plugin-files note in the CLI README |
