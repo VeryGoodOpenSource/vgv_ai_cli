@@ -105,14 +105,27 @@ void main() {
       display: any(named: 'display'),
     );
 
-    /// Clones every plugin by creating its target, since there is no
-    /// Claude Code cache under [home].
+    /// Clones every plugin by creating its target, with the manifest under
+    /// the plugin's pinned path, since there is no Claude Code cache under
+    /// [home].
     Future<ProcessResult> clone(
       String executable,
       List<String> arguments, {
       bool runInShell = false,
     }) async {
-      fs.directory(arguments.last).createSync(recursive: true);
+      final plugin = vgvPlugins.firstWhere(
+        (plugin) => arguments.contains('https://github.com/${plugin.repo}.git'),
+      );
+      fs
+          .file(
+            fs.path.joinAll([
+              arguments.last,
+              ?plugin.path,
+              '.claude-plugin',
+              'plugin.json',
+            ]),
+          )
+          .createSync(recursive: true);
       return ProcessResult(0, 0, '', '');
     }
 

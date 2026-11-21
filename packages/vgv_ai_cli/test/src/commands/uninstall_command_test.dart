@@ -735,7 +735,20 @@ void main() {
           List<String> arguments, {
           bool runInShell = false,
         }) async {
-          fs.directory(arguments.last).createSync(recursive: true);
+          final plugin = vgvPlugins.firstWhere(
+            (plugin) =>
+                arguments.contains('https://github.com/${plugin.repo}.git'),
+          );
+          fs
+              .file(
+                fs.path.joinAll([
+                  arguments.last,
+                  ?plugin.path,
+                  '.claude-plugin',
+                  'plugin.json',
+                ]),
+              )
+              .createSync(recursive: true);
           return ProcessResult(0, 0, '', '');
         }
 

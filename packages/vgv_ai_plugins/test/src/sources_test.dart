@@ -123,6 +123,11 @@ void main() {
 
     ProcessResult ok() => ProcessResult(0, ExitCode.success.code, '', '');
 
+    /// Writes a plugin manifest under [path], as a real clone would have.
+    void seedPlugin(String path) => fileSystem
+        .file(p.join(path, '.claude-plugin', 'plugin.json'))
+        .createSync(recursive: true);
+
     setUp(() {
       cacheRoot = fileSystem.directory('/home/dev/.vgv_ai/plugins')
         ..createSync(recursive: true);
@@ -136,7 +141,7 @@ void main() {
           cacheRoot: cacheRoot,
           runGit: (a) async {
             args = a;
-            fileSystem.directory(a.last).createSync(recursive: true);
+            seedPlugin(a.last);
             return ok();
           },
         ).resolve(ref),
@@ -151,7 +156,7 @@ void main() {
         GitPluginSource(
           cacheRoot: cacheRoot,
           runGit: (a) async {
-            fileSystem.directory(a.last).createSync(recursive: true);
+            seedPlugin(a.last);
             return ok();
           },
         ).resolve(ref),
@@ -178,7 +183,7 @@ void main() {
         GitPluginSource(
           cacheRoot: cacheRoot,
           runGit: (a) async {
-            fileSystem.directory(a.last).createSync(recursive: true);
+            seedPlugin(p.join(a.last, 'plugin'));
             return ok();
           },
         ).resolve(nested),
@@ -192,6 +197,36 @@ void main() {
       );
     });
 
+    test('reports a path the clone has no plugin under', () async {
+      const nested = PluginRef(
+        name: 'vgv-wingspan',
+        repo: 'VeryGoodOpenSource/vgv-wingspan',
+        version: '0.0.5',
+        gitRef: 'v0.0.5',
+        path: 'plugin',
+      );
+
+      await expectLater(
+        GitPluginSource(
+          cacheRoot: cacheRoot,
+          runGit: (a) async {
+            seedPlugin(a.last);
+            return ok();
+          },
+        ).resolve(nested),
+        completion(
+          isA<UnavailablePlugin>().having(
+            (r) => r.reasons.single,
+            'reason',
+            allOf(
+              contains(p.join(cacheRoot.path, ref.name, '0.0.5', 'plugin')),
+              contains('v0.0.5'),
+            ),
+          ),
+        ),
+      );
+    });
+
     test('publishes the version directory only after git succeeds', () async {
       final target = fileSystem.directory(
         p.join(cacheRoot.path, ref.name, '0.0.5'),
@@ -200,7 +235,7 @@ void main() {
       await GitPluginSource(
         cacheRoot: cacheRoot,
         runGit: (a) async {
-          fileSystem.directory(a.last).createSync(recursive: true);
+          seedPlugin(a.last);
           expect(target.existsSync(), isFalse);
           return ok();
         },
@@ -210,9 +245,7 @@ void main() {
     });
 
     test('reuses an existing clone without running git', () async {
-      fileSystem
-          .directory(p.join(cacheRoot.path, ref.name, '0.0.5'))
-          .createSync(recursive: true);
+      seedPlugin(p.join(cacheRoot.path, ref.name, '0.0.5'));
       var ran = false;
 
       await expectLater(
@@ -233,7 +266,7 @@ void main() {
         GitPluginSource(
           cacheRoot: cacheRoot,
           runGit: (a) async {
-            fileSystem.directory(a.last).createSync(recursive: true);
+            seedPlugin(a.last);
             return ProcessResult(0, 128, '', 'Remote branch v0.0.5 not found');
           },
         ).resolve(ref),
@@ -290,7 +323,7 @@ void main() {
       await GitPluginSource(
         cacheRoot: cacheRoot,
         runGit: (a) async {
-          fileSystem.directory(a.last).createSync(recursive: true);
+          seedPlugin(a.last);
           return ProcessResult(0, 128, '', 'Remote branch v0.0.5 not found');
         },
         log: logged.add,
@@ -329,7 +362,7 @@ void main() {
         GitPluginSource(
           cacheRoot: cacheRoot,
           runGit: (a) async {
-            fileSystem.directory(a.last).createSync(recursive: true);
+            seedPlugin(a.last);
             fileSystem.file(p.join(cacheRoot.path, ref.name, '0.0.5'))
               ..createSync(recursive: true)
               ..writeAsStringSync('not a directory');
@@ -355,8 +388,8 @@ void main() {
         GitPluginSource(
           cacheRoot: cacheRoot,
           runGit: (a) async {
-            fileSystem.directory(a.last).createSync(recursive: true);
-            target.createSync(recursive: true);
+            seedPlugin(a.last);
+            seedPlugin(target.path);
             fileSystem.file(p.join(target.path, 'winner.txt')).createSync();
             return ok();
           },

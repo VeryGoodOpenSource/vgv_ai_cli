@@ -208,11 +208,23 @@ class const GitPluginSource({
   }
 
   /// The plugin inside [clone], the whole repo cloned at [ref]'s tag.
-  ResolvedPlugin _resolved(Directory clone, PluginRef ref) => ResolvedPlugin(
-    clone.fileSystem.directory(
+  ///
+  /// The parser reads a missing directory as a plugin with no files, so a
+  /// [PluginRef.path] the tag does not have would install nothing without a
+  /// word. Requiring the manifest turns that into an error naming the path.
+  PluginResolution _resolved(Directory clone, PluginRef ref) {
+    final directory = clone.fileSystem.directory(
       clone.fileSystem.path.joinAll([clone.path, ?ref.path]),
-    ),
-  );
+    );
+    final manifest = directory
+        .childDirectory('.claude-plugin')
+        .childFile('plugin.json');
+    if (manifest.existsSync()) return ResolvedPlugin(directory);
+    return UnavailablePlugin.single(
+      'The clone of $ref has no .claude-plugin/plugin.json in '
+      '${directory.path}. Check that its pinned path matches ${ref.gitRef}.',
+    );
+  }
 
   void _deleteTemp(Directory temp) {
     if (temp.existsSync()) temp.deleteSync(recursive: true);
