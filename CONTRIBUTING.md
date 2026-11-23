@@ -150,11 +150,12 @@ open coverage/index.html
 ## Releases
 
 [release-please](https://github.com/googleapis/release-please) owns versions and changelogs.
-Every push to `main` opens or updates a release pull request that bumps both packages to the
-same version and writes their `CHANGELOG.md`. Merge it only when a release is intended; merging it tags the release and
-publishes the notes.
+Every push to `main` opens or updates one release pull request per changed package, which bumps
+that package and writes its `CHANGELOG.md`. Merge one only when a release is intended; merging it
+tags the release and publishes the notes. When both are open, merge the `vgv_ai_plugins` one first.
 
-The `vX.Y.Z` tag starts two workflows. `pub_publish.yaml` publishes both packages to pub.dev,
+The `vgv_ai_plugins-vX.Y.Z` tag starts `pub_publish_plugins.yaml`, which publishes `vgv_ai_plugins`
+to pub.dev. The `vX.Y.Z` tag starts two workflows. `pub_publish.yaml` publishes the CLI to pub.dev,
 and `release_binaries.yaml` compiles `vgv_ai` on macOS and Linux, arm64 and x64, and attaches
 `vgv_ai-<version>-<os>-<arch>.tar.gz` with a `.sha256` beside each to the GitHub release. To
 attach binaries to a release that lacks them, run `release_binaries` by hand with its `tag`
