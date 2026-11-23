@@ -259,7 +259,8 @@ class InstallCommand({
   /// `--only` wins outright and bypasses detection. Otherwise every harness
   /// that is both enabled and actually installed is configured, since writing
   /// config for a harness the user does not have is noise. Only enabled
-  /// harnesses are probed, since each probe may wait out a timeout.
+  /// harnesses are probed, since each probe may wait out a timeout. A
+  /// harness older than it supports is warned about, and still configured.
   Future<Set<Harness>> _select() async {
     final only = onlyHarnesses;
     if (only != null) return only;
@@ -282,6 +283,7 @@ class InstallCommand({
     for (final MapEntry(key: harness, value: detection) in detections.entries) {
       if (detection.installed) {
         selected.add(harness);
+        _reportVersion(harness, detection);
       } else {
         _logger.info(
           '${lightYellow.wrap('skipped')} ${harness.displayName} '
@@ -291,6 +293,29 @@ class InstallCommand({
     }
 
     return selected;
+  }
+
+  /// Warns when [detection] found [harness] older than it supports, and
+  /// notes when its version could not be read. Either way it is still
+  /// configured, since most of what install writes works on any version.
+  void _reportVersion(Harness harness, HarnessDetection detection) {
+    final name = harness.displayName;
+    final minimum = harness.minimumVersion;
+    switch (detection.status) {
+      case HarnessStatus.outdated:
+        _logger.warn(
+          '$name ${detection.version} is older than $minimum, the oldest '
+          'version vgv_ai supports, so it may ignore some of what install '
+          'writes. Update $name to $minimum or later.',
+        );
+      case HarnessStatus.unversioned:
+        _logger.info(
+          'Could not read the version of $name, so cannot tell whether it '
+          'is at least $minimum.',
+        );
+      case HarnessStatus.supported || HarnessStatus.missing:
+        break;
+    }
   }
 
   /// The plugins to install for [selected]: the ones `--plugin` names, or

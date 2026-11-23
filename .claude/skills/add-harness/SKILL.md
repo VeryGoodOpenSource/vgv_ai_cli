@@ -46,6 +46,8 @@ layout is evidence. Fetch the page and quote it.
 Answer these, with a source for each:
 
 - The binary name, and what `<binary> --version` prints.
+- The oldest release that reads every file you will render for it, from its changelog. That is
+  `minimumVersion` on the enum.
 - The config directory under `$HOME`.
 - Whether it reads `~/.agents/skills` with no configuration. If not, where it wants skills.
 - Its settings file, and the key MCP servers go under.
@@ -170,16 +172,18 @@ New, both under `packages/vgv_ai_cli/`:
 - `test/src/translate/translators/<harness>_translator_test.dart`
 - `test/src/translate/translators/<harness>_compat_test.dart` — only with hooks
 
-Existing, all three must be updated or the suite fails:
+Existing, all four must be updated or the suite fails:
 
 - `test/src/model/harness_test.dart` — the reporting-order list **and** the config directory map
+- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table, which `harness_test.dart`
+  checks row for row against `Harness.values`, minimum version included
 - `test/src/translate/agents_vars_test.dart` — the flags map
 - `test/src/translate/translator_test.dart` — a `tree()` expectation for every file it gets
 
 Then the user-facing docs, which no test covers:
 
-- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table, and the paragraph under it
-  about which harnesses share `~/.agents/skills`. Link the harness name to its docs page
+- `packages/vgv_ai_cli/README.md` — the paragraph under the **Supported harnesses** table about
+  which harnesses share `~/.agents/skills`. In the table, link the harness name to its docs page
 - `README.md` — the agents named in the opening sentence
 - `packages/vgv_ai_cli/docs/<harness>.md` — a new page: what `install` writes there, what the
   harness doesn't get, and any setup it needs. Add it to the index in `docs/README.md`

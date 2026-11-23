@@ -210,6 +210,62 @@ void main() {
             .called(1);
       });
 
+      test('warns about an outdated harness and still configures it', () async {
+        when(() => detector.detect(any())).thenAnswer(
+          (invocation) async =>
+              invocation.positionalArguments.single == Harness.pi
+              ? const HarnessDetection.outdated(version: '0.1.0')
+              : const HarnessDetection.missing(),
+        );
+
+        final exitCode = await runInstall([]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.selected, {Harness.pi});
+        verify(
+          () => logger.warn(
+            'Pi 0.1.0 is older than ${Harness.pi.minimumVersion}, the oldest '
+            'version vgv_ai supports, so it may ignore some of what install '
+            'writes. Update Pi to ${Harness.pi.minimumVersion} or later.',
+          ),
+        ).called(1);
+      });
+
+      test(
+        'notes a harness whose version is unknown, as not outdated',
+        () async {
+          when(() => detector.detect(any())).thenAnswer(
+            (invocation) async =>
+                invocation.positionalArguments.single == Harness.codex
+                ? const HarnessDetection.unversioned()
+                : const HarnessDetection.missing(),
+          );
+
+          final exitCode = await runInstall([]);
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.selected, {Harness.codex});
+          verify(
+            () => logger.info(
+              'Could not read the version of Codex, so cannot tell whether it '
+              'is at least ${Harness.codex.minimumVersion}.',
+            ),
+          ).called(1);
+          verifyNever(() => logger.warn(any(that: contains('older than'))));
+        },
+      );
+
+      test('says nothing about the version of a supported harness', () async {
+        detectAll([Harness.claude]);
+
+        await runInstall([]);
+
+        verifyNever(() => logger.warn(any(that: contains('older than'))));
+        verifyNever(
+          () => logger.info(any(that: contains('Could not read the version'))),
+        );
+      });
+
       test('--no-<harness> opts a detected harness out', () async {
         detectAll(Harness.values);
 
