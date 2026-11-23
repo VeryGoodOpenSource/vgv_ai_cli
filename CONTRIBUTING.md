@@ -7,7 +7,7 @@ on it. For what the repository holds, see the [README](README.md).
 
 | Requirement                                     | Why                                               |
 | ----------------------------------------------- | ------------------------------------------------- |
-| [Dart SDK](https://dart.dev/get-dart) `^3.13.0` | The code uses Dart 3.13 syntax.                   |
+| [Dart SDK](https://dart.dev/get-dart) `^3.14.0` | The code uses Dart 3.13 syntax.                   |
 | [Very Good CLI](https://cli.vgv.dev) `^1.5.0`   | The coverage run needs its pub workspace support. |
 | [jq](https://jqlang.org)                        | The agent hooks parse their payloads with it.     |
 | [GitHub CLI](https://cli.github.com), signed in | Pushing branches and opening pull requests.       |

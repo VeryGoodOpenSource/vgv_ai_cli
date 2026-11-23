@@ -342,7 +342,10 @@ class const HookScripts({
 /// each that could not be copied as intended.
 /// {@endtemplate}
 class const HookCopy({
+  /// The files of the copy.
   required final List<PlannedChange> files,
+
+  /// A note for each file that could not be copied as intended.
   required final List<TranslationNote> notes,
 }) {
   /// {@macro hook_copy}

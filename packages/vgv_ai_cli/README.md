@@ -40,7 +40,7 @@ Set `VGV_AI_VERSION` to install a specific version, such as `0.1.0`, and
 ### pub
 
 `vgv_ai` is also a Dart package. You need the
-[Dart SDK](https://dart.dev/get-dart) 3.13 or later.
+[Dart SDK](https://dart.dev/get-dart) 3.14 or later.
 
 ```sh
 dart pub global activate vgv_ai_cli
@@ -61,29 +61,24 @@ paths with the host separator while those scripts expect POSIX ones.
 `--only` and `--[no-]<harness>`, and the config directory is where `vgv_ai`
 writes that harness's files, relative to your home directory.
 
-| Flag          | Harness            | Executable | Config directory     |
-| ------------- | ------------------ | ---------- | -------------------- |
-| `claude`      | Claude Code        | `claude`   | `~/.claude`          |
-| `gemini`      | Gemini CLI         | `gemini`   | `~/.gemini`          |
-| `codex`       | Codex              | `codex`    | `~/.codex`           |
-| `opencode`    | OpenCode           | `opencode` | `~/.config/opencode` |
-| `pi`          | Pi                 | `pi`       | `~/.pi/agent`        |
-| `copilot`     | GitHub Copilot CLI | `copilot`  | `~/.copilot`         |
-| `antigravity` | Antigravity CLI    | `agy`      | `~/.gemini/config`   |
+| Flag          | Harness                                | Executable | Config directory     |
+| ------------- | -------------------------------------- | ---------- | -------------------- |
+| `claude`      | [Claude Code](docs/claude.md)          | `claude`   | `~/.claude`          |
+| `gemini`      | [Gemini CLI](docs/gemini.md)           | `gemini`   | `~/.gemini`          |
+| `codex`       | [Codex](docs/codex.md)                 | `codex`    | `~/.codex`           |
+| `opencode`    | [OpenCode](docs/opencode.md)           | `opencode` | `~/.config/opencode` |
+| `pi`          | [Pi](docs/pi.md)                       | `pi`       | `~/.pi/agent`        |
+| `copilot`     | [GitHub Copilot CLI](docs/copilot.md)  | `copilot`  | `~/.copilot`         |
+| `antigravity` | [Antigravity CLI](docs/antigravity.md) | `agy`      | `~/.gemini/config`   |
 
 Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
 the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
 share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
 own copy inside its plugin.
 
-### Copilot in VS Code
-
-Skills that launch agents, such as `review`, need **Local** sessions in VS
-Code. In **Copilot** sessions, Ask mode is read-only and cannot launch agents.
-
-1. Switch the chat session to **Local**.
-2. Under **Configure Tools**, enable the terminal and **Run Subagent**
-   (`agent/runSubagent`).
+Each harness has its own page in [`docs`](docs/README.md), covering what
+`install` writes there and any setup the harness needs, such as running agent
+skills from Copilot in VS Code.
 
 ## Commands
 

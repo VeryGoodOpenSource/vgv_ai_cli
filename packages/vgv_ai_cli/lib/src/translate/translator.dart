@@ -12,8 +12,13 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// Plans every change that installs the plugins into the selected harnesses.
 /// {@endtemplate}
 class const Translator({
+  /// The translator for each harness.
   final List<HarnessTranslator> translators = harnessTranslators,
+
+  /// The brick that renders the harnesses' agent files.
   final AgentsBrick brick = const AgentsBrick(),
+
+  /// The translator for the skills the harnesses share.
   final SkillsTranslator skills = const SkillsTranslator(),
   final PluginFilesTranslator pluginFiles = const PluginFilesTranslator(),
 }) {

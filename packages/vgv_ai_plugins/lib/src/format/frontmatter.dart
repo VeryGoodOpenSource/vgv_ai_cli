@@ -19,7 +19,10 @@ import 'package:yaml/yaml.dart';
 /// validated it.
 /// {@endtemplate}
 class const Frontmatter._({
+  /// Every frontmatter key, with nested values as unmodifiable snapshots.
   required final Map<String, Object?> values,
+
+  /// The document with the frontmatter block removed.
   required final String body,
 }) {
   /// Parses [source], which must open and close with a `---` fence.

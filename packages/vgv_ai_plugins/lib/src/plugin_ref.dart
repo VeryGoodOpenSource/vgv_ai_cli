@@ -15,9 +15,16 @@
 /// prefix implicit and silently wrong the moment that changes.
 /// {@endtemplate}
 class const PluginRef({
+  /// The plugin's name.
   required final String name,
+
+  /// The plugin's GitHub repository, such as `owner/name`.
   required final String repo,
+
+  /// The declared version, which names the Claude Code cache directory.
   required final String version,
+
+  /// The tag to clone.
   required final String gitRef,
 }) {
   /// {@macro plugin_ref}

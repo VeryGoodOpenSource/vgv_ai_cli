@@ -15,8 +15,10 @@ sealed class const PluginResolution() {
 /// {@template resolved_plugin}
 /// The plugin was found on disk at [directory].
 /// {@endtemplate}
-final class const ResolvedPlugin(final Directory directory)
-    extends PluginResolution {
+final class const ResolvedPlugin(
+  /// Where the plugin was found.
+  final Directory directory,
+) extends PluginResolution {
   /// {@macro resolved_plugin}
   this;
 }
@@ -28,8 +30,10 @@ final class const ResolvedPlugin(final Directory directory)
 /// tried. A list rather than a joined string, so a chain of sources can
 /// concatenate without losing which source said what.
 /// {@endtemplate}
-final class const UnavailablePlugin(final List<String> reasons)
-    extends PluginResolution {
+final class const UnavailablePlugin(
+  /// Why each source that was tried could not supply the plugin.
+  final List<String> reasons,
+) extends PluginResolution {
   /// {@macro unavailable_plugin}
   this;
 

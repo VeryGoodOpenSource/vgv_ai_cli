@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.2.0...v0.3.0) (2026-11-16)
+
+
+### Features
+
+* reinstall plugins after updating the CLI ([#143](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/143)) ([cbb6b9d](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/cbb6b9da23128c40066743ba74434e0a039b81da))
+
+
+### Docs
+
+* explain running agent skills from Copilot in VS Code ([#144](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/144)) ([571db31](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/571db31510136e1517215c89ac3aa8f77f5acf4a))
+
 ## [0.2.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.1.0...v0.2.0) (2026-11-06)
 
 
