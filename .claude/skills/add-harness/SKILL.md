@@ -30,6 +30,8 @@ and the green gate still has to pass against the real harness.
 - Moving its config directory, `hooksRoot()` or `skillsRoot()`.
 - Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
 - Dropping or renaming a settings key already written into a config the user also edits.
+- Moving a file the brick renders, unless the harness's translator maps the new folder to the old
+  one in `formerFolders()`, as `OpenCodeTranslator` does, so `install` takes back the old copies. See "Changing a harness that already exists" in `ADDING_A_HARNESS.md`.
 
 Each is a breaking change of behavior. Say so, and ask for an issue or a discussion to agree the
 approach before any PR — do not open one with the change already made.
@@ -52,6 +54,9 @@ Answer these, with a source for each:
 - Whether it has subagents, and what frontmatter they take.
 - Whether it has slash commands or prompts, and the folder name it reads them from.
 - Whether anything in its config can run a shell command, and the event names it uses.
+- The oldest version that supports each of the above, from its changelog or docs. Record it in
+  the PR and on issue #157, which tracks each harness's minimum version. Answer this too when
+  changing a file the brick renders for a harness that already exists.
 
 **Stop here and report the answers with their sources.** A guess at any of these produces config
 that silently does nothing. If the documentation does not say, say so rather than inferring it
