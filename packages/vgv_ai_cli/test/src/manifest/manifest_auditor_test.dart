@@ -73,6 +73,7 @@ void main() {
     /// as `uninstall` does.
     Reversal reversal({
       Set<Harness?>? owners,
+      Set<String>? paths,
       bool force = false,
       bool dryRun = false,
     }) {
@@ -80,6 +81,7 @@ void main() {
         manifest.load()!,
         fs,
         owners: owners,
+        paths: paths,
         force: force,
         dryRun: dryRun,
       );
@@ -89,9 +91,15 @@ void main() {
 
     List<ReversedEntry> reverse({
       Set<Harness?>? owners,
+      Set<String>? paths,
       bool force = false,
       bool dryRun = false,
-    }) => reversal(owners: owners, force: force, dryRun: dryRun).entries;
+    }) => reversal(
+      owners: owners,
+      paths: paths,
+      force: force,
+      dryRun: dryRun,
+    ).entries;
 
     ReverseOutcome reverseOne({bool force = false}) =>
         reverse(force: force).single.outcome;
@@ -608,6 +616,46 @@ void main() {
           expect(shared.existsSync(), isTrue);
           expect(gemini.existsSync(), isFalse);
           expect(manifest.load()!.entries.map((e) => e.path), [shared.path]);
+        });
+
+        test('reverses only the paths asked for', () {
+          final kept = file('.config/opencode/agents/a.md');
+          final gone = file('.config/opencode/agent/a.md');
+          install([
+            owned(kept, 'a', harness: Harness.opencode),
+            owned(gone, 'a', harness: Harness.opencode),
+          ]);
+
+          final result = auditor.reverse(
+            manifest.load()!.withPlugins(const {
+              Harness.opencode: {'vgv-wingspan': '0.0.5'},
+            }),
+            fs,
+            paths: {gone.path},
+          );
+
+          expect(result.entries.map((r) => r.entry.path), [gone.path]);
+          expect(kept.existsSync(), isTrue);
+          expect(gone.existsSync(), isFalse);
+          expect(result.manifest.entries.map((e) => e.path), [kept.path]);
+          expect(result.manifest.plugins, contains(Harness.opencode));
+        });
+
+        test('reverses an entry only when both owner and path match', () {
+          final shared = file('.agents/skills/a/SKILL.md');
+          final gemini = file('.gemini/agents/a.md');
+          install([
+            owned(shared, 'a'),
+            owned(gemini, 'a', harness: Harness.gemini),
+          ]);
+
+          final reversed = reverse(
+            owners: {Harness.gemini},
+            paths: {shared.path, gemini.path, file('elsewhere.md').path},
+          );
+
+          expect(reversed.map((r) => r.entry.path), [gemini.path]);
+          expect(shared.existsSync(), isTrue);
         });
 
         test('touches nothing on a dry run, but returns what it would', () {
