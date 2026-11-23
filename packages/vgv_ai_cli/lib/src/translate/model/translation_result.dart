@@ -13,6 +13,10 @@ class const TranslationResult({
 
   /// Everything this harness could not express.
   final List<TranslationNote> notes = const [],
+
+  /// Each file an earlier version wrote, mapped to the file in [changes]
+  /// that replaces it, both absolute.
+  final Map<String, String> superseded = const {},
 }) {
   /// {@macro translation_result}
   this;

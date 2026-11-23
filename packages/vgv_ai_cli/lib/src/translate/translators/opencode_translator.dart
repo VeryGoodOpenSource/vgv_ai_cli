@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:file/file.dart';
+import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
@@ -52,4 +54,15 @@ class const OpenCodeTranslator() extends HarnessTranslator {
   HarnessFields command(SkillAsset skill) => HarnessFields(
     frontmatter: Frontmatter.render({'description': skill.description}),
   );
+
+  /// OpenCode documents the plural folders, and also loads the singular
+  /// ones earlier versions wrote.
+  @override
+  Map<String, String> formerFolders(Directory home) {
+    final root = harness.configDirectory(home).path;
+    return {
+      p.join(root, 'agents'): p.join(root, 'agent'),
+      p.join(root, 'commands'): p.join(root, 'command'),
+    };
+  }
 }

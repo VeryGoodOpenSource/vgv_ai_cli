@@ -20,4 +20,11 @@ class const TranslationPlan({
     ...?shared?.changes,
     for (final result in harnesses.values) ...result.changes,
   ];
+
+  /// Each file an earlier version wrote, mapped to the file this plan
+  /// replaces it with.
+  Map<String, String> get superseded => {
+    ...?shared?.superseded,
+    for (final result in harnesses.values) ...result.superseded,
+  };
 }

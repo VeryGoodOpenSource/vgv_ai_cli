@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
+import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
@@ -77,8 +78,9 @@ class const Translator({
   }
 
   /// [translator]'s [rendered] files, the ones beside its [hooks], and its
-  /// own copy of the skills when it keeps one, with its notes. A harness
-  /// that runs no hooks is told so here, since every translator would
+  /// own copy of the skills when it keeps one, with its notes and the files
+  /// in its former folders those changes replace. A harness that runs no
+  /// hooks is told so here, since every translator would
   /// otherwise say it the same way.
   TranslationResult _result(
     HarnessTranslator translator, {
@@ -98,13 +100,20 @@ class const Translator({
     final shared = translator.readsSharedSkills
         ? translator.sharedSkillFiles(assets, root: agentsSkillsRoot(home))
         : null;
+    final changes = [
+      ...?rendered,
+      ...?hooks?.files,
+      ...?own?.changes,
+      ...?shared?.changes,
+    ];
+    final former = translator.formerFolders(home);
     return TranslationResult(
-      changes: [
-        ...?rendered,
-        ...?hooks?.files,
-        ...?own?.changes,
-        ...?shared?.changes,
-      ],
+      changes: changes,
+      superseded: {
+        for (final change in changes)
+          if (former[p.dirname(change.file.path)] case final folder?)
+            p.join(folder, p.basename(change.file.path)): change.file.path,
+      },
       notes: [
         ...translator.notes(assets),
         ...?hooks?.notes,
