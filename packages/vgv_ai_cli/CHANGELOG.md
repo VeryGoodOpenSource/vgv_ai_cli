@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.3.0...v0.4.0) (2026-11-23)
+
+
+### Features
+
+* track minimum supported version for each harness ([#160](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/160)) ([f68e5fc](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/f68e5fc8660df0a13d9a1268206e184f5a0a7ded))
+* upgrade to Dart 3.14.0 and Flutter 3.50.0 ([#151](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/151)) ([485b877](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/485b877321a0389e41f71ea65652d590adae0b60))
+
+
+### Bug Fixes
+
+* render OpenCode agents and commands to the plural folders ([#161](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/161)) ([46b49e5](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/46b49e5941c478d34e16f3d175a9ffab10a696c1))
+
+
+### Docs
+
+* add per-harness setup docs and slim package README ([#159](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/159)) ([9bebb6d](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/9bebb6d9d2a6c86443e8c9c13e4160990e0bba11))
+
 ## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.2.0...v0.3.0) (2026-11-16)
 
 

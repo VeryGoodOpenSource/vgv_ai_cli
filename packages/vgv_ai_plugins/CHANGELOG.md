@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.2.0...vgv_ai_plugins-v0.3.0) (2026-11-23)
+
+
+### Features
+
+* upgrade to Dart 3.14.0 and Flutter 3.50.0 ([#151](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/151)) ([485b877](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/485b877321a0389e41f71ea65652d590adae0b60))
+
 ## [0.2.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.1.0...vgv_ai_plugins-v0.2.0) (2026-11-06)
 
 
