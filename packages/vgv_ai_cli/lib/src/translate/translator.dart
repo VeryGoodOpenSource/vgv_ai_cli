@@ -20,6 +20,8 @@ class const Translator({
 
   /// The translator for the skills the harnesses share.
   final SkillsTranslator skills = const SkillsTranslator(),
+
+  /// The translator that copies the plugin files a project install reads.
   final PluginFilesTranslator pluginFiles = const PluginFilesTranslator(),
 }) {
   /// {@macro translator}
