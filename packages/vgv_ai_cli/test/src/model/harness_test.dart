@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:file/memory.dart';
+import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 
@@ -49,6 +52,45 @@ void main() {
           Harness.copilot: '/home/dev/.copilot',
           Harness.antigravity: '/home/dev/.gemini/config',
         },
+      );
+    });
+
+    test('gives every harness a minimum version to compare with', () {
+      for (final harness in Harness.values) {
+        expect(
+          () => Version.parse(harness.minimumVersion),
+          returnsNormally,
+          reason: '${harness.name} needs an x.y.z minimum version',
+        );
+      }
+    });
+
+    test('is listed in the README, row for row', () {
+      // Each release's README says which versions it supports, so the
+      // table is checked against the enum rather than kept by hand.
+      final home = MemoryFileSystem.test().directory('~');
+      final rows = [
+        for (final line in File('README.md').readAsLinesSync())
+          if (line.startsWith('| `'))
+            [
+              for (final cell in line.split('|').skip(1).toList()..removeLast())
+                cell.trim(),
+            ],
+      ];
+
+      expect(
+        [
+          for (final row in rows) [row[0], ...row.skip(2)],
+        ],
+        [
+          for (final harness in Harness.values)
+            [
+              '`${harness.name}`',
+              '`${harness.executable}`',
+              '`${harness.configDirectory(home).path}`',
+              harness.minimumVersion,
+            ],
+        ],
       );
     });
   });
