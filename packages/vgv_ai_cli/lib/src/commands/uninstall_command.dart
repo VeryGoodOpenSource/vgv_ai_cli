@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:vgv_ai_cli/src/commands/empty_directories.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
@@ -127,7 +128,7 @@ class UninstallCommand({
       dryRun: dryRun,
     );
     _report(reversal.entries, dryRun: dryRun);
-    if (!dryRun) _deleteEmptyDirectories(reversal.entries, home);
+    if (!dryRun) deleteEmptyDirectories(reversal.entries, home, _logger);
     if (reversal.entries.isEmpty && only == null) {
       _logger.info('Nothing to remove for the selected harnesses.');
     }
@@ -160,33 +161,6 @@ class UninstallCommand({
         'vgv_ai can read: ${error.description}',
       );
       return ExitCode.ioError.code;
-    }
-  }
-
-  /// Deletes the directories each removed entry of [entries] left empty, up
-  /// to the skills root for the shared skills and the harness's config
-  /// directory for the rest, which are never deleted.
-  ///
-  /// The files are already gone by now, so a directory that cannot be
-  /// deleted is only warned about.
-  void _deleteEmptyDirectories(List<ReversedEntry> entries, Directory home) {
-    final fileSystem = home.fileSystem;
-    for (final ReversedEntry(:entry, :outcome) in entries) {
-      if (outcome != ReverseOutcome.removed) continue;
-
-      try {
-        fileSystem
-            .file(entry.path)
-            .parent
-            .deleteEmptyUpTo(
-              entry.owner?.configDirectory(home) ?? UserScope(home).skillsRoot,
-            );
-      } on FileSystemException catch (error) {
-        _logger.warn(
-          'Could not delete the empty directories above ${entry.path}: '
-          '${error.description}',
-        );
-      }
     }
   }
 

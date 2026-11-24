@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/agents_brick.dart';
 import 'package:vgv_ai_cli/src/translate/agents_vars.dart';
@@ -110,9 +111,9 @@ class const Translator({
   }
 
   /// [translator]'s [rendered] files, the ones beside its [hooks], and its
-  /// own copy of the skills when it keeps one, with its notes. What a
-  /// harness misses is told here, since every translator would otherwise say
-  /// it the same way.
+  /// own copy of the skills when it keeps one, with its notes and the files
+  /// in its former folders those changes replace. What a harness misses is
+  /// told here, since every translator would otherwise say it the same way.
   TranslationResult _result(
     HarnessTranslator translator, {
     required List<PlannedChange>? rendered,
@@ -132,13 +133,23 @@ class const Translator({
     final shared = translator.readsSharedSkills(scope)
         ? translator.sharedSkillFiles(assets, root: scope.skillsRoot)
         : null;
+    final changes = [
+      ...?rendered,
+      ...?hooks?.files,
+      ...?own?.changes,
+      ...?shared?.changes,
+    ];
+    final former = switch (scope) {
+      UserScope(:final root) => translator.formerFolders(root),
+      ProjectScope() => const <String, String>{},
+    };
     return TranslationResult(
-      changes: [
-        ...?rendered,
-        ...?hooks?.files,
-        ...?own?.changes,
-        ...?shared?.changes,
-      ],
+      changes: changes,
+      superseded: {
+        for (final change in changes)
+          if (former[p.dirname(change.file.path)] case final folder?)
+            p.join(folder, p.basename(change.file.path)): change.file.path,
+      },
       notes: [
         ...translator.notes(assets),
         if (scope is ProjectScope) ...translator.projectNotes(assets),

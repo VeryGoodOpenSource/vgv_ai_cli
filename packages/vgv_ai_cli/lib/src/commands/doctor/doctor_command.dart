@@ -144,15 +144,16 @@ class DoctorCommand({
     }
   }
 
-  /// The harnesses of [scope] that are installed on this machine.
-  Future<Set<Harness>> _detect(Set<Harness> scope) async {
+  /// What probing found for each harness of [scope] that is installed on
+  /// this machine.
+  Future<Map<Harness, HarnessDetection>> _detect(Set<Harness> scope) async {
     final detections = await Future.wait([
       for (final harness in scope)
         _detector.detect(harness).then((found) => (harness, found)),
     ]);
     return {
       for (final (harness, detection) in detections)
-        if (detection.installed) harness,
+        if (detection.installed) harness: detection,
     };
   }
 
@@ -258,12 +259,12 @@ class DoctorCommand({
   /// was installed from.
   ///
   /// [installed] are the harnesses of the selected scope VGV configured, and
-  /// [detected] those of it on this machine.
+  /// [detected] what probing found for those of it on this machine.
   List<ReportSection> _verify(
     InstallManifest manifest,
     Directory home, {
     required Set<Harness> installed,
-    required Set<Harness> detected,
+    required Map<Harness, HarnessDetection> detected,
     required ContentPlan plan,
   }) {
     final readsShared = installed.intersection(_readShared(home));
@@ -283,27 +284,27 @@ class DoctorCommand({
           findings: _entryFindings(null, manifest, home, plan),
         ),
       for (final harness in Harness.values)
-        if (installed.contains(harness) || detected.contains(harness))
+        if (installed.contains(harness) || detected.containsKey(harness))
           _harnessSection(
             harness,
             manifest,
             home,
             plan,
             isInstalled: installed.contains(harness),
-            isDetected: detected.contains(harness),
+            detection: detected[harness],
           ),
     ];
   }
 
   /// The section for [harness], which VGV configured when [isInstalled] and
-  /// is on this machine when [isDetected].
+  /// is on this machine when it has a [detection].
   ReportSection _harnessSection(
     Harness harness,
     InstallManifest manifest,
     Directory home,
     ContentPlan plan, {
     required bool isInstalled,
-    required bool isDetected,
+    required HarnessDetection? detection,
   }) {
     final recorded = manifest.plugins[harness] ?? const <String, String>{};
     return ReportSection(
@@ -311,10 +312,12 @@ class DoctorCommand({
       installs: {harness},
       plugins: _selected(recorded),
       findings: [
-        if (!isDetected)
+        if (detection == null)
           const Finding.warning(
             'not installed on this machine, but VGV AI CLI configured it',
-          ),
+          )
+        else
+          ?_versionFinding(harness, detection),
         if (!isInstalled)
           const Finding.suggestion(
             "installed, but VGV AI CLI hasn't configured it",
@@ -325,6 +328,25 @@ class DoctorCommand({
         ..._entryFindings(harness, manifest, home, plan),
       ],
     );
+  }
+
+  /// What is wrong with the version [detection] found of [harness], or null
+  /// when nothing is. One older than [Harness.minimumVersion] ignores some
+  /// of what `install` writes, which only updating the harness fixes.
+  Finding? _versionFinding(Harness harness, HarnessDetection detection) {
+    final name = harness.displayName;
+    final minimum = harness.minimumVersion;
+    return switch (detection.status) {
+      HarnessStatus.outdated => Finding.manual(
+        'version ${detection.version} is older than $minimum, the oldest '
+        'VGV AI CLI supports',
+        step: 'Update $name to $minimum or later.',
+      ),
+      HarnessStatus.unversioned => Finding.warning(
+        'version unknown: could not tell whether it is $minimum or later',
+      ),
+      HarnessStatus.supported || HarnessStatus.missing => null,
+    };
   }
 
   /// The plugins every harness of [readers] was installed from, or null

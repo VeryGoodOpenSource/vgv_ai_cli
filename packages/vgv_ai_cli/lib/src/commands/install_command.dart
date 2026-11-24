@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
+import 'package:vgv_ai_cli/src/commands/empty_directories.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
@@ -37,6 +38,10 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 ///   narrow the set as usual. A rerun that covers every harness and plugin
 ///   the project records also takes back what VGV wrote before and no
 ///   longer writes, such as a plugin copy from an older tag.
+///
+/// A file an earlier version wrote to a folder this version no longer uses
+/// is taken back, as `uninstall` would, so the harness does not load both
+/// copies. It is kept when its replacement could not be written.
 /// {@endtemplate}
 class InstallCommand({
   required final Logger _logger,
@@ -111,6 +116,13 @@ class InstallCommand({
     ChangeOutcome.created,
     ChangeOutcome.updated,
     ChangeOutcome.partial,
+  };
+
+  /// The outcomes that leave a file holding everything VGV contributes, or
+  /// all of it but the user's values, so the copy it replaces can go.
+  static const Set<ChangeOutcome> _replaced = {
+    ..._wrote,
+    ChangeOutcome.unchanged,
   };
 
   /// The outcomes where a value the user set won over VGV's.
@@ -208,17 +220,27 @@ class InstallCommand({
     );
 
     _report(plan, applied, pruned.entries, dryRun: dryRun);
+    final retirement = _retire(
+      _supersededAndReplaced(plan, applied),
+      pruned.manifest,
+      scope.root,
+      force: force,
+      dryRun: dryRun,
+    );
     final recorded =
         dryRun ||
         store.save(
           from: manifest,
-          to: pruned.manifest.withPlugins(
+          to: retirement.manifest.withPlugins(
             _pluginVersions(manifest, resolved.assets.plugins, selected),
           ),
         );
     final anyFailed =
         applied.any((change) => change.outcome == ChangeOutcome.failed) ||
-        pruned.entries.any((entry) => entry.outcome == ReverseOutcome.failed);
+        [
+          ...pruned.entries,
+          ...retirement.entries,
+        ].any((entry) => entry.outcome == ReverseOutcome.failed);
     return !recorded || anyFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
@@ -393,7 +415,8 @@ class InstallCommand({
   /// Otherwise every harness that is both enabled and actually installed is
   /// configured, since writing config for a harness the user does not have is
   /// noise. Only enabled harnesses are probed, since each probe may wait out
-  /// a timeout.
+  /// a timeout. A harness older than it supports is warned about, and still
+  /// configured.
   Future<Set<Harness>> _select(Scope scope) async {
     final only = onlyHarnesses;
     if (only != null) return only;
@@ -417,6 +440,7 @@ class InstallCommand({
     for (final MapEntry(key: harness, value: detection) in detections.entries) {
       if (detection.installed) {
         selected.add(harness);
+        _reportVersion(harness, detection);
       } else {
         _logger.info(
           '${lightYellow.wrap('skipped')} ${harness.displayName} '
@@ -426,6 +450,29 @@ class InstallCommand({
     }
 
     return selected;
+  }
+
+  /// Warns when [detection] found [harness] older than it supports, and
+  /// notes when its version could not be read. Either way it is still
+  /// configured, since most of what install writes works on any version.
+  void _reportVersion(Harness harness, HarnessDetection detection) {
+    final name = harness.displayName;
+    final minimum = harness.minimumVersion;
+    switch (detection.status) {
+      case HarnessStatus.outdated:
+        _logger.warn(
+          '$name ${detection.version} is older than $minimum, the oldest '
+          'version vgv_ai supports, so it may ignore some of what install '
+          'writes. Update $name to $minimum or later.',
+        );
+      case HarnessStatus.unversioned:
+        _logger.info(
+          'Could not read the version of $name, so cannot tell whether it '
+          'is at least $minimum.',
+        );
+      case HarnessStatus.supported || HarnessStatus.missing:
+        break;
+    }
   }
 
   /// The plugins to install for [selected]: the ones `--plugin` names, or
@@ -528,6 +575,94 @@ class InstallCommand({
         progress.fail('Could not parse $plugin');
         _logger.err('  - $error');
         return null;
+    }
+  }
+
+  /// The files [plan] supersedes whose replacement [applied] left holding
+  /// VGV's contributions, so a failed write never costs the user both
+  /// copies.
+  Set<String> _supersededAndReplaced(
+    TranslationPlan plan,
+    List<AppliedChange> applied,
+  ) {
+    final replaced = {
+      for (final AppliedChange(:change, :outcome) in applied)
+        if (_replaced.contains(outcome)) change.file.path,
+    };
+    return {
+      for (final MapEntry(key: old, value: current) in plan.superseded.entries)
+        if (replaced.contains(current)) old,
+    };
+  }
+
+  /// Takes back the [superseded] files [manifest] records, deletes the
+  /// folders that leaves empty, and reports each.
+  ///
+  /// A file the user changed since is kept unless [force] is set, and
+  /// warned about either way.
+  Reversal _retire(
+    Set<String> superseded,
+    InstallManifest manifest,
+    Directory home, {
+    required bool force,
+    required bool dryRun,
+  }) {
+    final fileSystem = home.fileSystem;
+    // Without force a changed file is skipped, which already says so.
+    final edited = {
+      if (force)
+        for (final path in superseded)
+          if (manifest[path] case final entry?)
+            if (_auditor.verify(entry, fileSystem).status ==
+                EntryStatus.drifted)
+              path,
+    };
+    final reversal = _auditor.reverse(
+      manifest,
+      fileSystem,
+      paths: superseded,
+      force: force,
+      dryRun: dryRun,
+    );
+    for (final ReversedEntry(:entry, :outcome, :error) in reversal.entries) {
+      _reportRetired(
+        entry.path,
+        outcome,
+        error: error,
+        edited: edited.contains(entry.path),
+        dryRun: dryRun,
+      );
+    }
+    if (!dryRun) deleteEmptyDirectories(reversal.entries, home, _logger);
+    return reversal;
+  }
+
+  /// Reports what taking back the superseded file at [path] did.
+  void _reportRetired(
+    String path,
+    ReverseOutcome outcome, {
+    required String? error,
+    required bool edited,
+    required bool dryRun,
+  }) {
+    switch (outcome) {
+      case ReverseOutcome.failed:
+        _logger.err('Could not remove $path: $error');
+      case ReverseOutcome.skipped || ReverseOutcome.unparseable:
+        _logger.warn(
+          'Kept $path, which an earlier version wrote and you have changed '
+          "since. Pass ${lightCyan.wrap('--force')} to remove it.",
+        );
+      case ReverseOutcome.removed || ReverseOutcome.partial when edited:
+        _logger.warn(
+          '${dryRun ? 'Would remove' : 'Removed'} $path, which an earlier '
+          'version wrote and you have changed since.',
+        );
+      case ReverseOutcome.removed || ReverseOutcome.partial when dryRun:
+        _logger.info('Would remove $path');
+      case ReverseOutcome.removed || ReverseOutcome.partial:
+        _logger.detail('Removed $path, which an earlier version wrote');
+      case ReverseOutcome.missing:
     }
   }
 

@@ -80,6 +80,14 @@ abstract class const HarnessTranslator() {
   HookTranslation? hooks(PluginAssets assets, {required Directory hooksRoot}) =>
       null;
 
+  /// The folder each folder this harness renders into replaced, both
+  /// absolute under [home] and keyed by the current one.
+  ///
+  /// `install` takes back what an earlier version wrote to a former folder
+  /// once it writes the same file to the current one, so the harness does
+  /// not load both. Drop an entry once nobody runs the old layout.
+  Map<String, String> formerFolders(Directory home) => const {};
+
   /// What the user needs to know about [assets] for this harness, beyond
   /// what [hooks] reports.
   List<TranslationNote> notes(PluginAssets assets) => const [];

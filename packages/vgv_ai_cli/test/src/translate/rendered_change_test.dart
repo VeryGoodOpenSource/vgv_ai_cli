@@ -11,9 +11,9 @@ void main() {
         renderedChange(path, contents: 'x', scope: UserScope(home));
 
     test('lands a folder in its harness config directory', () {
-      final change = plan('opencode/agent/review.md');
+      final change = plan('opencode/agents/review.md');
 
-      expect(change.file.path, '/home/dev/.config/opencode/agent/review.md');
+      expect(change.file.path, '/home/dev/.config/opencode/agents/review.md');
       expect(change.harness, Harness.opencode);
       expect(change.contents, 'x');
     });

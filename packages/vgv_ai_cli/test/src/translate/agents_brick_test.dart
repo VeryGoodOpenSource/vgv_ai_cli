@@ -50,7 +50,7 @@ void main() {
         scope: user,
       );
 
-      expect(files['opencode/agent/review.md'], '---\n---\n\n$instructions');
+      expect(files['opencode/agents/review.md'], '---\n---\n\n$instructions');
     });
 
     test('renders an agent file per agent for a harness with agents', () async {
@@ -69,7 +69,7 @@ void main() {
       );
 
       expect(
-        files['opencode/agent/review.md'],
+        files['opencode/agents/review.md'],
         '---\nmode: subagent\n---\n\nReview it.\n',
       );
     });
