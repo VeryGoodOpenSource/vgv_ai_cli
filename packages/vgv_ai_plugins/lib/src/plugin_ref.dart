@@ -66,15 +66,15 @@ const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-wingspan',
     repo: 'VeryGoodOpenSource/vgv-wingspan',
-    version: '0.0.5',
-    gitRef: 'v0.0.5',
+    version: '0.1.0',
+    gitRef: 'v0.1.0',
     path: 'plugin',
   ),
   PluginRef(
     name: 'vgv-ai-flutter-plugin',
     repo: 'VeryGoodOpenSource/vgv-ai-flutter-plugin',
-    version: '0.1.1',
-    gitRef: 'v0.1.1',
+    version: '0.2.0',
+    gitRef: 'v0.2.0',
     path: 'plugin',
   ),
   PluginRef(
