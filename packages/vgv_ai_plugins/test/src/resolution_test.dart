@@ -22,7 +22,14 @@ void main() {
     });
 
     test('toString uses the declared version', () {
-      expect(vgvPlugins.first.toString(), 'vgv-wingspan@0.0.5');
+      const ref = PluginRef(
+        name: 'vgv-wingspan',
+        repo: 'VeryGoodOpenSource/vgv-wingspan',
+        version: '0.0.5',
+        gitRef: 'v0.0.5',
+      );
+
+      expect(ref.toString(), 'vgv-wingspan@0.0.5');
     });
   });
 }
