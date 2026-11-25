@@ -16,9 +16,17 @@ memory — these tools change their config format between minor releases. Instal
 run `<executable> --version`, and record that version in the PR. It is what the next person needs
 in order to tell a format that changed from a translator that was always wrong.
 
+Also find the **oldest** version that supports each file you render, from the harness's changelog
+or docs, and record it in the PR. Do the same when changing a file the brick renders for a
+harness that already exists, so users on an older version are not left with a file their harness
+ignores. Nothing in the code records it yet, so add it to
+[#157](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/157) too, which will track the
+minimum version of each harness.
+
 | Question | Where the answer goes |
 | --- | --- |
 | What does the binary answer `--version` with? | `executable` on the enum |
+| Which release first reads every file you render for it? | `minimumVersion` on the enum |
 | Which directory under `$HOME` holds its user config? | `config` on the enum |
 | Does it have a settings file, and what's its schema? | `settings()` on the translator |
 | Does it read `~/.agents/skills` with no configuration? | `readsSharedSkills` |
@@ -46,6 +54,7 @@ compat script.
 antigravity(
   displayName: 'Antigravity',
   executable: 'agy',
+  minimumVersion: '1.2.0',
   config: '.gemini/config',
 );
 ```
@@ -56,6 +65,10 @@ antigravity(
 - `displayName` is what reports and `--help` print.
 - `executable` is the binary probed with `<executable> --version`. A non-zero exit reads as not
   installed.
+- `minimumVersion` is the oldest `x.y.z` that reads every file the brick renders for the harness:
+  the latest of the releases that added each feature you translate, from its changelog. Cite them
+  in the PR. `install` warns about an older harness and `doctor` reports it. Raise it whenever the
+  harness starts rendering something a newer release added.
 - `config` is relative to `$HOME` with `/` separators, whatever the platform.
 
 Position matters: `Harness.values` is the order every report and the translator registry use.
@@ -63,7 +76,8 @@ Position matters: `Harness.values` is the order every report and the translator 
 The user-facing docs name every harness, and all of them need the new one:
 
 - `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table (flag, display name,
-  executable, config directory), and the paragraph under it saying which harnesses share
+  executable, config directory, minimum version), which `harness_test.dart` checks row for row
+  against `Harness.values`, and the paragraph under it saying which harnesses share
   `~/.agents/skills` and which keep their own copy. The harness name links to its docs page.
 - `README.md` — the agents listed in the opening sentence.
 - `packages/vgv_ai_cli/docs/<harness>.md` — a new page saying what `install` writes there,
@@ -413,6 +427,10 @@ accounts for, so they are **breaking changes of behavior**:
 - Moving its config directory, `hooksRoot()` or `skillsRoot()`.
 - Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
 - Dropping or renaming a settings key already written into a config the user shares with us.
+- Moving a file the brick renders, such as an agents or commands folder, unless you also map the
+  new folder to the old one by overriding `formerFolders()` in the harness's translator, as
+  `OpenCodeTranslator` does. `install` then takes back the copies an earlier version wrote, so the
+  harness does not load both.
 
 Take any of those to an issue or a discussion before writing the PR, and link it. See
 [breaking changes](CONTRIBUTING.md#breaking-changes).

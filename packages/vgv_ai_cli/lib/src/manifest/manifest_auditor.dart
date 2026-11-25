@@ -45,9 +45,9 @@ class const ManifestAuditor({
     }
   }
 
-  /// Takes back every entry of [manifest] that [owners] holds, or every
-  /// entry when [owners] is null, and returns what each did and the
-  /// manifest without what was settled.
+  /// Takes back every entry of [manifest] that [owners] holds and whose path
+  /// [paths] holds, either filter matching everything when null, and
+  /// returns what each did and the manifest without what was settled.
   ///
   /// [manifest] is how this tells VGV's files and keys from the user's.
   /// Keeping it is the caller's job. An entry that is fully taken back, or
@@ -61,12 +61,17 @@ class const ManifestAuditor({
     InstallManifest manifest,
     FileSystem fileSystem, {
     Set<Harness?>? owners,
+    Set<String>? paths,
     bool force = false,
     bool dryRun = false,
   }) {
+    bool chosen(ManifestEntry entry) =>
+        (owners?.contains(entry.owner) ?? true) &&
+        (paths?.contains(entry.path) ?? true);
+
     final reversed = [
       for (final entry in manifest.entries)
-        if (owners?.contains(entry.owner) ?? true)
+        if (chosen(entry))
           _reverse(entry, fileSystem, force: force, dryRun: dryRun),
     ];
     final settled = [

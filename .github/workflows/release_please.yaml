@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      pr_branch: ${{ steps.release.outputs.prs_created == 'true' && fromJSON(steps.release.outputs.pr).headBranchName || '' }}
+      cli_pr_open: ${{ contains(steps.release.outputs.prs, 'release-please--branches--main--components--vgv_ai_cli') }}
 
     steps:
       - name: 🚀 Release Please
@@ -33,14 +33,14 @@ jobs:
   # is raised again after each run rather than once by hand.
   raise_plugins_constraint:
     needs: release_please
-    if: needs.release_please.outputs.pr_branch != ''
+    if: needs.release_please.outputs.cli_pr_open == 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: 📚 Git Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.release_please.outputs.pr_branch }}
+          ref: release-please--branches--main--components--vgv_ai_cli
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: 🔗 Raise vgv_ai_plugins Constraint

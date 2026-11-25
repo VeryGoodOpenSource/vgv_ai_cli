@@ -8,7 +8,7 @@
     { "type": "docs", "section": "Docs" }
   ],
   "pull-request-header": ":rotating_light: There are changes ready for release :rocket:\n\nℹ Merge this PR once the team confirms the release is ready.\n",
-  "group-pull-request-title-pattern": "chore: release ${branch}",
+  "separate-pull-requests": true,
   "include-component-in-tag": true,
   "bump-minor-pre-major": true,
   "packages": {
@@ -24,12 +24,5 @@
       "component": "vgv_ai_plugins",
       "changelog-path": "CHANGELOG.md"
     }
-  },
-  "plugins": [
-    {
-      "type": "linked-versions",
-      "groupName": "vgv_ai",
-      "components": ["vgv_ai_cli", "vgv_ai_plugins"]
-    }
-  ]
+  }
 }

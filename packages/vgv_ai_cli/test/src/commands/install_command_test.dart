@@ -14,6 +14,7 @@ import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+import '../../helpers/failing_auditor.dart';
 import '../../helpers/test_runner.dart';
 
 class _MockDetector extends Mock implements HarnessDetector;
@@ -124,6 +125,7 @@ void main() {
       RunProcess? runProcess,
       PluginParser? parser,
       Translator? using,
+      ManifestAuditor auditor = const ManifestAuditor(),
       bool hasTerminal = false,
     }) => runThroughRunner(
       InstallCommand(
@@ -135,6 +137,7 @@ void main() {
           parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
+        auditor: auditor,
         hasTerminal: hasTerminal,
       ),
       args,
@@ -205,6 +208,62 @@ void main() {
         expect(translator.selected, {Harness.claude});
         verify(() => logger.info(any(that: contains('Gemini (not installed)'))))
             .called(1);
+      });
+
+      test('warns about an outdated harness and still configures it', () async {
+        when(() => detector.detect(any())).thenAnswer(
+          (invocation) async =>
+              invocation.positionalArguments.single == Harness.pi
+              ? const HarnessDetection.outdated(version: '0.1.0')
+              : const HarnessDetection.missing(),
+        );
+
+        final exitCode = await runInstall([]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(translator.selected, {Harness.pi});
+        verify(
+          () => logger.warn(
+            'Pi 0.1.0 is older than ${Harness.pi.minimumVersion}, the oldest '
+            'version vgv_ai supports, so it may ignore some of what install '
+            'writes. Update Pi to ${Harness.pi.minimumVersion} or later.',
+          ),
+        ).called(1);
+      });
+
+      test(
+        'notes a harness whose version is unknown, as not outdated',
+        () async {
+          when(() => detector.detect(any())).thenAnswer(
+            (invocation) async =>
+                invocation.positionalArguments.single == Harness.codex
+                ? const HarnessDetection.unversioned()
+                : const HarnessDetection.missing(),
+          );
+
+          final exitCode = await runInstall([]);
+
+          expect(exitCode, ExitCode.success.code);
+          expect(translator.selected, {Harness.codex});
+          verify(
+            () => logger.info(
+              'Could not read the version of Codex, so cannot tell whether it '
+              'is at least ${Harness.codex.minimumVersion}.',
+            ),
+          ).called(1);
+          verifyNever(() => logger.warn(any(that: contains('older than'))));
+        },
+      );
+
+      test('says nothing about the version of a supported harness', () async {
+        detectAll([Harness.claude]);
+
+        await runInstall([]);
+
+        verifyNever(() => logger.warn(any(that: contains('older than'))));
+        verifyNever(
+          () => logger.info(any(that: contains('Could not read the version'))),
+        );
       });
 
       test('--no-<harness> opts a detected harness out', () async {
@@ -779,6 +838,182 @@ void main() {
         verify(() => logger.info('Everything is already up to date.'))
             .called(1);
         verifyNever(() => logger.warn(any()));
+      });
+    });
+
+    group('a file an earlier version wrote elsewhere', () {
+      final agents = ['agent/a.md', 'command/b.md'];
+      File old(String path) => homeFile('.config/opencode/$path');
+      File current(String path) =>
+          homeFile('.config/opencode/${path.replaceFirst('/', 's/')}');
+
+      /// Installs [agents] where an earlier version wrote them.
+      Future<void> installOld() async {
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.opencode: TranslationResult(
+              changes: [
+                for (final path in agents)
+                  ownChange(Harness.opencode, '.config/opencode/$path', path),
+              ],
+            ),
+          },
+        );
+        await runInstall(['--only', 'opencode']);
+        translator.plan = TranslationPlan(
+          harnesses: {
+            Harness.opencode: TranslationResult(
+              changes: [
+                for (final path in agents)
+                  PlannedChange.text(
+                    file: current(path),
+                    contents: path,
+                    harness: Harness.opencode,
+                  ),
+              ],
+              superseded: {
+                for (final path in agents) old(path).path: current(path).path,
+              },
+            ),
+          },
+        );
+      }
+
+      Iterable<String> recorded() =>
+          ManifestStore(home).load()!.entries.map((entry) => entry.path);
+
+      test('is removed, with the folders it leaves empty', () async {
+        await installOld();
+
+        final exitCode = await runInstall(['--only', 'opencode']);
+
+        expect(exitCode, ExitCode.success.code);
+        for (final path in agents) {
+          expect(old(path).existsSync(), isFalse);
+          expect(old(path).parent.existsSync(), isFalse);
+          expect(current(path).readAsStringSync(), path);
+        }
+        expect(recorded(), [for (final path in agents) current(path).path]);
+        expect(ManifestStore(home).load()!.plugins, contains(Harness.opencode));
+        verify(
+          () => logger.detail(
+            'Removed ${old('agent/a.md').path}, which an earlier version wrote',
+          ),
+        ).called(1);
+      });
+
+      test('is kept, and warned about, when the user changed it', () async {
+        await installOld();
+        old('agent/a.md').writeAsStringSync('mine');
+
+        final exitCode = await runInstall(['--only', 'opencode']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(old('agent/a.md').readAsStringSync(), 'mine');
+        expect(old('command/b.md').existsSync(), isFalse);
+        expect(recorded(), contains(old('agent/a.md').path));
+        verify(
+          () => logger.warn(
+            'Kept ${old('agent/a.md').path}, which an earlier version wrote '
+            "and you have changed since. Pass ${lightCyan.wrap('--force')} "
+            'to remove it.',
+          ),
+        ).called(1);
+      });
+
+      test('is removed with --force even when the user changed it', () async {
+        await installOld();
+        old('agent/a.md').writeAsStringSync('mine');
+
+        final exitCode = await runInstall(['--only', 'opencode', '--force']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(old('agent/a.md').existsSync(), isFalse);
+        expect(recorded(), isNot(contains(old('agent/a.md').path)));
+        verify(
+          () => logger.warn(
+            'Removed ${old('agent/a.md').path}, which an earlier version '
+            'wrote and you have changed since.',
+          ),
+        ).called(1);
+      });
+
+      test('is only listed by --check', () async {
+        await installOld();
+        final before = ManifestStore(home).file.readAsStringSync();
+        old('agent/a.md').writeAsStringSync('mine');
+
+        final exitCode = await runInstall([
+          '--only',
+          'opencode',
+          '--check',
+          '--force',
+        ]);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(old('agent/a.md').existsSync(), isTrue);
+        expect(old('command/b.md').existsSync(), isTrue);
+        expect(ManifestStore(home).file.readAsStringSync(), before);
+        verify(() => logger.info('Would remove ${old('command/b.md').path}'))
+            .called(1);
+        verify(
+          () => logger.warn(
+            'Would remove ${old('agent/a.md').path}, which an earlier '
+            'version wrote and you have changed since.',
+          ),
+        ).called(1);
+      });
+
+      test('is forgotten when it is already gone', () async {
+        await installOld();
+        old('agent/a.md').deleteSync();
+
+        final exitCode = await runInstall(['--only', 'opencode']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(recorded(), [for (final path in agents) current(path).path]);
+      });
+
+      test('is left alone when no install recorded it', () async {
+        old('agent/a.md')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('mine');
+        await installOld();
+
+        final exitCode = await runInstall(['--only', 'opencode']);
+
+        expect(exitCode, ExitCode.success.code);
+        expect(old('agent/a.md').readAsStringSync(), 'mine');
+      });
+
+      test('is kept when its replacement cannot be written', () async {
+        await installOld();
+        // A file where the folder should be makes writing into it fail.
+        homeFile('.config/opencode/agents').writeAsStringSync('');
+
+        final exitCode = await runInstall(['--only', 'opencode']);
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(old('agent/a.md').readAsStringSync(), 'agent/a.md');
+        expect(recorded(), contains(old('agent/a.md').path));
+        expect(old('command/b.md').existsSync(), isFalse);
+      });
+
+      test('exits with an I/O error when it cannot be removed', () async {
+        await installOld();
+
+        final exitCode = await runInstall([
+          '--only',
+          'opencode',
+        ], auditor: const FailingAuditor());
+
+        expect(exitCode, ExitCode.ioError.code);
+        expect(old('agent/a.md').existsSync(), isTrue);
+        verify(
+          () => logger.err(
+            'Could not remove ${old('agent/a.md').path}: Permission denied',
+          ),
+        ).called(1);
       });
     });
 

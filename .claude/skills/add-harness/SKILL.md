@@ -30,6 +30,8 @@ and the green gate still has to pass against the real harness.
 - Moving its config directory, `hooksRoot()` or `skillsRoot()`.
 - Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
 - Dropping or renaming a settings key already written into a config the user also edits.
+- Moving a file the brick renders, unless the harness's translator maps the new folder to the old
+  one in `formerFolders()`, as `OpenCodeTranslator` does, so `install` takes back the old copies. See "Changing a harness that already exists" in `ADDING_A_HARNESS.md`.
 
 Each is a breaking change of behavior. Say so, and ask for an issue or a discussion to agree the
 approach before any PR — do not open one with the change already made.
@@ -44,12 +46,17 @@ layout is evidence. Fetch the page and quote it.
 Answer these, with a source for each:
 
 - The binary name, and what `<binary> --version` prints.
+- The oldest release that reads every file you will render for it, from its changelog. That is
+  `minimumVersion` on the enum.
 - The config directory under `$HOME`.
 - Whether it reads `~/.agents/skills` with no configuration. If not, where it wants skills.
 - Its settings file, and the key MCP servers go under.
 - Whether it has subagents, and what frontmatter they take.
 - Whether it has slash commands or prompts, and the folder name it reads them from.
 - Whether anything in its config can run a shell command, and the event names it uses.
+- The oldest version that supports each of the above, from its changelog or docs. Record it in
+  the PR and on issue #157, which tracks each harness's minimum version. Answer this too when
+  changing a file the brick renders for a harness that already exists.
 
 **Stop here and report the answers with their sources.** A guess at any of these produces config
 that silently does nothing. If the documentation does not say, say so rather than inferring it
@@ -166,16 +173,18 @@ New, both under `packages/vgv_ai_cli/`:
 - `test/src/translate/translators/<harness>_translator_test.dart`
 - `test/src/translate/translators/<harness>_compat_test.dart` — only with hooks
 
-Existing, all three must be updated or the suite fails:
+Existing, all four must be updated or the suite fails:
 
 - `test/src/model/harness_test.dart` — the reporting-order list **and** the config directory map
+- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table, which `harness_test.dart`
+  checks row for row against `Harness.values`, minimum version included
 - `test/src/translate/agents_vars_test.dart` — the flags map
 - `test/src/translate/translator_test.dart` — a `tree()` expectation for every file it gets
 
 Then the user-facing docs, which no test covers:
 
-- `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table, and the paragraph under it
-  about which harnesses share `~/.agents/skills`. Link the harness name to its docs page
+- `packages/vgv_ai_cli/README.md` — the paragraph under the **Supported harnesses** table about
+  which harnesses share `~/.agents/skills`. In the table, link the harness name to its docs page
 - `README.md` — the agents named in the opening sentence
 - `packages/vgv_ai_cli/docs/<harness>.md` — a new page: what `install` writes there, what the
   harness doesn't get, and any setup it needs. Add it to the index in `docs/README.md`
