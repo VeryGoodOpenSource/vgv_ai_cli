@@ -87,11 +87,12 @@ The user-facing docs name every harness, and all of them need the new one:
 
 The folder is named `{{#<harness>}}<harness>`, and **every file inside it ends with
 `{{\<harness>}}`** — the open and close of one Mason section, split across the folder name and each
-file name. It is not a single path segment. Pi's whole folder is three entries:
+file name. It is not a single path segment. Pi's whole folder is four entries:
 
 ```text
 bricks/agents/__brick__/{{#pi}}pi
 bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+bricks/agents/__brick__/{{#pi}}pi/mcp.json{{\pi}}
 bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
 ```
 
@@ -99,8 +100,8 @@ Nested loops close inside out: the commands loop closes with `{{\commands}}` bef
 closes with `{{\pi}}`.
 
 **The tree is the capability matrix.** What the folder holds is what the harness supports. A
-feature the harness lacks has no file, and that absence is the whole opt-out — Pi has `AGENTS.md`
-and `prompts/` and nothing else.
+feature the harness lacks has no file, and that absence is the whole opt-out — Pi has `AGENTS.md`,
+`mcp.json` and `prompts/` and nothing else.
 
 The CLI maps the folder onto the harness's config directory and picks how each file lands from its
 path:
@@ -120,7 +121,7 @@ So a root file is shared with the user and merged; anything deeper VGV owns. See
 | Var | What it is |
 | --- | --- |
 | `<harness>` | Boolean. Renders the whole folder. |
-| `<harness>_settings` | The settings fragment `settings()` returned. Absent when it returns null. |
+| `<harness>_settings` | The settings fragment `settings()` returned. |
 | `<harness>_hooks` | The fragment `hooks()` returned. Absent when there is none, so wrap a hooks file in `{{#<harness>_hooks}}…{{\<harness>_hooks}}` and it is written only when there is something to register. |
 | `agents` | One entry per agent: `name`, `instructions`, and a map per harness. |
 | `commands` | One entry per invocable skill: `name`, `body`, and a map per harness. |
@@ -193,21 +194,28 @@ The bundle is committed, and CI's `verify-bundle` job fails if it drifts. Needs
 
 `packages/vgv_ai_cli/lib/src/translate/translators/<harness>_translator.dart`
 
-Subclass [`HarnessTranslator`][harness_translator]. Everything but `harness` has a default, so you
-override only what the harness actually differs on.
+Subclass [`HarnessTranslator`][harness_translator]. Everything but `harness` and `settings` has a
+default, so you override only what the harness actually differs on.
 
 ```dart
 /// {@template pi_translator}
 /// Configures Pi.
 ///
-/// Pi is minimal by design, with no subagents, no MCP and no declarative
-/// hooks. It reads the shared skills and `AGENTS.md` without configuration,
-/// so it gets its instructions and its prompts, which are the skill bodies as
-/// written, and nothing that would imitate the rest.
+/// Pi is minimal by design, with no subagents and no declarative hooks. It
+/// reads the shared skills and `AGENTS.md` without configuration, so it gets
+/// its instructions, its prompts (the skill bodies as written), and the MCP
+/// servers in `~/.pi/agent/mcp.json`, which Pi reads from 0.99.0.
 /// {@endtemplate}
 class const PiTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.pi;
+
+  @override
+  String settings(PluginAssets assets) => jsonEncode({
+    'mcpServers': {
+      for (final server in assets.mcpServers) server.name: server.toJson(),
+    },
+  });
 
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
@@ -215,11 +223,6 @@ class const PiTranslator() extends HarnessTranslator {
       TranslationNote(
         subject: '${assets.agents.length} agent(s)',
         reason: 'Pi has no subagents, so it gets none',
-      ),
-    if (assets.mcpServers.isNotEmpty)
-      TranslationNote(
-        subject: '${assets.mcpServers.length} MCP server(s)',
-        reason: 'Pi has no MCP support, so it gets none',
       ),
   ];
 }
@@ -232,7 +235,7 @@ class const PiTranslator() extends HarnessTranslator {
 | `skillsRoot(home)` | `null` | It needs its own copy of the skills somewhere. |
 | `honorsModelInvocation` | `false` | It keeps a skill that sets `disable-model-invocation` the user's alone. Otherwise each such skill gets a note. |
 | `sharedSkillFiles(assets, root:)` | nothing | It reads the shared skills and keeps a skill's settings in a file of its own beside it, as Codex does with `agents/openai.yaml`. |
-| `settings(assets)` | `null` | It has a settings file. Return finished JSON or TOML. |
+| `settings(assets)` | — | Always. Return finished JSON or TOML. |
 | `agent(agent, instructions:)` | empty | Its agent files need frontmatter or a TOML body. |
 | `command(skill)` | empty | Its command files need frontmatter or a TOML body. |
 | `hooksRoot(home)` | `<config>/hooks` | It reads hook files from somewhere else. |

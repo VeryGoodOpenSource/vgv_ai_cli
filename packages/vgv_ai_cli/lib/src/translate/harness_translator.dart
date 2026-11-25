@@ -47,10 +47,8 @@ abstract class const HarnessTranslator() {
     required Directory root,
   }) => const TranslationResult(changes: []);
 
-  /// The settings fragment merged into the root of this harness's config,
-  /// or null for a harness with nothing to set, whose brick folder then has
-  /// no settings file.
-  String? settings(PluginAssets assets) => null;
+  /// The settings fragment merged into the root of this harness's config.
+  String settings(PluginAssets assets);
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///
