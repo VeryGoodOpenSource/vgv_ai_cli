@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_plugins/src/plugin_ref.dart';
 import 'package:vgv_ai_plugins/src/resolution.dart';
@@ -18,6 +19,14 @@ void main() {
       for (final ref in vgvPlugins) {
         expect(ref.gitRef, isNot(ref.version));
         expect(ref.gitRef, startsWith('v'));
+      }
+    });
+
+    test('pins every path as a relative folder inside its repo', () {
+      for (final path in vgvPlugins.map((ref) => ref.path).nonNulls) {
+        expect(p.posix.isRelative(path), isTrue, reason: path);
+        expect(p.posix.normalize(path), path);
+        expect(p.posix.split(path), isNot(contains('..')));
       }
     });
 

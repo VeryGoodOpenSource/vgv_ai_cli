@@ -38,6 +38,10 @@ abstract class const PluginSource() {
 /// source of truth: the cache directory is named after the *declared* version
 /// and carries no content guarantee.
 ///
+/// It expects the version directory to be the plugin's own folder, so it
+/// ignores [PluginRef.path]. If Claude Code caches a whole repo there instead,
+/// the manifest check below fails and the git source takes over.
+///
 /// [home] is the directory holding `.claude`. [marketplace] is the
 /// marketplace's declared name, which names the cache directory.
 /// {@endtemplate}
