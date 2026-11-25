@@ -17,6 +17,13 @@ void main() {
     version: '0.0.5',
     gitRef: 'v0.0.5',
   );
+  const nested = PluginRef(
+    name: 'vgv-wingspan',
+    repo: 'VeryGoodOpenSource/vgv-wingspan',
+    version: '0.0.5',
+    gitRef: 'v0.0.5',
+    path: 'plugin',
+  );
 
   late MemoryFileSystem fileSystem;
 
@@ -171,14 +178,6 @@ void main() {
     });
 
     test('resolves to the path inside the clone', () async {
-      const nested = PluginRef(
-        name: 'vgv-wingspan',
-        repo: 'VeryGoodOpenSource/vgv-wingspan',
-        version: '0.0.5',
-        gitRef: 'v0.0.5',
-        path: 'plugin',
-      );
-
       await expectLater(
         GitPluginSource(
           cacheRoot: cacheRoot,
@@ -198,14 +197,6 @@ void main() {
     });
 
     test('reports a path the clone has no plugin under', () async {
-      const nested = PluginRef(
-        name: 'vgv-wingspan',
-        repo: 'VeryGoodOpenSource/vgv-wingspan',
-        version: '0.0.5',
-        gitRef: 'v0.0.5',
-        path: 'plugin',
-      );
-
       await expectLater(
         GitPluginSource(
           cacheRoot: cacheRoot,
@@ -264,13 +255,6 @@ void main() {
     test(
       'names the cached clone when it has no plugin under the path',
       () async {
-        const nested = PluginRef(
-          name: 'vgv-wingspan',
-          repo: 'VeryGoodOpenSource/vgv-wingspan',
-          version: '0.0.5',
-          gitRef: 'v0.0.5',
-          path: 'plugin',
-        );
         final clone = p.join(cacheRoot.path, ref.name, '0.0.5');
         seedPlugin(clone);
         var ran = false;

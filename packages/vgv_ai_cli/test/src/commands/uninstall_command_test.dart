@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -13,6 +12,7 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+import '../../helpers/clone_plugins.dart';
 import '../../helpers/failing_auditor.dart';
 import '../../helpers/test_runner.dart';
 
@@ -713,28 +713,6 @@ void main() {
           mcpServers: const [],
         );
 
-        Future<ProcessResult> clone(
-          String executable,
-          List<String> arguments, {
-          bool runInShell = false,
-        }) async {
-          final plugin = vgvPlugins.firstWhere(
-            (plugin) =>
-                arguments.contains('https://github.com/${plugin.repo}.git'),
-          );
-          fs
-              .file(
-                fs.path.joinAll([
-                  arguments.last,
-                  ?plugin.path,
-                  '.claude-plugin',
-                  'plugin.json',
-                ]),
-              )
-              .createSync(recursive: true);
-          return ProcessResult(0, 0, '', '');
-        }
-
         final exitCode = await runner.run(
           [
             'install',
@@ -744,7 +722,7 @@ void main() {
             logger: logger,
             home: home,
             resolver: PluginResolver(
-              runProcess: clone,
+              runProcess: clonesPlugins(fs),
               parser: _FakeParser(assets),
             ),
             hasTerminal: false,

@@ -13,6 +13,13 @@ void main() {
     version: '0.0.5',
     gitRef: 'v0.0.5',
   );
+  const nested = PluginRef(
+    name: 'vgv-wingspan',
+    repo: 'VeryGoodOpenSource/vgv-wingspan',
+    version: '0.0.5',
+    gitRef: 'v0.0.5',
+    path: 'plugin',
+  );
 
   const pinsSource = '''
 const vgvPlugins = <PluginRef>[
@@ -88,13 +95,7 @@ const vgvPlugins = <PluginRef>[
 
     test('keeps the path of the pin', () {
       final bump = bumpFor(
-        const PluginRef(
-          name: 'vgv-wingspan',
-          repo: 'VeryGoodOpenSource/vgv-wingspan',
-          version: '0.0.5',
-          gitRef: 'v0.0.5',
-          path: 'plugin',
-        ),
+        nested,
         const PluginRelease(tag: 'v0.1.0', version: '0.1.0'),
       );
 
@@ -196,13 +197,7 @@ const vgvPlugins = <PluginRef>[
     test('reads plugin.json under the path of the pin', () async {
       final calls = <List<String>>[];
       await latestRelease(
-        const PluginRef(
-          name: 'vgv-wingspan',
-          repo: 'VeryGoodOpenSource/vgv-wingspan',
-          version: '0.0.5',
-          gitRef: 'v0.0.5',
-          path: 'plugin',
-        ),
+        nested,
         runGh: (args) async {
           calls.add(args);
           return args[1].contains('releases/latest')
@@ -236,13 +231,7 @@ const vgvPlugins = <PluginRef>[
     test('throws when plugin.json has no version', () {
       expect(
         () => latestRelease(
-          const PluginRef(
-            name: 'vgv-wingspan',
-            repo: 'VeryGoodOpenSource/vgv-wingspan',
-            version: '0.0.5',
-            gitRef: 'v0.0.5',
-            path: 'plugin',
-          ),
+          nested,
           runGh: (args) async =>
               args[1].contains('releases/latest') ? ok('v0.1.0') : ok('{}'),
         ),

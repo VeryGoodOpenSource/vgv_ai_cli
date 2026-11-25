@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform, ProcessException, ProcessResult, stdin;
+import 'dart:io' show Platform, ProcessException, stdin;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -14,6 +14,7 @@ import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+import '../../helpers/clone_plugins.dart';
 import '../../helpers/failing_auditor.dart';
 import '../../helpers/test_runner.dart';
 
@@ -106,30 +107,6 @@ void main() {
       display: any(named: 'display'),
     );
 
-    /// Clones every plugin by creating its target, with the manifest under
-    /// the plugin's pinned path, since there is no Claude Code cache under
-    /// [home].
-    Future<ProcessResult> clone(
-      String executable,
-      List<String> arguments, {
-      bool runInShell = false,
-    }) async {
-      final plugin = vgvPlugins.firstWhere(
-        (plugin) => arguments.contains('https://github.com/${plugin.repo}.git'),
-      );
-      fs
-          .file(
-            fs.path.joinAll([
-              arguments.last,
-              ?plugin.path,
-              '.claude-plugin',
-              'plugin.json',
-            ]),
-          )
-          .createSync(recursive: true);
-      return ProcessResult(0, 0, '', '');
-    }
-
     Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
         runner.run(['install', ...args], installCommand: command);
 
@@ -146,7 +123,7 @@ void main() {
         home: home,
         detector: detector,
         resolver: PluginResolver(
-          runProcess: runProcess ?? clone,
+          runProcess: runProcess ?? clonesPlugins(fs),
           parser: parser ?? _FakeParser(assets(fs)),
         ),
         translator: using ?? translator,
@@ -609,7 +586,7 @@ void main() {
           ['--only', 'codex'],
           runProcess: (executable, arguments, {runInShell = false}) {
             cloned.add([executable, ...arguments.take(2)]);
-            return clone(executable, arguments);
+            return clonesPlugins(fs)(executable, arguments);
           },
         );
 
