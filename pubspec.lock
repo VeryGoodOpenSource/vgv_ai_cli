@@ -485,10 +485,10 @@ packages:
     dependency: transitive
     description:
       name: very_good_analysis
-      sha256: "0bd5eb8d6be76aa0d71e70cbdae6cac8f784f761170568e3c2214a6948c7f6d3"
+      sha256: "543a43c219bbef506e74435941845bc57bf1cd7c5bb957b7a87ef45c9738569f"
       url: "https://pub.dev"
     source: hosted
-    version: "11.0.0"
+    version: "11.1.0-rc.1"
   vm_service:
     dependency: transitive
     description:
