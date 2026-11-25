@@ -38,6 +38,10 @@ abstract class const PluginSource() {
 /// source of truth: the cache directory is named after the *declared* version
 /// and carries no content guarantee.
 ///
+/// It expects the version directory to be the plugin's own folder, so it
+/// ignores [PluginRef.path]. If Claude Code caches a whole repo there instead,
+/// the manifest check below fails and the git source takes over.
+///
 /// [home] is the directory holding `.claude`. [marketplace] is the
 /// marketplace's declared name, which names the cache directory.
 /// {@endtemplate}
@@ -132,7 +136,7 @@ class const GitPluginSource({
     final target = fileSystem.directory(
       fileSystem.path.join(cacheRoot.path, ref.name, ref.version),
     );
-    if (target.existsSync()) return ResolvedPlugin(target);
+    if (target.existsSync()) return _resolved(target, ref);
 
     // Clone into a sibling temp path and publish by rename, so the version
     // directory only ever exists complete. This defeats both the interrupted
@@ -197,14 +201,38 @@ class const GitPluginSource({
       _deleteTemp(temp);
       // Almost always means a concurrent run published first. Never delete the
       // target: that tree is good, and it may be in use.
-      if (target.existsSync()) return ResolvedPlugin(target);
+      if (target.existsSync()) return _resolved(target, ref);
       return UnavailablePlugin.single(
         'Could not move the clone of $ref into ${target.path}: '
         '${error.message}',
       );
     }
 
-    return ResolvedPlugin(target);
+    return _resolved(target, ref);
+  }
+
+  /// The plugin inside [clone], the whole repo cloned at [ref]'s tag.
+  ///
+  /// The parser reads a missing directory as a plugin with no files, so a
+  /// [PluginRef.path] the tag does not have would install nothing without a
+  /// word. Requiring the manifest turns that into an error naming the path.
+  ///
+  /// The error also names [clone]. A clone holds the whole repo at the tag,
+  /// so re-cloning only helps when the cached tree is damaged, and deleting it
+  /// is the one fix open to a user who cannot change the pin.
+  PluginResolution _resolved(Directory clone, PluginRef ref) {
+    final directory = clone.fileSystem.directory(
+      clone.fileSystem.path.joinAll([clone.path, ?ref.path]),
+    );
+    final manifest = directory
+        .childDirectory('.claude-plugin')
+        .childFile('plugin.json');
+    if (manifest.existsSync()) return ResolvedPlugin(directory);
+    return UnavailablePlugin.single(
+      'The clone of $ref has no .claude-plugin/plugin.json in '
+      '${directory.path}. Check that its pinned path matches ${ref.gitRef}, '
+      'or delete ${clone.path} to clone it again.',
+    );
   }
 
   void _deleteTemp(Directory temp) {

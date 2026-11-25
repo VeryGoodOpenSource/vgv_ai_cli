@@ -47,11 +47,13 @@ class _Processes {
           fail('ran $executable ${arguments.join(' ')}');
 
   /// A [RunProcess] whose `git clone` succeeds by creating its target in
-  /// [fs].
+  /// [fs], with the plugin manifest a real clone has.
   RunProcess clonesInto(FileSystem fs) =>
       (executable, arguments, {runInShell = false}) async {
         calls.add([executable, ...arguments]);
-        fs.directory(arguments.last).createSync(recursive: true);
+        fs
+            .file(fs.path.join(arguments.last, '.claude-plugin', 'plugin.json'))
+            .createSync(recursive: true);
         return ProcessResult(0, 0, '', '');
       };
 
@@ -166,7 +168,9 @@ void main() {
     });
 
     test('reuses an earlier clone without running git again', () async {
-      fs.directory(cloned(wingspan)).createSync(recursive: true);
+      fs
+          .file(fs.path.join(cloned(wingspan), '.claude-plugin', 'plugin.json'))
+          .createSync(recursive: true);
       final resolver = PluginResolver(
         runProcess: processes.never,
         parser: parser,
