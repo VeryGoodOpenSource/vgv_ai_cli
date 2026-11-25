@@ -236,11 +236,23 @@ const vgvPlugins = <PluginRef>[
     test('throws when plugin.json has no version', () {
       expect(
         () => latestRelease(
-          wingspan,
+          const PluginRef(
+            name: 'vgv-wingspan',
+            repo: 'VeryGoodOpenSource/vgv-wingspan',
+            version: '0.0.5',
+            gitRef: 'v0.0.5',
+            path: 'plugin',
+          ),
           runGh: (args) async =>
               args[1].contains('releases/latest') ? ok('v0.1.0') : ok('{}'),
         ),
-        throwsA(isA<FormatException>()),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('plugin/.claude-plugin/plugin.json at v0.1.0'),
+          ),
+        ),
       );
     });
   });

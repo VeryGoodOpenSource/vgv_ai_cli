@@ -137,7 +137,7 @@ Future<PluginRelease> latestRelease(
       version: version,
     ),
     _ => throw FormatException(
-      'No version in ${pin.repo} .claude-plugin/plugin.json at $tag.',
+      'No version in ${pin.repo} $manifestPath at $tag.',
     ),
   };
 }

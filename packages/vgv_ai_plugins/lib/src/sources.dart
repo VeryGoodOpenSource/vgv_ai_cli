@@ -212,6 +212,10 @@ class const GitPluginSource({
   /// The parser reads a missing directory as a plugin with no files, so a
   /// [PluginRef.path] the tag does not have would install nothing without a
   /// word. Requiring the manifest turns that into an error naming the path.
+  ///
+  /// The error also names [clone]. A clone holds the whole repo at the tag,
+  /// so re-cloning only helps when the cached tree is damaged, and deleting it
+  /// is the one fix open to a user who cannot change the pin.
   PluginResolution _resolved(Directory clone, PluginRef ref) {
     final directory = clone.fileSystem.directory(
       clone.fileSystem.path.joinAll([clone.path, ?ref.path]),
@@ -222,7 +226,8 @@ class const GitPluginSource({
     if (manifest.existsSync()) return ResolvedPlugin(directory);
     return UnavailablePlugin.single(
       'The clone of $ref has no .claude-plugin/plugin.json in '
-      '${directory.path}. Check that its pinned path matches ${ref.gitRef}.',
+      '${directory.path}. Check that its pinned path matches ${ref.gitRef}, '
+      'or delete ${clone.path} to clone it again.',
     );
   }
 

@@ -261,6 +261,40 @@ void main() {
       expect(ran, isFalse);
     });
 
+    test(
+      'names the cached clone when it has no plugin under the path',
+      () async {
+        const nested = PluginRef(
+          name: 'vgv-wingspan',
+          repo: 'VeryGoodOpenSource/vgv-wingspan',
+          version: '0.0.5',
+          gitRef: 'v0.0.5',
+          path: 'plugin',
+        );
+        final clone = p.join(cacheRoot.path, ref.name, '0.0.5');
+        seedPlugin(clone);
+        var ran = false;
+
+        await expectLater(
+          GitPluginSource(
+            cacheRoot: cacheRoot,
+            runGit: (a) async {
+              ran = true;
+              return ok();
+            },
+          ).resolve(nested),
+          completion(
+            isA<UnavailablePlugin>().having(
+              (r) => r.reasons.single,
+              'reason',
+              contains('delete $clone to clone it again'),
+            ),
+          ),
+        );
+        expect(ran, isFalse);
+      },
+    );
+
     test('reports a clone failure and leaves no temp directory', () async {
       await expectLater(
         GitPluginSource(
