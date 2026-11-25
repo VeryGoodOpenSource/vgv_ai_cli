@@ -8,6 +8,24 @@ import 'package:vgv_ai_cli/src/translate/copy_source.dart';
 import 'package:vgv_ai_cli/src/translate/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+/// Goes in every harness's preamble, below a line that sets `VGV_AI_HARNESS`
+/// to the harness's name. It exports, for a hook that recommends plugins,
+/// the VGV plugins vgv_ai installed for that harness in `VGV_AI_PLUGINS`,
+/// separated by spaces, and the command that installs another in
+/// `VGV_AI_INSTALL_COMMAND`.
+///
+/// The plugins are read from the manifest each run, since a later install
+/// adds plugins without rewriting the scripts already copied. A value the
+/// script inherits is kept, so the compat script's rerun reads it once.
+const installedPluginsPreamble = r'''
+export VGV_AI_INSTALL_COMMAND='vgv_ai install --plugin'
+[ -n "${VGV_AI_PLUGINS+x}" ] || export VGV_AI_PLUGINS="$(
+  jq -r --arg harness "$VGV_AI_HARNESS" \
+    '.plugins[$harness] // {} | keys | join(" ")' \
+    "$HOME/.vgv_ai/manifest.json" 2> /dev/null
+)"
+''';
+
 /// {@template hook_scripts}
 /// A harness's copy of each plugin's `hooks` folder under the hooks root
 /// and the plugin's name, with the harness's [preamble] below the shebang

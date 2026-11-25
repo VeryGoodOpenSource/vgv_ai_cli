@@ -1,11 +1,16 @@
+import 'package:vgv_ai_cli/src/translate/translate.dart';
+
 /// Goes below the shebang of every script a hook runs, in Antigravity's
 /// copy of the plugin's hooks folder. `__ROOT__` and `__COMPAT__` are
 /// replaced with quoted shell words: the plugin root and the path of
 /// [antigravityCompatScript].
-const antigravityPreamble = '''
+const antigravityPreamble =
+    '''
 # Added by vgv_ai install so this Claude Code hook script runs under
 # Antigravity CLI.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
+VGV_AI_HARNESS=antigravity
+$installedPluginsPreamble
 . __COMPAT__
 ''';
 

@@ -1,10 +1,15 @@
+import 'package:vgv_ai_cli/src/translate/translate.dart';
+
 /// Goes below the shebang of every script a hook runs, in Codex's copy of
 /// the plugin's hooks folder. `__ROOT__`, `__AGENT__` and `__COMPAT__` are
 /// replaced with quoted shell words: the plugin root, the agent the hook is
 /// scoped to or an empty string, and the path of [codexCompatScript].
-const codexPreamble = '''
+const codexPreamble =
+    '''
 # Added by vgv_ai install so this Claude Code hook script runs under Codex.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
+VGV_AI_HARNESS=codex
+$installedPluginsPreamble
 VGV_AGENT=__AGENT__ . __COMPAT__
 ''';
 

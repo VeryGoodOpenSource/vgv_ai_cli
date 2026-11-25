@@ -1,10 +1,15 @@
+import 'package:vgv_ai_cli/src/translate/translate.dart';
+
 /// Goes below the shebang of every script a hook runs, in Copilot's copy of
 /// the plugin's hooks folder. `__ROOT__` and `__COMPAT__` are replaced with
 /// quoted shell words: the plugin root and the path of
 /// [copilotCompatScript].
-const copilotPreamble = '''
+const copilotPreamble =
+    '''
 # Added by vgv_ai install so this Claude Code hook script runs under Copilot.
 export CLAUDE_PLUGIN_ROOT=__ROOT__
+VGV_AI_HARNESS=copilot
+$installedPluginsPreamble
 . __COMPAT__
 ''';
 
