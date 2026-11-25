@@ -1,0 +1,16 @@
+name: pub_publish_plugins
+
+on:
+  push:
+    tags:
+      - "vgv_ai_plugins-v[0-9]+.[0-9]+.[0-9]+*" # tag pattern on pub.dev: 'vgv_ai_plugins-v{{version}}'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      id-token: write # Required for authentication using OIDC
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_pub_publish.yml@v2
+    with:
+      dart_sdk: "3.14.0"
+      working_directory: packages/vgv_ai_plugins
