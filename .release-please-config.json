@@ -15,6 +15,7 @@
     "packages/vgv_ai_cli": {
       "release-type": "dart",
       "component": "vgv_ai_cli",
+      "pull-request-title-pattern": "chore(vgv_ai_cli): v${version}",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "extra-files": ["lib/src/version.dart"]
@@ -22,6 +23,7 @@
     "packages/vgv_ai_plugins": {
       "release-type": "dart",
       "component": "vgv_ai_plugins",
+      "pull-request-title-pattern": "chore(vgv_ai_plugins): v${version}",
       "changelog-path": "CHANGELOG.md"
     }
   }
