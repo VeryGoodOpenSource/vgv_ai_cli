@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.4.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.3.0...v0.4.0) (2026-11-26)
+
+
+### Features
+
+* configure MCP servers for Pi ([#158](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/158)) ([2e155db](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/2e155db5e1f95848b2649b8bcd1404d4cba10f89))
+* resolve plugins from a subfolder of their repo ([#164](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/164)) ([5a43450](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/5a43450c35aaa3fd350b9ba783ffe81c544f4dde))
+* track minimum supported version for each harness ([#160](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/160)) ([f68e5fc](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/f68e5fc8660df0a13d9a1268206e184f5a0a7ded))
+* upgrade to Dart 3.14.0 and Flutter 3.50.0 ([#151](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/151)) ([485b877](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/485b877321a0389e41f71ea65652d590adae0b60))
+
+
+### Bug Fixes
+
+* render OpenCode agents and commands to the plural folders ([#161](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/161)) ([46b49e5](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/46b49e5941c478d34e16f3d175a9ffab10a696c1))
+
+
+### Miscellaneous Chores
+
+* **main:** release vgv_ai_plugins 0.3.0 ([#166](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/166)) ([7cab92b](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/7cab92b6b911d525249d42313c7291412552b0cc))
+
+
+### Docs
+
+* add per-harness setup docs and slim package README ([#159](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/159)) ([9bebb6d](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/9bebb6d9d2a6c86443e8c9c13e4160990e0bba11))
+
 ## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/v0.2.0...v0.3.0) (2026-11-16)
 
 
