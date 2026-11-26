@@ -50,9 +50,9 @@ Either way puts the `vgv_ai` executable on your path. Run `vgv_ai --help` to
 confirm that it's installed. Plugin resolution clones the VGV plugins, so `git`
 has to be on your path too.
 
-macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot and
-Antigravity hooks are `#!/bin/bash` scripts that call `jq`, so `jq` has to be
-on your path. Native Windows, including Git Bash, is untested: `vgv_ai` builds
+macOS and Linux are supported. On Windows, use WSL. The Codex, Copilot,
+Antigravity and Devin hooks are `#!/bin/bash` scripts that call `jq`, so `jq`
+has to be on your path. Native Windows, including Git Bash, is untested: `vgv_ai` builds
 paths with the host separator while those scripts expect POSIX ones.
 
 ## Supported harnesses
@@ -73,11 +73,12 @@ configures it, and `doctor` reports it as a step to fix.
 | `pi`          | [Pi](docs/pi.md)                       | `pi`       | `~/.pi/agent`        | 0.54.0          |
 | `copilot`     | [GitHub Copilot CLI](docs/copilot.md)  | `copilot`  | `~/.copilot`         | 1.0.11          |
 | `antigravity` | [Antigravity CLI](docs/antigravity.md) | `agy`      | `~/.gemini/config`   | 1.2.0           |
+| `devin`       | [Devin CLI](docs/devin.md)             | `devin`    | `~/.config/devin`    | 3000.11.92      |
 
 Claude Code installs the VGV plugins natively, so `vgv_ai` only points it at
-the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, and GitHub Copilot CLI
-share one copy of the skills in `~/.agents/skills`. Antigravity CLI keeps its
-own copy inside its plugin.
+the VGV marketplace. Gemini CLI, Codex, OpenCode, Pi, GitHub Copilot CLI, and
+Devin CLI share one copy of the skills in `~/.agents/skills`. Antigravity CLI
+keeps its own copy inside its plugin.
 
 Each harness has its own page in [`docs`](docs/README.md), covering what
 `install` writes there and any setup the harness needs, such as running agent

@@ -16,6 +16,7 @@ void main() {
         'pi',
         'copilot',
         'antigravity',
+        'devin',
       ]);
     });
 
@@ -51,6 +52,7 @@ void main() {
           Harness.pi: '/home/dev/.pi/agent',
           Harness.copilot: '/home/dev/.copilot',
           Harness.antigravity: '/home/dev/.gemini/config',
+          Harness.devin: '/home/dev/.config/devin',
         },
       );
     });

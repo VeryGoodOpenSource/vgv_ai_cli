@@ -13,3 +13,4 @@ installing and using `vgv_ai`, see the [README](../README.md).
 | [Pi](pi.md)                       | `pi`          |
 | [GitHub Copilot CLI](copilot.md)  | `copilot`     |
 | [Antigravity CLI](antigravity.md) | `antigravity` |
+| [Devin CLI](devin.md)             | `devin`       |

@@ -106,6 +106,16 @@ enum Harness({
     executable: 'agy',
     minimumVersion: '1.2.0',
     config: '.gemini/config',
+  ),
+
+  /// Devin CLI, which keeps its config under the XDG config root. On Windows
+  /// that config lives in `%APPDATA%\\devin` instead, which this
+  /// home-relative path cannot spell, so Devin is macOS and Linux only.
+  devin(
+    displayName: 'Devin',
+    executable: 'devin',
+    minimumVersion: '3000.11.92',
+    config: '.config/devin',
   );
 
   /// The directory this harness reads its user-level config from.
