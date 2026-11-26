@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      cli_pr_open: ${{ contains(steps.release.outputs.prs, 'release-please--branches--main--components--vgv_ai_cli') }}
+      plugins_pr_open: ${{ contains(steps.release.outputs.prs, 'release-please--branches--main--components--vgv_ai_plugins') }}
 
     steps:
       - name: 🚀 Release Please
@@ -29,18 +29,19 @@ jobs:
           manifest-file: ".release-please-manifest.json"
           config-file: ".release-please-config.json"
 
-  # release-please force-pushes its branch on every update, so the constraint
-  # is raised again after each run rather than once by hand.
+  # The workspace only resolves when the CLI accepts the new vgv_ai_plugins
+  # version, so the constraint moves in the same release PR. release-please
+  # force-pushes its branch on every update, so this runs after each run.
   raise_plugins_constraint:
     needs: release_please
-    if: needs.release_please.outputs.cli_pr_open == 'true'
+    if: needs.release_please.outputs.plugins_pr_open == 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: 📚 Git Checkout
         uses: actions/checkout@v7
         with:
-          ref: release-please--branches--main--components--vgv_ai_cli
+          ref: release-please--branches--main--components--vgv_ai_plugins
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
 
       - name: 🔗 Raise vgv_ai_plugins Constraint
