@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.2.0...vgv_ai_plugins-v0.3.0) (2026-11-26)
+
+
+### Features
+
+* resolve plugins from a subfolder of their repo ([#164](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/164)) ([5a43450](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/5a43450c35aaa3fd350b9ba783ffe81c544f4dde))
+* upgrade to Dart 3.14.0 and Flutter 3.50.0 ([#151](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/151)) ([485b877](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/485b877321a0389e41f71ea65652d590adae0b60))
+
+
+### Miscellaneous Chores
+
+* bump pinned plugins ([#168](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/168)) ([2d776c5](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/2d776c57683ae939abd5111780205c7e9464b9a5))
+
 ## [0.2.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.1.0...vgv_ai_plugins-v0.2.0) (2026-11-06)
 
 
