@@ -9,3 +9,6 @@
 
 # release-please CHANGELOG compare links, whose tags exist only once the release PR merges
 ^https://github\.com/VeryGoodOpenSource/vgv_ai_cli/compare/
+
+# release-please CHANGELOG commit links, which GitHub throttles with 503s when checked in bulk
+^https://github\.com/VeryGoodOpenSource/vgv_ai_cli/commit/

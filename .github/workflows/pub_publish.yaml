@@ -19,16 +19,10 @@ jobs:
       - name: 🎯 Setup Dart
         uses: dart-lang/setup-dart@v1.8.2
         with:
-          sdk: "3.13.0"
+          sdk: "3.14.0"
 
       - name: 📦 Install Dependencies
         run: dart pub get
-
-      # vgv_ai_plugins first: the CLI resolves it from pub.dev, so publishing
-      # the CLI against a version that is not there yet fails.
-      - name: 📢 Publish vgv_ai_plugins
-        working-directory: packages/vgv_ai_plugins
-        run: dart pub publish --force
 
       - name: 📢 Publish vgv_ai_cli
         working-directory: packages/vgv_ai_cli

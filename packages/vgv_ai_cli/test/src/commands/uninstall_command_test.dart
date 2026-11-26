@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show ProcessResult;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -13,29 +12,13 @@ import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
 import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+import '../../helpers/clone_plugins.dart';
+import '../../helpers/failing_auditor.dart';
 import '../../helpers/test_runner.dart';
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
   PluginAssets parse(Directory root) => assets;
-}
-
-/// A [ManifestAuditor] that fails to reverse every entry it is given.
-class const _FailingAuditor() extends ManifestAuditor {
-  @override
-  Reversal reverse(
-    InstallManifest manifest,
-    FileSystem fileSystem, {
-    Set<Harness?>? owners,
-    bool force = false,
-    bool dryRun = false,
-  }) => Reversal(
-    entries: [
-      for (final entry in manifest.entries)
-        ReversedEntry.failed(entry, error: 'Permission denied'),
-    ],
-    manifest: manifest,
-  );
 }
 
 void main() {
@@ -156,7 +139,7 @@ void main() {
         install([owned(Harness.codex, '.codex/AGENTS.md')]);
         final recorded = store.file.readAsStringSync();
 
-        final exitCode = await runUninstall(const [], const _FailingAuditor());
+        final exitCode = await runUninstall(const [], const FailingAuditor());
 
         expect(exitCode, ExitCode.ioError.code);
         expect(store.file.readAsStringSync(), recorded);
@@ -730,15 +713,6 @@ void main() {
           mcpServers: const [],
         );
 
-        Future<ProcessResult> clone(
-          String executable,
-          List<String> arguments, {
-          bool runInShell = false,
-        }) async {
-          fs.directory(arguments.last).createSync(recursive: true);
-          return ProcessResult(0, 0, '', '');
-        }
-
         final exitCode = await runner.run(
           [
             'install',
@@ -748,7 +722,7 @@ void main() {
             logger: logger,
             home: home,
             resolver: PluginResolver(
-              runProcess: clone,
+              runProcess: clonesPlugins(fs),
               parser: _FakeParser(assets),
             ),
             hasTerminal: false,
@@ -791,8 +765,8 @@ void main() {
           '.gemini/agents',
           '.gemini/commands',
           '.codex/agents',
-          '.config/opencode/agent',
-          '.config/opencode/command',
+          '.config/opencode/agents',
+          '.config/opencode/commands',
           '.pi/agent/prompts',
         ]) {
           expect(

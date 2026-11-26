@@ -373,6 +373,52 @@ void main() {
       });
 
       test(
+        'reports an outdated harness as a manual step, and exits 1',
+        () async {
+          installCodex();
+          when(() => detector.detect(any())).thenAnswer(
+            (invocation) async =>
+                invocation.positionalArguments.single == Harness.codex
+                ? const HarnessDetection.outdated(version: '0.0.1')
+                : const HarnessDetection.missing(),
+          );
+
+          final exitCode = await runDoctor();
+
+          final minimum = Harness.codex.minimumVersion;
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('✗ Codex');
+          verifyInfo(
+            '    version 0.0.1 is older than $minimum, the oldest VGV AI CLI '
+            'supports',
+          );
+          verifyInfo('      Update Codex to $minimum or later.');
+        },
+      );
+
+      test(
+        'warns that the version of a harness is unknown, and exits 0',
+        () async {
+          installCodex();
+          when(() => detector.detect(any())).thenAnswer(
+            (invocation) async =>
+                invocation.positionalArguments.single == Harness.codex
+                ? const HarnessDetection.unversioned()
+                : const HarnessDetection.missing(),
+          );
+
+          final exitCode = await runDoctor();
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo('! Codex');
+          verifyInfo(
+            '    version unknown: could not tell whether it is '
+            '${Harness.codex.minimumVersion} or later',
+          );
+        },
+      );
+
+      test(
         'suggests configuring a harness when nothing is installed',
         () async {
           detect(const [Harness.pi]);

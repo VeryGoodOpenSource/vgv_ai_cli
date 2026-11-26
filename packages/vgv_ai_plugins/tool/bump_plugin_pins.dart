@@ -40,6 +40,7 @@ PluginRef? bumpFor(PluginRef pin, PluginRelease release) {
     repo: pin.repo,
     version: release.version,
     gitRef: release.tag,
+    path: pin.path,
   );
 }
 
@@ -123,9 +124,10 @@ Future<PluginRelease> latestRelease(
     '--jq',
     '.tag_name',
   ])).trim();
+  final manifestPath = [?pin.path, '.claude-plugin', 'plugin.json'].join('/');
   final manifest = await _gh(runGh, [
     'api',
-    'repos/${pin.repo}/contents/.claude-plugin/plugin.json?ref=$tag',
+    'repos/${pin.repo}/contents/$manifestPath?ref=$tag',
     '-H',
     'Accept: application/vnd.github.raw+json',
   ]);
@@ -135,7 +137,7 @@ Future<PluginRelease> latestRelease(
       version: version,
     ),
     _ => throw FormatException(
-      'No version in ${pin.repo} .claude-plugin/plugin.json at $tag.',
+      'No version in ${pin.repo} $manifestPath at $tag.',
     ),
   };
 }

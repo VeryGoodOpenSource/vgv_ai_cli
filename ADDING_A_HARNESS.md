@@ -16,9 +16,17 @@ memory — these tools change their config format between minor releases. Instal
 run `<executable> --version`, and record that version in the PR. It is what the next person needs
 in order to tell a format that changed from a translator that was always wrong.
 
+Also find the **oldest** version that supports each file you render, from the harness's changelog
+or docs, and record it in the PR. Do the same when changing a file the brick renders for a
+harness that already exists, so users on an older version are not left with a file their harness
+ignores. Nothing in the code records it yet, so add it to
+[#157](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/157) too, which will track the
+minimum version of each harness.
+
 | Question | Where the answer goes |
 | --- | --- |
 | What does the binary answer `--version` with? | `executable` on the enum |
+| Which release first reads every file you render for it? | `minimumVersion` on the enum |
 | Which directory under `$HOME` holds its user config? | `config` on the enum |
 | Does it have a settings file, and what's its schema? | `settings()` on the translator |
 | Does it read `~/.agents/skills` with no configuration? | `readsSharedSkills` |
@@ -46,6 +54,7 @@ compat script.
 antigravity(
   displayName: 'Antigravity',
   executable: 'agy',
+  minimumVersion: '1.2.0',
   config: '.gemini/config',
 );
 ```
@@ -56,26 +65,34 @@ antigravity(
 - `displayName` is what reports and `--help` print.
 - `executable` is the binary probed with `<executable> --version`. A non-zero exit reads as not
   installed.
+- `minimumVersion` is the oldest `x.y.z` that reads every file the brick renders for the harness:
+  the latest of the releases that added each feature you translate, from its changelog. Cite them
+  in the PR. `install` warns about an older harness and `doctor` reports it. Raise it whenever the
+  harness starts rendering something a newer release added.
 - `config` is relative to `$HOME` with `/` separators, whatever the platform.
 
 Position matters: `Harness.values` is the order every report and the translator registry use.
 
-Two user-facing lists name every harness, and both need the new one:
+The user-facing docs name every harness, and all of them need the new one:
 
 - `packages/vgv_ai_cli/README.md` — the **Supported harnesses** table (flag, display name,
-  executable, config directory), and the paragraph under it saying which harnesses share
-  `~/.agents/skills` and which keep their own copy.
+  executable, config directory, minimum version), which `harness_test.dart` checks row for row
+  against `Harness.values`, and the paragraph under it saying which harnesses share
+  `~/.agents/skills` and which keep their own copy. The harness name links to its docs page.
 - `README.md` — the agents listed in the opening sentence.
+- `packages/vgv_ai_cli/docs/<harness>.md` — a new page saying what `install` writes there,
+  what the harness doesn't get, and any setup it needs, plus a row in `docs/README.md`.
 
 ## 2. Give it a brick folder
 
 The folder is named `{{#<harness>}}<harness>`, and **every file inside it ends with
 `{{\<harness>}}`** — the open and close of one Mason section, split across the folder name and each
-file name. It is not a single path segment. Pi's whole folder is three entries:
+file name. It is not a single path segment. Pi's whole folder is four entries:
 
 ```text
 bricks/agents/__brick__/{{#pi}}pi
 bricks/agents/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+bricks/agents/__brick__/{{#pi}}pi/mcp.json{{\pi}}
 bricks/agents/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
 ```
 
@@ -83,8 +100,8 @@ Nested loops close inside out: the commands loop closes with `{{\commands}}` bef
 closes with `{{\pi}}`.
 
 **The tree is the capability matrix.** What the folder holds is what the harness supports. A
-feature the harness lacks has no file, and that absence is the whole opt-out — Pi has `AGENTS.md`
-and `prompts/` and nothing else.
+feature the harness lacks has no file, and that absence is the whole opt-out — Pi has `AGENTS.md`,
+`mcp.json` and `prompts/` and nothing else.
 
 The CLI maps the folder onto the harness's config directory and picks how each file lands from its
 path:
@@ -104,7 +121,7 @@ So a root file is shared with the user and merged; anything deeper VGV owns. See
 | Var | What it is |
 | --- | --- |
 | `<harness>` | Boolean. Renders the whole folder. |
-| `<harness>_settings` | The settings fragment `settings()` returned. Absent when it returns null. |
+| `<harness>_settings` | The settings fragment `settings()` returned. |
 | `<harness>_hooks` | The fragment `hooks()` returned. Absent when there is none, so wrap a hooks file in `{{#<harness>_hooks}}…{{\<harness>_hooks}}` and it is written only when there is something to register. |
 | `agents` | One entry per agent: `name`, `instructions`, and a map per harness. |
 | `commands` | One entry per invocable skill: `name`, `body`, and a map per harness. |
@@ -177,21 +194,28 @@ The bundle is committed, and CI's `verify-bundle` job fails if it drifts. Needs
 
 `packages/vgv_ai_cli/lib/src/translate/translators/<harness>_translator.dart`
 
-Subclass [`HarnessTranslator`][harness_translator]. Everything but `harness` has a default, so you
-override only what the harness actually differs on.
+Subclass [`HarnessTranslator`][harness_translator]. Everything but `harness` and `settings` has a
+default, so you override only what the harness actually differs on.
 
 ```dart
 /// {@template pi_translator}
 /// Configures Pi.
 ///
-/// Pi is minimal by design, with no subagents, no MCP and no declarative
-/// hooks. It reads the shared skills and `AGENTS.md` without configuration,
-/// so it gets its instructions and its prompts, which are the skill bodies as
-/// written, and nothing that would imitate the rest.
+/// Pi is minimal by design, with no subagents and no declarative hooks. It
+/// reads the shared skills and `AGENTS.md` without configuration, so it gets
+/// its instructions, its prompts (the skill bodies as written), and the MCP
+/// servers in `~/.pi/agent/mcp.json`, which Pi reads from 0.99.0.
 /// {@endtemplate}
 class const PiTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.pi;
+
+  @override
+  String settings(PluginAssets assets) => jsonEncode({
+    'mcpServers': {
+      for (final server in assets.mcpServers) server.name: server.toJson(),
+    },
+  });
 
   @override
   List<TranslationNote> notes(PluginAssets assets) => [
@@ -199,11 +223,6 @@ class const PiTranslator() extends HarnessTranslator {
       TranslationNote(
         subject: '${assets.agents.length} agent(s)',
         reason: 'Pi has no subagents, so it gets none',
-      ),
-    if (assets.mcpServers.isNotEmpty)
-      TranslationNote(
-        subject: '${assets.mcpServers.length} MCP server(s)',
-        reason: 'Pi has no MCP support, so it gets none',
       ),
   ];
 }
@@ -216,7 +235,7 @@ class const PiTranslator() extends HarnessTranslator {
 | `skillsRoot(home)` | `null` | It needs its own copy of the skills somewhere. |
 | `honorsModelInvocation` | `false` | It keeps a skill that sets `disable-model-invocation` the user's alone. Otherwise each such skill gets a note. |
 | `sharedSkillFiles(assets, root:)` | nothing | It reads the shared skills and keeps a skill's settings in a file of its own beside it, as Codex does with `agents/openai.yaml`. |
-| `settings(assets)` | `null` | It has a settings file. Return finished JSON or TOML. |
+| `settings(assets)` | — | Always. Return finished JSON or TOML. |
 | `agent(agent, instructions:)` | empty | Its agent files need frontmatter or a TOML body. |
 | `command(skill)` | empty | Its command files need frontmatter or a TOML body. |
 | `hooksRoot(home)` | `<config>/hooks` | It reads hook files from somewhere else. |
@@ -408,6 +427,10 @@ accounts for, so they are **breaking changes of behavior**:
 - Moving its config directory, `hooksRoot()` or `skillsRoot()`.
 - Changing a file's `ChangeMode`, which decides whether VGV owns the file or merges into it.
 - Dropping or renaming a settings key already written into a config the user shares with us.
+- Moving a file the brick renders, such as an agents or commands folder, unless you also map the
+  new folder to the old one by overriding `formerFolders()` in the harness's translator, as
+  `OpenCodeTranslator` does. `install` then takes back the copies an earlier version wrote, so the
+  harness does not load both.
 
 Take any of those to an issue or a discussion before writing the PR, and link it. See
 [breaking changes](CONTRIBUTING.md#breaking-changes).
@@ -434,6 +457,8 @@ These are all driven by `Harness.values` or by the manifest, and need no per-har
 ```text
 README.md                                                 supported agents list
 packages/vgv_ai_cli/README.md                             harness table row, shared-skills line
+packages/vgv_ai_cli/docs/<h>.md                           harness page
+packages/vgv_ai_cli/docs/README.md                        index row
 bricks/agents/brick.yaml                                  boolean var
 bricks/agents/__brick__/{{#<h>}}<h>/…{{\<h>}}             the templates
 bricks/agents/README.md                                   capability matrix row

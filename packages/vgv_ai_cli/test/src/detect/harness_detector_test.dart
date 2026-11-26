@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -140,6 +141,57 @@ void main() {
         );
 
         expect((await detector.detect(Harness.claude)).installed, isFalse);
+      });
+
+      group('against the minimum version', () {
+        Future<HarnessDetection> detectAt(String banner) =>
+            HarnessDetector(runProcess: responds(exits(0, stdout: banner)))
+                .detect(Harness.pi);
+
+        TypeMatcher<HarnessDetection> hasStatus(HarnessStatus status) =>
+            isA<HarnessDetection>()
+                .having((d) => d.status, 'status', status)
+                .having((d) => d.installed, 'installed', isTrue);
+
+        test('is supported at the minimum version', () async {
+          await expectLater(
+            detectAt('pi ${Harness.pi.minimumVersion}'),
+            completion(hasStatus(HarnessStatus.supported)),
+          );
+        });
+
+        test('is supported above the minimum version', () async {
+          await expectLater(
+            detectAt('999.0.0'),
+            completion(hasStatus(HarnessStatus.supported)),
+          );
+        });
+
+        test('is outdated below the minimum version', () async {
+          await expectLater(
+            detectAt('0.0.1'),
+            completion(
+              hasStatus(HarnessStatus.outdated)
+                  .having((d) => d.version, 'version', '0.0.1'),
+            ),
+          );
+        });
+
+        test('compares each part as a number, not as text', () async {
+          final minimum = Version.parse(Harness.pi.minimumVersion);
+
+          await expectLater(
+            detectAt('${minimum.major}.${minimum.minor}.${minimum.patch + 10}'),
+            completion(hasStatus(HarnessStatus.supported)),
+          );
+        });
+
+        test('is unversioned, not outdated, without a version', () async {
+          await expectLater(
+            detectAt('nightly build'),
+            completion(hasStatus(HarnessStatus.unversioned)),
+          );
+        });
       });
 
       test(

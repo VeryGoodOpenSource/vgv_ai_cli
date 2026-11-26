@@ -13,12 +13,27 @@
 /// unprefixed `0.0.1`/`0.0.2` and `v`-prefixed later tags, so the two
 /// conventions already coexist upstream. Deriving `'v$version'` would make the
 /// prefix implicit and silently wrong the moment that changes.
+///
+/// [path] is the plugin's directory inside [repo], the `path` a marketplace
+/// declares for a `git-subdir` source, or null when the plugin is the repo
+/// root. It is pinned with [gitRef], because a plugin can move between
+/// releases: a tag cut before the move has the plugin at the root.
 /// {@endtemplate}
 class const PluginRef({
+  /// The plugin's name.
   required final String name,
+
+  /// The plugin's GitHub repository, such as `owner/name`.
   required final String repo,
+
+  /// The declared version, which names the Claude Code cache directory.
   required final String version,
+
+  /// The tag to clone.
   required final String gitRef,
+
+  /// The plugin's directory inside [repo], or null for the repo root.
+  final String? path,
 }) {
   /// {@macro plugin_ref}
   this;
@@ -51,14 +66,16 @@ const vgvPlugins = <PluginRef>[
   PluginRef(
     name: 'vgv-wingspan',
     repo: 'VeryGoodOpenSource/vgv-wingspan',
-    version: '0.0.5',
-    gitRef: 'v0.0.5',
+    version: '0.1.0',
+    gitRef: 'v0.1.0',
+    path: 'plugin',
   ),
   PluginRef(
     name: 'vgv-ai-flutter-plugin',
     repo: 'VeryGoodOpenSource/vgv-ai-flutter-plugin',
-    version: '0.1.0',
-    gitRef: 'v0.1.0',
+    version: '0.2.0',
+    gitRef: 'v0.2.0',
+    path: 'plugin',
   ),
   PluginRef(
     name: 'vgv-ffca-plugin',

@@ -17,11 +17,12 @@ root.
 
 ## Step 1: research, then report before writing code
 
-Find the release to pin and confirm Claude Code can get it:
+Find the release to pin and confirm Claude Code can get it. `<path>/` is the plugin's folder in
+its repo, and is left out when the plugin is the repo root:
 
 ```sh
 gh release view -R VeryGoodOpenSource/<plugin> --json tagName,publishedAt
-gh api repos/VeryGoodOpenSource/<plugin>/contents/.claude-plugin/plugin.json?ref=<tag> \
+gh api repos/VeryGoodOpenSource/<plugin>/contents/<path>/.claude-plugin/plugin.json?ref=<tag> \
   --jq .content | base64 -d
 gh api repos/VeryGoodOpenSource/very-good-claude-code-marketplace/contents/.claude-plugin/marketplace.json \
   --jq .content | base64 -d
@@ -35,6 +36,9 @@ Record:
   explains why both are kept: the cache folder is named after the version, while git clones the
   tag.
 - **`gitRef`**: the release tag, usually `v`-prefixed.
+- **`path`**: the plugin's folder in the repo, such as `plugin`, or none when the plugin is the repo
+  root. A marketplace entry with a `git-subdir` source declares it as `path`. It is pinned with
+  `gitRef`, because a plugin can move between releases.
 - **Whether the marketplace lists the plugin at that version.** The Claude harness enables
   `<name>@very-good-claude-code-marketplace` for every pin. If the marketplace doesn't list the
   plugin, Claude Code reports a plugin it can't find. Stop and get it listed first.
@@ -46,7 +50,8 @@ work=$(mktemp -d)
 git clone -q --depth 1 --branch <tag> https://github.com/VeryGoodOpenSource/<plugin>.git "$work/new"
 # Each existing pin, at its pinned gitRef from plugin_ref.dart:
 git clone -q --depth 1 --branch <gitRef> https://github.com/<repo>.git "$work/<name>"
-.claude/skills/add-plugin/scripts/audit_plugin.sh "$work/new" "$work"/<each pinned name>
+# Audit each plugin's folder: the clone, or <path> inside it when the pin has one.
+.claude/skills/add-plugin/scripts/audit_plugin.sh "$work/new/<path>" "$work"/<each pinned name>/<its path>
 ```
 
 The script only reports; it changes nothing. Here is what each section means:
@@ -113,6 +118,7 @@ PluginRef(
   repo: 'VeryGoodOpenSource/<plugin>',
   version: '<plugin.json version>',
   gitRef: '<tag>',
+  path: '<path>', // Only when the plugin is not the repo root.
 ),
 ```
 
@@ -227,9 +233,8 @@ from the PR. When the plugin releases the fix, the weekly bump bot picks it up.
   they describe this repo's own `.claude/settings.json`, not what `install` ships.
 - **Spelling is checked in every markdown file and in the PR title**, against the VGV dictionaries
   plus the `words` in `.github/cspell.json`. A plugin's acronym fails both, as "ffca" did. Add the
-  acronym to `words` in its own commit (`chore: …`). That also runs `vgv_ai_cli.yaml`, whose
-  filters include `.github/cspell.json`. Editing the title does not re-run CI, so after fixing a
-  title, close and reopen the PR.
+  acronym to `words` in its own commit (`chore: …`). Both checks live in `ci.yaml`, which runs on
+  every push to the PR and again when the title is edited.
 - Fill in `.github/PULL_REQUEST_TEMPLATE.md`. Under a "Known limitations" heading, list what the
   audit found that the PR does not fix, with links to the upstream issues.
 
@@ -246,5 +251,5 @@ run a check, say so plainly rather than implying it passed.
 | `bump_plugin_pins_test.dart` fails after the pin                             | `pinsSource` or a `releases({...})` map is missing the new plugin                                                                           |
 | The weekly bump PR fails on the new plugin                                   | The `PluginRef(...)` block was reformatted, so `rewritePin` cannot find it                                                                  |
 | A skill or agent from the new plugin never installs                          | Its name collides with one an earlier pin declares. `merge` dropped it                                                                      |
-| `spell-check / build` fails on **Spell Check PR Title**                      | An acronym missing from `words` in `.github/cspell.json`. Add it, then close and reopen the PR                                              |
+| `spell-check / build` fails on **Spell Check PR Title**                      | An acronym missing from `words` in `.github/cspell.json`. Add it and push; the check re-runs                                                |
 | `doctor` reports every file of the plugin as outdated after `install`        | Expected once Claude Code caches the plugin: bodies point at whichever copy the resolver found. See the plugin-files note in the CLI README |

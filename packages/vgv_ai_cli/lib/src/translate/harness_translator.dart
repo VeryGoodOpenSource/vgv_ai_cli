@@ -47,10 +47,8 @@ abstract class const HarnessTranslator() {
     required Directory root,
   }) => const TranslationResult(changes: []);
 
-  /// The settings fragment merged into the root of this harness's config,
-  /// or null for a harness with nothing to set, whose brick folder then has
-  /// no settings file.
-  String? settings(PluginAssets assets) => null;
+  /// The settings fragment merged into the root of this harness's config.
+  String settings(PluginAssets assets);
 
   /// What the brick renders [agent] with for this harness, under its name.
   ///
@@ -75,6 +73,14 @@ abstract class const HarnessTranslator() {
   /// not commands in a file.
   HookTranslation? hooks(PluginAssets assets, {required Directory hooksRoot}) =>
       null;
+
+  /// The folder each folder this harness renders into replaced, both
+  /// absolute under [home] and keyed by the current one.
+  ///
+  /// `install` takes back what an earlier version wrote to a former folder
+  /// once it writes the same file to the current one, so the harness does
+  /// not load both. Drop an entry once nobody runs the old layout.
+  Map<String, String> formerFolders(Directory home) => const {};
 
   /// What the user needs to know about [assets] for this harness, beyond
   /// what [hooks] reports.

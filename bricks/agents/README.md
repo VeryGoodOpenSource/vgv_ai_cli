@@ -10,16 +10,16 @@ merged, so keys you own are preserved.
 
 Each top-level folder is one harness and is rendered only when its flag is set.
 What a folder contains is what that harness supports. Pi's folder has
-`AGENTS.md` and `prompts/` and nothing else, and that absence is how Pi opts
-out of agents and settings.
+`AGENTS.md`, `mcp.json` and `prompts/` and nothing else, and that absence is
+how Pi opts out of agents and hooks.
 
 | Harness     | Settings                      | Instructions              | Agents                    | Commands          | Hooks                    |
 | ----------- | ----------------------------- | ------------------------- | ------------------------- | ----------------- | ------------------------ |
 | claude      | `settings.json`               |                           |                           |                   |                          |
 | gemini      | `settings.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.toml` |                          |
 | codex       | `config.toml`                 | `AGENTS.md`               | `agents/*.toml`           |                   | `hooks.json`             |
-| opencode    | `opencode.json`               | `AGENTS.md`               | `agent/*.md`              | `command/*.md`    |                          |
-| pi          |                               | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
+| opencode    | `opencode.json`               | `AGENTS.md`               | `agents/*.md`             | `commands/*.md`   |                          |
+| pi          | `mcp.json`                    | `AGENTS.md`               |                           | `prompts/*.md`    |                          |
 | copilot     | `mcp-config.json`             | `copilot-instructions.md` | `agents/*.agent.md`       |                   | `hooks/vgv.json`         |
 | antigravity | `plugins/vgv/mcp_config.json` |                           | `plugins/vgv/agents/*.md` |                   | `plugins/vgv/hooks.json` |
 | devin       | `mcp_config.json`             | `AGENTS.md`               | `agents/*.md`             |                   | `config.json`            |
@@ -71,7 +71,7 @@ frontmatter block and every TOML agent or command arrives finished.
 | Var                        | Type    | What it is                                                        |
 | -------------------------- | ------- | ----------------------------------------------------------------- |
 | `claude` ... `devin`       | boolean | Which harnesses to render, one var per harness                    |
-| `<harness>_settings`       | string  | That harness's settings fragment, absent for Pi                   |
+| `<harness>_settings`       | string  | That harness's settings fragment                                  |
 | `<harness>_hooks`          | string  | That harness's hooks file, absent when it has no hooks it can run |
 | `agents`                   | list    | Each agent's `name`, `instructions`, and a map per harness        |
 | `commands`                 | list    | Each invocable skill's `name`, `body`, and a map per harness      |

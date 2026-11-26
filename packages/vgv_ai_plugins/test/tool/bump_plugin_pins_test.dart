@@ -13,6 +13,13 @@ void main() {
     version: '0.0.5',
     gitRef: 'v0.0.5',
   );
+  const nested = PluginRef(
+    name: 'vgv-wingspan',
+    repo: 'VeryGoodOpenSource/vgv-wingspan',
+    version: '0.0.5',
+    gitRef: 'v0.0.5',
+    path: 'plugin',
+  );
 
   const pinsSource = '''
 const vgvPlugins = <PluginRef>[
@@ -84,6 +91,15 @@ const vgvPlugins = <PluginRef>[
       );
 
       expect(bump?.gitRef, 'v0.0.5-fix');
+    });
+
+    test('keeps the path of the pin', () {
+      final bump = bumpFor(
+        nested,
+        const PluginRelease(tag: 'v0.1.0', version: '0.1.0'),
+      );
+
+      expect(bump?.path, 'plugin');
     });
   });
 
@@ -172,7 +188,28 @@ const vgvPlugins = <PluginRef>[
 
       expect(release.tag, 'v0.1.0');
       expect(release.version, '0.1.0');
-      expect(calls.last[1], contains('plugin.json?ref=v0.1.0'));
+      expect(
+        calls.last[1],
+        endsWith('contents/.claude-plugin/plugin.json?ref=v0.1.0'),
+      );
+    });
+
+    test('reads plugin.json under the path of the pin', () async {
+      final calls = <List<String>>[];
+      await latestRelease(
+        nested,
+        runGh: (args) async {
+          calls.add(args);
+          return args[1].contains('releases/latest')
+              ? ok('v0.1.0\n')
+              : ok(jsonEncode({'name': 'vgv-wingspan', 'version': '0.1.0'}));
+        },
+      );
+
+      expect(
+        calls.last[1],
+        endsWith('contents/plugin/.claude-plugin/plugin.json?ref=v0.1.0'),
+      );
     });
 
     test('throws with stderr when gh fails', () {
@@ -194,11 +231,17 @@ const vgvPlugins = <PluginRef>[
     test('throws when plugin.json has no version', () {
       expect(
         () => latestRelease(
-          wingspan,
+          nested,
           runGh: (args) async =>
               args[1].contains('releases/latest') ? ok('v0.1.0') : ok('{}'),
         ),
-        throwsA(isA<FormatException>()),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('plugin/.claude-plugin/plugin.json at v0.1.0'),
+          ),
+        ),
       );
     });
   });

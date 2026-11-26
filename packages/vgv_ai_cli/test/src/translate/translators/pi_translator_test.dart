@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file/memory.dart';
 import 'package:test/test.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
@@ -14,8 +16,42 @@ void main() {
       expect(translator.harness, Harness.pi);
     });
 
-    test('has no settings, since Pi reads the shared skills natively', () {
-      expect(translator.settings(pluginAssets()), isNull);
+    test('declares each MCP server by name', () {
+      final settings = translator.settings(
+        pluginAssets(
+          mcpServers: [
+            const LocalMCPServer(
+              name: 'dart',
+              command: 'dart',
+              args: ['mcp-server'],
+            ),
+            const RemoteMCPServer(
+              name: 'docs',
+              url: 'https://docs.example',
+              headers: {'X-Region': 'us'},
+            ),
+          ],
+        ),
+      );
+
+      expect(jsonDecode(settings), {
+        'mcpServers': {
+          'dart': {
+            'command': 'dart',
+            'args': ['mcp-server'],
+          },
+          'docs': {
+            'url': 'https://docs.example',
+            'headers': {'X-Region': 'us'},
+          },
+        },
+      });
+    });
+
+    test('declares no MCP servers when the plugins bring none', () {
+      expect(jsonDecode(translator.settings(pluginAssets())), {
+        'mcpServers': <String, Object?>{},
+      });
     });
 
     test('spells nothing else, since Pi reads prompts as written', () {
@@ -44,7 +80,7 @@ void main() {
       expect(translator.scripts, isNull);
     });
 
-    test('reports the agents and MCP servers it cannot configure', () {
+    test('reports the agents it cannot configure', () {
       final notes = translator.notes(
         pluginAssets(
           agents: [agentAsset('reviewer'), agentAsset('planner')],
@@ -52,10 +88,7 @@ void main() {
         ),
       );
 
-      expect(notes.map((note) => note.subject), [
-        '2 agent(s)',
-        '1 MCP server(s)',
-      ]);
+      expect(notes.map((note) => note.subject), ['2 agent(s)']);
     });
 
     test('reports nothing when the plugins bring nothing Pi lacks', () {

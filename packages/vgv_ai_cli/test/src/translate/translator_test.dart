@@ -105,23 +105,27 @@ void main() {
       test('OpenCode gets config, instructions, agents and commands', () async {
         expect(await tree(Harness.opencode), [
           'AGENTS.md',
-          'agent/planner.md',
-          'agent/review.md',
-          'command/plan.md',
-          'command/review.md',
-          'command/testing.md',
+          'agents/planner.md',
+          'agents/review.md',
+          'commands/plan.md',
+          'commands/review.md',
+          'commands/testing.md',
           'opencode.json',
         ]);
       });
 
-      test('Pi gets instructions and prompts, and no agents', () async {
-        expect(await tree(Harness.pi), [
-          'AGENTS.md',
-          'prompts/plan.md',
-          'prompts/review.md',
-          'prompts/testing.md',
-        ]);
-      });
+      test(
+        'Pi gets instructions, MCP config and prompts, and no agents',
+        () async {
+          expect(await tree(Harness.pi), [
+            'AGENTS.md',
+            'mcp.json',
+            'prompts/plan.md',
+            'prompts/review.md',
+            'prompts/testing.md',
+          ]);
+        },
+      );
 
       test('Copilot gets MCP config, instructions, agents and hooks', () async {
         expect(await tree(Harness.copilot), [
@@ -196,6 +200,7 @@ void main() {
         containsPair('.copilot/mcp-config.json', ChangeMode.mergeJson),
       );
       expect(modes, containsPair('.copilot/hooks/vgv.json', ChangeMode.own));
+      expect(modes, containsPair('.pi/agent/mcp.json', ChangeMode.mergeJson));
       expect(
         modes,
         containsPair(
@@ -226,6 +231,43 @@ void main() {
           in plan.harnesses.entries) {
         expect(result.changes.map((c) => c.harness).toSet(), {harness});
       }
+    });
+
+    group('supersedes', () {
+      test("OpenCode's singular folders, file by file", () async {
+        final plan = await translate({Harness.opencode});
+        final root = Harness.opencode.configDirectory(home).path;
+
+        expect(plan.harnesses[Harness.opencode]!.superseded, {
+          '$root/agent/planner.md': '$root/agents/planner.md',
+          '$root/agent/review.md': '$root/agents/review.md',
+          '$root/command/plan.md': '$root/commands/plan.md',
+          '$root/command/review.md': '$root/commands/review.md',
+          '$root/command/testing.md': '$root/commands/testing.md',
+        });
+        expect(plan.superseded, plan.harnesses[Harness.opencode]!.superseded);
+      });
+
+      test('only the files the plan writes anew', () async {
+        final plan = await translate({
+          Harness.opencode,
+        }, using: pluginAssets(agents: [agentAsset('review')]));
+
+        final root = Harness.opencode.configDirectory(home).path;
+
+        expect(plan.superseded, {
+          '$root/agent/review.md': '$root/agents/review.md',
+        });
+      });
+
+      test('nothing for any other harness or the shared skills', () async {
+        final plan = await translate(
+          Harness.values.toSet().difference({Harness.opencode}),
+        );
+
+        expect(plan.shared!.superseded, isEmpty);
+        expect(plan.superseded, isEmpty);
+      });
     });
 
     test('plans the shared skills once, when a harness reads them', () async {
@@ -377,7 +419,7 @@ void main() {
       );
 
       test('an OpenCode command is frontmatter over the skill body', () async {
-        final command = await contents(Harness.opencode, 'command/plan.md');
+        final command = await contents(Harness.opencode, 'commands/plan.md');
 
         expect(command, '---\ndescription: "what it does"\n---\n\n# Body\n');
       });

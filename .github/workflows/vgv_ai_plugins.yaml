@@ -17,13 +17,10 @@ on:
       - "packages/vgv_ai_plugins/**"
 
 jobs:
-  semantic-pull-request:
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v2
-
   build:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/dart_package.yml@v2
     with:
-      dart_sdk: "3.13.0"
+      dart_sdk: "3.14.0"
       working_directory: packages/vgv_ai_plugins
       run_cognitive_complexity: true
       cognitive_complexity_targets: packages/vgv_ai_plugins/lib
