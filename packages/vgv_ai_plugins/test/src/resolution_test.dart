@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:vgv_ai_plugins/src/plugin_ref.dart';
 import 'package:vgv_ai_plugins/src/resolution.dart';
@@ -21,8 +22,23 @@ void main() {
       }
     });
 
+    test('pins every path as a relative folder inside its repo', () {
+      for (final path in vgvPlugins.map((ref) => ref.path).nonNulls) {
+        expect(p.posix.isRelative(path), isTrue, reason: path);
+        expect(p.posix.normalize(path), path);
+        expect(p.posix.split(path), isNot(contains('..')));
+      }
+    });
+
     test('toString uses the declared version', () {
-      expect(vgvPlugins.first.toString(), 'vgv-wingspan@0.0.5');
+      const ref = PluginRef(
+        name: 'vgv-wingspan',
+        repo: 'VeryGoodOpenSource/vgv-wingspan',
+        version: '0.0.5',
+        gitRef: 'v0.0.5',
+      );
+
+      expect(ref.toString(), 'vgv-wingspan@0.0.5');
     });
   });
 }

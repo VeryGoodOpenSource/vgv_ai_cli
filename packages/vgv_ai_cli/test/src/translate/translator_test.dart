@@ -117,14 +117,18 @@ void main() {
         ]);
       });
 
-      test('Pi gets instructions and prompts, and no agents', () async {
-        expect(await tree(Harness.pi), [
-          'AGENTS.md',
-          'prompts/plan.md',
-          'prompts/review.md',
-          'prompts/testing.md',
-        ]);
-      });
+      test(
+        'Pi gets instructions, MCP config and prompts, and no agents',
+        () async {
+          expect(await tree(Harness.pi), [
+            'AGENTS.md',
+            'mcp.json',
+            'prompts/plan.md',
+            'prompts/review.md',
+            'prompts/testing.md',
+          ]);
+        },
+      );
 
       test('Copilot gets MCP config, instructions, agents and hooks', () async {
         expect(await tree(Harness.copilot), [
@@ -186,6 +190,7 @@ void main() {
         containsPair('.copilot/mcp-config.json', ChangeMode.mergeJson),
       );
       expect(modes, containsPair('.copilot/hooks/vgv.json', ChangeMode.own));
+      expect(modes, containsPair('.pi/agent/mcp.json', ChangeMode.mergeJson));
       expect(
         modes,
         containsPair(
@@ -442,13 +447,13 @@ void main() {
         expect(plan.harnesses[Harness.pi]!.notes, isEmpty);
       });
 
-      test('Pi gets one note for its MCP servers, its own', () async {
+      test('Pi gets one note for its MCP servers', () async {
         final plan = await translate({Harness.pi}, scope: project);
 
         final mcp = plan.harnesses[Harness.pi]!.notes.where(
           (n) => n.subject == '1 MCP server(s)',
         );
-        expect(mcp.single.reason, contains('Pi has no MCP support'));
+        expect(mcp.single.reason, contains('issues/140'));
       });
 
       test('Antigravity gets a workspace plugin holding its agents', () async {

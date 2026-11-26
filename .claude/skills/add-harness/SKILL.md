@@ -95,6 +95,7 @@ fixes the last one; step 5 fixes the other two.
    ```text
    bricks/user_config/__brick__/{{#pi}}pi
    bricks/user_config/__brick__/{{#pi}}pi/AGENTS.md{{\pi}}
+   bricks/user_config/__brick__/{{#pi}}pi/mcp.json{{\pi}}
    bricks/user_config/__brick__/{{#pi}}pi/prompts/{{#commands}}{{{name}}}.md{{\commands}}{{\pi}}
    ```
 3. Add a row to the capability matrix in `bricks/user_config/README.md`.

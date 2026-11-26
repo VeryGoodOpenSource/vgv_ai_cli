@@ -39,11 +39,11 @@ void main() {
       );
     });
 
-    test('carries settings only for selected harnesses that have some', () {
+    test('carries settings only for selected harnesses', () {
       final vars = varsFor(const [GeminiTranslator(), PiTranslator()]);
 
       expect(vars, contains('gemini_settings'));
-      expect(vars, isNot(contains('pi_settings')));
+      expect(vars, contains('pi_settings'));
       expect(vars, isNot(contains('codex_settings')));
     });
 

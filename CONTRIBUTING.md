@@ -149,8 +149,8 @@ open coverage/index.html
 ## Releases
 
 [release-please](https://github.com/googleapis/release-please) owns versions and changelogs.
-Every push to `main` opens or updates one release pull request per changed package, which bumps
-that package and writes its `CHANGELOG.md`. Merge one only when a release is intended; merging it
+Every push to `main` opens or updates one release pull request per changed package, titled
+`chore(<package>): vX.Y.Z`, which bumps that package and writes its `CHANGELOG.md`. Merge one only when a release is intended; merging it
 tags the release and publishes the notes. When both are open, merge the `vgv_ai_plugins` one first.
 
 The `vgv_ai_plugins-vX.Y.Z` tag starts `pub_publish_plugins.yaml`, which publishes `vgv_ai_plugins`

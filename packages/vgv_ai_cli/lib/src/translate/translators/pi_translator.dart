@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
@@ -5,10 +7,10 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// {@template pi_translator}
 /// Configures Pi.
 ///
-/// Pi is minimal by design, with no subagents, no MCP and no declarative
-/// hooks. It reads the shared skills and `AGENTS.md` without configuration,
-/// so it gets its instructions and its prompts, which are the skill bodies as
-/// written, and nothing that would imitate the rest.
+/// Pi is minimal by design, with no subagents and no declarative hooks. It
+/// reads the shared skills and `AGENTS.md` without configuration, so it gets
+/// its instructions, its prompts (the skill bodies as written), and the MCP
+/// servers in `~/.pi/agent/mcp.json`, which Pi reads from 0.99.0.
 /// {@endtemplate}
 class const PiTranslator() extends HarnessTranslator {
   /// {@macro pi_translator}
@@ -18,16 +20,18 @@ class const PiTranslator() extends HarnessTranslator {
   Harness get harness => Harness.pi;
 
   @override
+  String settings(PluginAssets assets) => jsonEncode({
+    'mcpServers': {
+      for (final server in assets.mcpServers) server.name: server.toJson(),
+    },
+  });
+
+  @override
   List<TranslationNote> notes(PluginAssets assets) => [
     if (assets.agents.isNotEmpty)
       TranslationNote(
         subject: '${assets.agents.length} agent(s)',
         reason: 'Pi has no subagents, so it gets none',
-      ),
-    if (assets.mcpServers.isNotEmpty)
-      TranslationNote(
-        subject: '${assets.mcpServers.length} MCP server(s)',
-        reason: 'Pi has no MCP support, so it gets none',
       ),
   ];
 

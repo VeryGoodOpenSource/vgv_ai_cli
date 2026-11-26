@@ -14,6 +14,7 @@ import 'package:vgv_ai_cli/src/resolve/resolve.dart';
 import 'package:vgv_ai_cli/src/translate/translate.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
+import '../../helpers/clone_plugins.dart';
 import '../../helpers/failing_auditor.dart';
 import '../../helpers/test_runner.dart';
 
@@ -119,17 +120,6 @@ void main() {
       display: any(named: 'display'),
     );
 
-    /// Clones every plugin by creating its target, since there is no
-    /// Claude Code cache under [home].
-    Future<ProcessResult> clone(
-      String executable,
-      List<String> arguments, {
-      bool runInShell = false,
-    }) async {
-      fs.directory(arguments.last).createSync(recursive: true);
-      return ProcessResult(0, 0, '', '');
-    }
-
     Future<int> runThroughRunner(InstallCommand command, List<String> args) =>
         runner.run(['install', ...args], installCommand: command);
 
@@ -147,7 +137,7 @@ void main() {
         home: home,
         detector: detector,
         resolver: PluginResolver(
-          runProcess: runProcess ?? clone,
+          runProcess: runProcess ?? clonesPlugins(fs),
           parser: parser ?? _FakeParser(assets(fs)),
           plugins: pins,
         ),
@@ -620,7 +610,7 @@ void main() {
           ['--only', 'codex'],
           runProcess: (executable, arguments, {runInShell = false}) {
             cloned.add([executable, ...arguments.take(2)]);
-            return clone(executable, arguments);
+            return clonesPlugins(fs)(executable, arguments);
           },
         );
 
@@ -1293,6 +1283,7 @@ void main() {
               fs.file(fs.path.join(root, path))
                 ..createSync(recursive: true)
                 ..writeAsStringSync(contents);
+          write('.claude-plugin/plugin.json', '{}');
           write(
             'skills/audit/SKILL.md',
             '---\nname: audit\ndescription: d\n---\n'
@@ -1383,6 +1374,7 @@ void main() {
               fs.file(fs.path.join(root, path))
                 ..createSync(recursive: true)
                 ..writeAsStringSync(contents);
+          write('.claude-plugin/plugin.json', '{}');
           write(
             'skills/audit/SKILL.md',
             '---\nname: audit\ndescription: d\n---\n'

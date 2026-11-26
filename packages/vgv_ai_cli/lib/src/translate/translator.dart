@@ -185,7 +185,7 @@ class const Translator({
         if (hooks == null && assets.hooks.isNotEmpty) runsNoHooks,
       ],
       ProjectScope() when translator.installsPluginsNatively => const [],
-      ProjectScope() => _withoutOwnSubjects(translator, assets, [
+      ProjectScope() => [
         if (assets.hooks.isNotEmpty && translator.scripts == null)
           runsNoHooks
         else if (assets.hooks.isNotEmpty)
@@ -202,24 +202,8 @@ class const Translator({
                 'a project install does not configure $name MCP servers '
                 'yet; see $_projectHooksAndMcpIssue',
           ),
-      ]),
+      ],
     };
-  }
-
-  /// [notes] without the ones whose subject [translator]'s own notes on
-  /// [assets] already explain, such as Pi's MCP servers.
-  List<TranslationNote> _withoutOwnSubjects(
-    HarnessTranslator translator,
-    PluginAssets assets,
-    List<TranslationNote> notes,
-  ) {
-    final explained = {
-      for (final note in translator.notes(assets)) note.subject,
-    };
-    return [
-      for (final note in notes)
-        if (!explained.contains(note.subject)) note,
-    ];
   }
 
   /// The issue tracking hooks and MCP servers in a project install.
