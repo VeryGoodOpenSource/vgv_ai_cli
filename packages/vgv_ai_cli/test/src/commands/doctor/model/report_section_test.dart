@@ -75,6 +75,18 @@ void main() {
       );
     });
 
+    test('fixes into the project it was found in', () {
+      expect(
+        const ReportSection(
+          title: 'Codex',
+          installs: {Harness.codex},
+          findings: [Finding.missing('a')],
+          project: '../app',
+        ).fix.toString(),
+        'vgv_ai install --only codex --project ../app',
+      );
+    });
+
     test('needs its own fix when no one command fixes what it found', () {
       const unfixable = ReportSection(
         title: 'Shared',

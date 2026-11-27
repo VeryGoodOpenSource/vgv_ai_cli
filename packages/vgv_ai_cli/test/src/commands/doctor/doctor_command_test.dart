@@ -38,6 +38,9 @@ class _FakeResolver extends Fake implements PluginResolver {
   /// The sink the command passed for `--verbose` output.
   LogDetail? log;
 
+  /// How the command asked for the plugin roots to be spelled.
+  String? Function(PluginRef plugin)? pluginRoot;
+
   @override
   Future<AssetResolution> resolve(
     Directory home, {
@@ -48,6 +51,7 @@ class _FakeResolver extends Fake implements PluginResolver {
     calls++;
     resolved.add(only);
     this.log = log;
+    this.pluginRoot = pluginRoot;
     return resolution;
   }
 }
@@ -58,6 +62,8 @@ class _FakeTranslator extends Fake implements Translator {
 
   Set<Harness>? selected;
 
+  Scope? scope;
+
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
@@ -66,6 +72,7 @@ class _FakeTranslator extends Fake implements Translator {
     List<PluginDirectory> plugins = const [],
   }) async {
     this.selected = selected;
+    this.scope = scope;
     return TranslationPlan(shared: TranslationResult(changes: changes));
   }
 }
@@ -293,7 +300,7 @@ void main() {
 
       expect(exitCode, ExitCode.software.code);
       verifyInfo('    cannot parse ~/.gemini/settings.json');
-      verifyInfo('      Fix its syntax, then run vgv_ai install.');
+      verifyInfo('      Run vgv_ai install once you fix its syntax.');
     });
 
     test('reports a file it cannot read with a manual step', () async {
@@ -1053,7 +1060,7 @@ void main() {
         );
 
         expect(exitCode, ExitCode.software.code);
-        verifyInfo('      Fix its syntax, then run vgv_ai install.');
+        verifyInfo('      Run vgv_ai install once you fix its syntax.');
         verifyInfo('      Check that you can read it, then run doctor again.');
         verifyInfo(combined('vgv_ai install --only pi'));
       });
@@ -1107,6 +1114,256 @@ void main() {
           ),
         ).called(1);
         verifyInfo('Check that you can read it, then run doctor again.');
+      });
+    });
+
+    group('--project', () {
+      late Directory project;
+      late ManifestStore projectStore;
+
+      setUp(() {
+        project = fs.directory('/work/app')..createSync(recursive: true);
+        projectStore = ManifestStore(project);
+      });
+
+      Future<int> runInProject(List<String> args) => runThroughRunner(
+        DoctorCommand(
+          logger: logger,
+          home: home,
+          detector: detector,
+          resolver: resolver,
+          translator: translator,
+          workingDirectory: project,
+        ),
+        args,
+      );
+
+      File projectFile(String relative) =>
+          fs.file(fs.path.join(project.path, relative));
+
+      PlannedChange projectOwned(String relative, {Harness? harness}) =>
+          PlannedChange.text(
+            file: projectFile(relative),
+            contents: 'vgv',
+            harness: harness,
+          );
+
+      /// Installs [changes] into the project as `install --project` does,
+      /// and plans them again, so they are current.
+      void installInProject(List<PlannedChange> changes) {
+        final manifest = const Reconciler()
+            .apply(changes, manifest: projectStore.load()!)
+            .manifest;
+        projectStore.save(
+          manifest.withPlugins({
+            ...manifest.plugins,
+            for (final change in changes) ?change.harness: pinned,
+          }),
+        );
+        translator.changes.addAll(changes);
+      }
+
+      final copy =
+          '.vgv_ai/plugins/${vgvPlugins.first.name}@'
+          '${vgvPlugins.first.gitRef}/references/a.md';
+
+      test('checks the project manifest, not the home one, and exits 0 when '
+          'intact', () async {
+        install([owned('.codex/agents/home.toml', harness: Harness.codex)]);
+        homeFile('.codex/agents/home.toml').deleteSync();
+        translator.changes.clear();
+        installInProject([
+          projectOwned('.agents/skills/a/SKILL.md'),
+          projectOwned(copy),
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+
+        final exitCode = await runInProject(['--project']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo('✓ Shared');
+        verifyInfo('✓ Codex');
+        for (final plugin in vgvPlugins) {
+          verifyInfo('    ${plugin.name} ${plugin.version}');
+        }
+        verifyNever(() => logger.info(any(that: contains('home.toml'))));
+      });
+
+      test('never probes this machine for harnesses', () async {
+        installInProject([
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        detect(const [Harness.gemini]);
+
+        final exitCode = await runInProject(['--project']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyNever(() => detector.detect(any()));
+        verifyNever(() => logger.info(any(that: contains('Gemini'))));
+        verifyNever(
+          () => logger.info(any(that: contains('not installed on this'))),
+        );
+      });
+
+      test('plans a project install, with its plugin copies', () async {
+        installInProject([
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+
+        await runInProject(['--project']);
+
+        expect(
+          translator.scope,
+          isA<ProjectScope>().having((s) => s.root.path, 'root', project.path),
+        );
+        expect(
+          resolver.pluginRoot?.call(vgvPlugins.first),
+          '.vgv_ai/plugins/${vgvPlugins.first.name}@'
+          '${vgvPlugins.first.gitRef}',
+        );
+      });
+
+      test(
+        'fails on a changed plugin copy, with a fix into the project',
+        () async {
+          installInProject([
+            projectOwned(copy),
+            projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+            projectOwned('.claude/settings.json', harness: Harness.claude),
+          ]);
+          projectFile(copy).writeAsStringSync('mine');
+
+          final exitCode = await runInProject(['--project']);
+
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('✗ Shared');
+          verifyInfo('    changed $copy');
+          verifyInfo('    Run vgv_ai install --only codex --force --project .');
+          verifyInfo('✓ Claude Code');
+        },
+      );
+
+      test('fails on a missing file, relative to the project', () async {
+        installInProject([
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        projectFile('.codex/agents/a.toml').deleteSync();
+
+        final exitCode = await runThroughRunner(
+          DoctorCommand(
+            logger: logger,
+            home: home,
+            detector: detector,
+            resolver: resolver,
+            translator: translator,
+            workingDirectory: fs.directory('/work'),
+          ),
+          ['--project', 'app'],
+        );
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo('    missing .codex/agents/a.toml');
+        verifyInfo('    Run vgv_ai install --only codex --project app');
+        verifyInfo(
+          'Run ${lightCyan.wrap('vgv_ai install --only codex --project app')} '
+          'to fix everything install can.',
+        );
+      });
+
+      test('fails on a plugin installed from another tag', () async {
+        installInProject([
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+        final plugin = vgvPlugins.first;
+        projectStore.save(
+          projectStore.load()!.withPlugins({
+            Harness.codex: {...pinned, plugin.name: '0.0.1'},
+          }),
+        );
+
+        final exitCode = await runInProject(['--project']);
+
+        expect(exitCode, ExitCode.software.code);
+        verifyInfo(
+          '    ${plugin.name} 0.0.1 installed, ${plugin.version} pinned',
+        );
+        verifyInfo('    Run vgv_ai install --only codex --project .');
+      });
+
+      test(
+        'names the project in the step for a file it cannot parse',
+        () async {
+          installInProject([
+            PlannedChange.text(
+              file: projectFile('.gemini/settings.json'),
+              contents: jsonEncode({'theme': 'vgv'}),
+              harness: Harness.gemini,
+              mode: ChangeMode.mergeJson,
+            ),
+          ]);
+          projectFile('.gemini/settings.json').writeAsStringSync('{ not json');
+
+          final exitCode = await runInProject(['--project']);
+
+          expect(exitCode, ExitCode.software.code);
+          verifyInfo('    cannot parse .gemini/settings.json');
+          verifyInfo(
+            '      Run vgv_ai install --project . once you fix its syntax.',
+          );
+        },
+      );
+
+      test(
+        'says how to install into a project with nothing installed',
+        () async {
+          final exitCode = await runInProject(['--project']);
+
+          expect(exitCode, ExitCode.success.code);
+          verifyInfo(
+            "VGV AI CLI hasn't installed anything here yet. Run vgv_ai install "
+            '--project . to set it up.',
+          );
+        },
+      );
+
+      test('says when no selected harness is configured in it', () async {
+        installInProject([
+          projectOwned('.codex/agents/a.toml', harness: Harness.codex),
+        ]);
+
+        final exitCode = await runInProject(['--project', '--only', 'pi']);
+
+        expect(exitCode, ExitCode.success.code);
+        verifyInfo(
+          'Nothing to check: no selected harness is configured by VGV AI CLI '
+          'in this project.',
+        );
+      });
+
+      test('is a usage error for a directory that does not exist', () async {
+        final exitCode = await runInProject(['--project', 'missing']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(() => logger.err('/work/app/missing is not a directory.'))
+            .called(1);
+      });
+
+      test('is a usage error for a directory without --project', () async {
+        final exitCode = await runInProject(['.']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(
+          () => logger.err(
+            'Unexpected argument ".". Pass --project to check a directory.',
+          ),
+        ).called(1);
+      });
+
+      test('shows the directory in the usage', () async {
+        await runInProject(['--project', 'a', 'b']);
+
+        verify(() => logger.info(any(that: contains('[--project [<dir>]]'))))
+            .called(1);
       });
     });
 
