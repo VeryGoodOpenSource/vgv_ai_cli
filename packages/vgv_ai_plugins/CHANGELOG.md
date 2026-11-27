@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.3.0...vgv_ai_plugins-v0.4.0) (2026-11-27)
+
+
+### Features
+
+* install into a project with --project ([#155](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/155)) ([48310b9](https://github.com/VeryGoodOpenSource/vgv_ai_cli/commit/48310b9a3e6a8f48b9d12e076361cf7f64e91236))
+
 ## [0.3.0](https://github.com/VeryGoodOpenSource/vgv_ai_cli/compare/vgv_ai_plugins-v0.2.0...vgv_ai_plugins-v0.3.0) (2026-11-26)
 
 
