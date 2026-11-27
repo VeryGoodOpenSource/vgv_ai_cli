@@ -194,9 +194,8 @@ Not installed yet, each tracked as part of
 
 - Hooks and MCP servers
   ([#140](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/140)).
-- `doctor --project` and `uninstall --project`
-  ([#138](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/138),
-  [#139](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/139)).
+- `uninstall --project`
+  ([#139](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/139)).
 - Failing on anything it can't translate
   ([#141](https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/141)).
 - A content hash per plugin in the manifest
@@ -234,6 +233,26 @@ harness it names.
 
 To check whether files are current, `doctor` resolves the plugins the same way
 `install` does, so it may clone them into `~/.vgv_ai/plugins`.
+
+#### A project
+
+`doctor --project [dir]` checks what `install --project` wrote into a
+repository against its `.vgv_ai/manifest.json`, instead of your home directory.
+`dir` defaults to the working directory.
+
+```sh
+# Check the repository you're in, such as in CI
+vgv_ai doctor --project
+```
+
+It checks the plugin versions each harness was installed from against the ones
+this version pins, and every file `install --project` wrote, including the
+plugin files copied to `.vgv_ai/plugins/<plugin>@<tag>/`, against the hash or
+keys the manifest records. Paths are reported relative to the repository, and
+the fix it suggests is an `install --project` command. Whoever clones the
+repository may use any harness, so it doesn't check which harnesses are
+installed on your machine. Anything missing, changed, or outdated exits
+non-zero, so CI can fail on drift.
 
 ### uninstall
 

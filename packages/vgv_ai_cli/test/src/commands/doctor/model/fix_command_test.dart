@@ -32,6 +32,17 @@ void main() {
       );
     });
 
+    test('ends with --project and its directory for a project', () {
+      expect(
+        const FixCommand(
+          harnesses: {Harness.codex},
+          force: true,
+          project: '.',
+        ).toString(),
+        'vgv_ai install --only codex --force --project .',
+      );
+    });
+
     group('combine', () {
       test('installs every harness any fix names', () {
         expect(
@@ -51,6 +62,16 @@ void main() {
             FixCommand(harnesses: {Harness.pi}, force: true),
           ]).toString(),
           'vgv_ai install --only codex --only pi --force',
+        );
+      });
+
+      test('installs into the project the fixes install into', () {
+        expect(
+          FixCommand.combine(const [
+            FixCommand(harnesses: {Harness.codex}, project: 'app'),
+            FixCommand(harnesses: {Harness.pi}, project: 'app'),
+          ]).toString(),
+          'vgv_ai install --only codex --only pi --project app',
         );
       });
 

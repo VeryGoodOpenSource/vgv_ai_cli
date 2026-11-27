@@ -18,13 +18,18 @@ class const FixCommand({
   /// Named so the fix cannot install a plugin the user left out of a
   /// harness with `install --plugin`.
   final Set<String> plugins = const {},
+
+  /// The project to install into, as `--project` was given, or null for
+  /// the user's home.
+  final String? project,
 }) {
   /// {@macro fix_command}
   this;
 
   /// One command that does what every one of [fixes] does, or null when
   /// there are none, or when they install different plugins and so cannot
-  /// be said in one command.
+  /// be said in one command. Every one of them installs into the same
+  /// place, since one `doctor` run checks one.
   static FixCommand? combine(Iterable<FixCommand?> fixes) {
     final all = fixes.nonNulls.toList();
     if (all.isEmpty) return null;
@@ -37,6 +42,7 @@ class const FixCommand({
       harnesses: {for (final fix in all) ...fix.harnesses},
       force: all.any((fix) => fix.force),
       plugins: plugins.single,
+      project: all.first.project,
     );
   }
 
@@ -48,5 +54,6 @@ class const FixCommand({
     for (final plugin in vgvPlugins)
       if (plugins.contains(plugin.name)) '--plugin ${plugin.name}',
     if (force) '--force',
+    if (project case final project?) '--project $project',
   ].join(' ');
 }

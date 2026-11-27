@@ -20,6 +20,10 @@ class const ReportSection({
   /// the harnesses were installed from different ones and no one `install`
   /// fixes them all.
   final Set<String>? plugins = const {},
+
+  /// The project the fix installs into, as `--project` was given, or null
+  /// for the user's home.
+  final String? project,
 }) {
   /// {@macro report_section}
   this;
@@ -44,6 +48,7 @@ class const ReportSection({
         harnesses: installs,
         force: findings.any((finding) => finding.needsForce),
         plugins: plugins,
+        project: project,
       );
     }
     return null;

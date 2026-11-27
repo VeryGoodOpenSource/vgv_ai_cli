@@ -7,6 +7,7 @@ import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/commands/empty_directories.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/project_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
@@ -54,7 +55,7 @@ class InstallCommand({
   final ManifestAuditor _auditor = const ManifestAuditor(),
   bool? hasTerminal,
   Directory? workingDirectory,
-}) extends Command<int> with HarnessSelection {
+}) extends Command<int> with HarnessSelection, ProjectSelection {
   /// {@macro install_command}
   this {
     argParser
@@ -76,13 +77,6 @@ class InstallCommand({
         allowed: [for (final plugin in vgvPlugins) plugin.name],
       )
       ..addFlag(
-        projectFlag,
-        help:
-            'Install into the project at the directory given after the '
-            'options, or the working directory, for every harness.',
-        negatable: false,
-      )
-      ..addFlag(
         refreshFlag,
         help:
             'Reinstall the harnesses and plugins a previous install wrote, '
@@ -90,6 +84,10 @@ class InstallCommand({
         negatable: false,
         hide: true,
       );
+    addProjectOption(
+      'Install into the project at the directory given after the options, '
+      'or the working directory, for every harness.',
+    );
     addHarnessOptions('Configure the Very Good AI tooling for');
   }
 
@@ -100,9 +98,6 @@ class InstallCommand({
   /// The flag `update` passes to reinstall what a previous install wrote.
   /// Older versions of `update` pass it too, so it must keep its name.
   static const String refreshFlag = 'refresh';
-
-  /// The flag that installs into a project instead of the user's home.
-  static const String projectFlag = 'project';
 
   /// Whether stdin is a terminal, so install can ask which plugins to install.
   final bool _hasTerminal = hasTerminal ?? stdin.hasTerminal;
@@ -138,9 +133,6 @@ class InstallCommand({
   @override
   String get name => commandName;
 
-  @override
-  String get invocation => '${super.invocation} [--project [<dir>]]';
-
   /// The directory install configures, or null when it cannot be found.
   Directory? get home => commandHome(_home, _environment);
 
@@ -160,7 +152,11 @@ class InstallCommand({
       );
       return ExitCode.config.code;
     }
-    final scope = _scope(home);
+    final scope = selectScope(
+      home,
+      workingDirectory: _workingDirectory,
+      action: 'install into a directory',
+    );
 
     // Loaded before anything is resolved, since a manifest this version
     // cannot read means nothing can be installed.
@@ -335,7 +331,7 @@ class InstallCommand({
     final picked = [
       'only',
       'plugin',
-      projectFlag,
+      ProjectSelection.projectFlag,
       ...Harness.values.map((harness) => harness.name),
     ].where(argResults!.wasParsed);
     if (picked.isNotEmpty) {
@@ -364,48 +360,6 @@ class InstallCommand({
       );
     }
     return recorded.intersection(pinned);
-  }
-
-  /// Where this run installs: the project `--project` names, resolved
-  /// against the working directory, or the user's [home].
-  ///
-  /// Throws a [UsageException] for a directory without `--project`, more
-  /// than one directory, one that does not exist, or [home] itself.
-  Scope _scope(Directory home) {
-    final rest = argResults!.rest;
-    if (argResults![projectFlag] != true) {
-      if (rest.isNotEmpty) {
-        usageException(
-          'Unexpected argument "${rest.first}". Pass --$projectFlag to '
-          'install into a directory.',
-        );
-      }
-      return UserScope(home);
-    }
-
-    if (rest.length > 1) {
-      usageException('--$projectFlag takes one directory, not ${rest.length}.');
-    }
-    final path = _workingDirectory.fileSystem.path;
-    final project = _workingDirectory.fileSystem.directory(
-      path.normalize(path.join(_workingDirectory.path, rest.firstOrNull ?? '')),
-    );
-    if (!project.existsSync()) {
-      usageException('${project.path} is not a directory.');
-    }
-    // A project rooted at home would share the user install's manifest and
-    // skills, and a rerun would then prune the user install.
-    if (home.existsSync() &&
-        path.equals(
-          project.resolveSymbolicLinksSync(),
-          home.resolveSymbolicLinksSync(),
-        )) {
-      usageException(
-        '${project.path} is your home directory. Pass --$projectFlag a '
-        'repository instead.',
-      );
-    }
-    return ProjectScope(project);
   }
 
   /// Resolves which harnesses to configure in [scope].

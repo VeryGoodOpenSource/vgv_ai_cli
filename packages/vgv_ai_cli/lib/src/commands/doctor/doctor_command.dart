@@ -1,10 +1,12 @@
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:vgv_ai_cli/src/commands/doctor/model/model.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
+import 'package:vgv_ai_cli/src/commands/project_selection.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
@@ -31,6 +33,12 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// has not configured, and warns about one VGV configured that is no longer
 /// installed. `--only` and `--no-<harness>` narrow the report as they
 /// narrow `install`. Never writes harness config or the manifest.
+///
+/// `--project [<dir>]` checks what `install --project` wrote into the project
+/// at `dir`, or the working directory, against its own manifest instead.
+/// Whoever clones a project may use any harness, so none is probed on this
+/// machine, and paths are reported relative to the project. Anything wrong
+/// exits non-zero, so CI can gate on it.
 /// {@endtemplate}
 class DoctorCommand({
   required final Logger _logger,
@@ -41,9 +49,14 @@ class DoctorCommand({
   final PluginResolver _resolver = const PluginResolver(),
   final Translator _translator = const Translator(),
   final Reconciler _reconciler = const Reconciler(),
-}) extends Command<int> with HarnessSelection {
+  Directory? workingDirectory,
+}) extends Command<int> with HarnessSelection, ProjectSelection {
   /// {@macro doctor_command}
   this {
+    addProjectOption(
+      'Check the project at the directory given after the options, or the '
+      'working directory, instead of your home.',
+    );
     addHarnessOptions('Check the Very Good AI tooling for');
   }
 
@@ -51,12 +64,19 @@ class DoctorCommand({
   /// without constructing one.
   static const String commandName = 'doctor';
 
-  /// The harnesses that load the shared skills under [home], so whose
-  /// `install` fixes them.
-  static Set<Harness> _readShared(Directory home) => {
+  /// The harnesses whose `install` writes the files no harness owns in
+  /// [scope], so fixes them: the ones that load the shared skills, and in a
+  /// project, the ones that read the plugin files copied into it.
+  static Set<Harness> _readShared(Scope scope) => {
     for (final translator in harnessTranslators)
-      if (translator.readsSharedSkills(UserScope(home))) translator.harness,
+      if (translator.readsSharedSkills(scope) ||
+          (scope is ProjectScope && !translator.installsPluginsNatively))
+        translator.harness,
   };
+
+  /// The directory a relative `--project` directory is resolved against.
+  final Directory _workingDirectory =
+      workingDirectory ?? const LocalFileSystem().currentDirectory;
 
   @override
   String get description =>
@@ -75,22 +95,29 @@ class DoctorCommand({
       return ExitCode.config.code;
     }
 
-    final store = ManifestStore(home);
+    final scope = selectScope(
+      home,
+      workingDirectory: _workingDirectory,
+      action: 'check a directory',
+    );
+    final store = ManifestStore(scope.root);
     final manifest = _load(store);
     if (manifest == null) return ExitCode.software.code;
 
-    final scope = onlyHarnesses ?? Harness.values.where(isEnabled).toSet();
-    final detected = await _detect(scope);
+    final selected = onlyHarnesses ?? Harness.values.where(isEnabled).toSet();
+    // Whoever clones a project brings their own harnesses, so what this
+    // machine has says nothing about it.
+    final detected = scope is ProjectScope ? null : await _detect(selected);
     final configured = {for (final entry in manifest.entries) ?entry.owner};
-    final installed = configured.intersection(scope);
+    final installed = configured.intersection(selected);
     final reports = _verify(
       manifest,
-      home,
+      scope,
       installed: installed,
       detected: detected,
       plan: installed.isEmpty
           ? ContentPlan.none()
-          : await _plan(manifest, home, installed),
+          : await _plan(manifest, home, scope, installed),
     )..forEach(_report);
 
     if (reports.isEmpty) _logger.info(_nothingToCheck(manifest));
@@ -144,11 +171,11 @@ class DoctorCommand({
     }
   }
 
-  /// What probing found for each harness of [scope] that is installed on
+  /// What probing found for each harness of [selected] that is installed on
   /// this machine.
-  Future<Map<Harness, HarnessDetection>> _detect(Set<Harness> scope) async {
+  Future<Map<Harness, HarnessDetection>> _detect(Set<Harness> selected) async {
     final detections = await Future.wait([
-      for (final harness in scope)
+      for (final harness in selected)
         _detector.detect(harness).then((found) => (harness, found)),
     ]);
     return {
@@ -157,22 +184,35 @@ class DoctorCommand({
     };
   }
 
-  /// Why the report has no sections: nothing is installed yet, or nothing
-  /// in scope is configured or detected.
-  String _nothingToCheck(InstallManifest manifest) => manifest.entries.isEmpty
-      ? "VGV AI CLI hasn't installed anything here yet. Run "
-            "${lightCyan.wrap('vgv_ai install')} to set it up."
-      : 'Nothing to check: no selected harness is installed on this '
-            'machine or configured by VGV AI CLI.';
+  /// The `install` command for wherever doctor checks, with no harness or
+  /// plugin named.
+  FixCommand get _install =>
+      FixCommand(harnesses: const {}, project: projectArgument);
 
-  /// What a dry run of `install` for [selected] would do, or an unchecked
-  /// plan, having said why, when the plugins cannot be resolved.
+  /// Why the report has no sections: nothing is installed yet, or nothing
+  /// selected is configured, or, outside a project, detected.
+  String _nothingToCheck(InstallManifest manifest) {
+    final project = projectArgument;
+    if (manifest.entries.isEmpty) {
+      return "VGV AI CLI hasn't installed anything here yet. Run "
+          '${lightCyan.wrap('$_install')} to set it up.';
+    }
+    return project == null
+        ? 'Nothing to check: no selected harness is installed on this '
+              'machine or configured by VGV AI CLI.'
+        : 'Nothing to check: no selected harness is configured by VGV AI '
+              'CLI in this project.';
+  }
+
+  /// What a dry run of `install` for [selected] in [scope] would do, or an
+  /// unchecked plan, having said why, when the plugins cannot be resolved.
   ///
   /// Harnesses installed from different plugins are planned apart, so a
   /// plugin one of them was installed without is not planned for it.
   Future<ContentPlan> _plan(
     InstallManifest manifest,
     Directory home,
+    Scope scope,
     Set<Harness> selected,
   ) async {
     final progress = _logger.progress('Resolving plugins');
@@ -182,12 +222,19 @@ class DoctorCommand({
       manifest,
       selected,
     ).entries) {
-      switch (await _resolver.resolve(home, only: only, log: _logger.detail)) {
-        case ResolvedAssets(:final assets):
+      final resolution = await _resolver.resolve(
+        home,
+        only: only,
+        log: _logger.detail,
+        pluginRoot: scope.pluginRoot,
+      );
+      switch (resolution) {
+        case ResolvedAssets(:final assets, :final directories):
           final translation = await _translator.translate(
             assets: assets,
-            scope: UserScope(home),
+            scope: scope,
             selected: harnesses,
+            plugins: directories,
           );
           changes.addAll(
             _reconciler
@@ -254,20 +301,21 @@ class DoctorCommand({
   }
 
   /// The sections of the report: why content was not checked if it was not,
-  /// the shared skills when an [installed] harness reads them, and each
-  /// harness that is [installed] or [detected], with the plugin versions it
-  /// was installed from.
+  /// the files no harness owns when an [installed] harness reads them, and
+  /// each harness that is [installed] or [detected], with the plugin
+  /// versions it was installed from.
   ///
-  /// [installed] are the harnesses of the selected scope VGV configured, and
-  /// [detected] what probing found for those of it on this machine.
+  /// [installed] are the selected harnesses VGV configured in [scope], and
+  /// [detected] what probing found for those of them on this machine, or
+  /// null when nothing was probed.
   List<ReportSection> _verify(
     InstallManifest manifest,
-    Directory home, {
+    Scope scope, {
     required Set<Harness> installed,
-    required Map<Harness, HarnessDetection> detected,
+    required Map<Harness, HarnessDetection>? detected,
     required ContentPlan plan,
   }) {
-    final readsShared = installed.intersection(_readShared(home));
+    final readsShared = installed.intersection(_readShared(scope));
 
     return [
       if (plan.skipped case final skipped?)
@@ -275,49 +323,55 @@ class DoctorCommand({
           title: 'Plugins',
           installs: installed,
           findings: [skipped],
+          project: projectArgument,
         ),
       if (readsShared.isNotEmpty && manifest.entriesFor(null).isNotEmpty)
         ReportSection(
           title: 'Shared',
           installs: readsShared,
           plugins: _shared(manifest, readsShared),
-          findings: _entryFindings(null, manifest, home, plan),
+          findings: _entryFindings(null, manifest, scope, plan),
+          project: projectArgument,
         ),
       for (final harness in Harness.values)
-        if (installed.contains(harness) || detected.containsKey(harness))
+        if (installed.contains(harness) ||
+            (detected?.containsKey(harness) ?? false))
           _harnessSection(
             harness,
             manifest,
-            home,
+            scope,
             plan,
             isInstalled: installed.contains(harness),
-            detection: detected[harness],
+            detected: detected,
           ),
     ];
   }
 
   /// The section for [harness], which VGV configured when [isInstalled] and
-  /// is on this machine when it has a [detection].
+  /// is on this machine when [detected] has it. Nothing is said about this
+  /// machine when [detected] is null.
   ReportSection _harnessSection(
     Harness harness,
     InstallManifest manifest,
-    Directory home,
+    Scope scope,
     ContentPlan plan, {
     required bool isInstalled,
-    required HarnessDetection? detection,
+    required Map<Harness, HarnessDetection>? detected,
   }) {
     final recorded = manifest.plugins[harness] ?? const <String, String>{};
     return ReportSection(
       title: harness.displayName,
       installs: {harness},
       plugins: _selected(recorded),
+      project: projectArgument,
       findings: [
-        if (detection == null)
-          const Finding.warning(
-            'not installed on this machine, but VGV AI CLI configured it',
-          )
-        else
-          ?_versionFinding(harness, detection),
+        if (detected != null)
+          if (detected[harness] case final detection?)
+            ?_versionFinding(harness, detection)
+          else
+            const Finding.warning(
+              'not installed on this machine, but VGV AI CLI configured it',
+            ),
         if (!isInstalled)
           const Finding.suggestion(
             "installed, but VGV AI CLI hasn't configured it",
@@ -325,7 +379,7 @@ class DoctorCommand({
         if (isInstalled)
           for (final plugin in vgvPlugins)
             PluginVersion.of(plugin, installed: recorded[plugin.name]).finding,
-        ..._entryFindings(harness, manifest, home, plan),
+        ..._entryFindings(harness, manifest, scope, plan),
       ],
     );
   }
@@ -374,13 +428,13 @@ class DoctorCommand({
   List<Finding> _entryFindings(
     Harness? owner,
     InstallManifest manifest,
-    Directory home,
+    Scope scope,
     ContentPlan plan,
   ) => [
     for (final entry in manifest.entriesFor(owner))
-      ?_entryFinding(entry, home, plan),
+      ?_entryFinding(entry, scope, plan),
     for (final path in plan.additions(owner, manifest))
-      Finding.stale('new ${_display(path, home)}'),
+      Finding.stale('new ${_display(path, scope)}'),
   ];
 
   /// What is wrong with [entry], or null when nothing is.
@@ -388,19 +442,15 @@ class DoctorCommand({
   /// An entry [plan] no longer installs is only worth a warning, since
   /// `install` would not put it back. One that is intact but that `install`
   /// would rewrite is stale. Otherwise its health says.
-  Finding? _entryFinding(
-    ManifestEntry entry,
-    Directory home,
-    ContentPlan plan,
-  ) {
-    final path = _display(entry.path, home);
+  Finding? _entryFinding(ManifestEntry entry, Scope scope, ContentPlan plan) {
+    final path = _display(entry.path, scope);
     if (plan.orphans(entry)) {
       return Finding.warning(
         'orphaned $path: no longer installed by this version of VGV AI CLI',
       );
     }
 
-    final health = _auditor.verify(entry, home.fileSystem);
+    final health = _auditor.verify(entry, scope.root.fileSystem);
     return health.status == EntryStatus.intact && plan.writes(entry.path)
         ? Finding.stale('outdated $path')
         : _finding(health, path);
@@ -418,7 +468,7 @@ class DoctorCommand({
     ),
     EntryStatus.unparseable => Finding.manual(
       'cannot parse $path',
-      step: 'Fix its syntax, then run ${lightCyan.wrap('vgv_ai install')}.',
+      step: 'Run ${lightCyan.wrap('$_install')} once you fix its syntax.',
     ),
     EntryStatus.unreadable => Finding.manual(
       'cannot read $path: ${health.error}',
@@ -453,9 +503,12 @@ class DoctorCommand({
   }
 }
 
-/// [path] relative to [home], written as `~/...`.
-String _display(String path, Directory home) =>
-    '~/${p.relative(path, from: home.path)}';
+/// [path] as the report prints it: relative to the home directory, written
+/// as `~/...`, or relative to the project.
+String _display(String path, Scope scope) => switch (scope) {
+  UserScope(:final root) => '~/${p.relative(path, from: root.path)}',
+  ProjectScope() => scope.reference(path),
+};
 
 /// The key paths or section names [keys] lists, after a colon, or nothing
 /// when the whole file is meant.
