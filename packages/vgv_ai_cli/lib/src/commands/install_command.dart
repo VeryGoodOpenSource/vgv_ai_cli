@@ -3,12 +3,14 @@ import 'dart:io' show stdin;
 import 'package:args/command_runner.dart';
 import 'package:collection/collection.dart';
 import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/commands/empty_directories.dart';
 import 'package:vgv_ai_cli/src/commands/harness_selection.dart';
 import 'package:vgv_ai_cli/src/commands/reporting_manifest_store.dart';
 import 'package:vgv_ai_cli/src/commands/user_home.dart';
 import 'package:vgv_ai_cli/src/detect/detect.dart';
+import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
 import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/reconcile/reconcile.dart';
@@ -30,6 +32,12 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 ///   every pinned one.
 /// * `--refresh` reinstalls the harnesses and plugins the manifest records,
 ///   at the pinned versions, without asking. `update` runs it.
+/// * `--project [<dir>]` installs into the project at `dir`, or the working
+///   directory, for every harness rather than the detected ones, since the
+///   project is shared with whoever clones it. `--only` and `--no-<harness>`
+///   narrow the set as usual. A rerun that covers every harness and plugin
+///   the project records also takes back what VGV wrote before and no
+///   longer writes, such as a plugin copy from an older tag.
 ///
 /// A file an earlier version wrote to a folder this version no longer uses
 /// is taken back, as `uninstall` would, so the harness does not load both
@@ -45,6 +53,7 @@ class InstallCommand({
   final Reconciler _reconciler = const Reconciler(),
   final ManifestAuditor _auditor = const ManifestAuditor(),
   bool? hasTerminal,
+  Directory? workingDirectory,
 }) extends Command<int> with HarnessSelection {
   /// {@macro install_command}
   this {
@@ -67,6 +76,13 @@ class InstallCommand({
         allowed: [for (final plugin in vgvPlugins) plugin.name],
       )
       ..addFlag(
+        projectFlag,
+        help:
+            'Install into the project at the directory given after the '
+            'options, or the working directory, for every harness.',
+        negatable: false,
+      )
+      ..addFlag(
         refreshFlag,
         help:
             'Reinstall the harnesses and plugins a previous install wrote, '
@@ -85,8 +101,15 @@ class InstallCommand({
   /// Older versions of `update` pass it too, so it must keep its name.
   static const String refreshFlag = 'refresh';
 
+  /// The flag that installs into a project instead of the user's home.
+  static const String projectFlag = 'project';
+
   /// Whether stdin is a terminal, so install can ask which plugins to install.
   final bool _hasTerminal = hasTerminal ?? stdin.hasTerminal;
+
+  /// The directory a relative `--project` directory is resolved against.
+  final Directory _workingDirectory =
+      workingDirectory ?? const LocalFileSystem().currentDirectory;
 
   /// The outcomes that leave a file with VGV's contributions in it.
   static const Set<ChangeOutcome> _wrote = {
@@ -115,6 +138,9 @@ class InstallCommand({
   @override
   String get name => commandName;
 
+  @override
+  String get invocation => '${super.invocation} [--project [<dir>]]';
+
   /// The directory install configures, or null when it cannot be found.
   Directory? get home => commandHome(_home, _environment);
 
@@ -134,11 +160,12 @@ class InstallCommand({
       );
       return ExitCode.config.code;
     }
+    final scope = _scope(home);
 
     // Loaded before anything is resolved, since a manifest this version
     // cannot read means nothing can be installed.
     final store = ReportingManifestStore(
-      ManifestStore(home),
+      ManifestStore(scope.root),
       _logger,
       nothingDone: 'Installed nothing',
       done: 'written',
@@ -147,7 +174,9 @@ class InstallCommand({
     final manifest = store.load();
     if (manifest == null) return ExitCode.ioError.code;
 
-    final selected = refresh ? manifest.plugins.keys.toSet() : await _select();
+    final selected = refresh
+        ? manifest.plugins.keys.toSet()
+        : await _select(scope);
     if (selected.isEmpty) {
       _logger.err(refresh ? _nothingToRefresh : _noHarnessSelected);
       return ExitCode.usage.code;
@@ -164,13 +193,14 @@ class InstallCommand({
       return ExitCode.usage.code;
     }
 
-    final resolved = await _resolveAssets(home, plugins);
+    final resolved = await _resolveAssets(home, plugins, scope: scope);
     if (resolved == null) return ExitCode.unavailable.code;
 
     final plan = await _translator.translate(
       assets: resolved.assets,
-      home: home,
+      scope: scope,
       selected: selected,
+      plugins: resolved.directories,
     );
 
     final reconciliation = _reconciler.apply(
@@ -180,12 +210,20 @@ class InstallCommand({
       dryRun: dryRun,
     );
     final applied = reconciliation.changes;
+    final pruned = _prune(
+      reconciliation.manifest,
+      scope: scope,
+      planned: plan.changes,
+      covered: _covers(manifest, selected, plugins),
+      force: force,
+      dryRun: dryRun,
+    );
 
-    _report(plan, applied, dryRun: dryRun);
+    _report(plan, applied, pruned.entries, dryRun: dryRun);
     final retirement = _retire(
       _supersededAndReplaced(plan, applied),
-      reconciliation.manifest,
-      home,
+      pruned.manifest,
+      scope.root,
       force: force,
       dryRun: dryRun,
     );
@@ -199,12 +237,84 @@ class InstallCommand({
         );
     final anyFailed =
         applied.any((change) => change.outcome == ChangeOutcome.failed) ||
-        retirement.entries.any(
-          (entry) => entry.outcome == ReverseOutcome.failed,
-        );
+        [
+          ...pruned.entries,
+          ...retirement.entries,
+        ].any((entry) => entry.outcome == ReverseOutcome.failed);
     return !recorded || anyFailed
         ? ExitCode.ioError.code
         : ExitCode.success.code;
+  }
+
+  /// Whether [selected] and [plugins] include every harness and plugin
+  /// [manifest] records, so what this run does not write is no longer
+  /// VGV's rather than left to a harness or plugin it skipped.
+  static bool _covers(
+    InstallManifest manifest,
+    Set<Harness> selected,
+    Set<String> plugins,
+  ) =>
+      manifest.entries.every(
+        (entry) => entry.owner == null || selected.contains(entry.owner),
+      ) &&
+      manifest.plugins.entries.every(
+        (recorded) =>
+            selected.contains(recorded.key) &&
+            plugins.containsAll(recorded.value.keys),
+      );
+
+  /// Takes back what [manifest] records in a project that [planned] no
+  /// longer writes, when this run [covered] everything it records, and
+  /// returns what each entry did and [manifest] without them.
+  ///
+  /// A file the user changed is kept, unless [force], and is theirs from
+  /// now on, so it leaves the manifest either way. The user's home is
+  /// never pruned: an install there is shared by every project, and
+  /// `uninstall` takes it back.
+  Reversal _prune(
+    InstallManifest manifest, {
+    required Scope scope,
+    required List<PlannedChange> planned,
+    required bool covered,
+    required bool force,
+    required bool dryRun,
+  }) {
+    if (scope is! ProjectScope || !covered) {
+      return Reversal(entries: const [], manifest: manifest);
+    }
+
+    final writes = {for (final change in planned) change.file.path};
+    final stale = [
+      for (final entry in manifest.entries)
+        if (!writes.contains(entry.path)) entry,
+    ];
+    final reversal = _auditor.reverse(
+      InstallManifest(stale),
+      scope.root.fileSystem,
+      force: force,
+      dryRun: dryRun,
+    );
+    if (!dryRun) _deleteEmptyDirectories(reversal.entries, scope.root);
+    return Reversal(
+      entries: reversal.entries,
+      manifest: manifest.without([for (final entry in stale) entry.path]),
+    );
+  }
+
+  /// Deletes the directories each removed entry of [entries] left empty, up
+  /// to [root], warning about one that cannot be.
+  void _deleteEmptyDirectories(List<ReversedEntry> entries, Directory root) {
+    for (final ReversedEntry(:entry, :outcome) in entries) {
+      if (outcome != ReverseOutcome.removed) continue;
+      try {
+        root.fileSystem.file(entry.path).parent.deleteEmptyUpTo(root);
+      } on FileSystemException catch (error) {
+        _logger.warn(
+          'Could not delete the empty directories above ${entry.path}: '
+          '${error.description}',
+        );
+      }
+    }
   }
 
   /// Why there is nothing to install when no harness is selected.
@@ -219,11 +329,13 @@ class InstallCommand({
       'install to choose them.';
 
   /// Throws a [UsageException] when `--refresh` is combined with an option
-  /// that picks harnesses or plugins, since it takes both from the manifest.
+  /// that picks harnesses, plugins or the project, since it takes them from
+  /// the user's manifest.
   void _rejectSelectionWithRefresh() {
     final picked = [
       'only',
       'plugin',
+      projectFlag,
       ...Harness.values.map((harness) => harness.name),
     ].where(argResults!.wasParsed);
     if (picked.isNotEmpty) {
@@ -254,16 +366,61 @@ class InstallCommand({
     return recorded.intersection(pinned);
   }
 
-  /// Resolves which harnesses to configure.
+  /// Where this run installs: the project `--project` names, resolved
+  /// against the working directory, or the user's [home].
   ///
-  /// `--only` wins outright and bypasses detection. Otherwise every harness
-  /// that is both enabled and actually installed is configured, since writing
-  /// config for a harness the user does not have is noise. Only enabled
-  /// harnesses are probed, since each probe may wait out a timeout. A
-  /// harness older than it supports is warned about, and still configured.
-  Future<Set<Harness>> _select() async {
+  /// Throws a [UsageException] for a directory without `--project`, more
+  /// than one directory, one that does not exist, or [home] itself.
+  Scope _scope(Directory home) {
+    final rest = argResults!.rest;
+    if (argResults![projectFlag] != true) {
+      if (rest.isNotEmpty) {
+        usageException(
+          'Unexpected argument "${rest.first}". Pass --$projectFlag to '
+          'install into a directory.',
+        );
+      }
+      return UserScope(home);
+    }
+
+    if (rest.length > 1) {
+      usageException('--$projectFlag takes one directory, not ${rest.length}.');
+    }
+    final path = _workingDirectory.fileSystem.path;
+    final project = _workingDirectory.fileSystem.directory(
+      path.normalize(path.join(_workingDirectory.path, rest.firstOrNull ?? '')),
+    );
+    if (!project.existsSync()) {
+      usageException('${project.path} is not a directory.');
+    }
+    // A project rooted at home would share the user install's manifest and
+    // skills, and a rerun would then prune the user install.
+    if (home.existsSync() &&
+        path.equals(
+          project.resolveSymbolicLinksSync(),
+          home.resolveSymbolicLinksSync(),
+        )) {
+      usageException(
+        '${project.path} is your home directory. Pass --$projectFlag a '
+        'repository instead.',
+      );
+    }
+    return ProjectScope(project);
+  }
+
+  /// Resolves which harnesses to configure in [scope].
+  ///
+  /// `--only` wins outright and bypasses detection. A project is configured
+  /// for every enabled harness, since whoever clones it may use any of them.
+  /// Otherwise every harness that is both enabled and actually installed is
+  /// configured, since writing config for a harness the user does not have is
+  /// noise. Only enabled harnesses are probed, since each probe may wait out
+  /// a timeout. A harness older than it supports is warned about, and still
+  /// configured.
+  Future<Set<Harness>> _select(Scope scope) async {
     final only = onlyHarnesses;
     if (only != null) return only;
+    if (scope is ProjectScope) return Harness.values.where(isEnabled).toSet();
 
     final enabled = <Harness>[];
     for (final harness in Harness.values) {
@@ -383,17 +540,25 @@ class InstallCommand({
     };
   }
 
-  /// Resolves and parses the [plugins] into one asset bundle.
+  /// Resolves and parses the [plugins] into one asset bundle, with every
+  /// body naming the plugin's files where [scope] keeps them.
   ///
   /// Returns `null`, having said why, when any plugin cannot be resolved or
   /// parsed.
   Future<ResolvedAssets?> _resolveAssets(
     Directory home,
-    Set<String> plugins,
-  ) async {
+    Set<String> plugins, {
+    required Scope scope,
+  }) async {
     final progress = _logger.progress('Resolving plugins');
 
-    switch (await _resolver.resolve(home, only: plugins, log: _logger.detail)) {
+    final resolution = await _resolver.resolve(
+      home,
+      only: plugins,
+      log: _logger.detail,
+      pluginRoot: scope.pluginRoot,
+    );
+    switch (resolution) {
       case final ResolvedAssets resolved:
         progress.complete(
           'Resolved ${resolved.assets.skills.length} skills and '
@@ -502,16 +667,44 @@ class InstallCommand({
   }
 
   /// Prints what could not be translated, the files that could not be
-  /// written or kept the user's values, and then what was written per owner.
+  /// written or kept the user's values, what was taken back as [pruned],
+  /// and then what was written per owner.
   void _report(
     TranslationPlan plan,
-    List<AppliedChange> applied, {
+    List<AppliedChange> applied,
+    List<ReversedEntry> pruned, {
     required bool dryRun,
   }) {
     _reportNotes(plan);
     _reportOutcomes(applied, dryRun: dryRun);
     _reportKept(applied);
-    _reportWritten(applied, dryRun: dryRun);
+    _reportPruned(pruned, dryRun: dryRun);
+    _reportWritten(applied, pruned, dryRun: dryRun);
+  }
+
+  /// Reports each file VGV no longer writes: removed, kept because the user
+  /// changed it, or failed.
+  void _reportPruned(List<ReversedEntry> pruned, {required bool dryRun}) {
+    for (final ReversedEntry(:entry, :outcome, :error) in pruned) {
+      final path = entry.path;
+      switch (outcome) {
+        case ReverseOutcome.removed when dryRun:
+          _logger.info('Would remove $path');
+        case ReverseOutcome.removed:
+          _logger.detail('Removed $path');
+        case ReverseOutcome.failed:
+          _logger.err('Could not remove $path: $error');
+        // The user already deleted it, which is what pruning would do.
+        case ReverseOutcome.missing:
+          break;
+        // Skipped, partly reversed or unparseable: the user changed it.
+        case _:
+          _logger.warn(
+            'Kept $path, which VGV no longer writes but you have changed. '
+            'It is yours now.',
+          );
+      }
+    }
   }
 
   /// Warns about everything that could not be translated, per owner.
@@ -563,24 +756,35 @@ class InstallCommand({
     }
   }
 
-  /// Summarizes how many files were written per owner, or that nothing
-  /// needed to be.
-  void _reportWritten(List<AppliedChange> applied, {required bool dryRun}) {
+  /// Summarizes how many files were written per owner and how many of
+  /// [pruned] were removed, or that nothing needed to be.
+  void _reportWritten(
+    List<AppliedChange> applied,
+    List<ReversedEntry> pruned, {
+    required bool dryRun,
+  }) {
     final written = applied
         .where((change) => _wrote.contains(change.outcome))
         .groupListsBy((change) => change.change.harness);
+    final removed = pruned.where(
+      (entry) => entry.outcome == ReverseOutcome.removed,
+    );
 
-    if (written.isEmpty) {
-      if (applied.every(
-        (change) => change.outcome == ChangeOutcome.unchanged,
-      )) {
-        _logger.info('Everything is already up to date.');
-      }
+    if (written.isEmpty && removed.isEmpty) {
+      final settled =
+          applied.every(
+            (change) => change.outcome == ChangeOutcome.unchanged,
+          ) &&
+          pruned.every((entry) => entry.outcome == ReverseOutcome.missing);
+      if (settled) _logger.info('Everything is already up to date.');
       return;
     }
 
     for (final MapEntry(key: harness, value: changes) in written.entries) {
       _logger.info('  ${_ownerName(harness)}: ${changes.length} file(s)');
+    }
+    if (removed.isNotEmpty) {
+      _logger.info('  Removed ${removed.length} file(s) VGV no longer writes');
     }
 
     _logger.info(

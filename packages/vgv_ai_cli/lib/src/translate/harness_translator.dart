@@ -12,9 +12,9 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 /// difference another harness has is answered here, config files and hook
 /// payloads alike.
 ///
-/// A translator supplies what the `agents` brick cannot produce itself, and
-/// the brick decides which files exist. A feature the harness lacks has no
-/// folder in the brick.
+/// A translator supplies what the `user_config` brick cannot produce itself,
+/// and the brick decides which files exist. A feature the harness lacks has
+/// no folder in the brick.
 ///
 /// One implementation per harness, and none depends on another translator.
 /// See `Harness` for every step of adding a harness.
@@ -26,13 +26,17 @@ abstract class const HarnessTranslator() {
   /// Which harness this configures.
   Harness get harness;
 
-  /// Whether this harness loads the shared copy of the skills under
-  /// `~/.agents/skills`.
-  bool get readsSharedSkills => true;
+  /// Whether this harness installs the plugins itself, hooks and MCP servers
+  /// included, so nothing it would miss needs reporting.
+  bool get installsPluginsNatively => false;
 
-  /// Where this harness keeps its own copy of the skills, for one that reads
-  /// neither the shared copy nor the plugins' own, or null.
-  Directory? skillsRoot(Directory home) => null;
+  /// Whether this harness loads the shared copy of the skills under
+  /// `scope.skillsRoot`: every harness that keeps no copy of its own there.
+  bool readsSharedSkills(Scope scope) => skillsRoot(scope) == null;
+
+  /// Where this harness keeps its own copy of the skills in [scope], for one
+  /// that reads neither the shared copy nor the plugins' own there, or null.
+  Directory? skillsRoot(Scope scope) => null;
 
   /// Whether this harness can keep a skill that sets
   /// `disable-model-invocation` the user's alone. One that cannot is told
@@ -85,4 +89,8 @@ abstract class const HarnessTranslator() {
   /// What the user needs to know about [assets] for this harness, beyond
   /// what [hooks] reports.
   List<TranslationNote> notes(PluginAssets assets) => const [];
+
+  /// What the user needs to know about [assets] in a project install, beyond
+  /// [notes], such as a harness that reads a project only once trusted.
+  List<TranslationNote> projectNotes(PluginAssets assets) => const [];
 }

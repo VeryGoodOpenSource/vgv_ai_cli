@@ -2,7 +2,7 @@ import 'package:file/file.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:vgv_ai_cli/src/document/document.dart';
 import 'package:vgv_ai_cli/src/manifest/manifest.dart';
-import 'package:vgv_ai_cli/src/translate/translate.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 
 /// Deletes the directories each removed entry of [entries] left empty, up
 /// to the skills root for the shared skills and the harness's config
@@ -24,7 +24,7 @@ void deleteEmptyDirectories(
           .file(entry.path)
           .parent
           .deleteEmptyUpTo(
-            entry.owner?.configDirectory(home) ?? agentsSkillsRoot(home),
+            entry.owner?.configDirectory(home) ?? UserScope(home).skillsRoot,
           );
     } on FileSystemException catch (error) {
       logger.warn(

@@ -18,7 +18,7 @@ import '../../helpers/test_runner.dart';
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
-  PluginAssets parse(Directory root) => assets;
+  PluginAssets parse(Directory root, {String? rootReference}) => assets;
 }
 
 void main() {

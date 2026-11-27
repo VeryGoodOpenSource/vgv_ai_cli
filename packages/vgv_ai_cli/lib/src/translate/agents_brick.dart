@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:mason/mason.dart';
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_cli/src/templates/templates.dart';
 
 /// {@template agents_brick}
-/// Renders the `agents` brick into memory.
+/// Renders the brick for a scope into memory: `user_config` for a
+/// user-level install, `project_config` for a project-level one.
 ///
 /// Nothing is generated into `$HOME` or a staging directory, so `--check`
 /// stays a true dry run and the reconcile layer decides what reaches disk.
@@ -16,13 +18,21 @@ class const AgentsBrick() {
   /// {@macro agents_brick}
   this;
 
-  /// Renders every file [vars] select, keyed by its path in the brick.
-  Future<Map<String, String>> render(Map<String, Object?> vars) async {
+  /// Renders every file [vars] select in [scope]'s brick, keyed by its path
+  /// in the brick.
+  Future<Map<String, String>> render(
+    Map<String, Object?> vars, {
+    required Scope scope,
+  }) async {
+    final bundle = switch (scope) {
+      UserScope() => userConfigBundle,
+      ProjectScope() => projectConfigBundle,
+    };
     final generator = MasonGenerator(
-      agentsBundle.name,
-      agentsBundle.description,
+      bundle.name,
+      bundle.description,
       files: [
-        for (final file in agentsBundle.files)
+        for (final file in bundle.files)
           TemplateFile.fromBytes(file.path, base64.decode(file.data)),
       ],
     );

@@ -12,5 +12,9 @@ import 'package:vgv_ai_plugins/src/model/plugin_assets.dart';
 /// {@endtemplate}
 abstract interface class PluginParser {
   /// Reads every asset under [root].
-  PluginAssets parse(Directory root);
+  ///
+  /// A skill or agent body that names a file of the plugin's spells it under
+  /// [rootReference], such as a path relative to a project, or under
+  /// [root]'s path when that is null.
+  PluginAssets parse(Directory root, {String? rootReference});
 }

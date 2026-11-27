@@ -17,4 +17,5 @@ export 'gemini_translator.dart';
 export 'harness_translators.dart';
 export 'opencode_translator.dart';
 export 'pi_translator.dart';
+export 'plugin_files_translator.dart';
 export 'skills_translator.dart';

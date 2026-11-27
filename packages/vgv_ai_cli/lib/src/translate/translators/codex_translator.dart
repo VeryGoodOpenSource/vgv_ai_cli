@@ -69,6 +69,17 @@ policy:
     return TranslationResult(changes: changes, notes: notes);
   }
 
+  /// Codex loads a project's `.codex` folder, its agents included, only once
+  /// the project is trusted.
+  @override
+  List<TranslationNote> projectNotes(PluginAssets assets) => [
+    if (assets.agents.isNotEmpty)
+      TranslationNote(
+        subject: '${assets.agents.length} agent(s) in .codex/agents',
+        reason: 'Codex loads them only once you trust the project',
+      ),
+  ];
+
   /// The keys Codex spells differently from `.mcp.json`.
   static const _renamedKeys = {'headers': 'http_headers'};
 

@@ -1,3 +1,4 @@
+import 'package:vgv_ai_cli/src/model/model.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template asset_resolution}
@@ -14,6 +15,9 @@ sealed class const AssetResolution() {
 final class const ResolvedAssets({
   /// What the plugins contribute, merged.
   required final PluginAssets assets,
+
+  /// Where each plugin was resolved to, in the order they were resolved.
+  required final List<PluginDirectory> directories,
 }) extends AssetResolution {
   /// {@macro resolved_assets}
   this;

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io' show Platform, ProcessException, stdin;
+import 'dart:io' show Platform, ProcessException, ProcessResult, stdin;
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -22,12 +22,12 @@ class _MockDetector extends Mock implements HarnessDetector;
 
 class const _FakeParser(final PluginAssets assets) implements PluginParser {
   @override
-  PluginAssets parse(Directory root) => assets;
+  PluginAssets parse(Directory root, {String? rootReference}) => assets;
 }
 
 class const _ThrowingParser() implements PluginParser {
   @override
-  PluginAssets parse(Directory root) =>
+  PluginAssets parse(Directory root, {String? rootReference}) =>
       throw const PluginParseException('/plugin/agents/a.md', 'bad name');
 }
 
@@ -38,16 +38,17 @@ class _FakeTranslator extends Fake implements Translator {
 
   Set<Harness>? selected;
   PluginAssets? assets;
-  Directory? home;
+  Scope? scope;
 
   @override
   Future<TranslationPlan> translate({
     required PluginAssets assets,
-    required Directory home,
+    required Scope scope,
     required Set<Harness> selected,
+    List<PluginDirectory> plugins = const [],
   }) async {
     this.assets = assets;
-    this.home = home;
+    this.scope = scope;
     this.selected = selected;
     return plan;
   }
@@ -87,15 +88,27 @@ void main() {
     late HarnessDetector detector;
     late FileSystem fs;
     late Directory home;
+    late Directory project;
     late _FakeTranslator translator;
+
+    /// A directory that cannot be deleted, or null when every one can.
+    String? undeletable;
 
     setUp(() {
       runner = TestRunner();
       logger = runner.logger;
       progress = runner.progress;
       detector = _MockDetector();
-      fs = MemoryFileSystem.test();
+      undeletable = null;
+      fs = MemoryFileSystem.test(
+        opHandle: (path, operation) {
+          if (path == undeletable && operation == FileSystemOp.delete) {
+            throw FileSystemException('Cannot delete', path);
+          }
+        },
+      );
       home = fs.directory('/home/dev')..createSync(recursive: true);
+      project = fs.directory('/work/app')..createSync(recursive: true);
       translator = _FakeTranslator();
     });
 
@@ -117,6 +130,7 @@ void main() {
       Translator? using,
       ManifestAuditor auditor = const ManifestAuditor(),
       bool hasTerminal = false,
+      List<PluginRef> pins = vgvPlugins,
     }) => runThroughRunner(
       InstallCommand(
         logger: logger,
@@ -125,10 +139,12 @@ void main() {
         resolver: PluginResolver(
           runProcess: runProcess ?? clonesPlugins(fs),
           parser: parser ?? _FakeParser(assets(fs)),
+          plugins: pins,
         ),
-        translator: using ?? translator,
         auditor: auditor,
+        translator: using ?? translator,
         hasTerminal: hasTerminal,
+        workingDirectory: project,
       ),
       args,
     );
@@ -558,6 +574,14 @@ void main() {
         ).called(1);
       });
 
+      test('cannot be combined with --project', () async {
+        final exitCode = await runInstall(['--refresh', '--project']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(() => logger.err('--refresh cannot be combined with --project.'))
+            .called(1);
+      });
+
       test('cannot be combined with a selection', () async {
         final exitCode = await runInstall([
           '--refresh',
@@ -652,7 +676,10 @@ void main() {
         verify(() => progress.complete('Resolved 1 skills and 1 agents'))
             .called(1);
         expect(translator.assets!.skills.single.name, 'green-gate');
-        expect(translator.home, home);
+        expect(
+          translator.scope,
+          isA<UserScope>().having((s) => s.root, 'root', home),
+        );
       });
     });
 
@@ -1206,6 +1233,504 @@ void main() {
 
         expect(settingsJson(), enablesPlugin(enabled: true));
         verifyNever(() => logger.warn(any()));
+      });
+    });
+
+    group('--project', () {
+      /// Every file under [directory], relative to it.
+      List<String> filesUnder(Directory directory) => [
+        for (final entity in directory.listSync(recursive: true))
+          if (entity is File)
+            fs.path.relative(entity.path, from: directory.path),
+      ]..sort();
+
+      test('installs into the directory it names', () async {
+        final exitCode = await runInstall([
+          '--project',
+          '/work/app',
+          '--only',
+          'claude',
+        ], using: const Translator());
+
+        expect(exitCode, ExitCode.success.code);
+        expect(filesUnder(project), [
+          '.claude/settings.json',
+          '.vgv_ai/manifest.json',
+        ]);
+        expect(
+          jsonDecode(
+            project.childFile('.claude/settings.json').readAsStringSync(),
+          ),
+          containsPair('enabledPlugins', isNotEmpty),
+        );
+      });
+
+      group('with a plugin that references its own files', () {
+        final ffca = vgvPlugins.firstWhere(
+          (plugin) => plugin.name == 'vgv-ffca-plugin',
+        );
+        final copy = '.vgv_ai/plugins/${ffca.name}@${ffca.gitRef}';
+
+        /// Clones a plugin whose skill names a plugin file and a file of its
+        /// own, beside files nothing names.
+        Future<ProcessResult> clonePlugin(
+          String executable,
+          List<String> arguments, {
+          bool runInShell = false,
+        }) async {
+          final root = arguments.last;
+          void write(String path, String contents) =>
+              fs.file(fs.path.join(root, path))
+                ..createSync(recursive: true)
+                ..writeAsStringSync(contents);
+          write('.claude-plugin/plugin.json', '{}');
+          write(
+            'skills/audit/SKILL.md',
+            '---\nname: audit\ndescription: d\n---\n'
+                r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+                '\n'
+                r'Run ${CLAUDE_SKILL_DIR}/run.sh'
+                '\n',
+          );
+          write('skills/audit/run.sh', 'echo');
+          write('references/x.md', 'x');
+          write('evals/big.json', '{}');
+          return ProcessResult(0, 0, '', '');
+        }
+
+        setUp(
+          () => runInstall(
+            ['--project', '--only', 'gemini', '--plugin', ffca.name],
+            runProcess: clonePlugin,
+            parser: const ClaudePluginParser(),
+            using: const Translator(),
+          ),
+        );
+
+        String skill() => project
+            .childFile('.agents/skills/audit/SKILL.md')
+            .readAsStringSync();
+
+        test("writes the skills, the files they reference, and Gemini's", () {
+          expect(
+            filesUnder(project),
+            [
+              '$copy/references/x.md',
+              '.agents/skills/audit/SKILL.md',
+              '.agents/skills/audit/run.sh',
+              '.gemini/commands/audit.toml',
+              '.gemini/settings.json',
+              '.vgv_ai/manifest.json',
+            ]..sort(),
+          );
+        });
+
+        test('points the skill at both, relative to the project', () {
+          expect(skill(), contains('Read $copy/references/x.md'));
+          expect(skill(), contains('Run .agents/skills/audit/run.sh'));
+          expect(
+            project.childFile('$copy/references/x.md').existsSync(),
+            isTrue,
+          );
+          expect(
+            project.childFile('.agents/skills/audit/run.sh').existsSync(),
+            isTrue,
+          );
+        });
+
+        test('writes no absolute path into any file', () {
+          for (final path in filesUnder(project)) {
+            final contents = project.childFile(path).readAsStringSync();
+            expect(contents, isNot(contains(project.path)), reason: path);
+            expect(contents, isNot(contains(home.path)), reason: path);
+          }
+        });
+      });
+
+      group('a rerun', () {
+        final ffca = vgvPlugins.firstWhere(
+          (plugin) => plugin.name == 'vgv-ffca-plugin',
+        );
+
+        PluginRef pinned(String tag) => PluginRef(
+          name: ffca.name,
+          repo: ffca.repo,
+          version: tag.substring(1),
+          gitRef: tag,
+        );
+
+        /// Whether the next clone ships the `auditor` agent.
+        late bool shipsAgent;
+
+        setUp(() => shipsAgent = true);
+
+        Future<ProcessResult> clonePlugin(
+          String executable,
+          List<String> arguments, {
+          bool runInShell = false,
+        }) async {
+          final root = arguments.last;
+          void write(String path, String contents) =>
+              fs.file(fs.path.join(root, path))
+                ..createSync(recursive: true)
+                ..writeAsStringSync(contents);
+          write('.claude-plugin/plugin.json', '{}');
+          write(
+            'skills/audit/SKILL.md',
+            '---\nname: audit\ndescription: d\n---\n'
+                r'Read ${CLAUDE_PLUGIN_ROOT}/references/x.md'
+                '\n',
+          );
+          write('references/x.md', 'x');
+          if (shipsAgent) {
+            write('agents/auditor.md', '---\nname: auditor\n---\nAudit.\n');
+          }
+          return ProcessResult(0, 0, '', '');
+        }
+
+        Future<int> install({
+          String tag = 'v1.0.0',
+          List<String> args = const [],
+          ManifestAuditor auditor = const ManifestAuditor(),
+        }) => runInstall(
+          [
+            '--project',
+            '--only',
+            'gemini,codex',
+            '--plugin',
+            ffca.name,
+            ...args,
+          ],
+          runProcess: clonePlugin,
+          parser: const ClaudePluginParser(),
+          using: const Translator(),
+          pins: [pinned(tag)],
+          auditor: auditor,
+        );
+
+        /// Every path the project's manifest records, relative to it.
+        List<String> recorded() {
+          final json = jsonDecode(
+            project.childFile('.vgv_ai/manifest.json').readAsStringSync(),
+          ) as Map<String, dynamic>;
+          return [
+            for (final entry in json['entries'] as List<dynamic>)
+              (entry as Map<String, dynamic>)['path'] as String,
+          ];
+        }
+
+        /// Every file under the project, with its contents.
+        Map<String, String> snapshot() => {
+          for (final path in filesUnder(project))
+            path: project.childFile(path).readAsStringSync(),
+        };
+
+        File agent() => project.childFile('.gemini/agents/auditor.md');
+
+        Directory oldCopy() =>
+            project.childDirectory('.vgv_ai/plugins/${ffca.name}@v1.0.0');
+
+        test('changes nothing when nothing changed', () async {
+          await install();
+          final before = snapshot();
+          clearInteractions(logger);
+
+          await install();
+
+          expect(snapshot(), before);
+          verify(() => logger.info('Everything is already up to date.'))
+              .called(1);
+        });
+
+        test('removes the plugin copy of the previous tag', () async {
+          await install();
+          expect(oldCopy().existsSync(), isTrue);
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          expect(oldCopy().existsSync(), isFalse);
+          expect(
+            project
+                .childFile(
+                  '.vgv_ai/plugins/${ffca.name}@v2.0.0/references/x.md',
+                )
+                .existsSync(),
+            isTrue,
+          );
+          expect(recorded(), everyElement(isNot(contains('@v1.0.0'))));
+          verify(() => logger.info('  Removed 1 file(s) VGV no longer writes'))
+              .called(1);
+        });
+
+        test('removes an agent the plugin no longer ships', () async {
+          await install();
+          expect(agent().existsSync(), isTrue);
+          shipsAgent = false;
+
+          await install(tag: 'v2.0.0');
+
+          expect(agent().existsSync(), isFalse);
+          expect(
+            project.childFile('.codex/agents/auditor.toml').existsSync(),
+            isFalse,
+          );
+        });
+
+        test(
+          'keeps a file VGV no longer writes once the user changed it',
+          () async {
+            await install();
+            agent().writeAsStringSync('mine');
+            shipsAgent = false;
+
+            await install(tag: 'v2.0.0');
+
+            expect(agent().readAsStringSync(), 'mine');
+            expect(recorded(), isNot(contains('.gemini/agents/auditor.md')));
+            verify(
+              () => logger.warn(
+                'Kept ${agent().path}, which VGV no longer writes but you have '
+                'changed. It is yours now.',
+              ),
+            ).called(1);
+          },
+        );
+
+        test('says nothing of a file the user already deleted', () async {
+          await install();
+          agent().deleteSync();
+          shipsAgent = false;
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          expect(recorded(), isNot(contains('.gemini/agents/auditor.md')));
+          verifyNever(() => logger.warn(any(that: contains('auditor.md'))));
+        });
+
+        test('--force removes it anyway', () async {
+          await install();
+          agent().writeAsStringSync('mine');
+          shipsAgent = false;
+
+          await install(tag: 'v2.0.0', args: ['--force']);
+
+          expect(agent().existsSync(), isFalse);
+        });
+
+        test('--check says what it would remove and removes nothing', () async {
+          await install();
+          final before = snapshot();
+
+          await install(tag: 'v2.0.0', args: ['--check']);
+
+          expect(snapshot(), before);
+          verify(
+            () => logger.info(
+              'Would remove ${oldCopy().childFile('references/x.md').path}',
+            ),
+          ).called(1);
+        });
+
+        test('leaves alone what a harness it skipped wrote', () async {
+          await install();
+
+          await runInstall(
+            ['--project', '--only', 'gemini', '--plugin', ffca.name],
+            runProcess: clonePlugin,
+            parser: const ClaudePluginParser(),
+            using: const Translator(),
+            pins: [pinned('v2.0.0')],
+          );
+
+          expect(oldCopy().existsSync(), isTrue);
+          expect(
+            project.childFile('.codex/agents/auditor.toml').existsSync(),
+            isTrue,
+          );
+        });
+
+        test(
+          'fails when a file it no longer writes cannot be removed',
+          () async {
+            await install();
+
+            final exitCode = await install(
+              tag: 'v2.0.0',
+              auditor: const FailingAuditor(),
+            );
+
+            expect(exitCode, ExitCode.ioError.code);
+            verify(
+              () => logger.err(
+                'Could not remove '
+                '${oldCopy().childFile('references/x.md').path}: '
+                'Permission denied',
+              ),
+            ).called(1);
+          },
+        );
+
+        test('warns when an emptied directory cannot be deleted', () async {
+          await install();
+          undeletable = oldCopy().childDirectory('references').path;
+
+          final exitCode = await install(tag: 'v2.0.0');
+
+          expect(exitCode, ExitCode.success.code);
+          verify(
+            () => logger.warn(
+              'Could not delete the empty directories above '
+              '${oldCopy().childFile('references/x.md').path}: Cannot delete',
+            ),
+          ).called(1);
+        });
+      });
+
+      test(
+        'runs without a prompt outside a terminal, saying what it skips',
+        () async {
+          final exitCode = await runInstall(
+            ['--project'],
+            parser: _FakeParser(
+              PluginAssets(
+                skills: assets(fs).skills,
+                agents: const [],
+                mcpServers: const [
+                  LocalMCPServer(name: 'dart', command: 'dart'),
+                ],
+              ),
+            ),
+            using: const Translator(),
+          );
+
+          expect(exitCode, ExitCode.success.code);
+          verifyNever(pickPlugins);
+          verifyNever(() => detector.detect(any()));
+          verify(
+            () => logger.warn(
+              'Codex: 1 MCP server(s): a project install does not configure '
+              'Codex MCP servers yet; see '
+              'https://github.com/VeryGoodOpenSource/vgv_ai_cli/issues/140',
+            ),
+          ).called(1);
+        },
+      );
+
+      test('writes nothing under home', () async {
+        await runInstall([
+          '--project',
+          '--only',
+          'claude',
+        ], using: const Translator());
+
+        expect(home.childFile('.claude/settings.json').existsSync(), isFalse);
+        expect(home.childFile('.vgv_ai/manifest.json').existsSync(), isFalse);
+      });
+
+      test('installs into the working directory when it names none', () async {
+        await runInstall(['--project', '--only', 'claude']);
+
+        expect(
+          translator.scope,
+          isA<ProjectScope>().having((s) => s.root.path, 'root', project.path),
+        );
+      });
+
+      test('resolves a relative directory against the working one', () async {
+        fs.directory('/work/app/packages/a').createSync(recursive: true);
+
+        await runInstall(['--project', 'packages/a', '--only', 'claude']);
+
+        expect(
+          translator.scope,
+          isA<ProjectScope>().having(
+            (s) => s.root.path,
+            'root',
+            '/work/app/packages/a',
+          ),
+        );
+      });
+
+      test('selects every enabled harness without detecting any', () async {
+        await runInstall(['--project', '--no-gemini']);
+
+        expect(
+          translator.selected,
+          Harness.values.toSet().difference({Harness.gemini}),
+        );
+        verifyNever(() => detector.detect(any()));
+      });
+
+      test('--check writes nothing', () async {
+        final exitCode = await runInstall([
+          '--project',
+          '--only',
+          'claude',
+          '--check',
+        ], using: const Translator());
+
+        expect(exitCode, ExitCode.success.code);
+        expect(filesUnder(project), isEmpty);
+      });
+
+      test('rejects a directory that does not exist', () async {
+        final exitCode = await runInstall(['--project', 'missing']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(() => logger.err('/work/app/missing is not a directory.'))
+            .called(1);
+      });
+
+      test('rejects the home directory', () async {
+        final exitCode = await runInstall(['--project', '/home/dev/']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+        verify(
+          () => logger.err(
+            '/home/dev is your home directory. Pass --project a repository '
+            'instead.',
+          ),
+        ).called(1);
+      });
+
+      test('rejects a link to the home directory', () async {
+        fs.link('/work/home').createSync('/home/dev');
+
+        final exitCode = await runInstall(['--project', '/work/home']);
+
+        expect(exitCode, ExitCode.usage.code);
+        expect(translator.selected, isNull);
+      });
+
+      test('rejects more than one directory', () async {
+        final exitCode = await runInstall(['--project', 'a', 'b']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(() => logger.err('--project takes one directory, not 2.'))
+            .called(1);
+      });
+
+      test('a directory without it is a usage error', () async {
+        final exitCode = await runInstall(['/work/app']);
+
+        expect(exitCode, ExitCode.usage.code);
+        verify(
+          () => logger.err(
+            'Unexpected argument "/work/app". Pass --project to install '
+            'into a directory.',
+          ),
+        ).called(1);
+      });
+
+      test('shows the directory in its usage', () async {
+        await runInstall(['--project', 'a', 'b']);
+
+        verify(() => logger.info(any(that: contains('[--project [<dir>]]'))))
+            .called(1);
       });
     });
 

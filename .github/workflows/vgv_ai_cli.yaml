@@ -53,14 +53,14 @@ jobs:
         run: dart pub global activate mason_cli 0.1.4
 
       - name: 🔄 Regenerate bundle
-        run: bash tool/generate_agents_bundle.sh
+        run: bash tool/generate_bundles.sh
 
       - name: 🔎 Verify bundle is up to date
         run: |
           templates="packages/vgv_ai_cli/lib/src/templates"
           if [ -n "$(git status --porcelain "$templates")" ]; then
             echo "::error::$templates changed after regenerating the bundle."
-            echo "Run tool/generate_agents_bundle.sh and commit the result."
+            echo "Run tool/generate_bundles.sh and commit the result."
             git status --porcelain "$templates"
             git diff -- "$templates"
             exit 1

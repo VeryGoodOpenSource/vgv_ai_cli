@@ -45,10 +45,13 @@ void main() {
     Future<TranslationPlan> translate(
       Set<Harness> selected, {
       PluginAssets? using,
+      Scope? scope,
+      List<PluginDirectory> plugins = const [],
     }) => const Translator().translate(
       assets: using ?? assets,
-      home: home,
+      scope: scope ?? UserScope(home),
       selected: selected,
+      plugins: plugins,
     );
 
     /// Every planned path under [harness]'s config directory, relative to it.
@@ -311,6 +314,350 @@ void main() {
       );
     });
 
+    group('in a project', () {
+      late Scope project;
+
+      setUp(() => project = ProjectScope(fs.directory('/work/app')));
+
+      /// Every path [harness] plans in the project, relative to it.
+      Future<List<String>> projectTree(
+        Harness harness, {
+        PluginAssets? using,
+      }) async {
+        final plan = await translate({harness}, using: using, scope: project);
+        return [
+          for (final change in plan.harnesses[harness]!.changes)
+            fs.path.relative(change.file.path, from: project.root.path),
+        ]..sort();
+      }
+
+      PlannedChange changeAt(TranslationPlan plan, String path) =>
+          plan.changes.singleWhere((c) => c.file.path == '/work/app/$path');
+
+      test('Claude Code gets only the marketplace settings', () async {
+        expect(await projectTree(Harness.claude), ['.claude/settings.json']);
+      });
+
+      test('Gemini gets settings, agents and commands', () async {
+        expect(await projectTree(Harness.gemini), [
+          '.gemini/agents/planner.md',
+          '.gemini/agents/review.md',
+          '.gemini/commands/plan.toml',
+          '.gemini/commands/review.toml',
+          '.gemini/commands/testing.toml',
+          '.gemini/settings.json',
+        ]);
+      });
+
+      test("Gemini's settings only point it at AGENTS.md", () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+        final settings = changeAt(plan, '.gemini/settings.json');
+
+        expect(settings.mode, ChangeMode.mergeJson);
+        expect(jsonDecode(settings.contents), {
+          'context': {
+            'fileName': ['AGENTS.md', 'GEMINI.md'],
+          },
+        });
+      });
+
+      test('an agent points at the skills relative to the project', () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+
+        expect(
+          changeAt(plan, '.gemini/agents/review.md').contents,
+          contains('`.agents/skills`'),
+        );
+      });
+
+      test('Codex gets agents', () async {
+        expect(await projectTree(Harness.codex), [
+          '.codex/agents/planner.toml',
+          '.codex/agents/review.toml',
+        ]);
+      });
+
+      test("Codex's policy lands beside the project's skills", () async {
+        final plan = await translate(
+          {Harness.codex},
+          using: pluginAssets(
+            skills: [skillAsset(fs, 'create-pr', disableModelInvocation: true)],
+          ),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.codex]!.changes.map((c) => c.file.path), [
+          '/work/app/.agents/skills/create-pr/${CodexTranslator.metadata}',
+        ]);
+      });
+
+      test('Codex is told to trust the project for its agents', () async {
+        final plan = await translate({Harness.codex}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.codex]!.notes.map((n) => n.subject),
+          contains('2 agent(s) in .codex/agents'),
+        );
+      });
+
+      test('Codex needs no trust note without agents', () async {
+        final plan = await translate(
+          {Harness.codex},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.codex]!.notes, isEmpty);
+      });
+
+      test('OpenCode gets agents and commands', () async {
+        expect(await projectTree(Harness.opencode), [
+          '.opencode/agents/planner.md',
+          '.opencode/agents/review.md',
+          '.opencode/commands/plan.md',
+          '.opencode/commands/review.md',
+          '.opencode/commands/testing.md',
+        ]);
+      });
+
+      test('Pi gets prompts, and no agents', () async {
+        expect(await projectTree(Harness.pi), [
+          '.pi/prompts/plan.md',
+          '.pi/prompts/review.md',
+          '.pi/prompts/testing.md',
+        ]);
+      });
+
+      test('Pi is told to trust the project for its skills', () async {
+        final plan = await translate({Harness.pi}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.pi]!.notes.map((n) => n.subject),
+          contains("the project's skills and prompts"),
+        );
+      });
+
+      test('Pi needs no trust note without skills', () async {
+        final plan = await translate(
+          {Harness.pi},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.pi]!.notes, isEmpty);
+      });
+
+      test('Pi gets one note for its MCP servers', () async {
+        final plan = await translate({Harness.pi}, scope: project);
+
+        final mcp = plan.harnesses[Harness.pi]!.notes.where(
+          (n) => n.subject == '1 MCP server(s)',
+        );
+        expect(mcp.single.reason, contains('issues/140'));
+      });
+
+      test('Antigravity gets a workspace plugin holding its agents', () async {
+        expect(await projectTree(Harness.antigravity), [
+          '.agents/plugins/vgv/agents/planner.md',
+          '.agents/plugins/vgv/agents/review.md',
+          '.agents/plugins/vgv/plugin.json',
+        ]);
+      });
+
+      test('an Antigravity agent points at the shared skills', () async {
+        final plan = await translate({Harness.antigravity}, scope: project);
+        final agent = changeAt(
+          plan,
+          '.agents/plugins/vgv/agents/review.md',
+        ).contents;
+
+        expect(frontmatterValues(agent), isNot(contains('skills')));
+        expect(agent, contains('`.agents/skills`'));
+      });
+
+      test('Antigravity reads the shared skills', () async {
+        final plan = await translate({Harness.antigravity}, scope: project);
+
+        expect(
+          plan.shared!.changes.map((c) => c.file.path),
+          contains('/work/app/.agents/skills/review/SKILL.md'),
+        );
+        expect(
+          plan.changes.map((c) => c.file.path),
+          everyElement(isNot(contains('.gemini/config'))),
+        );
+      });
+
+      test('writes no instructions file for any harness', () async {
+        final plan = await translate(Harness.values.toSet(), scope: project);
+
+        expect(
+          plan.changes.map((c) => fs.path.basename(c.file.path)),
+          everyElement(
+            isNot(
+              anyOf(
+                'AGENTS.md',
+                'GEMINI.md',
+                'CLAUDE.md',
+                'copilot-instructions.md',
+              ),
+            ),
+          ),
+        );
+        expect(
+          plan.changes.map((c) => c.mode),
+          everyElement(isNot(ChangeMode.mergeMarkdown)),
+        );
+      });
+
+      test('Copilot gets agents', () async {
+        expect(await projectTree(Harness.copilot), [
+          '.github/agents/planner.agent.md',
+          '.github/agents/review.agent.md',
+        ]);
+      });
+
+      test('plans no hook files', () async {
+        final plan = await translate({Harness.codex}, scope: project);
+
+        expect(
+          plan.changes.map((c) => c.file.path),
+          everyElement(isNot(contains('hooks'))),
+        );
+      });
+
+      test(
+        'tells a harness that runs hooks they wait, with its MCP servers',
+        () async {
+          final plan = await translate({Harness.codex}, scope: project);
+
+          final waiting = plan.harnesses[Harness.codex]!.notes.where(
+            (n) => n.subject == '1 hook(s)' || n.subject == '1 MCP server(s)',
+          );
+          expect(waiting, hasLength(2));
+          expect(
+            waiting.map((n) => n.reason),
+            everyElement(contains('issues/140')),
+          );
+        },
+      );
+
+      test('tells a harness that runs no hooks so, as at home', () async {
+        final plan = await translate({Harness.opencode}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.opencode]!.notes
+              .singleWhere((n) => n.subject == '1 hook(s)')
+              .reason,
+          contains("nothing in OpenCode's config runs one"),
+        );
+      });
+
+      test('says nothing of hooks or MCP servers the plugins lack', () async {
+        final plan = await translate(
+          {Harness.opencode},
+          using: pluginAssets(),
+          scope: project,
+        );
+
+        expect(plan.harnesses[Harness.opencode]!.notes, isEmpty);
+      });
+
+      test("adds a harness's own project notes", () async {
+        final plan = await translate({Harness.gemini}, scope: project);
+
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          contains("the project's .gemini folder"),
+        );
+      });
+
+      test('adds no project notes at home', () async {
+        final plan = await translate({Harness.gemini});
+
+        expect(
+          plan.harnesses[Harness.gemini]!.notes.map((n) => n.subject),
+          isNot(contains("the project's .gemini folder")),
+        );
+      });
+
+      group('plugin files', () {
+        late List<PluginDirectory> plugins;
+
+        setUp(() {
+          fs.file('/cache/ffca/references/x.md')
+            ..createSync(recursive: true)
+            ..writeAsStringSync('x');
+          plugins = [
+            PluginDirectory(
+              plugin: const PluginRef(
+                name: 'ffca',
+                repo: 'acme/ffca',
+                version: '1.0.0',
+                gitRef: 'v1.0.0',
+              ),
+              directory: fs.directory('/cache/ffca'),
+              referencedEntries: const ['references'],
+            ),
+          ];
+        });
+
+        const copy = '/work/app/.vgv_ai/plugins/ffca@v1.0.0/references/x.md';
+
+        test('are copied beside the shared skills', () async {
+          final plan = await translate(
+            {Harness.gemini},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared!.changes.map((c) => c.file.path), contains(copy));
+          expect(
+            plan.shared!.changes.map((c) => c.file.path),
+            contains('/work/app/.agents/skills/review/SKILL.md'),
+          );
+        });
+
+        test('are copied for Antigravity', () async {
+          final plan = await translate(
+            {Harness.antigravity},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared!.changes.map((c) => c.file.path), contains(copy));
+        });
+
+        test('are not copied for Claude Code, which installs them', () async {
+          final plan = await translate(
+            {Harness.claude},
+            scope: project,
+            plugins: plugins,
+          );
+
+          expect(plan.shared, isNull);
+        });
+
+        test(
+          'are not copied at home, where bodies read them in place',
+          () async {
+            final plan = await translate({Harness.gemini}, plugins: plugins);
+
+            expect(
+              plan.changes.map((c) => c.file.path),
+              everyElement(isNot(contains('.vgv_ai'))),
+            );
+          },
+        );
+      });
+
+      test('says nothing to Claude Code, which installs both', () async {
+        final plan = await translate({Harness.claude}, scope: project);
+
+        expect(plan.harnesses[Harness.claude]!.notes, isEmpty);
+      });
+    });
+
     group('a skill only the user may start', () {
       late PluginAssets userOnly;
 
@@ -511,79 +858,90 @@ void main() {
 
     // The brick is checked file by file above. These sweep every file every
     // harness gets, so a template bug in a file no test names still fails.
-    group('renders every file cleanly', () {
-      late Map<String, String> files;
+    for (final inProject in [false, true]) {
+      group('renders every ${inProject ? 'project' : 'user'} file cleanly', () {
+        late Map<String, String> files;
 
-      setUp(() async {
-        // Characters mustache would HTML-escape if a template used a double
-        // mustache where it needs a triple one.
-        const awkward = 'Compare <T> & "U" with \'V\'.';
-        final plan = await translate(
-          Harness.values.toSet(),
-          using: pluginAssets(
-            skills: [
-              skillAsset(fs, 'plan', body: '$awkward\n', description: awkward),
-            ],
-            agents: [agentAsset('review', body: '$awkward\n')],
-            mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
-          ),
-        );
-        files = {
-          for (final change in plan.changes) change.file.path: change.contents,
-        };
-      });
-
-      test('covers every harness', () {
-        for (final harness in Harness.values) {
-          expect(
-            files.keys,
-            contains(startsWith(harness.configDirectory(home).path)),
+        setUp(() async {
+          // Characters mustache would HTML-escape if a template used a double
+          // mustache where it needs a triple one.
+          const awkward = 'Compare <T> & "U" with \'V\'.';
+          final plan = await translate(
+            Harness.values.toSet(),
+            using: pluginAssets(
+              skills: [
+                skillAsset(
+                  fs,
+                  'plan',
+                  body: '$awkward\n',
+                  description: awkward,
+                ),
+              ],
+              agents: [agentAsset('review', body: '$awkward\n')],
+              mcpServers: [const LocalMCPServer(name: 'dart', command: 'dart')],
+            ),
+            scope: inProject ? ProjectScope(fs.directory('/work/app')) : null,
           );
-        }
-      });
+          files = {
+            for (final change in plan.changes)
+              change.file.path: change.contents,
+          };
+        });
 
-      test('leaves no unrendered mustache behind', () {
-        // A whole tag, since a JSON object nested last closes with `}}`.
-        final tag = RegExp(r'\{\{[^{}]*\}\}');
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(
-            contents,
-            isNot(contains(tag)),
-            reason: '$path still contains mustache syntax',
+        if (!inProject) {
+          test('covers every harness', () {
+            for (final harness in Harness.values) {
+              expect(
+                files.keys,
+                contains(startsWith(harness.configDirectory(home).path)),
+              );
+            }
+          });
+        }
+
+        test('leaves no unrendered mustache behind', () {
+          // A whole tag, since a JSON object nested last closes with `}}`.
+          final tag = RegExp(r'\{\{[^{}]*\}\}');
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(
+              contents,
+              isNot(contains(tag)),
+              reason: '$path still contains mustache syntax',
+            );
+          }
+        });
+
+        test('writes no empty file', () {
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(contents.trim(), isNotEmpty, reason: '$path is empty');
+          }
+        });
+
+        test('never HTML-escapes', () {
+          for (final MapEntry(key: path, value: contents) in files.entries) {
+            expect(
+              contents,
+              isNot(anyOf(contains('&amp;'), contains('&lt;'), contains('&#'))),
+              reason: '$path contains HTML-escaped output',
+            );
+          }
+        });
+
+        test('writes JSON and TOML that parse', () {
+          final structured = files.entries.where(
+            (file) => file.key.endsWith('.json') || file.key.endsWith('.toml'),
           );
-        }
-      });
 
-      test('writes no empty file', () {
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(contents.trim(), isNotEmpty, reason: '$path is empty');
-        }
+          expect(structured, isNotEmpty);
+          for (final MapEntry(key: path, value: contents) in structured) {
+            expect(
+              () => parseStructured(path, contents),
+              returnsNormally,
+              reason: path,
+            );
+          }
+        });
       });
-
-      test('never HTML-escapes', () {
-        for (final MapEntry(key: path, value: contents) in files.entries) {
-          expect(
-            contents,
-            isNot(anyOf(contains('&amp;'), contains('&lt;'), contains('&#'))),
-            reason: '$path contains HTML-escaped output',
-          );
-        }
-      });
-
-      test('writes JSON and TOML that parse', () {
-        final structured = files.entries.where(
-          (file) => file.key.endsWith('.json') || file.key.endsWith('.toml'),
-        );
-
-        expect(structured, isNotEmpty);
-        for (final MapEntry(key: path, value: contents) in structured) {
-          expect(
-            () => parseStructured(path, contents),
-            returnsNormally,
-            reason: path,
-          );
-        }
-      });
-    });
+    }
   });
 }

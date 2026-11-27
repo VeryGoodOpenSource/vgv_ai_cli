@@ -8,26 +8,27 @@ import 'package:path/path.dart' as p;
 /// reporting. Adding a harness takes four steps:
 ///
 /// 1. Add an entry here, with the oldest version that reads everything the
-///    `agents` brick renders for it as its `minimumVersion`, and a row in
+///    `user_config` brick renders for it as its `minimumVersion`, and a row in
 ///    the harness table of the README.
 /// 2. Write its `HarnessTranslator` and add it to `harnessTranslators`.
 ///    Override `hooks()` when its config can run a shell command.
-/// 3. Add a boolean var named after it to `bricks/agents/brick.yaml`, and a
-///    folder of the same name under `__brick__` holding the files it reads.
-/// 4. Regenerate the bundle with `tool/generate_agents_bundle.sh`.
+/// 3. Add a boolean var named after it to `bricks/user_config/brick.yaml`,
+///    and a folder of the same name under `__brick__` holding the files it
+///    reads.
+/// 4. Regenerate the bundle with `tool/generate_bundles.sh`.
 /// {@endtemplate}
 enum Harness({
   /// A human readable name, for output.
   ///
   /// The enum's own [name] is the flag and reporting name, such as `opencode`,
-  /// and the folder the `agents` brick renders this harness into.
+  /// and the folder the `user_config` brick renders this harness into.
   required final String displayName,
 
   /// The binary looked for on the path.
   required final String executable,
 
   /// The oldest `x.y.z` this release supports: the first version that reads
-  /// everything the `agents` brick renders for this harness. An older one
+  /// everything the `user_config` brick renders for this harness. An older one
   /// ignores some of those files, so `install` and `doctor` report it.
   required final String minimumVersion,
 

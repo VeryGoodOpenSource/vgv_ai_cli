@@ -4,7 +4,7 @@ import 'package:vgv_ai_cli/src/translate/harness_translator.dart';
 import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 
 /// {@template agents_vars}
-/// The vars the `agents` brick renders against.
+/// The vars the `user_config` brick renders against.
 ///
 /// Every value is finished: the brick only chooses where each one goes.
 /// {@endtemplate}
@@ -15,8 +15,9 @@ class const AgentsVars({
   /// What the plugins contribute.
   required final PluginAssets assets,
 
-  /// Where the shared skills are written.
-  required final String skillsRoot,
+  /// Where the files are installed, which spells where the shared skills
+  /// are.
+  required final Scope scope,
 
   /// The hooks fragment of each harness that has one.
   final Map<Harness, String> hooks = const {},
@@ -60,7 +61,10 @@ class const AgentsVars({
   };
 
   Map<String, Object?> _agent(AgentAsset agent) {
-    final instructions = agentInstructions(agent, skillsRoot: skillsRoot);
+    final instructions = agentInstructions(
+      agent,
+      skillsRoot: scope.reference(scope.skillsRoot.path),
+    );
     return {
       'name': agent.name,
       'instructions': instructions,

@@ -12,12 +12,17 @@ import 'package:vgv_ai_plugins/vgv_ai_plugins.dart';
 ///
 /// Everything goes into one Antigravity plugin, `plugins/vgv/` under the
 /// config it shares with the Antigravity IDE, which is how Antigravity
-/// bundles skills, agents, MCP servers and hooks. It reads neither
+/// bundles skills, agents, MCP servers and hooks. At home it reads neither
 /// `~/.agents/skills` nor a commands folder: the skills are copied into the
 /// plugin and each becomes a `/<name>` command on its own. The skills and
 /// agents register natively, so no rule indexes them.
 ///
-/// See https://antigravity.google/docs/plugins/.
+/// In a project it reads the shared `.agents/skills`, so the workspace
+/// plugin, `.agents/plugins/vgv/`, holds only the agents, which point at the
+/// shared skills as every other harness's do.
+///
+/// See https://antigravity.google/docs/plugins/ and
+/// https://antigravity.google/docs/skills.
 /// {@endtemplate}
 class const AntigravityTranslator() extends HarnessTranslator {
   /// {@macro antigravity_translator}
@@ -32,18 +37,19 @@ class const AntigravityTranslator() extends HarnessTranslator {
   @override
   Harness get harness => Harness.antigravity;
 
-  @override
-  bool get readsSharedSkills => false;
-
   /// The plugin's root under Antigravity's config directory.
   Directory pluginRoot(Directory home) {
     final config = harness.configDirectory(home);
     return config.fileSystem.directory(p.join(config.path, 'plugins', plugin));
   }
 
+  /// The plugin's own copy at home, and none in a project, where Antigravity
+  /// reads the shared skills.
   @override
-  Directory skillsRoot(Directory home) =>
-      pluginRoot(home).childDirectory('skills');
+  Directory? skillsRoot(Scope scope) => switch (scope) {
+    UserScope(:final root) => pluginRoot(root).childDirectory('skills'),
+    ProjectScope() => null,
+  };
 
   @override
   Directory hooksRoot(Directory home) =>
@@ -67,18 +73,27 @@ class const AntigravityTranslator() extends HarnessTranslator {
 
   /// An agent names its skills in the frontmatter, relative to the plugin,
   /// so its instructions are the body alone rather than the shared pointer.
+  ///
+  /// A project's plugin holds no skills, since Antigravity reads the shared
+  /// ones there, so its template takes [HarnessFields.sharedSkillsFrontmatter]
+  /// and the shared pointer instead.
   @override
-  HarnessFields agent(AgentAsset agent, {required String instructions}) =>
-      HarnessFields(
-        frontmatter: Frontmatter.render({
-          'name': agent.name,
-          'description': agent.description,
-          'subagent': true,
-          if (agent.skills.isNotEmpty)
-            'skills': [for (final skill in agent.skills) 'skills/$skill'],
-        }),
-        instructions: '${agent.body.trimRight()}\n',
-      );
+  HarnessFields agent(AgentAsset agent, {required String instructions}) {
+    final frontmatter = {
+      'name': agent.name,
+      'description': agent.description,
+      'subagent': true,
+    };
+    return HarnessFields(
+      frontmatter: Frontmatter.render({
+        ...frontmatter,
+        if (agent.skills.isNotEmpty)
+          'skills': [for (final skill in agent.skills) 'skills/$skill'],
+      }),
+      instructions: '${agent.body.trimRight()}\n',
+      sharedSkillsFrontmatter: Frontmatter.render(frontmatter),
+    );
+  }
 
   /// The plugins' hooks as the plugin's `hooks.json` spells them: one set
   /// per source plugin, under the event names Antigravity shares with Claude
